@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gsasm"
+version = "0.1.0"
+description = "Clean-room Apple IIgs AsmIIgs assembler and OMF linker in Python"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+keywords = ["apple2gs", "65816", "assembler", "omf", "retro"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Assemblers",
+    "Topic :: System :: Emulators",
+]
+
+[project.scripts]
+gsasm = "gsasm.__main__:asm_main"
+gslink = "gsasm.__main__:link_main"
+
+[project.urls]
+Homepage = "https://github.com/YOUR_USERNAME/gsasm"
+Repository = "https://github.com/YOUR_USERNAME/gsasm"
+
+[tool.hatch.build.targets.wheel]
+packages = ["gsasm"]
