@@ -1,6 +1,6 @@
 # gsasm
 
-A clean-room Python reimplementation of the Apple IIgs **AsmIIgs** assembler
+A clean-room Python reimplementation of the **MPW IIgs** assembler (`AsmIIgs`)
 and **OMF v2 linker**, validated byte-for-byte against the original ROM 03 build.
 
 The original Apple IIgs ROM 03 build chain ran on a 68k Mac under MPW Shell:
@@ -46,13 +46,13 @@ Requires Python 3.8+. No dependencies outside the standard library.
 gsasm <source.asm> [-I <incdir>] [-d KEY=VAL] [-o <out.obj>]
 ```
 
-Assembles an AsmIIgs-dialect 65816 source file and writes an OMF v2 object file.
+Assembles an MPW IIgs-dialect 65816 source file and writes an OMF v2 object file.
 
 ```sh
 # assemble a single file
 gsasm MyTool.asm -I ./includes -o MyTool.obj
 
-# pass command-line defines (equivalent to AsmIIgs -d flag)
+# pass command-line defines (equivalent to the -d flag in MPW IIgs)
 gsasm ROMDataMgr.asm -I ./includes -d Big=1
 
 # multiple include directories
@@ -111,7 +111,7 @@ for offset, record_type, data in records:
 
 ## Source dialect
 
-`gsasm` implements the **MPW AsmIIgs** source dialect as used in the ROM 03
+`gsasm` implements the **MPW IIgs** (`AsmIIgs`) source dialect as used in the ROM 03
 source tree. Notable features:
 
 - **65816 instruction set** — full addressing-mode selection (dp/abs/long,
@@ -170,9 +170,10 @@ image using `work/hfs.py`.
 
 ## Background
 
-The ROM 03 source was assembled with **AsmIIgs** version 2.0 (circa 1989), an
-Apple-internal 65816 cross-assembler for MPW that produced OMF v2.0 object files.
-AsmIIgs is not publicly available. This project reverse-engineered its behaviour
+The ROM 03 source was assembled with **AsmIIgs** (MPW IIgs) version 2.0 (circa
+1989), an Apple-internal 65816 cross-assembler for MPW that produced OMF v2.0
+object files. AsmIIgs is not publicly available. This project reverse-engineered
+its behaviour
 from the captured `.obj` and `.lst` files: given source + list files + object
 files all captured from a known-good build, every discrepancy between `gsasm`'s
 output and the original is a measurable bug, and every module that passes the

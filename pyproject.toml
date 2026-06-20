@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "gsasm"
 version = "0.1.0"
-description = "Clean-room Apple IIgs AsmIIgs assembler and OMF linker in Python"
+description = "Clean-room MPW IIgs assembler and OMF linker in Python"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.8"

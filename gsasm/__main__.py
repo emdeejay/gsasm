@@ -6,10 +6,10 @@ import sys
 
 
 def asm_main():
-    """gsasm — assemble an AsmIIgs source file to an OMF object file."""
+    """gsasm — assemble an MPW IIgs source file to an OMF object file."""
     p = argparse.ArgumentParser(
         prog="gsasm",
-        description="Apple IIgs AsmIIgs-compatible assembler (MPW dialect, 65816).",
+        description="MPW IIgs-compatible assembler (65816, OMF v2).",
     )
     p.add_argument("source", help="source file (.asm or .aii)")
     p.add_argument(
