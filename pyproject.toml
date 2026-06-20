@@ -29,8 +29,8 @@ gsasm = "gsasm.__main__:asm_main"
 gslink = "gsasm.__main__:link_main"
 
 [project.urls]
-Homepage = "https://github.com/YOUR_USERNAME/gsasm"
-Repository = "https://github.com/YOUR_USERNAME/gsasm"
+Homepage = "https://github.com/emdeejay/gsasm"
+Repository = "https://github.com/emdeejay/gsasm"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gsasm"]

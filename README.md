@@ -25,13 +25,13 @@ Every output is validated against captured artifacts from the original build:
 ## Install
 
 ```sh
-pip install git+https://github.com/YOUR_USERNAME/gsasm.git
+pip install git+https://github.com/emdeejay/gsasm.git
 ```
 
 Or install from a local clone in editable mode:
 
 ```sh
-git clone https://github.com/YOUR_USERNAME/gsasm.git
+git clone https://github.com/emdeejay/gsasm.git
 cd gsasm
 pip install -e .
 ```
