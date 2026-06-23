@@ -244,7 +244,6 @@ class Asm:
         self.emitted = []             # (loc, sline, bytes) for byte validation
         self.labels = []              # (name, loc) in order, for validation
         self.errors = []
-        self.warnings = []
         self._cur_file = '<unknown>'
         self._cur_line = 0
         self.ended = False
@@ -253,9 +252,6 @@ class Asm:
     # ---- diagnostics ----
     def _err(self, msg):
         self.errors.append(f"{self._cur_file}:{self._cur_line}: error: {msg}")
-
-    def _warn(self, msg):
-        self.warnings.append(f"{self._cur_file}:{self._cur_line}: warning: {msg}")
 
     # ---- macro variable scope ----
     def declare(self, name, kind, local):
@@ -756,8 +752,7 @@ class Asm:
             # a @-label defined in the calling routine)
             self.segs[-1].items.append(('code', ln, barr, atscope, self.last_global))
             for off, fx in fixups:
-                self.fixups.append((barr, off, fx, seg, atscope, self.last_global,
-                                    self._cur_file, self._cur_line))
+                self.fixups.append((barr, off, fx, seg, atscope, self.last_global))
         self.loc += len(barr)
 
     def reserve(self, n):
@@ -766,7 +761,7 @@ class Asm:
         self.loc += n
 
     def apply_fixups(self):
-        for barr, off, fx, seg, lg, lg2, src_file, src_line in self.fixups:
+        for barr, off, fx, seg, lg, lg2 in self.fixups:
             self._rseg = seg          # resolve local labels in the fixup's segment
             self._rlg = lg            # ...and @-labels in the fixup's @-scope
             self._rlg2 = lg2          # ...enclosing scope (macro @-ref fallback)
@@ -792,21 +787,6 @@ class Asm:
         self._rlg = None
         self._rlg2 = None
 
-    def _warn_unresolved(self):
-        """Warn about fixups still unresolvable after the final assembly pass."""
-        seen = set()
-        for barr, off, fx, seg, lg, lg2, src_file, src_line in self.fixups:
-            self._rseg = seg; self._rlg = lg; self._rlg2 = lg2
-            self._ref_loc = fx.pc
-            v = self.evaluate(fx.expr, pc=fx.pc)
-            if v is None:
-                key = (src_file, src_line, fx.expr)
-                if key not in seen:
-                    seen.add(key)
-                    self.warnings.append(
-                        f"{src_file}:{src_line}: warning: unresolved '{fx.expr}'")
-        self._rseg = self._rlg = self._rlg2 = self._ref_loc = None
-
     def relink(self, seg_bases, extern):
         """LINK pass: re-resolve every fixup to its FINAL address. `seg_bases`
         maps a segment index to its final base address (placed by the linker);
@@ -815,7 +795,7 @@ class Asm:
         the assembly-time apply_fixups). `*` and branch math use the final pc."""
         self.link_bases = seg_bases
         self.extern = extern
-        for barr, off, fx, seg, lg, lg2, _sf, _sl in self.fixups:
+        for barr, off, fx, seg, lg, lg2 in self.fixups:
             self._rseg = seg
             self._rlg = lg
             self._rlg2 = lg2
@@ -888,7 +868,7 @@ class Asm:
     # ----------------------------------------------------------------
     # Main loop over a unit (file or macro body)
     # ----------------------------------------------------------------
-    def run_unit(self, lines, basedir=None, filepath=None):
+    def run_unit(self, lines, basedir=None, filepath=None, track_lines=True):
         pushed = False
         if basedir is not None:
             self.dirstack.append(basedir); pushed = True
@@ -898,14 +878,14 @@ class Asm:
             self._cur_file = filepath
             self._cur_line = 0
         try:
-            self._run_unit(lines)
+            self._run_unit(lines, track_lines=track_lines)
         finally:
             if pushed:
                 self.dirstack.pop()
             self._cur_file = saved_file
             self._cur_line = saved_line
 
-    def _run_unit(self, lines):
+    def _run_unit(self, lines, track_lines=True):
         cond = []  # list of [emit_now, any_taken, parent_emit]
 
         # sequence-label map for GOTO/AGO/AIF (macro-time control flow)
@@ -940,7 +920,8 @@ class Asm:
             if steps > 2_000_000:           # runaway GOTO/WHILE guard
                 self._err("aborted: too many macro-time steps")
                 break
-            self._cur_line = i + 1
+            if track_lines:                 # macro bodies keep the call-site loc
+                self._cur_line = i + 1
             raw = lines[i]
             i += 1
             pre = parse_line(raw)
@@ -1158,7 +1139,9 @@ class Asm:
         self.local_ctx = 'M%d' % self.macro_uid
         self.macro_at.append(at_map)
         try:
-            self.run_unit(macro.body)
+            # a macro body has no source file of its own; keep the diagnostic
+            # location pinned to the call site rather than the body-line index
+            self.run_unit(macro.body, track_lines=False)
         finally:
             self.localstack.pop()
             self.macro_at.pop()
@@ -1706,12 +1689,11 @@ def assemble(path, include_paths, passes=2, defines=None):
     absolute regardless of their (link-relative) value.
     `defines` supplies asmiigs `-d NAME=VALUE` command-line equates."""
     a = _run_once(path, include_paths, seed=None, seed_type=None, defines=defines)
-    for i in range(passes - 1):
+    for _ in range(passes - 1):
         prev = a
         a = _run_once(path, include_paths, seed=prev.symbols, seed_type=prev.symtype,
                       seg_seed=prev.seg_local, defines=defines,
                       at_seed=prev.at_defs, at_seg_seed=prev.at_seg)
-    a._warn_unresolved()
     return a
 
 

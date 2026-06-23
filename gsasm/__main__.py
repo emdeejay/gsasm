@@ -50,8 +50,6 @@ def asm_main():
         print(f"gsasm: error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    for w in a.warnings:
-        print(w, file=sys.stderr)
     for e in a.errors:
         print(e, file=sys.stderr)
     if a.errors:
