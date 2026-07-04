@@ -3,6 +3,7 @@ and emitter. Object records are decoded so we can reproduce them byte-exactly.
 """
 import struct
 import re
+from . import expr as _expr
 
 # A data operand is relocatable only if it is a single symbol with an optional
 # constant addend; complex arithmetic (X-Y, X/4, ...) is a computed literal.
@@ -158,12 +159,9 @@ def linear_decompose(asm, text):
 
     Returns None if the expression cannot be evaluated with current symbol values.
     """
-    import re as _re
-    from . import expr as _expr
-
     # Collect all identifiers in the expression (avoiding hex-literal false positives)
     idents = list(dict.fromkeys(
-        _re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
+        re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
 
     # Partition into relocatable vs constant symbols
     reloc_names = [i for i in idents
@@ -255,8 +253,6 @@ def _mul_reloc_expr(asm, text, segname):
     # Classifier over linear_decompose — keeps same scope tests and emit bytes.
     # Scope: exactly one relocatable symbol (label/import/equ), coeff > 1,
     # symbol value in the current ORG'd segment.
-    import re as _re
-    from . import expr as _expr
     if asm._rseg is None:
         return None
     # Candidate: single identifier with sym_kind in ('label', 'equ')
@@ -264,7 +260,7 @@ def _mul_reloc_expr(asm, text, segname):
     # as potentially relocatable — linear_decompose excludes equates from terms
     # since they are constants, so we handle them here with finite difference).
     idents = list(dict.fromkeys(
-        _re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
+        re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
     reloc = [i for i in idents if asm.sym_kind(i) in ('label', 'equ')]
     if len(reloc) != 1:
         return None
@@ -378,7 +374,6 @@ def _pc_rel_const(asm, text):
     dec = linear_decompose(asm, text)
     if dec is None:
         # Fall back to original bump-based check when decompose fails
-        from . import expr as _expr
         def res(n, d):
             u = asm._symkey(n)
             v = asm.resolve(n)
@@ -406,7 +401,6 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
     reference (defined before this point, ref_off given) is SEGNAME+offset; a
     FORWARD reference (entry defined later) is by name (the assembler hadn't seen
     the definition yet). For code/branch refs, same-segment ENTRY is by name."""
-    import re as _re
     text = text.strip()
     # < > ^ select low/high/bank: the linker computes (sym >> shift)
     shift = 0
@@ -414,7 +408,7 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
         shift = {'<': 0, '>': 8, '^': 16}[text[0]]
         text = text[1:].strip()
     # explicit trailing shift: sym>>N (right) or sym<<N (left), e.g. #ListProc>>16
-    ms = _re.match(r'^(.*?)\s*(>>|<<)\s*(\d+)$', text)
+    ms = re.match(r'^(.*?)\s*(>>|<<)\s*(\d+)$', text)
     if ms:
         text = ms.group(1).strip()
         shift += int(ms.group(3)) if ms.group(2) == '>>' else -int(ms.group(3))
@@ -433,7 +427,7 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
         if enclosing:
             text = text[1:-1].strip()
     # single symbol, optionally  symbol+const
-    m = _re.match(r'^([A-Za-z_~@?.][\w~@?.]*)\s*([+\-]\s*\$?[0-9A-Fa-f]+)?$', text)
+    m = re.match(r'^([A-Za-z_~@?.][\w~@?.]*)\s*([+\-]\s*\$?[0-9A-Fa-f]+)?$', text)
     name = addend = None
     if m:
         name = m.group(1)
@@ -452,10 +446,9 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
             # resolve arrowMap by name with addend -8. (Scoped to instructions;
             # DC tables resolve undefined symbols differently.)
             ids = list(dict.fromkeys(
-                _re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
+                re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
             ext = [i for i in ids if _undef_external(asm, i)]
             if len(ext) == 1:
-                from . import expr as _expr
                 Lname = ext[0]
                 def _res0(n, _L=Lname):
                     return 0 if n.upper() == _L.upper() else asm.resolve(n)
