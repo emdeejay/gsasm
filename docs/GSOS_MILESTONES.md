@@ -40,10 +40,10 @@ assumes (OMF primer, golden-binary layout, validation harness, gotchas).
 | # | Target images | Source | Tools needed | Status |
 |---|---|---|---|---|
 | M0 | ROM 03 firmware (256K, 3 banks) | `work/romsrc/GS_ROM` (GSFirmware+GSToolbox, ROM-03 back-port) | gsasm + `linkrom` + ROM makebin | ✅ **byte-exact** (`work/buildrom.py`) |
-| M1 | `System/Tools/ToolNNN` (13+ toolsets) | `ref/GSOS_6/IIGS.601.SRC/GSToolbox` | gsasm + **M2** + **M4** | 🟡 **78%** (`work/toolcheck.py`); dispatch table solved |
-| M2 | (enabler) general OMF load-file linker | — | — | ⬜ design: `docs/design/linkiigs.md` |
-| M3 | (enabler) MakeBin/Overlay/catenate | — | — | ⬜ design: `docs/design/makebin.md` |
-| M4 | (enabler) ExpressLoad relinker | `GS.OS/Loader/ExpressLoad/ExpressLoad.src` (spec!) | — | ⬜ design: `docs/design/expressload.md` |
+| M1 | `System/Tools/ToolNNN` (13+ toolsets) | `ref/GSOS_6/IIGS.601.SRC/GSToolbox` | gsasm + M2 + **M4** | 🟡 **80%** (`work/toolcheck.py`); dispatch table solved, WindMgr sizing fixed |
+| M2 | general OMF load-file linker | — | `gsasm/linkiigs.py` | ✅ **done** (merged; no regression, segmented mode ready for M4) |
+| M3 | MakeBin/Overlay/catenate | — | `gsasm/makebin.py` | ✅ **done** — `prodos` 99% (`work/probootcheck.py`) |
+| M4 | ExpressLoad relinker | `GS.OS/Loader/ExpressLoad/ExpressLoad.src` (spec!) | — | 🔓 **unblocked** (M2 segmented mode ready); design: `docs/design/expressload.md` |
 | M5 | `System/FSTs/*` (8), `System/Drivers/*` (~17) | `GS.OS/FSTs`, `GS.OS/{Drivers,SupervisoryDrivers}` | gsasm + M2 (+M3 for flat drivers) | ⬜ |
 | M6 | `GS.OS`, `Start.GS.OS`, `P8`, `prodos`, `ERROR.MSG` | `GS.OS/{OS,Loader,Boot,P8}` | gsasm + M2 + M3 + M4 | ⬜ |
 | M7 | Finder, Installer, asm CDEVs/NDAs (resource forks) | `A.U.G` (asm parts) | gsasm + M2 + **Rez** | ⬜ stretch: `docs/design/rez.md` |
