@@ -1449,7 +1449,14 @@ class Asm:
         # unless an explicit ORG gives it an absolute base.
         org = None
         if 'ORG' in up:
-            org = self.evaluate(' '.join(toks[up.index('ORG')+1:]))
+            org_expr = ' '.join(toks[up.index('ORG')+1:])
+            # Strip trailing `,skip` or `,noskip` modifier (MPW AsmIIgs range-check
+            # sentinel; the modifier affects overflow checking only, not the address).
+            if ',' in org_expr:
+                base_part, mod_part = org_expr.split(',', 1)
+                if mod_part.strip().lower() in ('skip', 'noskip'):
+                    org_expr = base_part.strip()
+            org = self.evaluate(org_expr)
         self.loc = org if org is not None else 0
         name = (ln.label or '').upper()
         loadname = self.pending_loadname or 'main'

@@ -77,9 +77,9 @@ Known residuals (reportable gsasm-core gaps, not fixable in harness):
      is unresolved (=0).  ~24 bytes wrong across SCM header procs in GS.OS.
   4. Init1.Src Record/EndR: pseudo-op unsupported; 64 bytes missing from scm.bin.13.
   5. Loader.a: complex IF/WHILE macros crash gsasm; Loader.bin excluded.
-  6. Init2/Init3: include 'E16.Control', 'E16.Window' not found.
-  7. mlisrc.aii: include 'M16.UTIL', 'e16.memory' not in GS.OS tree (P8 ~4%).
-  8. &ord builtin: 346 non-fatal errors in SCM.src.
+  6. &ord builtin: 346 non-fatal errors in SCM.src.
+  7. P8: &sysdate builtin not implemented; 9-byte date string emitted as spaces.
+  8. Init.Data.Src: backslash line continuation unsupported; ~11 errors in Init3/4.
 
 Usage:
     python3 work/kernelcheck.py              # full report
@@ -116,8 +116,13 @@ DISK2      = ('ref/GSOS_6/System601_disks/System 6.0.1/'
               'Disk 2 of 7 System Disk.2mg')
 GOLDEN_DIR = 'ref/GSOS_6/os_bin'
 
-# Include paths: Common first, then every GS.OS subdir
-INCS = [CMN] + [d for d, _, _ in os.walk(GS)]
+# Include paths: Common first, then every GS.OS subdir, then M16/E16 interfaces.
+# work/includes contains M16.Util, E16.Memory, E16.Control, E16.Window, etc.
+# These are needed by mlisrc.aii (M16.UTIL, e16.memory) and Init2/Init3
+# (E16.Control, E16.Window).  gsasm already does case-insensitive lookup so
+# 'M16.UTIL' in source finds 'M16.Util' on disk.
+INCLUDES_DIR = os.path.join(os.path.dirname(__file__), 'includes')
+INCS = [CMN] + [d for d, _, _ in os.walk(GS)] + [INCLUDES_DIR]
 
 # Non-fatal pseudo-ops that gsasm doesn't implement (harmless to ignore)
 _IGNORE_OPS = ('pagesize', 'datachk', 'endproc', 'eject', 'writeln', 'codechk')
@@ -774,18 +779,19 @@ def main() -> int:
     print('     so seg_N_end is unresolved (=0); ~2 bytes wrong per SCM header (~24 total).')
     print('  4. Init1.Src Record/EndR: gsasm does not support Record/EndR pseudo-ops;')
     print('     64 bytes of data missing from scm.bin.13.')
-    print('  5. PROC ORG \', noskip\' parsing: gsasm asm.py evaluate() receives')
-    print('     \'expr, noskip\' and returns None.  Header ORG = None; gap filled')
-    print('     by harness using hard-coded header_length=$30.  Not a core fix.')
-    print('  6. SEG directive semantics: gsasm pending_loadname consumed after')
+    print('  5. SEG directive semantics: gsasm pending_loadname consumed after')
     print('     one PROC; AsmIIgs keeps until next SEG.  Harness works around')
     print('     via source-order group selection (no core change needed).')
-    print('  7. Loader.a crashes gsasm: complex IF/WHILE macros in Loader.Macros')
+    print('  6. Loader.a crashes gsasm: complex IF/WHILE macros in Loader.Macros')
     print('     cause an uncaught error.  Loader.bin excluded from GS.OS comparison.')
-    print('  8. Init2/Init3: include E16.Control / E16.Window not in GS.OS tree.')
-    print('  9. mlisrc.aii: include M16.UTIL / e16.memory not in GS.OS tree.')
-    print(' 10. &ord builtin: 346 non-fatal errors in SCM.src from unknown builtin.')
+    print('  7. &ord builtin: 346 non-fatal errors in SCM.src from unknown builtin.')
     print('     Assembly continues; bytes are emitted as if &ord returned 0.')
+    print('  8. Init.Data.Src: backslash line continuation unsupported in gsasm.')
+    print('     Affects ~11 continuations in Init3.Src/Init4.Src (Init.Data.Src).')
+    print('  9. P8: &sysdate builtin not implemented; date string (9 bytes) emitted')
+    print('     as spaces instead of build date (06-May-93); jump table targets off by 9.')
+    print(' 10. P8 PROCONE is 6358 bytes; golden P8 has 4 PROCs, total 17128 bytes.')
+    print('     Only PROCONE compared (driver overlays and higher PROCs excluded).')
 
     return 0
 
