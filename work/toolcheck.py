@@ -79,10 +79,10 @@ TOOLMAP = {
     '016': ('ControlMgr', ['ControlMgr.asm', 'SuperControl.asm', 'NewControl2.asm',
                            'DefProcs.asm', 'CtlPatch.asm', 'DummyDrag.asm',
                            'StatTextProc.asm', 'PicProc.asm']),
-    '020': ('LineEdit',   ['le.asm', 'LineEditProc.asm']),
+    '020': ('LineEdit',   ['le.asm', 'common.asm', 'LineEditProc.asm']),
     '021': ('DialogMgr',  ['dialog.asm']),
     '022': ('Scrap',      ['scrap.asm', 'common.asm']),
-    '027': ('FontMgr',    ['fm.asm', 'scale.asm']),
+    '027': ('FontMgr',    ['fm.asm', 'common.asm', 'scale.asm']),
     '028': ('ListMgr',    ['ListMgr.asm']),
 }
 
