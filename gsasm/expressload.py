@@ -470,7 +470,7 @@ def expressload(
     struct.pack_into('<I', hdr_main,  8, len(merged_body))   # LENGTH
     hdr_main[14] = 4                                          # NUMLEN
     hdr_main[15] = 2                                          # VERSION
-    struct.pack_into('<I', hdr_main, 16, 0)                   # BANKSIZE=0 for data
+    struct.pack_into('<I', hdr_main, 16, 0x10000)              # BANKSIZE=0x10000 (all gold EL files use this)
     struct.pack_into('<H', hdr_main, 20, out_kind)            # KIND
     struct.pack_into('<H', hdr_main, 34, 2)                   # SEGNUM=2
     struct.pack_into('<H', hdr_main, 40, out_dispname)        # DISPNAME
@@ -486,8 +486,9 @@ def expressload(
     # Compute ~ExpressLoad BYTECNT first (depends on LCONST size).
     # We'll do a two-pass: estimate, build, confirm.
 
-    # Estimate: reloc_size = len(super_records) = SUPERs + END
-    reloc_size_val = len(super_records)
+    # reloc_size = size of SUPER records ONLY (excluding the 1-byte END record).
+    # The shipping ~ExpressLoad files store this field without the END byte.
+    reloc_size_val = len(super_records) - 1  # -1 to exclude trailing END byte
 
     # ~ExpressLoad LCONST payload (HET)
     het_input = [{
