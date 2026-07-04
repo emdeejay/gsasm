@@ -494,10 +494,12 @@ def expressload(
     # ------------------------------------------------------------------
     # Pass 4: resolve each segment's body
     # ------------------------------------------------------------------
-    bodies: list[bytes] = [
-        _link._build_body(recs, sym, seg_base)
-        for (_segname, recs, seg_base, _hdr, _asm) in placed
-    ]
+    # Defer #^/>>16 high-word shifts to the SUPER type-27 relocs scanned above,
+    # so the LCONST stores the un-shifted placeholder (consistent with linkiigs).
+    bodies: list[bytes] = []
+    for (_segname, recs, seg_base, _hdr, _asm) in placed:
+        recs2, _srels = _linkiigs._defer_shifts(recs)
+        bodies.append(_link._build_body(recs2, sym, seg_base))
 
     # ------------------------------------------------------------------
     # Pass 5: merge all bodies into one flat code image (single main seg)
