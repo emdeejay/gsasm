@@ -113,6 +113,25 @@ VideoMix, ADU, Teach, LogonCDEV/FolderPriv. Reproducing these would require
 reimplementing PascalIIgs / a C compiler, which is a different project. They are
 the outer GUI shell, not the system core.
 
+## Future: linker consolidation (after M4–M6)
+
+We currently have three linking paths — `gsasm/link.py` (shipped single-file
+`gslink`), `work/linkrom.py` (ROM bank build), and `gsasm/linkiigs.py` (the M2
+general linker). Once `linkiigs` has proven it reproduces the ROM banks and
+lands the tools/FSTs/drivers (M4–M6), collapse the three onto it:
+
+- `link.py` → its primitives already ARE `linkiigs`'s kernel; make `gslink` call
+  `linkiigs.link(..., merge=True)` and retire the duplicate top-level `link()`.
+- `linkrom.py` → express its bank build as `linkiigs.link` with `org` per bank +
+  the `BANKS` segment ordering + `rommap` as `extern`; keep only the ROM-specific
+  multiply-defined-label scope logic that `linkiigs` doesn't yet have.
+
+**Guardrail:** `link.py` (proven by `linkcheck` 61/61) and `linkrom.py` (proven by
+`buildrom` byte-exact) are the validated references. This is a pure refactor —
+every step gated on those harnesses staying green. Do NOT start it before M4–M6;
+collapsing the linkers early risks the one byte-exact result we have for no new
+capability.
+
 ## Validation discipline (all milestones)
 
 1. Golden binaries come from the real shipping artifacts (ROM image, disk `ToolNNN`/
