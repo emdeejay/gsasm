@@ -1753,7 +1753,7 @@ def _run_once(path, include_paths, seed, seed_type, seg_seed=None, defines=None,
     return asm
 
 
-def assemble(path, include_paths, passes=2, defines=None, sysdate=None,
+def assemble(path, include_paths, passes=3, defines=None, sysdate=None,
              systime=None):
     """Multi-pass assembly: later passes seed symbol values AND kinds from
     earlier ones so forward references size correctly. Symbol kinds make this
@@ -1761,7 +1761,16 @@ def assemble(path, include_paths, passes=2, defines=None, sysdate=None,
     absolute regardless of their (link-relative) value.
     `defines` supplies asmiigs `-d NAME=VALUE` command-line equates.
     `sysdate`/`systime` override the &sysdate/&systime builtins (used by
-    source that embeds the original build date for byte-exact reproduction)."""
+    source that embeds the original build date for byte-exact reproduction).
+
+    Three passes are needed for correct @-label forward-reference sizing when a
+    PROC-local EQU (e.g. a stack-frame offset) shares a name with a code label
+    defined later in the same segment.  A two-pass assembly can missize the
+    instruction that uses the code label in pass 1 (the EQU value masks the
+    forward reference), shifting every @-label recorded that pass.  Pass 3 uses
+    the corrected @-label positions from pass 2 as its seed and converges.
+    The ROM corpus is fully converged at two passes, so the extra pass is a
+    no-op for those files."""
     a = _run_once(path, include_paths, seed=None, seed_type=None, defines=defines,
                   sysdate=sysdate, systime=systime)
     for _ in range(passes - 1):
