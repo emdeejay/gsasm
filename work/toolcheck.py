@@ -37,7 +37,7 @@ fix must be re-validated with work/buildrom.py + objcheck + linkcheck.
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from gsasm import asm, omf, link
+from gsasm import asm, omf, link, linkiigs
 
 SRC = 'ref/GSOS_6/IIGS.601.SRC'
 TB  = SRC + '/GSToolbox'
@@ -104,48 +104,31 @@ def link_module(roots):
     and resolve each segment's relocations against a FULL symbol table built
     from gsasm's own symbols (segment names + every label at base+offset).
 
-    gsasm.link only carries segment names and exported GLOBALs, so an internal
-    cross-segment data label (e.g. a `LDA #SomeVar` whose SomeVar lives in a
-    sibling segment) resolves to 0 there. Seeding link._build_body with the
-    complete per-object symbol map fixes that without touching the OMF emitter.
+    Thin wrapper over gsasm.linkiigs.link — all linking logic lives there.
     Returns the concatenated, relocated code image."""
-    units = []                                 # (asm, [(records, numlen)])
+    objects = []
     for r in roots:
         a = asm.assemble(f'{TB}/{r}', INCS)
         obj = omf.emit(a)
-        segs, off = [], 0
-        while off < len(obj):
-            h = omf.parse_header(obj[off:]); bc = h['BYTECNT']
-            if bc == 0:
-                break
-            recs, _ = omf.parse_records(obj[off:off + bc], h['DISPDATA'],
-                                        h.get('NUMLEN', 4), h.get('LABLEN', 0))
-            nm = h['SEGNAME'].decode('mac_roman', 'replace').strip().upper()
-            segs.append((nm, recs))
-            off += bc
-        units.append((a, segs))
+        objects.append((obj, a))
 
-    # pass 1: sequential placement + global symbol table
-    sym, base = {}, 0
-    placed = []                                # (records, seg_base)
-    for a, segs in units:
-        local = {}                             # this object's seg name -> base
-        for nm, recs in segs:
-            sym.setdefault(nm, base)
-            local[nm] = base
-            placed.append((recs, base))
-            base += link._body_length(recs)
-        for lab, v in a.symbols.items():       # every label -> its final address
-            sg = a.symseg.get(lab)
-            if sg is not None and isinstance(v, int) and 0 <= sg < len(a.segs):
-                nm = (a.segs[sg].name or '').upper()
-                if nm in local:
-                    sym.setdefault(lab.upper(), local[nm] + v)
+    # linkiigs.link builds the full symbol table and resolves all relocs
+    result = linkiigs.link(objects, opts={'merge': True})
 
-    # pass 2: resolve every segment body against the full table
+    # Extract the code image from the merged load segment
     img = bytearray()
-    for recs, seg_base in placed:
-        img += link._build_body(recs, sym, seg_base)
+    off = 0
+    while off < len(result):
+        h = omf.parse_header(result[off:])
+        bc = h['BYTECNT']
+        if bc == 0:
+            break
+        recs, _ = omf.parse_records(result[off:off + bc], h['DISPDATA'],
+                                    h.get('NUMLEN', 4), h.get('LABLEN', 0))
+        for r in recs:
+            if r[1] in ('CONST', 'LCONST'):
+                img += r[2]
+        off += bc
     return bytes(img)
 
 
