@@ -77,6 +77,47 @@ def _parse_obj(obj_bytes: bytes) -> list[dict]:
 # Main entry point
 # ---------------------------------------------------------------------------
 
+def _defer_shifts(recs):
+    """Rewrite EXPR-family records whose expression ends in a RIGHT shift
+    (e.g. `#^Label` / `Label>>16` in a relocatable segment) so the STORED value
+    is the un-shifted, segment-relative placeholder, and collect the shift as a
+    deferred relocation.  Returns ``(recs', [(body_offset, size, shift_count)])``
+    where ``shift_count`` is negative (a right shift).
+
+    A relocatable load file (ToolNNN/driver/FST) stores the base-0 value and lets
+    the loader apply the high-word shift via a SUPER type-27 reloc; resolving the
+    shift at link time would bake 0 (`offset >> 16`), which is the bank-byte gap.
+    Only right shifts on a reloc expression are deferred; left shifts / non-reloc
+    constants fall through and resolve normally."""
+    out = []
+    relocs = []
+    pos = 0
+    for rec in recs:
+        at, nm, det = rec
+        if (nm in ('EXPR', 'LEXPR', 'BEXPR') and isinstance(det, tuple)
+                and isinstance(det[1], list)):
+            size, ops = det
+            if (len(ops) >= 3 and ops[-1] == 'end' and ops[-2] == ('op', 7)
+                    and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
+                lit = ops[-3][1]
+                count = lit if lit < 0x80000000 else lit - 0x100000000
+                if count < 0:                       # right shift -> defer to load
+                    out.append((at, nm, (size, ops[:-3] + ['end'])))
+                    relocs.append((pos, size, count))
+                    pos += size
+                    continue
+            out.append(rec); pos += size
+        elif nm in ('CONST', 'LCONST'):
+            out.append(rec); pos += len(det)
+        elif nm == 'DS':
+            out.append(rec); pos += det
+        elif nm == 'RELEXPR':
+            out.append(rec); pos += det[0]
+        else:
+            out.append(rec)
+    return out, relocs
+
+
 def link(objects: list[tuple[bytes, Any | None]],
          opts: dict | None = None) -> bytes:
     """Link N OMF object files into one relocated load file.
@@ -228,10 +269,10 @@ def link(objects: list[tuple[bytes, Any | None]],
     # ------------------------------------------------------------------
     # Pass 3: build each segment body using the full symbol table
     # ------------------------------------------------------------------
-    bodies: list[bytes] = [
-        _link._build_body(recs, sym, seg_base)
-        for (_segname, recs, seg_base, _hdr, _asm) in placed
-    ]
+    bodies: list[bytes] = []
+    for (_segname, recs, seg_base, _hdr, _asm) in placed:
+        recs2, _srels = _defer_shifts(recs)   # defer #^/>>16 to load-time relocs
+        bodies.append(_link._build_body(recs2, sym, seg_base))
 
     # ------------------------------------------------------------------
     # Pass 4: emit the output
