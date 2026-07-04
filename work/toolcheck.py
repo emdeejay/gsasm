@@ -74,8 +74,11 @@ TOOLMAP = {
          'extern_srcs': [('PopUpProc', 0x030000, ['popupproc.asm'])]},
         {'gold_name': 'PopUpProc', 'srcs': ['popupproc.asm']},
     ]}),
-    '016': ('ControlMgr', ['ControlMgr.asm', 'DefProcs.asm', 'NewControl2.asm',
-                           'SuperControl.asm', 'StatTextProc.asm', 'PicProc.asm']),
+    # Real link order from ControlMgr/makefile — was missing CtlPatch + DummyDrag
+    # (DummyDrag defines WindDragRect, ControlMgr's first divergence).
+    '016': ('ControlMgr', ['ControlMgr.asm', 'SuperControl.asm', 'NewControl2.asm',
+                           'DefProcs.asm', 'CtlPatch.asm', 'DummyDrag.asm',
+                           'StatTextProc.asm', 'PicProc.asm']),
     '020': ('LineEdit',   ['le.asm', 'LineEditProc.asm']),
     '021': ('DialogMgr',  ['dialog.asm']),
     '022': ('Scrap',      ['scrap.asm', 'common.asm']),
