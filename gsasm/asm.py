@@ -687,19 +687,31 @@ class Asm:
                 self.defcount[u] = self.defcount.get(u, 0) + 1
                 self.labels.append((name, value))
                 return
-            self.symbols[u] = value
-            self.symtype[u] = kind
-            self.defcount[u] = self.defcount.get(u, 0) + 1
-            self.labels.append((name, value))
-            if kind == 'label':
-                seg = len(self.segs) - 1
-                self.symseg[u] = seg                  # defining segment index
-                self.seg_local.setdefault(seg, {})[u] = value
-            # an EQU/SET inside a module (PROC) is local to that module — record it
-            # so a reference within the module resolves to it (as a literal),
-            # shadowing any same-named code label defined in another PROC
-            elif kind == 'equ' and self.in_proc and not name.startswith('@'):
+            # A proc-scoped EQU (a DefineStack/BegParms stack offset) that reuses a
+            # name which ALREADY has a CODE LABEL must not clobber the label: the
+            # label is the real address (for cross-segment address references), the
+            # EQU is a per-segment local value (recorded in seg_equ for local refs).
+            # Scoping to an existing 'label' spares pure-EQU imports like Max_call
+            # (no code label -> the EQU is canonical and overwrites as before).
+            if (kind == 'equ' and self.in_proc and not name.startswith('@')
+                    and self.symtype.get(u) == 'label' and u in self.imports):
                 self.seg_equ.setdefault(len(self.segs) - 1, {})[u] = value
+                self.defcount[u] = self.defcount.get(u, 0) + 1
+                self.labels.append((name, value))
+            else:
+                self.symbols[u] = value
+                self.symtype[u] = kind
+                self.defcount[u] = self.defcount.get(u, 0) + 1
+                self.labels.append((name, value))
+                if kind == 'label':
+                    seg = len(self.segs) - 1
+                    self.symseg[u] = seg                  # defining segment index
+                    self.seg_local.setdefault(seg, {})[u] = value
+                # an EQU/SET inside a module (PROC) is local to that module — record
+                # it so a reference within the module resolves to it (as a literal),
+                # shadowing any same-named code label defined in another PROC
+                elif kind == 'equ' and self.in_proc and not name.startswith('@'):
+                    self.seg_equ.setdefault(len(self.segs) - 1, {})[u] = value
             # record @-label positions (label OR `@x EQU *`) for nearest-forward,
             # with the defining segment so resolution stays segment-local
             if name.startswith('@'):
@@ -734,8 +746,13 @@ class Asm:
     def sym_kind(self, name):
         u = self._symkey(name)
         # a label local to the current emit segment shadows a same-named global
-        # equate (e.g. dp equate vs in-segment code label of the same name)
+        # equate (e.g. dp equate vs in-segment code label of the same name).
+        # During the main assembly pass _rseg is None (only set during fixup); fall
+        # back to the active segment so a per-segment seg_equ (a DefineStack offset
+        # shadowing a code label of the same name) sizes direct-page correctly.
         seg = self._rseg
+        if seg is None and self.emit_enabled and self.segs:
+            seg = len(self.segs) - 1
         if seg is not None and u in self.seg_local.get(seg, {}):
             return 'label'
         # a PROC-local equate shadows a same-named code label in another PROC
