@@ -229,40 +229,37 @@ def _diff_reloc(asm, text):
     value is already final (and correct as a baked literal), so those are left
     alone to avoid perturbing the byte-exact ROM. Cross-segment diffs otherwise
     bake to the assembly-time value (both labels segment-relative), which is wrong
-    once the linker places the segments apart (e.g. `DC.W getfstname-jump_table`)."""
-    import re as _re
-    from . import expr as _expr
-    idents = list(dict.fromkeys(
-        _re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
-    reloc = [i for i in idents if asm.sym_kind(i) == 'label'
-             and asm.symseg.get(asm._symkey(i)) is not None]
-    if len(reloc) != 2:
+    once the linker places the segments apart (e.g. `DC.W getfstname-jump_table`).
+
+    Classifier over linear_decompose: 2 terms with coefficients +1/-1, both
+    symseg-known labels, in different non-ORG'd segments, both defined."""
+    dec = linear_decompose(asm, text)
+    if dec is None:
         return None
-    A, B = reloc
-    sa, sb = asm.symseg.get(asm._symkey(A)), asm.symseg.get(asm._symkey(B))
+    terms, K, pc_coeff = dec
+    # exactly 2 relocatable symbols, coefficients +1 and -1, no PC term
+    if len(terms) != 2 or pc_coeff != 0:
+        return None
+    plus_ones = [(n, c) for n, c in terms.items() if c == 1]
+    minus_ones = [(n, c) for n, c in terms.items() if c == -1]
+    if len(plus_ones) != 1 or len(minus_ones) != 1:
+        return None
+    A = plus_ones[0][0]
+    B = minus_ones[0][0]
+    # Scope tests (same as original): both must be labels with known symseg,
+    # in different segments, neither ORG'd, both defined.
+    if asm.sym_kind(A) != 'label' or asm.sym_kind(B) != 'label':
+        return None
+    sa = asm.symseg.get(asm._symkey(A))
+    sb = asm.symseg.get(asm._symkey(B))
+    if sa is None or sb is None:
+        return None
     if sa == sb:                                   # same segment: literal is final
         return None
     if (asm.segs[sa].org or 0) or (asm.segs[sb].org or 0):
         return None                                # ORG'd (absolute) diff is final
     av, bv = asm.resolve(A), asm.resolve(B)
     if av is None or bv is None:                   # both must be defined
-        return None
-
-    def bumped(da, db):
-        def r(n):
-            u = n.upper()
-            if u == A.upper():
-                return (asm.resolve(A) or 0) + da
-            if u == B.upper():
-                return (asm.resolve(B) or 0) + db
-            return asm.resolve(n)
-        return _expr.try_eval(text, r, asm.loc)
-    v = bumped(0, 0)
-    if v is None:
-        return None
-    if bumped(0x100, 0) != v + 0x100:              # coefficient of A must be +1
-        return None
-    if bumped(0, 0x100) != v - 0x100:              # coefficient of B must be -1
         return None
 
     def locops(name):
@@ -273,13 +270,15 @@ def _diff_reloc(asm, text):
         if off:
             o += bytes([0x81]) + _num(off & 0xFFFFFFFF) + bytes([0x01])
         return o
-    K = (v - (((av & 0xFFFFFF) - (bv & 0xFFFFFF)))) & 0xFFFFFFFF  # residual constant
+    # K from linear_decompose = V - (+1)*av - (-1)*bv = V - av + bv
+    # Original: K = (v - (av&0xFFFFFF - bv&0xFFFFFF)) & 0xFFFFFFFF — same mod 2^32
+    K_m = K & 0xFFFFFFFF
     ops = bytearray()
     ops += locops(A)
     ops += locops(B)
     ops += bytes([0x02])                           # SUB: A - B
-    if K:
-        ops += bytes([0x81]) + _num(K) + bytes([0x01])
+    if K_m:
+        ops += bytes([0x81]) + _num(K_m) + bytes([0x01])
     return bytes(ops)
 
 
