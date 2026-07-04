@@ -221,6 +221,7 @@ class Asm:
         self.fixups = []              # (bytearray, offset, Fixup) to patch later
         self.record_stack = []        # saved (loc, emit, name) per RECORD..ENDR
         self.cur_record = None        # current RECORD name (for qualified fields)
+        self._record_dec = False      # current RECORD allocates fields downward
         self.with_stack = []          # active WITH record names (field namespace)
         self.last_global = ''         # most recent global label (@-local scope)
         self.local_ctx = ''           # current macro-expansion context id
@@ -1240,17 +1241,27 @@ class Asm:
             # contents (e.g. RomDataMgr ROMDataArea / TranslateTable); its labels
             # are real data labels, KIND = data.
             if ln.operand and ln.operand.strip():
+                op = ln.operand.strip()
+                dec = False
+                if ',' in op:                      # `base,increment|decrement`
+                    base_txt, mod = op.split(',', 1)
+                    modl = mod.strip().lower()
+                    if 'decrement' in modl or 'increment' in modl:
+                        dec = 'decrement' in modl
+                        op = base_txt.strip()
                 self.record_stack.append((self.loc, self.emit_enabled,
-                                          self.cur_record, False))
+                                          self.cur_record, False, self._record_dec))
                 self.emit_enabled = False
-                base = self.evaluate(ln.operand) or 0
+                base = self.evaluate(op) or 0
                 self.loc = base
+                self._record_dec = dec             # fields allocate downward
                 if ln.label:
                     self.define_label(ln.label, base, kind='equ')
                 self.cur_record = ln.label
             else:
                 self.record_stack.append((self.loc, self.emit_enabled,
-                                          self.cur_record, True))
+                                          self.cur_record, True, self._record_dec))
+                self._record_dec = False
                 self.loc = 0                       # new segment starts at 0
                 name = (ln.label or '').upper()
                 cur = self.segs[-1]
@@ -1270,7 +1281,8 @@ class Asm:
                 self.define_label(ln.label, self.loc,
                                   kind='label' if data_rec else 'equ')
             if self.record_stack:
-                self.loc, self.emit_enabled, self.cur_record, _ = self.record_stack.pop()
+                (self.loc, self.emit_enabled, self.cur_record, _,
+                 self._record_dec) = self.record_stack.pop()
             if data_rec:
                 # finalize: trailing content goes to a fresh segment (next PROC
                 # reuses it if still empty/unnamed)
@@ -1352,7 +1364,13 @@ class Asm:
             data, fixups = self._dc_bytes(u, ln.operand)
             self.emit_line(ln, data, fixups); return
         if u == 'DS' or u.startswith('DS.'):
-            self._lbl(ln); self.reserve(self._ds_size(u, ln.operand)); return
+            size = self._ds_size(u, ln.operand)
+            if self._record_dec:                   # decrement record: field grows
+                self.loc -= size                   # downward; label at the new loc
+                self._lbl(ln)
+            else:
+                self._lbl(ln); self.reserve(size)
+            return
         if u in ('DCB',) or u.startswith('DCB.'):
             self._lbl(ln)
             data, fixups = self._dcb_bytes(u, ln.operand)
