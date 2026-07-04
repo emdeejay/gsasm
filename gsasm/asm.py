@@ -1490,7 +1490,10 @@ class Asm:
         for item in _split_commas(operand):
             item = item.strip()
             if len(item) >= 2 and item[0] in "'\"" and item[-1] == item[0]:
-                s = _mac_bytes(item[1:-1])
+                # a doubled quote inside the string is an escaped literal quote
+                # (`'won''t'` -> won't), per AsmIIgs; collapse it to one.
+                q = item[0]
+                s = _mac_bytes(item[1:-1].replace(q * 2, q))
                 if w == 1:
                     # MSB ON sets the high bit of the CONTENT characters only —
                     # NOT a Pascal length prefix or a C null terminator
