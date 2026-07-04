@@ -73,13 +73,11 @@ Known residuals (reportable gsasm-core gaps, not fixable in harness):
      Affects ~25% of GS.OS content bytes and ~14% of Start.GS.OS.
   2. DC.W label-*: PC-relative offset expressions produce wrong LEXPR bytes in
      gsasm asm.py.  Error.Msg offset table (122 entries) completely wrong → 22% match.
-  3. DC.W seg_N_end-seg_N_start: when header group is linked separately, seg_N_end
-     is unresolved (=0).  ~24 bytes wrong across SCM header procs in GS.OS.
-  4. Init1.Src Record/EndR: pseudo-op unsupported; 64 bytes missing from scm.bin.13.
-  5. Loader.a: complex IF/WHILE macros crash gsasm; Loader.bin excluded.
-  6. &ord builtin: 346 non-fatal errors in SCM.src.
-  7. P8: &sysdate builtin not implemented; 9-byte date string emitted as spaces.
-  8. Init.Data.Src: backslash line continuation unsupported; ~11 errors in Init3/4.
+  3. Init1.Src Record/EndR: pseudo-op unsupported; 64 bytes missing from scm.bin.13.
+  4. Loader.a: complex IF/WHILE macros crash gsasm; Loader.bin excluded.
+  5. &ord builtin: 346 non-fatal errors in SCM.src.
+  6. P8: &sysdate builtin not implemented; 9-byte date string emitted as spaces.
+  7. Init.Data.Src: backslash line continuation unsupported; ~11 errors in Init3/4.
 
 Usage:
     python3 work/kernelcheck.py              # full report
@@ -326,10 +324,14 @@ def _code_image(linked_bytes: bytes) -> bytes:
     return bytes(img)
 
 
-def _link_groups(group_segs: list[dict]) -> bytes:
+def _link_groups(group_segs: list[dict],
+                 extern: dict | None = None) -> bytes:
     """Link selected segment dicts into a flat code image."""
     combined = b''.join(s['raw'] for s in group_segs)
-    linked = _lnk.link([(combined, None)], opts={'merge': True})
+    opts: dict = {'merge': True}
+    if extern:
+        opts['extern'] = extern
+    linked = _lnk.link([(combined, None)], opts=opts)
     return _code_image(linked)
 
 
@@ -364,11 +366,41 @@ def _build_header_content(header_segs: list[dict],
 
     The gap is computed as header_length (48) minus the actual header data size.
     This compensates for the gsasm PROC ORG noskip evaluation bug.
+
+    Cross-segment resolution: the header proc contains DC.W seg_N_end-seg_N_start
+    where seg_N_end is defined in a separate end_segs group.  To resolve this
+    at header-link time we inject seg_N_end's absolute address as an extern.
+    seg_N_start is the ORG of the pad segment (last header seg with a non-zero
+    ORG), and seg_N_end = seg_N_start + len(content_bytes).
     """
-    hdr_bytes = _link_groups(header_segs)
-    gap = max(0, SCM_HEADER_LENGTH - len(hdr_bytes))
     content_bytes = _link_groups(content_segs)
     end_bytes = _link_groups(end_segs) if end_segs else b''
+
+    # Build extern map: inject seg_N_end absolute addresses so the header's
+    # DC.W seg_N_end-seg_N_start resolves correctly.
+    hdr_extern: dict[str, int] = {}
+    if end_segs:
+        # Find seg_N_start from the header group: the pad segment has ORG=seg_N_start.
+        # The pad segment is the last segment in header_segs with a non-zero ORG.
+        seg_start_addr: int | None = None
+        for seg in reversed(header_segs):
+            if seg['org']:
+                seg_start_addr = seg['org']
+                break
+        # Find all end-group label names (segnames of empty procs with ORG=0).
+        # e.g. SEG_0_END -> placed at seg_start_addr + len(content_bytes)
+        if seg_start_addr is not None:
+            end_addr = seg_start_addr + len(content_bytes)
+            for seg in end_segs:
+                seg_org = seg.get('org', 0) or 0
+                if seg_org == 0:
+                    # Empty proc with no ORG: placed at seg_start + content_len
+                    hdr_extern[seg['segname'].upper()] = end_addr
+                # Segs with ORG != 0 (e.g. OVERFLOW) are fixed-address markers;
+                # they don't contribute to the seg_N_end position.
+
+    hdr_bytes = _link_groups(header_segs, extern=hdr_extern if hdr_extern else None)
+    gap = max(0, SCM_HEADER_LENGTH - len(hdr_bytes))
     return hdr_bytes + bytes(gap) + content_bytes + end_bytes
 
 
@@ -775,22 +807,20 @@ def main() -> int:
     print('     gsasm asm.py emits e.g. LEXPR(sym+lit) where the literal is wrong.')
     print('     Affects Error.Msg offset table (122 DC.W entries = 244 bytes wrong);')
     print('     cascades to effectively the whole file (match: ~22%).')
-    print('  3. DC.W seg_N_end-seg_N_start: header proc links separately from content,')
-    print('     so seg_N_end is unresolved (=0); ~2 bytes wrong per SCM header (~24 total).')
-    print('  4. Init1.Src Record/EndR: gsasm does not support Record/EndR pseudo-ops;')
+    print('  3. Init1.Src Record/EndR: gsasm does not support Record/EndR pseudo-ops;')
     print('     64 bytes of data missing from scm.bin.13.')
-    print('  5. SEG directive semantics: gsasm pending_loadname consumed after')
+    print('  4. SEG directive semantics: gsasm pending_loadname consumed after')
     print('     one PROC; AsmIIgs keeps until next SEG.  Harness works around')
     print('     via source-order group selection (no core change needed).')
-    print('  6. Loader.a crashes gsasm: complex IF/WHILE macros in Loader.Macros')
+    print('  5. Loader.a crashes gsasm: complex IF/WHILE macros in Loader.Macros')
     print('     cause an uncaught error.  Loader.bin excluded from GS.OS comparison.')
-    print('  7. &ord builtin: 346 non-fatal errors in SCM.src from unknown builtin.')
+    print('  6. &ord builtin: 346 non-fatal errors in SCM.src from unknown builtin.')
     print('     Assembly continues; bytes are emitted as if &ord returned 0.')
-    print('  8. Init.Data.Src: backslash line continuation unsupported in gsasm.')
+    print('  7. Init.Data.Src: backslash line continuation unsupported in gsasm.')
     print('     Affects ~11 continuations in Init3.Src/Init4.Src (Init.Data.Src).')
-    print('  9. P8: &sysdate builtin not implemented; date string (9 bytes) emitted')
+    print('  8. P8: &sysdate builtin not implemented; date string (9 bytes) emitted')
     print('     as spaces instead of build date (06-May-93); jump table targets off by 9.')
-    print(' 10. P8 PROCONE is 6358 bytes; golden P8 has 4 PROCs, total 17128 bytes.')
+    print('  9. P8 PROCONE is 6358 bytes; golden P8 has 4 PROCs, total 17128 bytes.')
     print('     Only PROCONE compared (driver overlays and higher PROCs excluded).')
 
     return 0
