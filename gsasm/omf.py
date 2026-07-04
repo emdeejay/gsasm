@@ -278,6 +278,36 @@ def _diff_reloc(asm, text):
     return bytes(ops)
 
 
+def _pc_rel_const(asm, text):
+    """True if `text` is a same-segment, PC-relative CONSTANT — e.g. `label-*`
+    (an offset-table entry: the byte distance from here to `label`). It references
+    `*` (the current PC) and the segment base cancels (both `label` and `*` shift
+    with it), so the value is fixed at assembly time and must be emitted as a
+    LITERAL, not a relocation. gsasm already bakes the correct value; without this
+    guard _linear_reloc would relocate it as `label + (-*)` and re-evaluate `*` at
+    end-of-assembly (the wrong PC), producing a wrong offset.
+
+    Detected by base-independence: bump the current PC and every same-segment label
+    by the same delta; if the value is unchanged, the base cancels -> constant."""
+    if '*' not in text:                            # only PC-relative expressions
+        return False
+    from . import expr as _expr
+    seg = asm._rseg
+    if seg is None:
+        return False
+
+    def res(n, d):
+        u = asm._symkey(n)
+        v = asm.resolve(n)
+        if v is not None and asm.symseg.get(u) == seg:
+            return v + d                           # a same-seg label moves with base
+        return v
+    pc = asm.loc
+    v0 = _expr.try_eval(text, lambda n: res(n, 0), pc)
+    v1 = _expr.try_eval(text, lambda n: res(n, 0x1000), pc + 0x1000)
+    return v0 is not None and v0 == v1
+
+
 def _expr_for(asm, text, segname, as_data=False, ref_off=None):
     """Build an OMF load-time expression for an operand reference.
     Local labels -> SEGNAME + offset; imports -> name; equates -> literal.
@@ -648,6 +678,13 @@ def emit_segment(asm, seg, exports):
             items = [x.strip() for x in _split_commas(opd)]
 
             def _reloc_elem(it):
+                # `label - *` (same-segment) is a PC-relative CONSTANT: the base
+                # cancels, so it is a literal, not a relocation.  Must precede the
+                # _linear_reloc check below, which would otherwise treat it as
+                # `label + (-*)` and relocate it (re-evaluating `*` at end-of-
+                # assembly -> a wrong offset).
+                if _pc_rel_const(asm, it):
+                    return False
                 m = _SIMPLE_REF.match(it)
                 if m and (asm.needs_reloc(m.group(1))
                           or _undef_external(asm, m.group(1))
