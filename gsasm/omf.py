@@ -295,25 +295,35 @@ def _pc_rel_const(asm, text):
     guard _linear_reloc would relocate it as `label + (-*)` and re-evaluate `*` at
     end-of-assembly (the wrong PC), producing a wrong offset.
 
-    Detected by base-independence: bump the current PC and every same-segment label
-    by the same delta; if the value is unchanged, the base cancels -> constant."""
+    Classifier over linear_decompose: the base cancels iff the sum of all
+    same-segment label coefficients plus pc_coeff is zero."""
     if '*' not in text:                            # only PC-relative expressions
         return False
-    from . import expr as _expr
     seg = asm._rseg
     if seg is None:
         return False
-
-    def res(n, d):
-        u = asm._symkey(n)
-        v = asm.resolve(n)
-        if v is not None and asm.symseg.get(u) == seg:
-            return v + d                           # a same-seg label moves with base
-        return v
-    pc = asm.loc
-    v0 = _expr.try_eval(text, lambda n: res(n, 0), pc)
-    v1 = _expr.try_eval(text, lambda n: res(n, 0x1000), pc + 0x1000)
-    return v0 is not None and v0 == v1
+    dec = linear_decompose(asm, text)
+    if dec is None:
+        # Fall back to original bump-based check when decompose fails
+        from . import expr as _expr
+        def res(n, d):
+            u = asm._symkey(n)
+            v = asm.resolve(n)
+            if v is not None and asm.symseg.get(u) == seg:
+                return v + d
+            return v
+        pc = asm.loc
+        v0 = _expr.try_eval(text, lambda n: res(n, 0), pc)
+        v1 = _expr.try_eval(text, lambda n: res(n, 0x1000), pc + 0x1000)
+        return v0 is not None and v0 == v1
+    terms, K, pc_coeff = dec
+    # Base cancels iff: sum of same-segment label coefficients + pc_coeff == 0
+    same_seg_sum = pc_coeff
+    for name, coeff in terms.items():
+        nu = asm._symkey(name)
+        if asm.symseg.get(nu) == seg:
+            same_seg_sum += coeff
+    return same_seg_sum == 0
 
 
 def linear_decompose(asm, text):
