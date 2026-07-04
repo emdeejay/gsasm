@@ -308,6 +308,83 @@ def _pc_rel_const(asm, text):
     return v0 is not None and v0 == v1
 
 
+def linear_decompose(asm, text):
+    """Decompose `text` into a linear combination of relocatable symbols plus
+    a constant, using finite difference.
+
+    Returns (terms, K, pc_coeff) where:
+        terms      dict {name: coeff}  for each RELOCATABLE symbol (label /
+                   import / undef-external); coefficient by finite difference
+                   (resolve, then bump by 0x100).  Constants and equates fold
+                   into K.
+        K          residual constant  (V − sum(coeff_i * val_i) at assembly time)
+        pc_coeff   coefficient of the current PC `*` (bump asm.loc by 0x100).
+
+    Returns None if the expression cannot be evaluated with current symbol values.
+    """
+    import re as _re
+    from . import expr as _expr
+
+    # Collect all identifiers in the expression (avoiding hex-literal false positives)
+    idents = list(dict.fromkeys(
+        _re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
+
+    # Partition into relocatable vs constant symbols
+    reloc_names = [i for i in idents
+                   if asm.sym_kind(i) in ('label', 'import') or _undef_external(asm, i)]
+
+    # Base value at current symbol values
+    def base_res(n):
+        return asm.resolve(n)
+
+    V = _expr.try_eval(text, base_res, asm.loc)
+    if V is None:
+        return None
+
+    # Determine pc_coeff by bumping asm.loc
+    pc_orig = asm.loc
+    V_pc = _expr.try_eval(text, base_res, pc_orig + 0x100)
+    pc_coeff = 0
+    if V_pc is not None:
+        pc_coeff = (V_pc - V)  # should be 0, 0x100, or -0x100
+
+    # Compute coefficient of each relocatable symbol by finite difference
+    terms = {}
+    for name in reloc_names:
+        val = asm.resolve(name)
+        if val is None:
+            # undef-external: treat its value as 0 for coeff computation
+            val = 0
+
+        def bumped_res(n, _name=name, _val=val):
+            u = n.upper()
+            if u == _name.upper():
+                return _val + 0x100
+            return asm.resolve(n)
+
+        V2 = _expr.try_eval(text, bumped_res, asm.loc)
+        if V2 is None:
+            return None
+        coeff = (V2 - V)  # should be a multiple of 0x100
+        if coeff != 0:
+            terms[name] = coeff
+
+    # K = V - sum(coeff_i * val_i)  (the residual constant)
+    K = V
+    for name, coeff in terms.items():
+        val = asm.resolve(name) or 0
+        # coeff is in units of 0x100 (raw finite-difference), convert back
+        K -= (coeff // 0x100) * val
+    # Normalise coefficients from finite-difference units to actual units
+    terms = {name: coeff // 0x100 for name, coeff in terms.items()}
+    # Recompute K with normalised coefficients
+    K = V
+    for name, coeff in terms.items():
+        K -= coeff * (asm.resolve(name) or 0)
+
+    return (terms, K, pc_coeff // 0x100 if pc_coeff else 0)
+
+
 def _expr_for(asm, text, segname, as_data=False, ref_off=None):
     """Build an OMF load-time expression for an operand reference.
     Local labels -> SEGNAME + offset; imports -> name; equates -> literal.
