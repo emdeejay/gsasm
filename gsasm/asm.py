@@ -179,9 +179,15 @@ class Macro:
 # Assembler state
 # --------------------------------------------------------------------------
 class Asm:
-    def __init__(self, include_paths, seed=None, seed_type=None, seg_seed=None):
+    def __init__(self, include_paths, seed=None, seed_type=None, seg_seed=None,
+                 sysdate=None, systime=None):
         self.include_paths = include_paths
         self.seed = seed or {}        # symbol values from a prior pass
+        # &sysdate / &systime builtins: the assembler's build date/time strings.
+        # When None the builtins return ''. Pass the original build date/time to
+        # reproduce byte-exact golden binaries (e.g. P8: sysdate='06-May-93').
+        self.sysdate = sysdate or ''
+        self.systime = systime or ''
         self.seed_type = seed_type or {}   # symbol kinds from a prior pass
         self.symtype = {}             # name -> 'equ' | 'label' | 'import'
         self.symseg = {}              # label name -> defining segment index
@@ -454,6 +460,11 @@ class Asm:
             return 'GLOBAL'
         if name.upper() == 'SYSLOCAL':
             return 'LOCAL'
+        # &sysdate and &systime are assembler built-in variables (no parens)
+        if name.upper() == 'SYSDATE':
+            return self.sysdate
+        if name.upper() == 'SYSTIME':
+            return self.systime
         v = self.getvar(name)
         if v is None:
             # undefined macro var -> empty string (MPW behaviour)
@@ -593,6 +604,14 @@ class Asm:
             return '1' if (args and self.evaluate(args[0]) is not None) else '0'
         if u == 'TYPE':
             return 'INT'
+        # &sysdate / &systime: the assembler's build date / time. AsmIIgs
+        # formats these as dd-Mon-yy / hh:mm:ss.  The exact value is a
+        # module-level constant (set at Asm construction time) so harnesses
+        # can inject the original build date for byte-exact reproduction.
+        if u == 'SYSDATE':
+            return self.sysdate
+        if u == 'SYSTIME':
+            return self.systime
         # unknown builtin -> empty
         self._err(f"unknown builtin &{name}")
         return ''
@@ -1713,8 +1732,9 @@ def _find_ci(base, relpath):
 
 
 def _run_once(path, include_paths, seed, seed_type, seg_seed=None, defines=None,
-              at_seed=None, at_seg_seed=None):
-    asm = Asm(include_paths, seed=seed, seed_type=seed_type, seg_seed=seg_seed)
+              at_seed=None, at_seg_seed=None, sysdate=None, systime=None):
+    asm = Asm(include_paths, seed=seed, seed_type=seed_type, seg_seed=seg_seed,
+              sysdate=sysdate, systime=systime)
     # the prior pass's COMPLETE @-label positions must be available DURING this
     # pass (a forward @-ref is resolved while assembling, before its definition)
     asm.at_seed = at_seed or {}
@@ -1732,18 +1752,23 @@ def _run_once(path, include_paths, seed, seed_type, seg_seed=None, defines=None,
     return asm
 
 
-def assemble(path, include_paths, passes=2, defines=None):
+def assemble(path, include_paths, passes=2, defines=None, sysdate=None,
+             systime=None):
     """Multi-pass assembly: later passes seed symbol values AND kinds from
     earlier ones so forward references size correctly. Symbol kinds make this
     safe: only equates drive direct-page sizing; relocatable labels stay
     absolute regardless of their (link-relative) value.
-    `defines` supplies asmiigs `-d NAME=VALUE` command-line equates."""
-    a = _run_once(path, include_paths, seed=None, seed_type=None, defines=defines)
+    `defines` supplies asmiigs `-d NAME=VALUE` command-line equates.
+    `sysdate`/`systime` override the &sysdate/&systime builtins (used by
+    source that embeds the original build date for byte-exact reproduction)."""
+    a = _run_once(path, include_paths, seed=None, seed_type=None, defines=defines,
+                  sysdate=sysdate, systime=systime)
     for _ in range(passes - 1):
         prev = a
         a = _run_once(path, include_paths, seed=prev.symbols, seed_type=prev.symtype,
                       seg_seed=prev.seg_local, defines=defines,
-                      at_seed=prev.at_defs, at_seg_seed=prev.at_seg)
+                      at_seed=prev.at_defs, at_seg_seed=prev.at_seg,
+                      sysdate=sysdate, systime=systime)
     return a
 
 

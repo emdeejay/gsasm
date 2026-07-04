@@ -76,7 +76,8 @@ Known residuals (reportable gsasm-core gaps, not fixable in harness):
   3. Init1.Src Record/EndR: pseudo-op unsupported; 64 bytes missing from scm.bin.13.
   4. Loader.a: complex IF/WHILE macros crash gsasm; Loader.bin excluded.
   5. &ord builtin: 346 non-fatal errors in SCM.src.
-  6. P8: &sysdate builtin not implemented; 9-byte date string emitted as spaces.
+  6. P8: &sysdate implemented; harness injects '06-May-93' (extracted from
+     golden P8#FF0000 offset 0x26).  PROCONE jump table now correct.
   7. Init.Data.Src: backslash line continuation unsupported; ~11 errors in Init3/4.
 
 Usage:
@@ -218,14 +219,17 @@ def _find_golden(prefix: str) -> str | None:
 # Assembly helpers
 # ---------------------------------------------------------------------------
 
-def _assemble(src_path: str, extra_incs: list[str] | None = None) -> tuple[bytes, object]:
+def _assemble(src_path: str, extra_incs: list[str] | None = None,
+              sysdate: str | None = None) -> tuple[bytes, object]:
     """Assemble *src_path* and return (obj_bytes, Asm).
 
     Non-fatal pseudo-ops (pagesize, DataChk, etc.) are ignored; other errors
     are printed to stderr (do not abort the run).
+    `sysdate` overrides the &sysdate builtin (pass the original build date for
+    byte-exact reproduction, e.g. '06-May-93' for P8).
     """
     incs = (extra_incs or []) + INCS
-    a = _asm.assemble(src_path, incs)
+    a = _asm.assemble(src_path, incs, sysdate=sysdate)
     fatal = [e for e in a.errors
              if not any(x in e.lower() for x in _IGNORE_OPS)]
     if fatal:
@@ -754,7 +758,10 @@ def main() -> int:
     if p8_path:
         src_mli = f'{GS}/P8/MliSrc.aii'
         try:
-            p8_obj, p8_asm = _assemble(src_mli, extra_incs=[f'{GS}/P8'])
+            # &sysdate must match the original build date embedded in the
+            # golden P8 binary (extracted from P8#FF0000 at offset 0x26).
+            p8_obj, p8_asm = _assemble(src_mli, extra_incs=[f'{GS}/P8'],
+                                       sysdate='06-May-93')
             p8_segs = _parse_obj_segs(p8_obj)
             p8_groups = _make_groups(p8_segs)
 
@@ -818,8 +825,8 @@ def main() -> int:
     print('     Assembly continues; bytes are emitted as if &ord returned 0.')
     print('  7. Init.Data.Src: backslash line continuation unsupported in gsasm.')
     print('     Affects ~11 continuations in Init3.Src/Init4.Src (Init.Data.Src).')
-    print('  8. P8: &sysdate builtin not implemented; date string (9 bytes) emitted')
-    print('     as spaces instead of build date (06-May-93); jump table targets off by 9.')
+    print('  8. P8: &sysdate implemented; harness injects original build date')
+    print('     (06-May-93, extracted from golden P8#FF0000 offset 0x26).')
     print('  9. P8 PROCONE is 6358 bytes; golden P8 has 4 PROCs, total 17128 bytes.')
     print('     Only PROCONE compared (driver overlays and higher PROCs excluded).')
 
