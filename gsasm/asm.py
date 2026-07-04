@@ -1420,7 +1420,7 @@ class Asm:
         # segment / proc
         if u == 'PROC':
             self._proc(ln); return
-        if u == 'ENDP':
+        if u in ('ENDP', 'ENDPROC'):
             self.proc_depth = max(0, self.proc_depth - 1)
             self.in_proc = self.proc_depth > 0
             return
@@ -1497,9 +1497,9 @@ class Asm:
             return
 
         # listing / diagnostics: ignore (define a label if present)
-        if u in ('TITLE', 'PRINT', 'LIST', 'PAGE', 'EJECT', 'SPACE', 'NOGEN',
-                 'GEN', 'MACHINE', 'WRITELN', 'ERR', 'ERRIF', 'CASE', 'NEEDS',
-                 'BLANKS', 'LONGTABLE', 'KEEP', 'NOTE', 'WHILE', 'MEXIT'):
+        if u in ('TITLE', 'PRINT', 'LIST', 'PAGE', 'PAGESIZE', 'EJECT', 'SPACE',
+                 'NOGEN', 'GEN', 'MACHINE', 'WRITELN', 'ERR', 'ERRIF', 'CASE',
+                 'NEEDS', 'BLANKS', 'LONGTABLE', 'KEEP', 'NOTE', 'WHILE', 'MEXIT'):
             self._lbl(ln); return
 
         # instruction?
