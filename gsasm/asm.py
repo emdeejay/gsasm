@@ -725,6 +725,12 @@ class Asm:
         # (modules sometimes IMPORT a symbol they also define locally)
         if self.symtype.get(u) == 'label':
             return 'label'
+        # a local EQUATE likewise overrides an IMPORT: an equate is an absolute
+        # value, so its width/relocation is fixed, not link-assigned (e.g. a dp
+        # equate `ctlPart EQU $21` that the module also IMPORTs must size direct-
+        # page, not absolute).
+        if self.symtype.get(u) == 'equ':
+            return 'equ'
         if u in self.imports:
             return 'import'
         return self.symtype.get(u) or self.seed_type.get(u)
