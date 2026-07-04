@@ -58,6 +58,81 @@ def strip_comment(s):
     return ''.join(out), ''
 
 
+def _body_ends_backslash(line):
+    """Return True if the meaningful content of *line* (after stripping a
+    trailing ;-comment and outside any quoted string) ends with a backslash.
+    This identifies MPW AsmIIgs line-continuation markers.
+
+    The backslash may be followed by whitespace and/or a ;-comment:
+        prio_mask  equ  bit_5+ \\  ;a comment  → True
+        ENTRY opendriver,\\\\\\t\\t;vectors     → True
+        dc.b  '\\\\hello'           → False  (backslash is inside a string)
+    """
+    body, _comment = strip_comment(line.rstrip('\n'))
+    t = body.rstrip()
+    if not t.endswith('\\'):
+        return False
+    # Verify the trailing backslash is NOT inside a quoted string by
+    # re-scanning the body (strip_comment already ejected unquoted ';').
+    in_str = False
+    quote = ''
+    for ch in body:
+        if in_str:
+            if ch == quote:
+                in_str = False
+        elif ch in "'\"":
+            in_str = True; quote = ch
+    # If we ended inside a string the trailing \ is literal, not a continuation.
+    return not in_str
+
+
+def join_continuations(lines):
+    """Splice physical lines that end with a backslash continuation marker.
+
+    MPW AsmIIgs lets a source line end with \\ (optionally followed by
+    whitespace and a ;-comment): the next physical line is appended (the \\
+    removed, leading whitespace of the continuation stripped) to form one
+    logical line.  Multiple consecutive continuations are folded into one.
+
+    Macro bodies are already extracted from joined source, so this function is
+    only applied to source-file line lists (track_lines=True units).
+    """
+    out = []
+    i, n = 0, len(lines)
+    while i < n:
+        raw = lines[i]
+        i += 1
+        if not _body_ends_backslash(raw):
+            out.append(raw)
+            continue
+        # Strip comment from the current line, remove the trailing backslash,
+        # then stitch continuation lines onto the body.
+        body, _comment = strip_comment(raw.rstrip('\n'))
+        body = body.rstrip()        # e.g. "ENTRY opendriver,\t\\"
+        body = body[:-1]            # drop the trailing backslash
+        # body may now end with trailing whitespace (e.g. "opendriver,  ");
+        # keep it — the sources rely on no extra space being inserted.
+        while True:
+            if i >= n:
+                break
+            cont = lines[i]
+            i += 1
+            cbody, _cc = strip_comment(cont.rstrip('\n'))
+            cbody = cbody.lstrip(' \t')   # strip leading indent of continuation
+            # Re-attach any trailing-\-continuation from this line too.
+            # rstrip before checking: the \ may be followed by trailing
+            # whitespace (tabs between the backslash and the ;-comment).
+            cbody_rstripped = cbody.rstrip()
+            if cbody_rstripped.endswith('\\'):
+                body = body + cbody_rstripped[:-1]
+                # loop to consume further continuations
+                continue
+            body = body + cbody
+            break
+        out.append(body + '\n')
+    return out
+
+
 def parse_line(raw):
     """Parse a raw (already &-substituted) source line into fields."""
     text = raw.rstrip('\n')
@@ -921,6 +996,10 @@ class Asm:
             self._cur_file = filepath
             self._cur_line = 0
         try:
+            # Backslash line-continuation is a source-file feature; apply it
+            # only when reading real source lines (not macro-body expansion).
+            if track_lines:
+                lines = join_continuations(lines)
             self._run_unit(lines, track_lines=track_lines)
         finally:
             if pushed:
