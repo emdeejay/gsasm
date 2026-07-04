@@ -403,88 +403,20 @@ def expressload(
     opts = dict(opts, merge=False)
 
     # ------------------------------------------------------------------
-    # Pass 1: parse inputs and place segments (mirrors linkiigs logic)
+    # Pass 1: parse inputs and place segments
     # ------------------------------------------------------------------
-    placed: list[tuple[str, list, int, dict, Any | None]] = []
-    obj_seg_bases: list[list[int]] = []
-
-    base = 0
-    for obj_bytes, asm_obj in objects:
-        segs = _linkiigs._parse_obj(obj_bytes)
-        bases_this_obj: list[int] = []
-        for seg in segs:
-            h = seg['hdr']
-            seg_org = h['ORG'] or 0
-            seg_base = seg_org if seg_org else base
-            placed.append((seg['segname'], seg['recs'], seg_base, h, asm_obj))
-            bases_this_obj.append(seg_base)
-            base = seg_base + _link._body_length(seg['recs'])
-        obj_seg_bases.append(bases_this_obj)
+    placed, obj_seg_bases, placed_obj_idx = _linkiigs._place(objects, 0)
 
     if not placed:
         return b''
 
     # ------------------------------------------------------------------
-    # Pass 2: build global symbol table (mirrors linkiigs.link)
+    # Pass 2: build global symbol table (shared with linkiigs.link)
     # ------------------------------------------------------------------
-    sym: dict[str, int] = {'__LOC__': 0}
-    placed_idx = 0
-
-    for obj_idx, (obj_bytes, asm_obj) in enumerate(objects):
-        segs_in_obj = _linkiigs._parse_obj(obj_bytes)
-        n_segs = len(segs_in_obj)
-        bases_this_obj = obj_seg_bases[obj_idx]
-
-        for k in range(n_segs):
-            segname, _recs, seg_base, _hdr, _asm = placed[placed_idx + k]
-            sym.setdefault(segname, seg_base)
-
-        if asm_obj is not None:
-            asm_segs = [s for s in asm_obj.segs if s.items or s.name]
-            for lab, v in asm_obj.symbols.items():
-                sg_idx = asm_obj.symseg.get(lab)
-                if sg_idx is None:
-                    continue
-                if not isinstance(v, int):
-                    continue
-                if sg_idx < 0 or sg_idx >= len(asm_segs):
-                    continue
-                try:
-                    emit_idx = asm_segs.index(asm_obj.segs[sg_idx])
-                except (ValueError, IndexError):
-                    continue
-                if emit_idx >= len(bases_this_obj):
-                    continue
-                seg_placed_base = bases_this_obj[emit_idx]
-                seg_obj = asm_obj.segs[sg_idx]
-                seg_own_org = seg_obj.org or 0
-                if seg_own_org:
-                    sym.setdefault(lab.upper(), v & 0xFFFFFF)
-                else:
-                    sym.setdefault(lab.upper(), (seg_placed_base + v) & 0xFFFFFF)
-
-        placed_idx += n_segs
-
-    for _segname, recs, seg_base, _hdr, _asm in placed:
-        body_off = 0
-        for _, nm, d in recs:
-            if nm == 'END':
-                break
-            if nm in ('CONST', 'LCONST'):
-                body_off += len(d)
-            elif nm in ('LEXPR', 'BEXPR', 'EXPR', 'RELEXPR'):
-                body_off += d[0]
-            elif nm == 'DS':
-                body_off += d
-            elif nm == 'GLOBAL':
-                label = d['label'].upper()
-                sym.setdefault(label, seg_base + body_off)
-            elif nm == 'GEQU':
-                label = d['label'].upper()
-                sym.setdefault(label, _link._eval(d['expr'], sym))
-
-    for k, v in (opts.get('extern') or {}).items():
-        sym[k.upper()] = v
+    sym, obj_globals = _linkiigs._build_symtab(
+        objects, placed, obj_seg_bases, placed_obj_idx,
+        opts.get('extern') or {}
+    )
 
     # ------------------------------------------------------------------
     # Pass 3: scan reloc records BEFORE resolving bodies
@@ -497,9 +429,11 @@ def expressload(
     # Defer #^/>>16 high-word shifts to the SUPER type-27 relocs scanned above,
     # so the LCONST stores the un-shifted placeholder (consistent with linkiigs).
     bodies: list[bytes] = []
-    for (_segname, recs, seg_base, _hdr, _asm) in placed:
+    for placed_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
         recs2, _srels = _linkiigs._defer_shifts(recs)
-        bodies.append(_link._build_body(recs2, sym, seg_base))
+        oi = placed_obj_idx[placed_i]
+        local_sym = sym if not obj_globals[oi] else {**sym, **obj_globals[oi]}
+        bodies.append(_link._build_body(recs2, local_sym, seg_base))
 
     # ------------------------------------------------------------------
     # Pass 5: merge all bodies into one flat code image (single main seg)

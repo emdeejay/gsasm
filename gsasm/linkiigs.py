@@ -118,49 +118,34 @@ def _defer_shifts(recs):
     return out, relocs
 
 
-def link(objects: list[tuple[bytes, Any | None]],
-         opts: dict | None = None) -> bytes:
-    """Link N OMF object files into one relocated load file.
+# ---------------------------------------------------------------------------
+# Shared helpers — extracted from link() for reuse by expressload.expressload()
+# ---------------------------------------------------------------------------
+
+def _place(
+        objects: list[tuple[bytes, Any | None]],
+        base_org: int = 0,
+) -> tuple[list, list[list[int]], list[int]]:
+    """Pass-1: parse all input objects and place segments sequentially.
 
     Parameters
     ----------
     objects
-        List of ``(obj_bytes, asm_or_None)``.  ``obj_bytes`` is the raw OMF
-        object (one or more segments).  ``asm_or_None`` is the ``gsasm.asm.Asm``
-        that produced it; when present its full internal symbol table seeds the
-        linker so cross-segment data refs resolve correctly.
-    opts
-        Linker options dict.  Keys: ``kind`` (int), ``org`` (int|None),
-        ``loadname`` (bytes), ``merge`` (bool), ``extern`` ({str: int}).
+        List of ``(obj_bytes, asm_or_None)`` pairs (same as ``link()``).
+    base_org
+        Base address for the first non-ORG'd segment (default 0).
 
     Returns
     -------
-    bytes
-        A single merged OMF segment (``merge=True``) or concatenated per-segment
-        OMF records (``merge=False``).
+    placed
+        List of ``(segname, recs, seg_base, hdr, asm_obj)`` in link order.
+    obj_seg_bases
+        ``obj_seg_bases[obj_idx][seg_idx]`` — placed base for each segment.
+    placed_obj_idx
+        ``placed_obj_idx[i]`` — which object index produced ``placed[i]``.
     """
-    if opts is None:
-        opts = {}
-
-    merge: bool = bool(opts.get('merge', True))
-    # Defer #^/>>16 high-word shifts to a load-time SUPER type-27 reloc — correct
-    # ONLY when the output is ExpressLoad'd (default, as tools/FSTs/drivers are).
-    # A fully-resolved consumer (the kernel: linkiigs -> MakeBin/catenate, no
-    # ExpressLoad) must resolve the shift now, so it passes defer_shifts=False.
-    defer_shifts: bool = bool(opts.get('defer_shifts', True))
-    base_org: int = opts.get('org') or 0
-    kind: int = opts.get('kind', 0)
-    loadname: bytes = opts.get('loadname', b'main')
-    extern: dict = opts.get('extern') or {}
-
-    # ------------------------------------------------------------------
-    # Pass 1: parse all input objects and place segments sequentially
-    # ------------------------------------------------------------------
-    # Each entry: (segname, recs, base, hdr, asm_obj_or_None)
     placed: list[tuple[str, list, int, dict, Any | None]] = []
-    # Track each (obj_idx, seg_within_obj) -> placed_base for Asm symbol seeding
-    obj_seg_bases: list[list[int]] = []   # obj_seg_bases[obj_idx][seg_idx] = base
-    # placed_obj_idx[i] = which object index produced placed[i]
+    obj_seg_bases: list[list[int]] = []
     placed_obj_idx: list[int] = []
 
     base = base_org
@@ -180,28 +165,59 @@ def link(objects: list[tuple[bytes, Any | None]],
             base = seg_base + _link._body_length(seg['recs'])
         obj_seg_bases.append(bases_this_obj)
 
-    if not placed:
-        return b''
+    return placed, obj_seg_bases, placed_obj_idx
 
-    # ------------------------------------------------------------------
-    # Pass 2: build the global symbol table
-    #
-    # Symbol resolution order — processed per object in link order so that
-    # first-definition wins (matching MPW LinkIIgs behaviour):
-    #
-    # For each object in link order:
-    #   a. Segment names from that object's placement (pass 1 result)
-    #   b. Every internal label from the Asm's .symbols/.symseg
-    #      (base_of_segment + symbol_offset — the "full symbol table" fix)
-    # After all objects:
-    #   c. GLOBAL / GEQU records from all OMF bodies (setdefault)
-    #   d. Caller-supplied extern overrides (override / last-wins)
-    #
-    # Interleaving (a) and (b) per object is critical: an interior label from
-    # object 0 (e.g. PUSHRECT inside PUSHYRAT) must shadow a proc-head segment
-    # name from object 3 (e.g. the PUSHRECT PROC in WCtlDef) — exactly as the
-    # old toolcheck link_module did by processing seg names then labels per obj.
-    # ------------------------------------------------------------------
+
+def _build_symtab(
+        objects: list[tuple[bytes, Any | None]],
+        placed: list,
+        obj_seg_bases: list[list[int]],
+        placed_obj_idx: list[int],
+        extern: dict | None = None,
+) -> tuple[dict[str, int], list[dict[str, int]]]:
+    """Pass-2: build the global symbol table.
+
+    Symbol resolution order — processed per object in link order so that
+    first-definition wins (matching MPW LinkIIgs behaviour):
+
+    For each object in link order:
+      a. Segment names from that object's placement (pass 1 result)
+      b. Every internal label from the Asm's .symbols/.symseg
+         (base_of_segment + symbol_offset — the "full symbol table" fix)
+    After all objects:
+      c. GLOBAL / GEQU records from all OMF bodies (setdefault)
+      d. Caller-supplied extern overrides (override / last-wins)
+
+    Interleaving (a) and (b) per object is critical: an interior label from
+    object 0 (e.g. PUSHRECT inside PUSHYRAT) must shadow a proc-head segment
+    name from object 3 (e.g. the PUSHRECT PROC in WCtlDef) — exactly as the
+    old toolcheck link_module did by processing seg names then labels per obj.
+
+    Parameters
+    ----------
+    objects
+        List of ``(obj_bytes, asm_or_None)`` pairs.
+    placed
+        Output of ``_place()``.
+    obj_seg_bases
+        Output of ``_place()``.
+    placed_obj_idx
+        Output of ``_place()``.
+    extern
+        Caller-supplied externals (override / last-wins).
+
+    Returns
+    -------
+    sym
+        Global symbol table ``{name_upper: abs_value}``.
+    obj_globals
+        Per-object label/GLOBAL maps ``obj_globals[obj_idx]`` — used by
+        Pass-3 so that intra-object cross-segment references prefer the
+        local definition over a same-named symbol from another object.
+    """
+    if extern is None:
+        extern = {}
+
     sym: dict[str, int] = {'__LOC__': 0}
     # Per-object label/GLOBAL maps: indexed by obj_idx.  Accumulated through
     # both pass (b) and pass (c) so that all symbols from an object override
@@ -326,6 +342,58 @@ def link(objects: list[tuple[bytes, Any | None]],
     # Caller-supplied externals (e.g. from linkrom's rommap) — last-wins
     for k, v in extern.items():
         sym[k.upper()] = v
+
+    return sym, obj_globals
+
+
+def link(objects: list[tuple[bytes, Any | None]],
+         opts: dict | None = None) -> bytes:
+    """Link N OMF object files into one relocated load file.
+
+    Parameters
+    ----------
+    objects
+        List of ``(obj_bytes, asm_or_None)``.  ``obj_bytes`` is the raw OMF
+        object (one or more segments).  ``asm_or_None`` is the ``gsasm.asm.Asm``
+        that produced it; when present its full internal symbol table seeds the
+        linker so cross-segment data refs resolve correctly.
+    opts
+        Linker options dict.  Keys: ``kind`` (int), ``org`` (int|None),
+        ``loadname`` (bytes), ``merge`` (bool), ``extern`` ({str: int}).
+
+    Returns
+    -------
+    bytes
+        A single merged OMF segment (``merge=True``) or concatenated per-segment
+        OMF records (``merge=False``).
+    """
+    if opts is None:
+        opts = {}
+
+    merge: bool = bool(opts.get('merge', True))
+    # Defer #^/>>16 high-word shifts to a load-time SUPER type-27 reloc — correct
+    # ONLY when the output is ExpressLoad'd (default, as tools/FSTs/drivers are).
+    # A fully-resolved consumer (the kernel: linkiigs -> MakeBin/catenate, no
+    # ExpressLoad) must resolve the shift now, so it passes defer_shifts=False.
+    defer_shifts: bool = bool(opts.get('defer_shifts', True))
+    base_org: int = opts.get('org') or 0
+    kind: int = opts.get('kind', 0)
+    loadname: bytes = opts.get('loadname', b'main')
+    extern: dict = opts.get('extern') or {}
+
+    # ------------------------------------------------------------------
+    # Pass 1: parse all input objects and place segments sequentially
+    # ------------------------------------------------------------------
+    placed, obj_seg_bases, placed_obj_idx = _place(objects, base_org)
+
+    if not placed:
+        return b''
+
+    # ------------------------------------------------------------------
+    # Pass 2: build the global symbol table
+    # ------------------------------------------------------------------
+    sym, obj_globals = _build_symtab(objects, placed, obj_seg_bases,
+                                     placed_obj_idx, extern)
 
     # ------------------------------------------------------------------
     # Pass 3: build each segment body using the full symbol table,
