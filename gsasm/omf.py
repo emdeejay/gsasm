@@ -214,6 +214,70 @@ def _mul_reloc_expr(asm, text, segname):
     return bytes(ops)
 
 
+def _diff_reloc(asm, text):
+    """Two-relocatable-label difference `A - B` (coefficients +1/-1, both DEFINED,
+    and in DIFFERENT segments) -> OMF expression ops computing the LINK-TIME layout
+    difference (SEGNAME_A+offA) - (SEGNAME_B+offB) [+ K]. Returns ops bytes (without
+    the trailing 0x00) or None.
+
+    Scoped to CROSS-segment differences only: within one segment the assembly-time
+    value is already final (and correct as a baked literal), so those are left
+    alone to avoid perturbing the byte-exact ROM. Cross-segment diffs otherwise
+    bake to the assembly-time value (both labels segment-relative), which is wrong
+    once the linker places the segments apart (e.g. `DC.W getfstname-jump_table`)."""
+    import re as _re
+    from . import expr as _expr
+    idents = list(dict.fromkeys(
+        _re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
+    reloc = [i for i in idents if asm.sym_kind(i) == 'label'
+             and asm.symseg.get(asm._symkey(i)) is not None]
+    if len(reloc) != 2:
+        return None
+    A, B = reloc
+    sa, sb = asm.symseg.get(asm._symkey(A)), asm.symseg.get(asm._symkey(B))
+    if sa == sb:                                   # same segment: literal is final
+        return None
+    if (asm.segs[sa].org or 0) or (asm.segs[sb].org or 0):
+        return None                                # ORG'd (absolute) diff is final
+    av, bv = asm.resolve(A), asm.resolve(B)
+    if av is None or bv is None:                   # both must be defined
+        return None
+
+    def bumped(da, db):
+        def r(n):
+            u = n.upper()
+            if u == A.upper():
+                return (asm.resolve(A) or 0) + da
+            if u == B.upper():
+                return (asm.resolve(B) or 0) + db
+            return asm.resolve(n)
+        return _expr.try_eval(text, r, asm.loc)
+    v = bumped(0, 0)
+    if v is None:
+        return None
+    if bumped(0x100, 0) != v + 0x100:              # coefficient of A must be +1
+        return None
+    if bumped(0, 0x100) != v - 0x100:              # coefficient of B must be -1
+        return None
+
+    def locops(name):
+        nu = asm._symkey(name)
+        seg = asm.segs[asm.symseg[nu]]
+        off = ((asm.resolve(nu) or 0) & 0xFFFFFF) - (seg.org or 0)
+        o = bytes([0x83]) + _omfstr((seg.name or '').upper())
+        if off:
+            o += bytes([0x81]) + _num(off & 0xFFFFFFFF) + bytes([0x01])
+        return o
+    K = (v - (((av & 0xFFFFFF) - (bv & 0xFFFFFF)))) & 0xFFFFFFFF  # residual constant
+    ops = bytearray()
+    ops += locops(A)
+    ops += locops(B)
+    ops += bytes([0x02])                           # SUB: A - B
+    if K:
+        ops += bytes([0x81]) + _num(K) + bytes([0x01])
+    return bytes(ops)
+
+
 def _expr_for(asm, text, segname, as_data=False, ref_off=None):
     """Build an OMF load-time expression for an operand reference.
     Local labels -> SEGNAME + offset; imports -> name; equates -> literal.
@@ -344,18 +408,22 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
             else:
                 ops += bytes([0x81]) + _num(v)
     else:
-        v = asm.evaluate(text) or 0
-        if _in_org_seg(asm, v):                # numeric address into this segment
-            off = v - asm.segs[asm._rseg].org
-            ops += bytes([0x83]) + _omfstr(segname)
-            if off:
-                ops += bytes([0x81]) + _num(off) + bytes([0x01])
+        diff = _diff_reloc(asm, text)          # cross-seg two-label difference
+        if diff is not None:
+            ops += diff
         else:
-            mul_ops = _mul_reloc_expr(asm, text, segname)
-            if mul_ops is not None:
-                ops += mul_ops
+            v = asm.evaluate(text) or 0
+            if _in_org_seg(asm, v):            # numeric address into this segment
+                off = v - asm.segs[asm._rseg].org
+                ops += bytes([0x83]) + _omfstr(segname)
+                if off:
+                    ops += bytes([0x81]) + _num(off) + bytes([0x01])
             else:
-                ops += bytes([0x81]) + _num(v)
+                mul_ops = _mul_reloc_expr(asm, text, segname)
+                if mul_ops is not None:
+                    ops += mul_ops
+                else:
+                    ops += bytes([0x81]) + _num(v)
     if shift:                                  # (sym) >> shift  ==  << (-shift)
         ops += bytes([0x81]) + _num((-shift) & 0xFFFFFFFF) + bytes([0x07])
     ops += bytes([0x00])                       # end of expression
@@ -600,6 +668,12 @@ def emit_segment(asm, seg, exports):
                            if asm.needs_reloc(x) or _undef_external(asm, x)
                            or _in_org_seg(asm, asm.resolve(x))]
                     return len(rel) == 1
+                # a CROSS-segment difference of two relocatable labels (`A-B`, both
+                # defined, in different relocatable segments) is a LINK-TIME layout
+                # constant, not an assembly-time one -> emit it as an expression so
+                # the linker computes it (a same-segment/ORG'd diff stays a literal).
+                if _diff_reloc(asm, it) is not None:
+                    return True
                 return False
             w = asm._width(u)
             no_str = not any(it[:1] in "'\"" for it in items if it)
