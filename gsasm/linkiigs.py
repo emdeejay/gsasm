@@ -155,9 +155,11 @@ def link(objects: list[tuple[bytes, Any | None]],
     placed: list[tuple[str, list, int, dict, Any | None]] = []
     # Track each (obj_idx, seg_within_obj) -> placed_base for Asm symbol seeding
     obj_seg_bases: list[list[int]] = []   # obj_seg_bases[obj_idx][seg_idx] = base
+    # placed_obj_idx[i] = which object index produced placed[i]
+    placed_obj_idx: list[int] = []
 
     base = base_org
-    for obj_bytes, asm_obj in objects:
+    for obj_idx, (obj_bytes, asm_obj) in enumerate(objects):
         segs = _parse_obj(obj_bytes)
         bases_this_obj: list[int] = []
         for seg in segs:
@@ -168,6 +170,7 @@ def link(objects: list[tuple[bytes, Any | None]],
             else:
                 seg_base = base
             placed.append((seg['segname'], seg['recs'], seg_base, h, asm_obj))
+            placed_obj_idx.append(obj_idx)
             bases_this_obj.append(seg_base)
             base = seg_base + _link._body_length(seg['recs'])
         obj_seg_bases.append(bases_this_obj)
@@ -195,6 +198,10 @@ def link(objects: list[tuple[bytes, Any | None]],
     # old toolcheck link_module did by processing seg names then labels per obj.
     # ------------------------------------------------------------------
     sym: dict[str, int] = {'__LOC__': 0}
+    # Per-object label/GLOBAL maps: indexed by obj_idx.  Accumulated through
+    # both pass (b) and pass (c) so that all symbols from an object override
+    # the global sym when building that object's segment bodies in Pass 3.
+    obj_globals: list[dict[str, int]] = [{} for _ in objects]
 
     # We process segment-name/interior-label pairs per object.  The placed list
     # is ordered globally; we need per-object segment slices.
@@ -205,13 +212,31 @@ def link(objects: list[tuple[bytes, Any | None]],
         n_segs = len(segs_in_obj)
         bases_this_obj = obj_seg_bases[obj_idx]
 
-        # (a) Segment names for this object
+        # (a) Segment names for this object.
+        #
+        # In multi-object links, segment names are PRIVATE to the defining
+        # object — they must not shadow cross-object public EXPORT symbols of
+        # the same name (e.g. a PROC named 'SHUTDOWN' in one object must not
+        # hide the EXPORT 'SHUTDOWN' from a later object).
+        # Single-object links keep the original first-wins global table.
         for k in range(n_segs):
             segname, _recs, seg_base, _hdr, _asm = placed[placed_idx + k]
-            sym.setdefault(segname, seg_base)
+            if len(objects) == 1:
+                sym.setdefault(segname, seg_base)
+            # Always add to per-object map so intra-object cross-segment refs work.
+            obj_globals[obj_idx].setdefault(segname, seg_base)
 
-        # (b) Interior labels from this Asm object
+        # (b) Interior labels from this Asm object.
+        #
+        # For multi-object links only ENTRY/EXPORT labels are globally visible
+        # (matching MPW LinkerIIgs: plain local labels in one object must not
+        # shadow same-named ENTRY/EXPORT labels from another object).  For
+        # single-object links all labels are included (unchanged behaviour).
+        #
+        # All labels (including locals) also go into the per-object map so that
+        # segments within this object can resolve their own local references.
         if asm_obj is not None:
+            is_single_obj = len(objects) == 1
             asm_segs = [s for s in asm_obj.segs if s.items or s.name]
             for lab, v in asm_obj.symbols.items():
                 sg_idx = asm_obj.symseg.get(lab)
@@ -235,16 +260,30 @@ def link(objects: list[tuple[bytes, Any | None]],
                 seg_obj = asm_obj.segs[sg_idx]
                 seg_own_org = seg_obj.org or 0
                 if seg_own_org:
-                    # ORG'd segment: v is already an absolute address.
-                    sym.setdefault(lab.upper(), v & 0xFFFFFF)
+                    abs_val = v & 0xFFFFFF
                 else:
-                    # Relocatable segment: v is offset from segment start.
-                    sym.setdefault(lab.upper(), (seg_placed_base + v) & 0xFFFFFF)
+                    abs_val = (seg_placed_base + v) & 0xFFFFFF
+
+                # Global table: only ENTRY/EXPORT labels (unless single-object)
+                is_public = lab in asm_obj.entries or lab in asm_obj.exports
+                if is_single_obj or is_public:
+                    sym.setdefault(lab.upper(), abs_val)
+
+                # Per-object table: ALL labels (for intra-object resolution)
+                obj_globals[obj_idx].setdefault(lab.upper(), abs_val)
 
         placed_idx += n_segs
 
     # (c) GLOBAL / GEQU records from all OMF bodies (setdefault — lower priority)
-    for _segname, recs, seg_base, _hdr, _asm in placed:
+    #
+    # Also updates per-object GLOBAL maps (obj_globals[obj_idx]) so that
+    # segments within an object can prefer their own GLOBAL definitions over
+    # definitions from other objects with the same name.  This matches MPW
+    # LinkerIIgs behaviour where e.g. windmgr.asm's PUSHRECT is used by
+    # windmgr.asm's own code while WDefProc.asm's PUSHRECT is used by
+    # WDefProc.asm's own code (both define and export PUSHRECT).
+    for placed_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
+        oi = placed_obj_idx[placed_i]
         body_off = 0
         for _, nm, d in recs:
             if nm == 'END':
@@ -257,7 +296,24 @@ def link(objects: list[tuple[bytes, Any | None]],
                 body_off += d
             elif nm == 'GLOBAL':
                 label = d['label'].upper()
-                sym.setdefault(label, seg_base + body_off)
+                val = seg_base + body_off
+                is_priv = d.get('priv', 0)  # 1 = ENTRY (private), 0 = EXPORT (public)
+                if is_priv:
+                    # Private (ENTRY): intra-object only — do NOT add to global sym.
+                    # Other objects that IMPORT this name should see the canonical
+                    # public EXPORT, not this intra-object entry point.
+                    pass
+                elif len(objects) == 1:
+                    # Single-object link: first-wins (original behaviour).
+                    sym.setdefault(label, val)
+                else:
+                    # Multi-object link: last-wins for public EXPORT GLOBALs.
+                    # This ensures that the "canonical" library module (typically
+                    # linked last, e.g. wcm.asm) wins over earlier duplicates.
+                    sym[label] = val
+                # Per-object: ALL globals (including private) go here so that
+                # intra-object cross-segment references resolve correctly.
+                obj_globals[oi][label] = val
             elif nm == 'GEQU':
                 label = d['label'].upper()
                 sym.setdefault(label, _link._eval(d['expr'], sym))
@@ -267,12 +323,19 @@ def link(objects: list[tuple[bytes, Any | None]],
         sym[k.upper()] = v
 
     # ------------------------------------------------------------------
-    # Pass 3: build each segment body using the full symbol table
+    # Pass 3: build each segment body using the full symbol table,
+    # augmented by this segment's object's own GLOBAL definitions so that
+    # intra-object cross-segment references use the local export.
     # ------------------------------------------------------------------
     bodies: list[bytes] = []
-    for (_segname, recs, seg_base, _hdr, _asm) in placed:
+    for placed_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
         recs2, _srels = _defer_shifts(recs)   # defer #^/>>16 to load-time relocs
-        bodies.append(_link._build_body(recs2, sym, seg_base))
+        oi = placed_obj_idx[placed_i]
+        # Local sym: global table overridden by this object's own GLOBALs.
+        # This ensures e.g. WDefProc's JSR PUSHRECT resolves to WDefProc's
+        # own PUSHRECT, not windmgr.asm's same-named export.
+        local_sym = sym if not obj_globals[oi] else {**sym, **obj_globals[oi]}
+        bodies.append(_link._build_body(recs2, local_sym, seg_base))
 
     # ------------------------------------------------------------------
     # Pass 4: emit the output

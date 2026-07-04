@@ -46,17 +46,39 @@ FW  = SRC + '/GSFirmware'
 BIN = 'ref/GSOS_6/tool_bin'
 INCS = [d for d, _, _ in os.walk(TB)] + [d for d, _, _ in os.walk(FW)] + ['work/includes']
 
-# ToolNNN -> (manager subdir, [object source files]). From build.tools; the
-# object lists mirror linkrom.BANKS. Only tools we have BOTH source and a
-# shipping binary for are listed.
+# ToolNNN -> (manager subdir, entry).
+# entry is either:
+#   [files]                    — single-segment flat link; compare against de_express(gold)
+#   {'segments': [...], ...}   — multi-segment tool; per-segment comparison
+#
+# Multi-segment entry keys:
+#   'segments': list of dicts, each with:
+#       'gold_name':  segment name in the gold ExpressLoad binary (matched by SEGNAME)
+#       'srcs':       [relative source files] for this segment's main objects
+#       'extern_base': optional int — if set, this segment's symbols are injected as
+#                      extern overrides at this base address into PRECEDING segments
+#
+# Object file lists mirror the MPW makefile link order for each tool.
+# This is critical: (a) symbol addresses depend on placement order, and (b) for
+# duplicate GLOBAL exports (ENTRY in multiple objects), last-wins in linkiigs
+# matches MPW LinkerIIgs behaviour — so the last object's definition prevails.
 TOOLMAP = {
-    '014': ('WindMgr',    ['WindMgr.asm', 'Task.asm', 'NewCalls.asm', 'WCtlDef.asm', 'WDefProc.asm']),
-    '015': ('MenuMgr',    ['MenuMgr.asm', 'PopUpProc.asm', 'WCM.asm']),
+    '014': ('WindMgr',    ['windmgr.asm', 'task.asm', 'NewCalls.asm', 'WDefProc.asm',
+                           'WCtlDef.asm', 'WMPatch.asm', '../MenuMgr/wcm.asm']),
+    # MenuMgr has a multi-segment ExpressLoad binary:
+    #   MainTool (menumgr + wcm) at base 0
+    #   PopUpProc (popupproc) at base 0x030000 (dynamic/bank segment)
+    # Compare each segment independently.
+    '015': ('MenuMgr',    {'segments': [
+        {'gold_name': 'MainTool',  'srcs': ['menumgr.asm', 'wcm.asm'],
+         'extern_srcs': [('PopUpProc', 0x030000, ['popupproc.asm'])]},
+        {'gold_name': 'PopUpProc', 'srcs': ['popupproc.asm']},
+    ]}),
     '016': ('ControlMgr', ['ControlMgr.asm', 'DefProcs.asm', 'NewControl2.asm',
                            'SuperControl.asm', 'StatTextProc.asm', 'PicProc.asm']),
     '020': ('LineEdit',   ['le.asm', 'LineEditProc.asm']),
     '021': ('DialogMgr',  ['dialog.asm']),
-    '022': ('Scrap',      ['scrap.asm']),
+    '022': ('Scrap',      ['scrap.asm', 'common.asm']),
     '027': ('FontMgr',    ['fm.asm', 'scale.asm']),
     '028': ('ListMgr',    ['ListMgr.asm']),
 }
@@ -73,11 +95,99 @@ def flat(seg):
     return bytes(out)
 
 
-def golden(tool):
+def _open_gold(tool):
+    """Return raw bytes of the gold binary for this tool, or None."""
     for cand in (f'{BIN}/Tool{tool}#BA0000', f'{BIN}/Tool{tool}'):
         if os.path.exists(cand):
-            return de_express(cand)
+            return open(cand, 'rb').read()
     return None
+
+
+def golden(tool):
+    """Return flat de_express'd code image for simple single-segment tools."""
+    raw = _open_gold(tool)
+    if raw is None:
+        return None
+    return de_express(raw)
+
+
+def _gold_segment(raw_bytes, gold_name):
+    """Extract the LCONST image of one named segment from an ExpressLoad binary."""
+    off = 0
+    while off < len(raw_bytes):
+        h = omf.parse_header(raw_bytes[off:])
+        bc = h['BYTECNT']
+        if bc == 0:
+            break
+        nm = h['SEGNAME'].decode('mac_roman', 'replace').strip().rstrip('\x00')
+        if nm == gold_name:
+            recs, _ = omf.parse_records(raw_bytes[off:off + bc], h['DISPDATA'],
+                                        h.get('NUMLEN', 4), h.get('LABLEN', 0))
+            return b''.join(r[2] for r in recs if r[1] in ('CONST', 'LCONST'))
+        off += bc
+    return None
+
+
+def _assemble_objects(srcs, subdir):
+    """Assemble a list of source paths (relative to TB/subdir) into OMF objects."""
+    objects = []
+    for r in srcs:
+        a = asm.assemble(f'{TB}/{subdir}/{r}', INCS)
+        obj = omf.emit(a)
+        objects.append((obj, a))
+    return objects
+
+
+def _compute_externs(srcs, subdir, base):
+    """Assemble srcs and compute their exported symbol addresses at given base."""
+    asm_segs_list = []
+    for r in srcs:
+        a = asm.assemble(f'{TB}/{subdir}/{r}', INCS)
+        asm_segs_list.append(a)
+
+    externs = {}
+    cur_base = base
+    for a in asm_segs_list:
+        asm_segs = [s for s in a.segs if s.items or s.name]
+        seg_bases = []
+        for seg in asm_segs:
+            seg_bases.append(cur_base)
+            sz = 0
+            for it in seg.items:
+                if it[0] == 'code':
+                    sz += len(it[2])
+                elif it[0] == 'ds' and isinstance(it[1], int):
+                    sz += it[1]
+            cur_base += sz
+        for lab, v in a.symbols.items():
+            sg_idx = a.symseg.get(lab)
+            if sg_idx is None or not isinstance(v, int):
+                continue
+            if sg_idx < 0 or sg_idx >= len(asm_segs):
+                continue
+            seg_base = seg_bases[sg_idx]
+            seg_org = asm_segs[sg_idx].org or 0
+            abs_val = (v & 0xFFFFFF) if seg_org else ((seg_base + v) & 0xFFFFFF)
+            externs[lab.upper()] = abs_val
+    return externs
+
+
+def _lconst_image(linked_bytes):
+    """Extract the flat LCONST code image from a merged linkiigs result."""
+    img = bytearray()
+    off = 0
+    while off < len(linked_bytes):
+        h = omf.parse_header(linked_bytes[off:])
+        bc = h['BYTECNT']
+        if bc == 0:
+            break
+        recs, _ = omf.parse_records(linked_bytes[off:off + bc], h['DISPDATA'],
+                                    h.get('NUMLEN', 4), h.get('LABLEN', 0))
+        for r in recs:
+            if r[1] in ('CONST', 'LCONST'):
+                img += r[2]
+        off += bc
+    return bytes(img)
 
 
 def link_module(roots):
@@ -96,26 +206,72 @@ def link_module(roots):
 
     # linkiigs.link builds the full symbol table and resolves all relocs
     result = linkiigs.link(objects, opts={'merge': True})
+    return _lconst_image(result)
 
-    # Extract the code image from the merged load segment
-    img = bytearray()
-    off = 0
-    while off < len(result):
-        h = omf.parse_header(result[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        recs, _ = omf.parse_records(result[off:off + bc], h['DISPDATA'],
-                                    h.get('NUMLEN', 4), h.get('LABLEN', 0))
-        for r in recs:
-            if r[1] in ('CONST', 'LCONST'):
-                img += r[2]
-        off += bc
-    return bytes(img)
+
+def _check_multiseg(tool, subdir, seg_specs, verbose=False):
+    """Check a multi-segment tool: each segment compared independently."""
+    raw = _open_gold(tool)
+    if raw is None:
+        return tool, subdir, None, "no golden binary"
+
+    tot_m = tot_n = 0
+    tot_mine = tot_gold = 0
+    first_diff_info = None
+
+    for seg_spec in seg_specs:
+        gold_name = seg_spec['gold_name']
+        srcs = seg_spec['srcs']
+        extern_specs = seg_spec.get('extern_srcs', [])
+
+        g_seg = _gold_segment(raw, gold_name)
+        if g_seg is None:
+            continue
+
+        # Build extern overrides from any declared extern segments
+        externs = {}
+        for _xname, xbase, xsrcs in extern_specs:
+            externs.update(_compute_externs(xsrcs, subdir, xbase))
+
+        try:
+            objs = _assemble_objects(srcs, subdir)
+            result = linkiigs.link(objs, opts={'merge': True, 'extern': externs})
+            mine_seg = _lconst_image(result)
+        except Exception as e:
+            return tool, subdir, None, f"{type(e).__name__}: {e}"
+
+        n = min(len(mine_seg), len(g_seg))
+        diffs_i = [i for i in range(n) if mine_seg[i] != g_seg[i]]
+        m = n - len(diffs_i)
+        tot_m += m
+        tot_n += n
+        tot_mine += len(mine_seg)
+        tot_gold += len(g_seg)
+
+        if verbose and diffs_i and first_diff_info is None:
+            i = diffs_i[0]
+            first_diff_info = (gold_name, i, mine_seg[i], g_seg[i],
+                               mine_seg[max(0,i-4):i+8], g_seg[max(0,i-4):i+8])
+
+    pct = (100 * tot_m // tot_n) if tot_n else 0
+    if verbose:
+        print(f"Tool{tool} ({subdir}): gsasm={tot_mine} gold={tot_gold} "
+              f"match {tot_m}/{tot_n} ({pct}%)")
+        if first_diff_info:
+            gn, i, mi, gi, m_ctx, g_ctx = first_diff_info
+            print(f"  first diff in {gn!r} @ {i:#06x}: gsasm={mi:02x} gold={gi:02x}")
+            print(f"    gsasm {m_ctx.hex()}")
+            print(f"    gold  {g_ctx.hex()}")
+    return tool, subdir, (pct, tot_m, tot_n, tot_mine, tot_gold), None
 
 
 def check(tool, verbose=False):
-    subdir, roots = TOOLMAP[tool]
+    entry = TOOLMAP[tool]
+    subdir, spec = entry
+    if isinstance(spec, dict):
+        return _check_multiseg(tool, subdir, spec['segments'], verbose=verbose)
+
+    roots = spec
     g = golden(tool)
     if g is None:
         return tool, subdir, None, "no golden binary"
