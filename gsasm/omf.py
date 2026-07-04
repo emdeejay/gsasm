@@ -178,10 +178,17 @@ def _mul_reloc_expr(asm, text, segname):
     """Try to decompose `text` as (SEGNAME + rel) * N + K for a single label in
     the current ORG segment with coefficient N != 0,1. Returns expression ops
     bytes (without the end-of-expr 0x00) or None."""
+    # Classifier over linear_decompose — keeps same scope tests and emit bytes.
+    # Scope: exactly one relocatable symbol (label/import/equ), coeff > 1,
+    # symbol value in the current ORG'd segment.
     import re as _re
     from . import expr as _expr
     if asm._rseg is None:
         return None
+    # Candidate: single identifier with sym_kind in ('label', 'equ')
+    # (equates in an ORG segment alias absolute addresses and must be treated
+    # as potentially relocatable — linear_decompose excludes equates from terms
+    # since they are constants, so we handle them here with finite difference).
     idents = list(dict.fromkeys(
         _re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
     reloc = [i for i in idents if asm.sym_kind(i) in ('label', 'equ')]
@@ -191,6 +198,7 @@ def _mul_reloc_expr(asm, text, segname):
     Lval = (asm.resolve(L) or 0) & 0xFFFFFF
     if not _in_org_seg(asm, Lval):
         return None
+    # Coefficient via finite difference (same as original)
     def _res(n, bump=0):
         return (Lval + bump) if n.upper() == L.upper() else asm.resolve(n)
     V = _expr.try_eval(text, lambda n: _res(n, 0), asm.loc)
