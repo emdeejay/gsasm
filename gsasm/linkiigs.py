@@ -143,6 +143,11 @@ def link(objects: list[tuple[bytes, Any | None]],
         opts = {}
 
     merge: bool = bool(opts.get('merge', True))
+    # Defer #^/>>16 high-word shifts to a load-time SUPER type-27 reloc — correct
+    # ONLY when the output is ExpressLoad'd (default, as tools/FSTs/drivers are).
+    # A fully-resolved consumer (the kernel: linkiigs -> MakeBin/catenate, no
+    # ExpressLoad) must resolve the shift now, so it passes defer_shifts=False.
+    defer_shifts: bool = bool(opts.get('defer_shifts', True))
     base_org: int = opts.get('org') or 0
     kind: int = opts.get('kind', 0)
     loadname: bytes = opts.get('loadname', b'main')
@@ -329,7 +334,7 @@ def link(objects: list[tuple[bytes, Any | None]],
     # ------------------------------------------------------------------
     bodies: list[bytes] = []
     for placed_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
-        recs2, _srels = _defer_shifts(recs)   # defer #^/>>16 to load-time relocs
+        recs2 = _defer_shifts(recs)[0] if defer_shifts else recs
         oi = placed_obj_idx[placed_i]
         # Local sym: global table overridden by this object's own GLOBALs.
         # This ensures e.g. WDefProc's JSR PUSHRECT resolves to WDefProc's

@@ -332,7 +332,9 @@ def _link_groups(group_segs: list[dict],
                  extern: dict | None = None) -> bytes:
     """Link selected segment dicts into a flat code image."""
     combined = b''.join(s['raw'] for s in group_segs)
-    opts: dict = {'merge': True}
+    # The kernel is a fully-resolved image (MakeBin/catenate, no ExpressLoad), so
+    # #^/>>16 high-word shifts must resolve here, not defer to a load-time reloc.
+    opts: dict = {'merge': True, 'defer_shifts': False}
     if extern:
         opts['extern'] = extern
     linked = _lnk.link([(combined, None)], opts=opts)
