@@ -38,6 +38,7 @@ fix must be re-validated with work/buildrom.py + objcheck + linkcheck.
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from gsasm import asm, omf, link, linkiigs
+from gsasm.expressload import de_express
 
 SRC = 'ref/GSOS_6/IIGS.601.SRC'
 TB  = SRC + '/GSToolbox'
@@ -70,25 +71,6 @@ def flat(seg):
         elif it[0] == 'ds':
             out += b'\x00' * it[1]
     return bytes(out)
-
-
-def de_express(path):
-    """Concatenated CONST/LCONST code image of a (possibly ExpressLoad'd) tool."""
-    d = open(path, 'rb').read()
-    off = 0
-    img = bytearray()
-    while off < len(d):
-        h = omf.parse_header(d[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        nm = h['SEGNAME'].decode('mac_roman', 'replace').strip()
-        if not nm.startswith('~ExpressLoad'):
-            recs, _ = omf.parse_records(d[off:off + bc], h['DISPDATA'],
-                                        h.get('NUMLEN', 4), h.get('LABLEN', 0))
-            img += b''.join(r[2] for r in recs if r[1] in ('CONST', 'LCONST'))
-        off += bc
-    return bytes(img)
 
 
 def golden(tool):
