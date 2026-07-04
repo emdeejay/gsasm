@@ -42,7 +42,7 @@ assumes (OMF primer, golden-binary layout, validation harness, gotchas).
 | M0 | ROM 03 firmware (256K, 3 banks) | `work/romsrc/GS_ROM` (GSFirmware+GSToolbox, ROM-03 back-port) | gsasm + `linkrom` + ROM makebin | ✅ **byte-exact** (`work/buildrom.py`) |
 | M1 | `System/Tools/ToolNNN` (13+ toolsets) | `ref/GSOS_6/IIGS.601.SRC/GSToolbox` | gsasm + M2 + **M4** | 🟡 **80%** (`work/toolcheck.py`); dispatch table solved, WindMgr sizing fixed |
 | M2 | general OMF load-file linker | — | `gsasm/linkiigs.py` | ✅ **done** (merged; no regression, segmented mode ready for M4) |
-| M3 | MakeBin/Overlay/catenate | — | `gsasm/makebin.py` | ✅ **done** — `prodos` 99% (`work/probootcheck.py`) |
+| M3 | MakeBin/Overlay/catenate | — | `gsasm/makebin.py` | ✅ **done** — `prodos` **100% byte-exact** (`work/probootcheck.py`) |
 | M4 | ExpressLoad relinker | `GS.OS/Loader/ExpressLoad/ExpressLoad.src` (spec!) | — | 🔓 **unblocked** (M2 segmented mode ready); design: `docs/design/expressload.md` |
 | M5 | `System/FSTs/*` (8), `System/Drivers/*` (~17) | `GS.OS/FSTs`, `GS.OS/{Drivers,SupervisoryDrivers}` | gsasm + M2 (+M3 for flat drivers) | ⬜ |
 | M6 | `GS.OS`, `Start.GS.OS`, `P8`, `prodos`, `ERROR.MSG` | `GS.OS/{OS,Loader,Boot,P8}` | gsasm + M2 + M3 + M4 | ⬜ |
