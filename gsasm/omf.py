@@ -149,29 +149,26 @@ def _linear_reloc(asm, text):
     exactly ONE relocatable label with coefficient +1 — e.g.
     `Purgemask-ZombieRetry-1` -> ('Purgemask', -4) when ZombieRetry is a constant
     equate. Returns None when there isn't exactly one reloc label, the value can't
-    be computed, or the label's coefficient isn't +1 (subtraction of the label)."""
-    import re as _re
-    from . import expr as _expr
-    # Use negative lookbehind to avoid matching hex-literal digits (e.g. 'C' in '$5C')
-    idents = list(dict.fromkeys(_re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
-    reloc = [i for i in idents
-             if asm.sym_kind(i) in ('label', 'import') or _undef_external(asm, i)]
-    if len(reloc) != 1:
+    be computed, or the label's coefficient isn't +1 (subtraction of the label).
+
+    Classifier over linear_decompose: exactly one term, coeff +1, no PC term."""
+    dec = linear_decompose(asm, text)
+    if dec is None:
         return None
-    L = reloc[0]
+    terms, K, pc_coeff = dec
+    # exactly one relocatable symbol, coefficient +1, no PC term
+    if len(terms) != 1 or pc_coeff != 0:
+        return None
+    L, coeff = next(iter(terms.items()))
+    if coeff != 1:
+        return None
+    # Undefined externals: linear_decompose assigns them value 0, so K = V.
+    # But _linear_reloc requires the label to have a known value (Lval is not None).
     Lval = asm.resolve(L)
-    if Lval is None:                           # undefined external -> can't size
+    if Lval is None:
         return None
-    V = asm.evaluate(text)
-    if V is None:
-        return None
-    # coefficient of L must be +1: re-evaluate with L bumped by 0x100
-    def res2(n):
-        return Lval + 0x100 if n.upper() == L.upper() else asm.resolve(n)
-    V2 = _expr.try_eval(text, res2, asm.loc)
-    if V2 is None or (V2 - V) != 0x100:
-        return None
-    return (L, V - Lval)
+    # addend = K (linear_decompose already accounts for Lval in K computation)
+    return (L, K)
 
 
 def _mul_reloc_expr(asm, text, segname):
