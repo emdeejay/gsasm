@@ -77,7 +77,8 @@ DBIN  = 'ref/GSOS_6/driver_bin'
 
 # Include path: Common first (has common.equ.src / hw.equ.src / driver.equ.src),
 # then every GS.OS subdir (so per-driver equate files are reachable).
-INCS = [CMN] + [d for d, _, _ in os.walk(GSOS)]
+INCS = ([CMN] + [d for d, _, _ in os.walk(GSOS)]
+        + [os.path.join(os.path.dirname(os.path.abspath(__file__)), 'includes')])
 
 # SCSI shared source files (shared by HD/CD/Scan/Tape with different -d type=N)
 _SCSI_SHARED = [

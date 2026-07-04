@@ -56,7 +56,8 @@ FBIN = 'ref/GSOS_6/fst_bin'
 
 # Include path: Common first (has common.equ.src / hw.equ.src / driver.equ.src),
 # then every GS.OS subdir (so per-FST equate files are reachable).
-INCS = [CMN] + [d for d, _, _ in os.walk(GSOS)]
+INCS = ([CMN] + [d for d, _, _ in os.walk(GSOS)]
+        + [os.path.join(os.path.dirname(os.path.abspath(__file__)), 'includes')])
 
 # FST shipping-name -> (source-subdir, [source-files], {defines}, packaging)
 # packaging: 'expressload' for all (determined by parsing golden OMF headers)
