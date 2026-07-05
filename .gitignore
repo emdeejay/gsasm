@@ -22,3 +22,4 @@ work/*.img
 
 # reference materials (copyrighted Apple disk images, PDFs, ROM files)
 ref/
+.claude/
