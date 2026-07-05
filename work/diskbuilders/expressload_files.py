@@ -177,8 +177,23 @@ def _build_tool019():
 
 
 def _build_tool020():
-    # LineEdit — from toolcheck.TOOLMAP['020']
-    return _build_tool('lineedit', ['le.asm', 'common.asm', 'LineEditProc.asm'])
+    # LineEdit — multi-segment: TheTool (le+common, KIND=0x0000) + TheProc (LineEditProc, KIND=0x4000)
+    # Makefile: -lseg TheTool le.asm.obj common.asm.obj; -lseg:dynamic TheProc LineEditProc.asm.obj
+    LE = f'{_TB}/lineedit'
+    incs = _TOOL_INCS
+    combo0 = b''
+    for r in ['le.asm', 'common.asm']:
+        a = asm.assemble(f'{LE}/{r}', incs)
+        combo0 += omf.emit(a)
+    a_proc = asm.assemble(f'{LE}/lineeditproc.asm', incs)
+    return expressload(
+        [(combo0, None), (omf.emit(a_proc), a_proc)],
+        opts={
+            'multiseg': True,
+            'segnames': [b'TheTool', b'TheProc'],
+            'segkinds':  [0x0000, 0x4000],
+        },
+    )
 
 
 def _build_tool021():
