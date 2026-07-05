@@ -1,0 +1,278 @@
+"""diskbuilders/expressload_files.py — M8 ExpressLoad'd file builders.
+
+Wires builders for every ExpressLoad'd tool, FST, and driver on the System Disk.
+Each builder returns the FULL on-disk file bytes (the ExpressLoad'd OMF), NOT the
+de-ExpressLoad'd code image the *check.py harnesses compare.
+
+Recipe for each file:
+    objects = [(omf.emit(asm.assemble(src, INCS)), asm_obj) for src in module_list]
+    full_file = gsasm.expressload.expressload(objects, opts)
+
+Module lists and INCS are taken directly from toolcheck.TOOLMAP/INCS,
+fstcheck.FSTMAP/INCS, and drivercheck.DRIVERMAP/INCS — do NOT edit those files.
+
+Discovered object lists for tools not in TOOLMAP (from makefile link order):
+  Tool018 (QDAux/qdaux):
+      qdaux.asm, faces.asm, icon.asm, special.slabs.asm, common.asm,
+      copybits.asm, pics.asm, pixel.asm, text.asm, slabs.asm,
+      seedfill.asm, PixelMap2Rgn.aii
+      (multi-segment ExpressLoad with MAINPart + Pictures + CopyBits + SeedFill
+       + PixelMap2Rgn; expressload() currently emits single-segment, so size
+       will differ from the 28874-byte gold — wired as residual)
+
+  Tool019 (printmgr):
+      printmgr.asm, dialogdata.asm
+
+  Tool023 (stdfile):
+      sfmain.asm, sf.asm
+
+  Tool025 (notesynth):
+      note.exec.aii, alloc.aii, noteon.aii, noteoff.aii, update.aii,
+      freq.aii, tables.aii
+
+  Tool034 (textedit):
+      highlevel.aii, block.aii, defproc.aii, draw.aii, entry.aii,
+      fastdraw.aii, format.aii, idle.aii, key.aii, measure.aii,
+      memory.aii, record.aii, scrap.aii, scroll.aii, selection.aii,
+      super.aii, text.aii, width.aii, wrap.aii
+"""
+import os
+import sys
+
+# Ensure gsasm is importable (diskcheck already prepends sys.path, but be safe)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_WORK = os.path.dirname(_HERE)
+_REPO = os.path.dirname(_WORK)
+for _p in (_REPO, _WORK):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+from gsasm import asm, omf
+from gsasm.expressload import expressload
+
+# ---------------------------------------------------------------------------
+# Source trees — mirrors exactly what toolcheck/fstcheck/drivercheck use
+# ---------------------------------------------------------------------------
+_SRC  = 'ref/GSOS_6/IIGS.601.SRC'
+_TB   = _SRC + '/GSToolbox'
+_FW   = _SRC + '/GSFirmware'
+_GSOS = _SRC + '/GS.OS'
+_CMN  = _GSOS + '/Common'
+
+# Tool INCS (from toolcheck.INCS)
+_TOOL_INCS = (
+    [d for d, _, _ in os.walk(_TB)]
+    + [d for d, _, _ in os.walk(_FW)]
+    + ['work/includes']
+)
+
+# FST / Driver INCS (from fstcheck.INCS / drivercheck.INCS)
+_GOS_INCS = (
+    [_CMN]
+    + [d for d, _, _ in os.walk(_GSOS)]
+    + ['work/includes']
+)
+
+
+def _build_tool(subdir, srcs, defines=None):
+    """Assemble srcs (relative to _TB/subdir), link, and expressload."""
+    objects = []
+    for r in srcs:
+        a = asm.assemble(f'{_TB}/{subdir}/{r}', _TOOL_INCS, defines=defines or None)
+        obj = omf.emit(a)
+        objects.append((obj, a))
+    return expressload(objects)
+
+
+def _build_fst(subdir, srcs, defines=None):
+    """Assemble srcs (relative to _GSOS/subdir), link, and expressload."""
+    fst_dir = f'{_GSOS}/{subdir}'
+    incs = [fst_dir] + _GOS_INCS
+    objects = []
+    for r in srcs:
+        a = asm.assemble(f'{fst_dir}/{r}', incs, defines=defines or None)
+        obj = omf.emit(a)
+        objects.append((obj, a))
+    return expressload(objects)
+
+
+def _build_driver(subdir, srcs, defines=None):
+    """Assemble srcs (relative to _GSOS/subdir), link, and expressload."""
+    drv_dir = f'{_GSOS}/{subdir}'
+    incs = [drv_dir] + _GOS_INCS
+    objects = []
+    for r in srcs:
+        a = asm.assemble(f'{drv_dir}/{r}', incs, defines=defines or None)
+        obj = omf.emit(a)
+        objects.append((obj, a))
+    return expressload(objects)
+
+
+# ---------------------------------------------------------------------------
+# Tool builders — from toolcheck.TOOLMAP + discovered unmapped tools
+# ---------------------------------------------------------------------------
+
+def _build_tool014():
+    # WindMgr — from toolcheck.TOOLMAP['014']
+    return _build_tool('windmgr', [
+        'windmgr.asm', 'task.asm', 'NewCalls.asm', 'WDefProc.asm',
+        'WCtlDef.asm', 'WMPatch.asm', '../MenuMgr/wcm.asm',
+    ])
+
+
+def _build_tool015():
+    # MenuMgr — multi-segment (MainTool + PopUpProc); build flat for now.
+    # Full multi-segment expressload is pending the multi-seg HET path.
+    return _build_tool('menumgr', ['menumgr.asm', 'wcm.asm', 'popupproc.asm'])
+
+
+def _build_tool016():
+    # ControlMgr — from toolcheck.TOOLMAP['016']
+    return _build_tool('controlmgr', [
+        'ControlMgr.asm', 'SuperControl.asm', 'NewControl2.asm',
+        'DefProcs.asm', 'CtlPatch.asm', 'DummyDrag.asm',
+        'StatTextProc.asm', 'PicProc.asm',
+    ])
+
+
+def _build_tool018():
+    # QDAux (qdaux) — multi-segment in gold (MAINPart + CopyBits + Pictures +
+    # SeedFill + PixelMap2Rgn).  expressload() emits single-segment for now.
+    # Makefile link order (from qdaux/makefile):
+    #   MAINPart: qdaux.asm, faces.asm, icon.asm, special.slabs.asm,
+    #             common.asm, copybits.asm(@MAINPart)
+    #   Pictures: pics.asm, pixel.asm, text.asm, slabs.asm
+    #   CopyBits: copybits.asm(@CopyBits)  [second segment of copybits]
+    #   SeedFill: seedfill.asm
+    #   PixelMap2Rgn: PixelMap2Rgn.aii
+    # Wire as single-segment flat build; will differ in size from the 28874-byte
+    # multi-segment gold — caught as residual.
+    return _build_tool('qdaux', [
+        'qdaux.asm', 'faces.asm', 'icon.asm', 'special.slabs.asm',
+        'common.asm', 'copybits.asm', 'pics.asm', 'pixel.asm', 'text.asm',
+        'slabs.asm', 'seedfill.asm', 'PixelMap2Rgn.aii',
+    ])
+
+
+def _build_tool019():
+    # PrintMgr (printmgr) — from printmgr/makefile
+    return _build_tool('printmgr', ['printmgr.asm', 'dialogdata.asm'])
+
+
+def _build_tool020():
+    # LineEdit — from toolcheck.TOOLMAP['020']
+    return _build_tool('lineedit', ['le.asm', 'common.asm', 'LineEditProc.asm'])
+
+
+def _build_tool021():
+    # DialogMgr — from toolcheck.TOOLMAP['021']
+    return _build_tool('dialogmgr', ['dialog.asm'])
+
+
+def _build_tool022():
+    # Scrap — from toolcheck.TOOLMAP['022']
+    return _build_tool('scrap', ['scrap.asm', 'common.asm'])
+
+
+def _build_tool023():
+    # StandardFile (stdfile) — from stdfile/makefile
+    # Link order: SFMain.asm.obj (sfmain.asm) then sf.asm.obj (sf.asm)
+    return _build_tool('stdfile', ['sfmain.asm', 'sf.asm'])
+
+
+def _build_tool025():
+    # NoteSynth (notesynth) — from notesynth/makefile
+    return _build_tool('notesynth', [
+        'note.exec.aii', 'alloc.aii', 'noteon.aii', 'noteoff.aii',
+        'update.aii', 'freq.aii', 'tables.aii',
+    ])
+
+
+def _build_tool027():
+    # FontMgr — from toolcheck.TOOLMAP['027']
+    return _build_tool('fontmgr', ['fm.asm', 'common.asm', 'scale.asm'])
+
+
+def _build_tool028():
+    # ListMgr — from toolcheck.TOOLMAP['028']
+    return _build_tool('listmgr', ['ListMgr.asm'])
+
+
+def _build_tool034():
+    # TextEdit (textedit) — from textedit/MakeFile
+    return _build_tool('textedit', [
+        'highlevel.aii', 'block.aii', 'defproc.aii', 'draw.aii',
+        'entry.aii', 'fastdraw.aii', 'format.aii', 'idle.aii',
+        'key.aii', 'measure.aii', 'memory.aii', 'record.aii',
+        'scrap.aii', 'scroll.aii', 'selection.aii', 'super.aii',
+        'text.aii', 'width.aii', 'wrap.aii',
+    ])
+
+
+# ---------------------------------------------------------------------------
+# FST builders — from fstcheck.FSTMAP (System Disk entries only)
+# ---------------------------------------------------------------------------
+
+def _build_char_fst():
+    # Character FST — fstcheck.FSTMAP['Char.FST']
+    return _build_fst('FSTs/Character', ['Character.FST'], {})
+
+
+def _build_pro_fst():
+    # ProDOS FST — fstcheck.FSTMAP['Pro.FST']
+    return _build_fst('FSTs/ProDOS', ['ProDOS.FST'], {'DEBUGSYMBOLS': 0})
+
+
+# ---------------------------------------------------------------------------
+# Driver builders — from drivercheck.DRIVERMAP (System Disk entries only)
+# ---------------------------------------------------------------------------
+
+def _build_appledisk35():
+    # AppleDisk3.5 — drivercheck.DRIVERMAP['AppleDisk3.5']
+    return _build_driver('Drivers/AppleDisk3.5', ['AD3.5.src'], {})
+
+
+def _build_appledisk525():
+    # AppleDisk5.25 — drivercheck.DRIVERMAP['AppleDisk5.25']
+    return _build_driver('Drivers/AppleDisk5.25', ['AppleDisk5.25.src'], {})
+
+
+def _build_console_driver():
+    # Console.Driver — drivercheck.DRIVERMAP['Console.Driver']
+    return _build_driver('Drivers/Console.Driver',
+                         ['Console.aii', 'New.DRI.Patch'],
+                         {'Library': 0})
+
+
+# ---------------------------------------------------------------------------
+# Public entry point — auto-discovered by diskcheck.diskbuilders.load()
+# ---------------------------------------------------------------------------
+
+def builders(V):
+    """Return {disk_path: callable() -> bytes} for all ExpressLoad'd files.
+
+    V is the volume prefix, e.g. '/System.Disk'.
+    """
+    return {
+        # Tools
+        f'{V}/System/Tools/Tool014': _build_tool014,
+        f'{V}/System/Tools/Tool015': _build_tool015,
+        f'{V}/System/Tools/Tool016': _build_tool016,
+        f'{V}/System/Tools/Tool018': _build_tool018,
+        f'{V}/System/Tools/Tool019': _build_tool019,
+        f'{V}/System/Tools/Tool020': _build_tool020,
+        f'{V}/System/Tools/Tool021': _build_tool021,
+        f'{V}/System/Tools/Tool022': _build_tool022,
+        f'{V}/System/Tools/Tool023': _build_tool023,
+        f'{V}/System/Tools/Tool025': _build_tool025,
+        f'{V}/System/Tools/Tool027': _build_tool027,
+        f'{V}/System/Tools/Tool028': _build_tool028,
+        f'{V}/System/Tools/Tool034': _build_tool034,
+        # FSTs
+        f'{V}/System/FSTs/Char.FST':  _build_char_fst,
+        f'{V}/System/FSTs/Pro.FST':   _build_pro_fst,
+        # Drivers
+        f'{V}/System/Drivers/AppleDisk3.5':   _build_appledisk35,
+        f'{V}/System/Drivers/AppleDisk5.25':  _build_appledisk525,
+        f'{V}/System/Drivers/Console.Driver': _build_console_driver,
+    }
