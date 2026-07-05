@@ -161,6 +161,14 @@ def _build_prodos():
 SOURCE_BUILDERS = {
     f'{V}/ProDOS': _build_prodos,           # 1668/1668 exact — first disk-ready file
 }
+# Per-category builders live in the diskbuilders/ package (auto-discovered), one
+# module per category, so they can be developed in parallel without colliding on
+# this file. Each module exposes `builders(V) -> {disk_path: callable() -> bytes}`.
+try:
+    import diskbuilders
+    SOURCE_BUILDERS.update(diskbuilders.load(V))
+except Exception:                           # missing/partial package is non-fatal
+    pass
 
 
 def build_and_overlay(vol, f):
