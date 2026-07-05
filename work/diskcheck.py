@@ -181,10 +181,13 @@ def build_and_overlay(vol, f):
     if len(content) != f.data_eof:
         return False, f'len {len(content)} != EOF {f.data_eof}'
     original = vol.read_file(f.path)                    # logical compare (pre-overlay)
-    logical_ok = (content == original)
-    overlay(vol, f, content)                            # raises on sparse/len error
-    return logical_ok, ('logical-exact' if logical_ok
-                        else f'logical differs at {_first_diff(content, original)}')
+    if content != original:
+        # Contract step 6 requires the overlaid image to stay byte-identical, so a
+        # non-exact build is NOT overlaid (that would make the image worse than
+        # substitution). It is reported as a residual worklist item instead.
+        return False, f'logical differs at {_first_diff(content, original)}'
+    overlay(vol, f, content)                            # only a byte-exact build
+    return True, 'logical-exact'
 
 
 def _first_diff(a, b):
@@ -213,9 +216,10 @@ def check(disk_path=SYSTEM_DISK, verbose=False, min_built=0):
         if f.owner == BUILD and f.path in SOURCE_BUILDERS:
             ok, note = build_and_overlay(vol, f)
             built_ok += 1
-            built_bytes += f.data_eof
-            built_logical += (1 if ok else 0)
-            if not ok:
+            if ok:                                       # source-built AND byte-exact
+                built_logical += 1
+                built_bytes += f.data_eof
+            else:
                 notes.append(f'    {f.path}: {note}')
 
     recon = bytes(buf)
