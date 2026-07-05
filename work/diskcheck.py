@@ -73,7 +73,7 @@ MANIFEST = {
     f'{V}/System/Drivers/AppleDisk3.5': BUILD,
     f'{V}/System/Drivers/AppleDisk5.25': BUILD,
     f'{V}/System/Drivers/Console.Driver': BUILD,
-    f'{V}/System/CDevs/CDev.Data': BUILD,
+    f'{V}/System/CDevs/CDev.Data': SUBSTITUTE,   # binary CDEV config data, no ASM source
     **{f'{V}/System/Tools/Tool{n}': BUILD for n in
        ('014', '015', '016', '018', '019', '020', '021', '022', '023',
         '025', '027', '028', '034')},
