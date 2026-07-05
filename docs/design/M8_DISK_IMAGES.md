@@ -44,21 +44,32 @@ byte-for-byte against cadius and real disks (it recreates *Total Replay*, 32 MB 
 `scandir` (catalog), `_resolve_fork`/`_blocks_for` (a file's data-block list),
 `_write_block` (the raw overlay).
 
-## The harness — `work/diskcheck.py` (skeleton done)
-Modeled on `buildrom.py`. Validated on the System Disk:
-- **Catalog**: 50 files; **27 ours (ASM)**, 23 substitute; **81% of data bytes
-  source-buildable** (403,806 / 496,145).
-- **Round-trip** (all-substitute reconstruction): **byte-identical, 819264/819264**.
-- **Overlay is byte-clean**: overlaying all 27 ours-files with their *original*
-  content leaves the image byte-identical (proves the mechanism writes only data
-  blocks; the one subtlety — **sparse blocks return block 0 and must be skipped**,
-  their data is zero and unstored — is handled).
+## The harness — `work/diskcheck.py` (skeleton done, review-hardened)
+Modeled on `buildrom.py`. Validated on the System Disk, and hardened per the
+M8 second-chair review (`M8_SECOND_CHAIR_REPORT.md`):
+- **Explicit manifest, not a type heuristic**: each path is owned `build` / `rez`
+  (resource-forked → M7) / `substitute` / `out-of-scope`; an on-disk file absent
+  from the manifest **fails the inventory**. Catalog: 50 files → **build 29, rez 9,
+  substitute 11, oos 1**.
+- **Fork-aware metrics** (three numbers, not one): data-fork 662,792 B,
+  resource-fork 107,002 B; **BUILD data-fork 465,579 (70%)** source-buildable.
+  (The earlier "81%" used the directory-entry EOF, which is the 512-byte extended
+  key for forked files — a wrong denominator.)
+- **Round-trip** (no builders): **byte-identical, 819264/819264** — a smoke test,
+  NOT a rebuild proof.
+- **Overlay is byte-clean AND asserts sparse-zero**: sparse logical blocks return
+  block 0; the overlay skips them *and requires the built bytes there to be zero*
+  (else a bad build could be masked — Pro.FST/GS.OS/Start have sparse blocks).
+- **Builder contract** (`build_and_overlay`): `len == data-fork EOF`, logical
+  compare `content == read_file` **before** overlay, then physical byte-identity;
+  `--min-built N` gates built-byte coverage so it can't silently be zero.
 
 Commands:
 ```
-python3 work/diskcheck.py             # inventory + byte-match round-trip
-python3 work/diskcheck.py -v          # per-file OURS/subst listing
+python3 work/diskcheck.py             # inventory + fork-aware metrics + round-trip
+python3 work/diskcheck.py -v          # per-file manifest listing
 python3 work/diskcheck.py --selftest  # prove overlay byte-cleanliness
+python3 work/diskcheck.py --min-built N   # CI: fail below N built-bytes
 ```
 
 ## Scope: in-scope (build) vs substitute (System Disk)
