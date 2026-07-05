@@ -70,15 +70,21 @@ def parse_super(seg_bytes: bytes) -> dict[int, list[int]]:
 
 
 def _decode_page_list(page_list: bytes | bytearray) -> list[int]:
-    """Decode a SUPER page-list, returning a sorted list of patch byte offsets."""
+    """Decode a SUPER page-list, returning a sorted list of patch byte offsets.
+
+    Format (matching the GS/OS Loader implementation):
+      - A byte with bit7=1 is a skip header: advance cur_page by (b & 0x7f) pages.
+      - A byte with bit7=0 is a count header: (b & 0x7f)+1 offset bytes follow for
+        cur_page, then cur_page advances by 1.
+    """
     offsets: list[int] = []
     cur_page = 0
     i = 0
     while i < len(page_list):
         b = page_list[i]; i += 1
         if b & 0x80:
-            # Skip (b & 0x7f) + 1 pages
-            cur_page += (b & 0x7f) + 1
+            # Skip (b & 0x7f) pages — note: no +1; matches loader behaviour exactly.
+            cur_page += b & 0x7f
         else:
             # (b & 0x7f) + 1 offset bytes follow for patches in cur_page
             cnt = (b & 0x7f) + 1
@@ -120,11 +126,12 @@ def _encode_page_list(sorted_offsets: list[int]) -> bytes:
     out = bytearray()
     cur_page = 0
     for page in sorted(pages):
-        # Emit skip bytes if needed
+        # Emit skip bytes if needed: each skip byte can advance at most 127 pages
+        # (7-bit field); no +1 adjustment — matches the GS/OS Loader decoder exactly.
         skip = page - cur_page
         while skip > 0:
-            chunk = min(skip, 128)  # skip count fits in 7 bits + 1
-            out.append(0x80 | (chunk - 1))
+            chunk = min(skip, 127)   # 7-bit field: max value 127
+            out.append(0x80 | chunk)
             skip -= chunk
             cur_page += chunk
 
@@ -214,12 +221,24 @@ def _get_shift(ops: list) -> int:
     return 0
 
 
+def _has_sym_ref(ops: list) -> bool:
+    """Return True if *ops* contains at least one symbol reference (sym* tuple).
+
+    Pure-literal expressions (e.g. ``[('lit', 40), 'end']``) resolve to a
+    compile-time constant and never need a load-time SUPER relocation.
+    """
+    return any(isinstance(op, tuple) and op[0].startswith('sym') for op in ops)
+
+
 def _scan_relocs(
         placed: list[tuple[str, list, int, dict, Any]],
 ) -> dict[int, list[int]]:
     """Scan LEXPR/BEXPR/EXPR records in all placed segments and return
     ``{super_type: sorted_list_of_absolute_byte_offsets}``
     (absolute = seg_base + body_offset_within_seg).
+
+    Only expressions that contain a symbol reference are included; pure
+    literals are constant at link time and require no load-time relocation.
     """
     relocs: dict[int, list[int]] = {}
     for _segname, recs, seg_base, _hdr, _asm in placed:
@@ -232,10 +251,11 @@ def _scan_relocs(
             elif nm in ('LEXPR', 'BEXPR', 'EXPR'):
                 size = d[0]
                 ops  = d[1]
-                shift = _get_shift(ops)
-                stype = _SUPER_TYPE.get((size, shift))
-                if stype is not None:
-                    relocs.setdefault(stype, []).append(seg_base + body_off)
+                if _has_sym_ref(ops):
+                    shift = _get_shift(ops)
+                    stype = _SUPER_TYPE.get((size, shift))
+                    if stype is not None:
+                        relocs.setdefault(stype, []).append(seg_base + body_off)
                 body_off += size
             elif nm == 'RELEXPR':
                 body_off += d[0]
@@ -598,8 +618,8 @@ def _make_output_seg(
     out_dispname = 44
     out_dispdata = out_dispname + 10 + len(sname_field)
 
-    # BANKSIZE: 0x10000 for static (KIND=0x0000), 0 for dynamic/special
-    banksize = 0x10000 if (out_kind & 0xFF00) == 0 else 0
+    # BANKSIZE: 0x10000 for all ExpressLoad output segments (all gold EL files use this).
+    banksize = 0x10000
 
     # LCONST record
     lconst_rec      = bytes([0xF2]) + struct.pack('<I', len(merged_body)) + merged_body
@@ -762,6 +782,24 @@ def expressload(
     segnames_opt: list[bytes] = list(opts.get('segnames') or [])
     segkinds_opt: list[int]   = list(opts.get('segkinds') or [])
 
+    # Build the group boundary table: group_idx -> (base_abs, end_abs).
+    # Used to classify cross-group references when building SUPER type-2 records.
+    # We need to know, for each non-empty object group, its absolute start address.
+    group_obj_indices: list[int] = []   # oi values of non-empty groups, in order
+    group_bases: list[int] = []         # absolute base of each non-empty group
+    for oi in range(n_objs):
+        indices = placed_by_obj[oi]
+        if indices:
+            group_obj_indices.append(oi)
+            group_bases.append(placed[indices[0]][2])
+
+    def _group_of(abs_addr: int) -> int:
+        """Return the group index (0-based into group_bases) that abs_addr belongs to."""
+        for g in range(len(group_bases) - 1, -1, -1):
+            if abs_addr >= group_bases[g]:
+                return g
+        return 0
+
     # For each object group, merge its placed segments' bodies and collect relocs.
     out_groups: list[dict] = []
     group_out_idx = 0   # index into out_groups (may differ from oi if some objects are empty)
@@ -770,28 +808,128 @@ def expressload(
         if not indices:
             continue
 
-        # Merge bodies for this group
         group_placed = [placed[idx] for idx in indices]
-        group_bodies = [bodies[idx] for idx in indices]
+        group_base = group_placed[0][2]  # absolute base of this group's first segment
+        group_g    = group_out_idx       # 0-based group index (= position in out_groups)
 
-        # Compute segment-relative reloc offsets.
-        # The placed bases are global (from 0 across all objects).
-        # For multi-seg, each output seg's reloc table must encode offsets
-        # relative to the START of that group's merged body.
-        group_base = group_placed[0][2]  # seg_base of first placed seg in this group
+        # Build bodies with group-base symbol adjustment.
+        # Segments in group G (G > 0) have their seg_base in the joint address space,
+        # but the loader will load group G at its own base 0.  Subtract group_base from
+        # all symbol values so within-group EXPRs evaluate to group-relative addresses.
+        if group_base > 0:
+            def _adj(v: Any, gb: int = group_base) -> Any:
+                return (v - gb) if isinstance(v, int) else v
+            adj_sym = {k: _adj(v) for k, v in sym.items()}
+            og = obj_globals[oi]
+            adj_og: dict | None = ({k: _adj(v) for k, v in og.items()} if og else None)
+        else:
+            adj_sym = sym
+            adj_og  = obj_globals[oi]
 
-        # Collect relocs for this group, subtracting the group base to get group-relative offsets.
-        group_relocs_raw = _scan_relocs(group_placed)
-        group_relocs = {
-            stype: [off - group_base for off in offs]
-            for stype, offs in group_relocs_raw.items()
-        }
+        group_bodies: list[bytes] = []
+        for placed_i in indices:
+            _segname, recs, seg_base, _hdr, _asm = placed[placed_i]
+            recs2, _srels = _linkiigs._defer_shifts(recs)
+            local_sym = adj_sym if not adj_og else {**adj_sym, **adj_og}
+            # Adjust seg_base to be group-relative (subtract group_base).
+            adj_seg_base = seg_base - group_base
+            group_bodies.append(_link._build_body(recs2, local_sym, adj_seg_base))
 
         merged = b''.join(group_bodies)
+        merged_arr = bytearray(merged)   # mutable — may be patched for type-2 relocs
+
+        # Collect raw relocs (absolute joint addresses) for this group's segments.
+        # _scan_relocs returns joint absolute offsets; we need group-relative offsets.
+        # Also detect cross-group interseg references (type-2) from type-1 relocs.
+        # And correct bank-byte SUPER type (type-27/28/...) based on target group.
+        group_relocs_raw = _scan_relocs(group_placed)
+
+        final_relocs: dict[int, list[int]] = {}
+        for stype, abs_offs in group_relocs_raw.items():
+            for abs_off in abs_offs:
+                rel_off = abs_off - group_base   # group-relative offset
+
+                if stype == 1:
+                    # 3-byte (type-1) reloc: check if target is in a different group.
+                    # At this point merged_arr has group-base–adjusted code, so we must
+                    # read the target from the UN-adjusted body.  The target in
+                    # merged_arr[rel_off:rel_off+2] is the group-relative address AFTER
+                    # adjustment; the original joint address = rel_target + group_base.
+                    rel_target = (merged_arr[rel_off] | (merged_arr[rel_off + 1] << 8))
+                    joint_target = rel_target + group_base
+                    tgt_group = _group_of(joint_target)
+                    if tgt_group != group_g:
+                        # Cross-group: encode as SUPER type-2 (INTERSEG, FileNum=1,
+                        # SegNum = target group's output segnum).
+                        tgt_group_base = group_bases[tgt_group]
+                        tgt_segnum     = tgt_group + 2   # segnum 2 = first load seg
+                        off_in_tgt = joint_target - tgt_group_base
+                        # Patch the 3 bytes in the merged code image.
+                        merged_arr[rel_off]     = off_in_tgt & 0xFF
+                        merged_arr[rel_off + 1] = (off_in_tgt >> 8) & 0xFF
+                        merged_arr[rel_off + 2] = tgt_segnum
+                        final_relocs.setdefault(2, []).append(rel_off)
+                    else:
+                        final_relocs.setdefault(1, []).append(rel_off)
+
+                elif stype == 27:
+                    # Bank-byte reloc: type = 25 + target_output_segnum.
+                    # Determine which segment's bank byte this references by looking
+                    # up the EXPR's symbol value in the joint symbol table.
+                    # The body has been group-adjusted, so the stored 2-byte value is
+                    # (sym_joint_value - group_base) >> 16 — usually 0 for relocs
+                    # within the address space.  We need the JOINT value to classify.
+                    # Walk the records to find the EXPR at abs_off.
+                    sym_joint: int | None = None
+                    for placed_i in indices:
+                        _sn2, recs2_raw, sb2, _h2, _a2 = placed[placed_i]
+                        recs2_d, _ = _linkiigs._defer_shifts(recs2_raw)
+                        body_off2 = 0
+                        for _, nm2, d2 in recs2_d:
+                            if nm2 == 'END':
+                                break
+                            if nm2 in ('CONST', 'LCONST'):
+                                body_off2 += len(d2)
+                            elif nm2 in ('LEXPR', 'BEXPR', 'EXPR'):
+                                if sb2 + body_off2 == abs_off:
+                                    # Evaluate expression WITHOUT shift to get joint addr
+                                    ops2 = d2[1]
+                                    # Extract symbol name and look up in joint sym
+                                    for op2 in ops2:
+                                        if isinstance(op2, tuple) and op2[0].startswith('sym'):
+                                            sname2 = op2[1]
+                                            # Try joint sym then obj_globals
+                                            jv = sym.get(sname2)
+                                            if jv is None:
+                                                og2 = obj_globals[oi]
+                                                jv = og2.get(sname2) if og2 else None
+                                            if isinstance(jv, int):
+                                                sym_joint = jv
+                                            break
+                                body_off2 += d2[0]
+                            elif nm2 == 'RELEXPR':
+                                body_off2 += d2[0]
+                            elif nm2 == 'DS':
+                                body_off2 += d2
+                        if sym_joint is not None:
+                            break
+
+                    if sym_joint is not None:
+                        tgt_group = _group_of(sym_joint)
+                        tgt_segnum = tgt_group + 2
+                        corrected_type = 25 + tgt_segnum
+                    else:
+                        corrected_type = 27  # fallback
+                    final_relocs.setdefault(corrected_type, []).append(rel_off)
+
+                else:
+                    final_relocs.setdefault(stype, []).append(rel_off)
+
+        merged = bytes(merged_arr)
 
         super_records = bytearray()
-        for stype in sorted(group_relocs):
-            super_records += emit_super(stype, group_relocs[stype])
+        for stype in sorted(final_relocs):
+            super_records += emit_super(stype, sorted(final_relocs[stype]))
         super_records += b'\x00'   # END
 
         reloc_size_val = len(super_records) - 1
