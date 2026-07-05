@@ -679,6 +679,23 @@ class Asm:
             return '1' if (args and self.evaluate(args[0]) is not None) else '0'
         if u == 'TYPE':
             return 'INT'
+        # &ORD(expr): return the integer value of expr.
+        # If expr is a relocatable numeric expression (e.g. *, a label),
+        # return its absolute integer value.  If expr is a one-character
+        # string expression, return the ASCII code of that character.
+        # (MPW Assembler Reference Ch.6: "&ORD: Return integer value")
+        if u == 'ORD':
+            a = args[0] if args else ''
+            # Try as an assembler numeric expression first
+            v = self.evaluate(a)
+            if v is not None:
+                return str(v & 0xFFFFFF)   # absolute value (truncate to 24-bit)
+            # Fall back: strip quotes, treat as character constant
+            s = _unquote(a)
+            if len(s) == 1:
+                return str(ord(s))
+            # Empty or multi-char: return 0
+            return '0'
         # &sysdate / &systime: the assembler's build date / time. AsmIIgs
         # formats these as dd-Mon-yy / hh:mm:ss.  The exact value is a
         # module-level constant (set at Asm construction time) so harnesses
@@ -1076,8 +1093,8 @@ class Asm:
             # ---- WHILE..ENDWHILE macro-time loop ----
             if op == 'WHILE':
                 if emitting():
-                    cond = re.sub(r'\bDO\s*$', '', pre.operand, flags=re.I)
-                    if not self.eval_cond(cond, raw=True):
+                    while_cond = re.sub(r'\bDO\s*$', '', pre.operand, flags=re.I)
+                    if not self.eval_cond(while_cond, raw=True):
                         i = while_end.get(i - 1, i - 1) + 1   # skip the loop body
                 continue
             if op == 'ENDWHILE':
@@ -1351,12 +1368,27 @@ class Asm:
 
         # record (structure) templates: fields are offsets, emit no bytes
         if u == 'RECORD':
-            # `Name RECORD <offset>` = a field-offset TEMPLATE (no emission).
-            # `Name RECORD` (no operand) = a named DATA SEGMENT that emits its
-            # contents (e.g. RomDataMgr ROMDataArea / TranslateTable); its labels
-            # are real data labels, KIND = data.
-            if ln.operand and ln.operand.strip():
-                op = ln.operand.strip()
+            # Syntax (MPW Assembler Reference Ch.4, p.64/76):
+            #
+            #   [name] RECORD [ENTRY|EXPORT] [, INCR|DECR]   -> data-segment (emitting)
+            #   [name] RECORD [ENTRY|EXPORT]                  -> data-segment (emitting)
+            #    name  RECORD  offset  [, INCR|DECR]          -> template (non-emitting)
+            #    name  RECORD  IMPORT                         -> template (non-emitting)
+            #    name  RECORD  {origin}                       -> template (non-emitting)
+            #    name  RECORD  (no operand)                   -> data-segment (emitting)
+            #
+            # Disambiguate: if the first token of the operand is ENTRY, EXPORT, or
+            # INCR/DECR (possibly preceded by a comma), it's a data-segment RECORD.
+            # Otherwise it's a numeric-base template RECORD.
+            op_raw = (ln.operand or '').strip()
+            # Check if the operand (ignoring INCR/DECR suffix) begins with ENTRY/EXPORT
+            _op_first = op_raw.split(',')[0].strip().upper() if op_raw else ''
+            _is_data_seg = (not op_raw) or (_op_first in ('ENTRY', 'EXPORT', 'INCR', 'DECREMENT',
+                                                          'INCREMENT', 'DECR'))
+            if op_raw and not _is_data_seg:
+                # Template (field-offset) RECORD:
+                # strip optional trailing ,INCR|DECR modifier
+                op = op_raw
                 dec = False
                 if ',' in op:                      # `base,increment|decrement`
                     base_txt, mod = op.split(',', 1)
@@ -1374,6 +1406,10 @@ class Asm:
                     self.define_label(ln.label, base, kind='equ')
                 self.cur_record = ln.label
             else:
+                # Data-segment RECORD (no operand, or ENTRY/EXPORT operand):
+                # Emits its contents as a named OMF data segment.
+                # EXPORT -> private=False (exported); ENTRY -> also public.
+                exported = _op_first in ('ENTRY', 'EXPORT')
                 self.record_stack.append((self.loc, self.emit_enabled,
                                           self.cur_record, True, self._record_dec))
                 self._record_dec = False
@@ -1382,10 +1418,10 @@ class Asm:
                 cur = self.segs[-1]
                 if cur.name is None and not cur.items:
                     cur.name = name; cur.loadname = 'main'; cur.is_data = True
-                    cur.private = True
+                    cur.private = not exported
                 else:
                     seg = Segment(name, 'main', None, len(self.segs) + 1)
-                    seg.is_data = True; seg.private = True
+                    seg.is_data = True; seg.private = not exported
                     self.segs.append(seg)
                 if ln.label:
                     self.define_label(ln.label, self.loc)
