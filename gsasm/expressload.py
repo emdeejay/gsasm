@@ -251,6 +251,32 @@ def _scan_relocs(
 # ~ExpressLoad HET (Header Entry Table) LCONST builder
 # ---------------------------------------------------------------------------
 
+def _make_suffix_template(kind: int, segnum: int, dispname: int = 44) -> bytes:
+    """Build the 42-byte suffix template for one output segment's HET entry.
+
+    The full template is:
+      [0..1]   = 0x0000
+      [2]      = NUMLEN = 4
+      [3]      = VERSION = 2
+      [4..5]   = 0x0000
+      [6]      = 0x01
+      [7]      = 0x00
+      [8..9]   = KIND as LE 16-bit word
+      [10..21] = 12 zero bytes
+      [22..25] = SEGNUM as LE dword
+      [26..27] = 0x0000
+      [28..31] = DISPNAME as LE dword
+      [32..41] = 10 zero bytes
+    """
+    return (bytes([0, 0, 4, 2, 0, 0, 1, 0])
+            + struct.pack('<H', kind)
+            + bytes(12)
+            + struct.pack('<I', segnum)
+            + bytes(2)
+            + struct.pack('<I', dispname)
+            + bytes(10))
+
+
 def _build_het_lconst(
         segs: list[dict],
         seg_file_offsets: list[int],
@@ -272,74 +298,252 @@ def _build_het_lconst(
     -------
     bytes
         The HET LCONST payload (not including the LCONST opcode/count prefix).
+
+    HET layout (byte-exact match against gold ExpressLoad binaries):
+
+    N = number of load segments.
+
+    Offset 0..5    : 6-byte header: [0..3]=0, [4..5]=N-1 LE word
+    Offset 6..6+N*8-1 : extra_block, N items of 8 bytes each:
+                       item[i] = [entry_ptr_i (LE dword), 0x00000000]
+                       entry_ptr_i = absolute offset of entry_i within HET
+    Offset 6+N*8 .. 10*N-1 : pre-section segnums (only if N>3):
+                       max(0, N-3) * 2 bytes = first N-3 SEGNUMs as LE words
+    Offset 10*N onward: entry bodies, structured as described below.
+
+    Entry bodies (chained suffix-spill design):
+    - entry_1: [segnums(6)] [code_start(4)] [length(4)] [reloc_start(4)]
+               [reloc_size(4)] [partial_suffix_1 bytes]
+    - entry_i (2..N-1): [spill_{i} bytes] [name_len(1)] [prev_name]
+               [code_start(4)] [length(4)] [reloc_start(4)] [reloc_size(4)]
+               [partial_suffix_i bytes]
+    - entry_N: [spill_N bytes] [name_len(1)] [prev_name_N-1]
+               [code_start(4)] [length(4)] [reloc_start(4)] [reloc_size(4)]
+               [full_suffix_42 bytes] [name_N_len(1)] [name_N bytes]
+
+    The "42-byte suffix template" for segment j encodes KIND, SEGNUM, DISPNAME.
+    Each intermediate entry emits a prefix of this template; the remainder
+    spills into the NEXT entry's prefix area.
+
+    Entry1 partial suffix bytes = 37 (N>=3), 36 (N=2), or 42 (N=1).
+    Intermediate entry_i size = 59 + 2*(KIND_i == 0x0002).
     """
-    nseg = len(segs)
+    N = len(segs)
 
     # ---- 6-byte HET header ----
-    # [0..3] = 0x00000000 (reserved)
-    # [4..5] = nseg - 1 (word, 0 for single-segment tools)
-    header = struct.pack('<I', 0) + struct.pack('<H', nseg - 1)
+    header = struct.pack('<I', 0) + struct.pack('<H', N - 1)
 
-    # ---- Per-segment entry bodies (68 bytes each) + names ----
-    # Field layout (0-indexed within the 68-byte body):
-    #   [0]       = 0x0a for nseg=1; differs for multi-seg (see below)
-    #   [8..9]    = segnum (word)
-    #   [10..13]  = code_start = file_off + DISPDATA + 5
-    #   [14..17]  = LENGTH
-    #   [18..21]  = reloc_start = code_start + LENGTH
-    #   [22..25]  = reloc_size = BYTECNT - DISPDATA - 5 - LENGTH - 1
-    #   [28]      = NUMLEN = 4
-    #   [29]      = VERSION = 2
-    #   [32]      = 0x01
-    #   [35]      = KIND >> 8
-    #   [48..51]  = segnum (4 bytes)
-    #   [54..57]  = DISPNAME (4 bytes) = 0x2c
-    #
-    # For nseg > 1, an extra 16-byte block is inserted before the entry bodies.
-    # Empirically (from Tool020): entries start at LCONST[22] for 2-seg tools,
-    # adding segnum_0 at [16..17], segnum_1 at [18..19], code_start_0 at [26..29].
-    # The extra 16 bytes hold the segment-count table used by setup_seg_ptrs.
+    if N == 1:
+        # ---- N=1: single-segment path (existing validated logic) ----
+        # The 'entry' block of 68 bytes starts at payload[6].
+        # Its first 8 bytes encode the extra_block item (ptr=10, zeros=0).
+        # The real entry body starts at payload[10].
+        seg_info = segs[0]
+        h        = seg_info['hdr']
+        foff     = seg_file_offsets[0]
+        body     = seg_info['body']
+        segnum   = h['SEGNUM']
+        kind     = h['KIND']
+        dispdata = h['DISPDATA']
+        length   = len(body)
+        dispname = h.get('DISPNAME', 44)
 
-    # Build each entry body
-    entry_bytes_list: list[bytes] = []
-    for i, seg_info in enumerate(segs):
-        h   = seg_info['hdr']
-        foff = seg_file_offsets[i]
-        body = seg_info['body']
-
-        segnum     = h['SEGNUM']
-        kind       = h['KIND']
-        dispdata   = h['DISPDATA']
-        length     = len(body)            # resolved body length
-        dispname   = h.get('DISPNAME', 44)
-
-        code_start  = foff + dispdata + 5  # file offset of first code byte
+        code_start  = foff + dispdata + 5
         reloc_start = code_start + length
-        # reloc_size = size of SUPER records + END byte
         reloc_size  = seg_info.get('reloc_size', 0)
 
         entry = bytearray(68)
-        # [0]: 0x0a for single-seg, varies for multi (set later)
-        entry[0]    = 0x0a
-        struct.pack_into('<H', entry, 8,  segnum)
+        entry[0] = 0x0a                              # entry_ptr lo byte (ptr=10)
+        struct.pack_into('<H', entry,  8, segnum)    # sn1 word (right-justified)
         struct.pack_into('<I', entry, 10, code_start)
         struct.pack_into('<I', entry, 14, length)
         struct.pack_into('<I', entry, 18, reloc_start)
         struct.pack_into('<I', entry, 22, reloc_size)
-        entry[28]   = 4          # NUMLEN
-        entry[29]   = 2          # VERSION
-        entry[32]   = 1          # constant
-        entry[35]   = (kind >> 8) & 0xFF   # KIND high byte
-        struct.pack_into('<I', entry, 48, segnum)
-        struct.pack_into('<I', entry, 54, dispname)
+        entry[28] = 4   # NUMLEN
+        entry[29] = 2   # VERSION
+        entry[32] = 1   # constant
+        # KIND as LE word at entry[34..35] (suffix offset 8..9 from entry body start)
+        struct.pack_into('<H', entry, 34, kind)
+        struct.pack_into('<I', entry, 48, segnum)    # SEGNUM dword
+        struct.pack_into('<I', entry, 54, dispname)  # DISPNAME dword
 
         name_bytes = h['SEGNAME'].rstrip(b'\x00')
-        entry_bytes_list.append(bytes(entry) + bytes([len(name_bytes)]) + name_bytes)
+        return header + bytes(entry) + bytes([len(name_bytes)]) + name_bytes
 
-    # For multi-segment tools the layout is more complex (extra 16-byte header
-    # block). For now we handle nseg=1 correctly; nseg>1 will need more work.
-    lconst = header + b''.join(entry_bytes_list)
-    return lconst
+    # ---- N>1: multi-segment path ----
+
+    # Build the 42-byte suffix template for each output segment.
+    templates = []
+    for seg_info in segs:
+        h = seg_info['hdr']
+        templates.append(_make_suffix_template(
+            h['KIND'], h['SEGNUM'], h.get('DISPNAME', 44)
+        ))
+
+    # Compute partial_suffix sizes for each entry.
+    # partial_suffix[0] = bytes of template[0] emitted in entry1
+    # spill[i+1]        = 42 - partial_suffix[i]
+    # partial_suffix[i] (2<=i<=N-2, intermediate) = entry_i_size - spill[i] - 1 - name_len[i-1] - 16
+    # entry_i_size for intermediate = 59 + 2*(KIND_i == 0x0002)
+
+    partial1 = 37 if N >= 3 else 36   # bytes of template[0] emitted in entry1
+
+    partial = [partial1]
+    spill = [0]   # spill[0] unused (entry1 has no prefix)
+
+    # Collect prev_name for each entry (the name embedded IN the entry = name of seg_{i-1})
+    # entry_2 embeds name of seg1, entry_3 embeds name of seg2, etc.
+    prev_names = []
+    for i in range(N):
+        prev_names.append(segs[i]['hdr']['SEGNAME'].rstrip(b'\x00'))
+
+    for i in range(1, N):    # i = 0-based entry index (entry i+1 in 1-based)
+        spill_i = 42 - partial[i - 1]
+        spill.append(spill_i)
+        if i < N - 1:
+            # Intermediate entry (1-based: entry_{i+1})
+            kind_i = segs[i]['hdr']['KIND']
+            entry_size = 59 + 2 * (kind_i == 0x0002)
+            name_len_prev = len(prev_names[i - 1])
+            partial_i = entry_size - spill_i - 1 - name_len_prev - 16
+            partial.append(partial_i)
+        # last entry: no partial to compute (emits full template + trailing name)
+
+    # Pre-section segnums (only for N>3): first N-3 SEGNUMs as LE words.
+    pre_section = bytearray()
+    if N > 3:
+        for i in range(N - 3):
+            sn = segs[i]['hdr']['SEGNUM']
+            pre_section += struct.pack('<H', sn)
+
+    # Entry1 segnums (last min(N,3) SEGNUMs, right-justified in 6 bytes):
+    # Gold format: 6 bytes with segnums packed at the RIGHT end.
+    # For N=2: bytes = [0x0000, sn0_LE16, sn1_LE16]
+    # For N=3: bytes = [sn0_LE16, sn1_LE16, sn2_LE16]
+    sn_count = min(N, 3)
+    segnums_bytes = bytearray(6)
+    pad_start = (3 - sn_count) * 2
+    for k in range(sn_count):
+        seg_k = segs[N - sn_count + k]
+        struct.pack_into('<H', segnums_bytes, pad_start + k * 2, seg_k['hdr']['SEGNUM'])
+
+    # Build entry bodies in sequence.
+    # We build the HET body bytes from offset 6+N*8 onward.
+    # The extra_block pointers must reference absolute HET offsets.
+    entry_body_parts: list[bytes] = []   # one element per entry
+    body_start_offsets: list[int] = []   # absolute HET offset of each entry's start
+
+    # Entry1 body start = 10*N
+    cur_offset = 10 * N
+
+    # ---- Entry 1 ----
+    seg1 = segs[0]
+    h1   = seg1['hdr']
+    foff1 = seg_file_offsets[0]
+    code_start1  = foff1 + h1['DISPDATA'] + 5
+    reloc_size1  = seg1.get('reloc_size', 0)
+    # When reloc_size=0, the gold stores reloc_start=0 as well.
+    reloc_start1 = (code_start1 + len(seg1['body'])) if reloc_size1 else 0
+
+    entry1 = bytearray()
+    entry1 += segnums_bytes                              # [0..5] segnums
+    entry1 += struct.pack('<I', code_start1)             # [6..9]
+    entry1 += struct.pack('<I', len(seg1['body']))       # [10..13]
+    entry1 += struct.pack('<I', reloc_start1)            # [14..17]
+    entry1 += struct.pack('<I', reloc_size1)             # [18..21]
+    entry1 += templates[0][:partial[0]]                  # partial suffix
+
+    body_start_offsets.append(cur_offset)
+    entry_body_parts.append(bytes(entry1))
+    cur_offset += len(entry1)
+
+    # ---- Entries 2..N-1 (intermediate) ----
+    for i in range(1, N - 1):
+        spill_i = spill[i]
+        seg_i   = segs[i]
+        h_i     = seg_i['hdr']
+        foff_i  = seg_file_offsets[i]
+        prev_name = prev_names[i - 1]
+
+        code_start_i  = foff_i + h_i['DISPDATA'] + 5
+        reloc_size_i  = seg_i.get('reloc_size', 0)
+        reloc_start_i = (code_start_i + len(seg_i['body'])) if reloc_size_i else 0
+
+        entry_i = bytearray()
+        entry_i += templates[i - 1][42 - spill_i:]      # spill from prev template
+        entry_i += bytes([len(prev_name)]) + prev_name  # prev seg name
+        entry_i += struct.pack('<I', code_start_i)
+        entry_i += struct.pack('<I', len(seg_i['body']))
+        entry_i += struct.pack('<I', reloc_start_i)
+        entry_i += struct.pack('<I', reloc_size_i)
+        entry_i += templates[i][:partial[i]]             # partial suffix
+
+        body_start_offsets.append(cur_offset)
+        entry_body_parts.append(bytes(entry_i))
+        cur_offset += len(entry_i)
+
+    # ---- Entry N (last) ----
+    spill_last = spill[N - 1]
+    seg_last   = segs[N - 1]
+    h_last     = seg_last['hdr']
+    foff_last  = seg_file_offsets[N - 1]
+    prev_name_last = prev_names[N - 2]
+    name_last  = prev_names[N - 1]
+
+    code_start_last  = foff_last + h_last['DISPDATA'] + 5
+    reloc_size_last  = seg_last.get('reloc_size', 0)
+    reloc_start_last = (code_start_last + len(seg_last['body'])) if reloc_size_last else 0
+
+    entry_last = bytearray()
+    entry_last += templates[N - 2][42 - spill_last:]     # spill from prev template
+    entry_last += bytes([len(prev_name_last)]) + prev_name_last  # prev seg name
+    entry_last += struct.pack('<I', code_start_last)
+    entry_last += struct.pack('<I', len(seg_last['body']))
+    entry_last += struct.pack('<I', reloc_start_last)
+    entry_last += struct.pack('<I', reloc_size_last)
+    entry_last += templates[N - 1]                        # full 42-byte suffix
+    entry_last += bytes([len(name_last)]) + name_last    # this seg's name
+
+    body_start_offsets.append(cur_offset)
+    entry_body_parts.append(bytes(entry_last))
+
+    # ---- Assemble final HET payload ----
+    # The HET layout after the 6-byte header:
+    #   - extra_block items at [6..6+N*8-1], each 8 bytes: [ptr_dword, 0x00000000]
+    #   - pre_section (N>3 only) at [6+N*8..]
+    #   - entry1 at [10*N..], body_start_offsets[0] = 10*N
+    #   - entry2, entry3, ... at successive offsets
+    #
+    # For N<3 the extra_block zone extends past entry1's start (by 2 bytes for
+    # N=2, 4 bytes for N=1 -- but N=1 is handled separately above).  The
+    # overlap bytes must be written consistently: extra_block's zero padding
+    # happens to equal entry1's segnums leading zeros, so both are zeros and
+    # there is no actual conflict.  We write everything into a flat buffer.
+
+    # Compute total HET size.
+    total = body_start_offsets[-1] + len(entry_body_parts[-1])
+    lconst = bytearray(total)
+
+    # Write header.
+    lconst[0:6] = header
+
+    # Write extra_block (ptr_dword then 4 zero bytes for each item).
+    for i, ptr in enumerate(body_start_offsets):
+        struct.pack_into('<I', lconst, 6 + i * 8, ptr)
+        # bytes [6+i*8+4 .. 6+i*8+7] remain zero (already zero in bytearray)
+
+    # Write pre_section (non-empty only for N>3).
+    if pre_section:
+        ps_start = 6 + N * 8
+        lconst[ps_start:ps_start + len(pre_section)] = pre_section
+
+    # Write entry bodies.
+    pos = body_start_offsets[0]   # = 10*N
+    for i, part in enumerate(entry_body_parts):
+        lconst[pos:pos + len(part)] = part
+        pos += len(part)
+
+    return bytes(lconst)
 
 
 def _build_express_seg(lconst_payload: bytes) -> bytes:
@@ -377,6 +581,45 @@ def _build_express_seg(lconst_payload: bytes) -> bytes:
 # Main entry point
 # ---------------------------------------------------------------------------
 
+def _make_output_seg(
+        out_name: bytes,
+        out_kind: int,
+        out_segnum: int,
+        merged_body: bytes,
+        super_records: bytes,
+) -> bytes:
+    """Build one OMF load segment from a resolved code body and SUPER records.
+
+    Returns the complete OMF segment bytes (header + body records).
+    ``super_records`` must already include the trailing END byte (0x00).
+    """
+    sname_field  = bytes([len(out_name)]) + out_name
+    out_load     = b'\x00' * 10
+    out_dispname = 44
+    out_dispdata = out_dispname + 10 + len(sname_field)
+
+    # BANKSIZE: 0x10000 for static (KIND=0x0000), 0 for dynamic/special
+    banksize = 0x10000 if (out_kind & 0xFF00) == 0 else 0
+
+    # LCONST record
+    lconst_rec      = bytes([0xF2]) + struct.pack('<I', len(merged_body)) + merged_body
+    full_body_bytes = lconst_rec + super_records
+
+    hdr = bytearray(44)
+    struct.pack_into('<I', hdr,  8, len(merged_body))   # LENGTH
+    hdr[14] = 4                                          # NUMLEN
+    hdr[15] = 2                                          # VERSION
+    struct.pack_into('<I', hdr, 16, banksize)            # BANKSIZE
+    struct.pack_into('<H', hdr, 20, out_kind)            # KIND
+    struct.pack_into('<H', hdr, 34, out_segnum)          # SEGNUM
+    struct.pack_into('<H', hdr, 40, out_dispname)        # DISPNAME
+    struct.pack_into('<H', hdr, 42, out_dispdata)        # DISPDATA
+
+    seg = bytearray(hdr) + out_load + sname_field + full_body_bytes
+    struct.pack_into('<I', seg, 0, len(seg))             # BYTECNT
+    return bytes(seg)
+
+
 def expressload(
         objects: list[tuple[bytes, Any | None]],
         opts: dict | None = None,
@@ -389,18 +632,39 @@ def expressload(
         Same as ``linkiigs.link(objects, …)`` — list of
         ``(obj_bytes, asm_or_None)`` pairs.
     opts
-        Passed to the internal linker.  ``merge`` is forced to ``False``
-        (segmented output is required).
+        Options dict.  Keys recognised:
+
+        ``merge``
+            Forced to ``False`` internally (segmented pass required).
+        ``multiseg``
+            If ``True`` and there are multiple input objects, produce one
+            output load segment per input object.  Defaults to ``False``
+            (original behavior: merge everything into a single ``'main'``
+            segment regardless of input-object count).
+        ``extern``
+            Pre-seeded externals passed to the internal linker.
+        ``kind``
+            KIND override for single-segment output.
+        ``segnames``
+            List of segment name overrides (bytes) for multi-segment output,
+            one per input object group.  If shorter than the number of groups,
+            remaining groups use the first placed segment's SEGNAME.
+        ``segkinds``
+            List of KIND overrides (int) for multi-segment output, one per
+            input object group.  If shorter than the number of groups,
+            remaining groups use the first placed segment's KIND.
 
     Returns
     -------
     bytes
-        An ExpressLoad OMF file: ``[~ExpressLoad seg] + [main seg] + …``
+        An ExpressLoad OMF file: ``[~ExpressLoad seg] + [load seg(s)] + …``
     """
     if opts is None:
         opts = {}
     # We must have segmented (not merged) output for the reloc scan.
     opts = dict(opts, merge=False)
+
+    multiseg: bool = opts.get('multiseg', False)
 
     # ------------------------------------------------------------------
     # Pass 1: parse inputs and place segments
@@ -419,15 +683,9 @@ def expressload(
     )
 
     # ------------------------------------------------------------------
-    # Pass 3: scan reloc records BEFORE resolving bodies
+    # Pass 3 / Pass 4: resolve each segment's body
     # ------------------------------------------------------------------
-    relocs_by_type = _scan_relocs(placed)
-
-    # ------------------------------------------------------------------
-    # Pass 4: resolve each segment's body
-    # ------------------------------------------------------------------
-    # Defer #^/>>16 high-word shifts to the SUPER type-27 relocs scanned above,
-    # so the LCONST stores the un-shifted placeholder (consistent with linkiigs).
+    # Defer #^/>>16 high-word shifts to SUPER type-27 relocs (consistent with linkiigs).
     bodies: list[bytes] = []
     for placed_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
         recs2, _srels = _linkiigs._defer_shifts(recs)
@@ -436,86 +694,169 @@ def expressload(
         bodies.append(_link._build_body(recs2, local_sym, seg_base))
 
     # ------------------------------------------------------------------
-    # Pass 5: merge all bodies into one flat code image (single main seg)
+    # Pass 5: group placed segments into output load segments
     # ------------------------------------------------------------------
-    # Tools are single-segment in ExpressLoad output (all segs merged into
-    # one big LCONST, same as merge=True linkiigs output).
-    merged_body = b''.join(bodies)
+    # Single-segment path: all input objects collapsed into one 'main' segment.
+    # Multi-segment path: one output segment per input object (when multiseg=True
+    # and there are multiple input objects).
 
-    # Build SUPER records
-    super_records = bytearray()
-    for stype in sorted(relocs_by_type):
-        super_records += emit_super(stype, relocs_by_type[stype])
-    super_records += b'\x00'   # END record
+    n_objs = len(objects)
+    use_multiseg = multiseg and n_objs > 1
 
-    # Build the main load segment.
-    # The merged output is always named 'main' (matching MPW LinkIIgs -t TOL output).
-    first_hdr = placed[0][3]
-    out_name = b'main'
-    out_load = b'\x00' * 10
-    out_kind = opts.get('kind') or first_hdr['KIND']
-    # DISPNAME and DISPDATA are the same as a standard _make_segment would build
-    sname_field = bytes([len(out_name)]) + out_name
-    out_dispname = 44
-    out_dispdata = out_dispname + 10 + len(sname_field)
+    if not use_multiseg:
+        # ---- Single-segment output (original behavior) ----
+        merged_body = b''.join(bodies)
 
-    # LCONST record for code image
-    lconst_rec = bytes([0xF2]) + struct.pack('<I', len(merged_body)) + merged_body
+        # Scan relocs over ALL placed segments.
+        relocs_by_type = _scan_relocs(placed)
+        super_records = bytearray()
+        for stype in sorted(relocs_by_type):
+            super_records += emit_super(stype, relocs_by_type[stype])
+        super_records += b'\x00'   # END record
 
-    # Full body records = LCONST + SUPERs + END (END already in super_records)
-    full_body_bytes = lconst_rec + bytes(super_records)
+        first_hdr   = placed[0][3]
+        out_name    = b'main'
+        out_kind    = opts.get('kind') or first_hdr['KIND']
+        reloc_size_val = len(super_records) - 1  # exclude trailing END byte
 
-    # Build header
-    hdr_main = bytearray(44)
-    struct.pack_into('<I', hdr_main,  8, len(merged_body))   # LENGTH
-    hdr_main[14] = 4                                          # NUMLEN
-    hdr_main[15] = 2                                          # VERSION
-    struct.pack_into('<I', hdr_main, 16, 0x10000)              # BANKSIZE=0x10000 (all gold EL files use this)
-    struct.pack_into('<H', hdr_main, 20, out_kind)            # KIND
-    struct.pack_into('<H', hdr_main, 34, 2)                   # SEGNUM=2
-    struct.pack_into('<H', hdr_main, 40, out_dispname)        # DISPNAME
-    struct.pack_into('<H', hdr_main, 42, out_dispdata)        # DISPDATA
+        main_seg_bytes = _make_output_seg(
+            out_name, out_kind, 2, merged_body, bytes(super_records)
+        )
 
-    main_seg = bytearray(hdr_main) + (out_load + b'\x00'*10)[:10] + sname_field + full_body_bytes
-    struct.pack_into('<I', main_seg, 0, len(main_seg))        # BYTECNT
+        # Parse back the output seg's DISPDATA for HET.
+        out_dispname = 44
+        sname_field  = bytes([len(out_name)]) + out_name
+        out_dispdata = out_dispname + 10 + len(sname_field)
 
-    # ------------------------------------------------------------------
-    # Pass 6: build ~ExpressLoad HET and directory segment
-    # ------------------------------------------------------------------
-    # We need the file offset of main_seg.  ~ExpressLoad seg comes first.
-    # Compute ~ExpressLoad BYTECNT first (depends on LCONST size).
-    # We'll do a two-pass: estimate, build, confirm.
+        het_input = [{
+            'hdr': {
+                'SEGNUM': 2,
+                'KIND': out_kind,
+                'DISPDATA': out_dispdata,
+                'DISPNAME': out_dispname,
+                'SEGNAME': out_name,
+            },
+            'body': merged_body,
+            'reloc_size': reloc_size_val,
+        }]
 
-    # reloc_size = size of SUPER records ONLY (excluding the 1-byte END record).
-    # The shipping ~ExpressLoad files store this field without the END byte.
-    reloc_size_val = len(super_records) - 1  # -1 to exclude trailing END byte
+        # Two-pass to fix up file offset.
+        lconst_payload0 = _build_het_lconst(het_input, [0])
+        express_bc      = len(_build_express_seg(lconst_payload0))
+        lconst_payload  = _build_het_lconst(het_input, [express_bc])
+        express_seg     = _build_express_seg(lconst_payload)
 
-    # ~ExpressLoad LCONST payload (HET)
-    het_input = [{
-        'hdr': {
-            'SEGNUM': 2,
-            'KIND': out_kind,
-            'DISPDATA': out_dispdata,
-            'DISPNAME': out_dispname,
-            'SEGNAME': out_name,   # b'main'
-            'LOADNAME': (out_load + b'\x00'*10)[:10],
-        },
-        'body': merged_body,
-        'reloc_size': reloc_size_val,
-    }]
-    # The ~ExpressLoad seg BYTECNT = len(_build_express_seg(lconst_payload))
-    # We need the file offset of main_seg, which = ~ExpressLoad BYTECNT.
-    # Bootstrap: first build with placeholder file_off=0, then fix.
-    lconst_payload0 = _build_het_lconst(het_input, [0])
-    express_seg0 = _build_express_seg(lconst_payload0)
-    express_bc = len(express_seg0)
+        assert len(express_seg) == express_bc, (
+            f'~ExpressLoad size changed: {len(express_seg)} != {express_bc}')
 
-    # Now rebuild with correct file offset
-    lconst_payload = _build_het_lconst(het_input, [express_bc])
-    express_seg = _build_express_seg(lconst_payload)
+        return bytes(express_seg) + main_seg_bytes
 
-    # Sanity check: express_bc should not have changed
+    # ---- Multi-segment output ----
+    # Build placed_by_obj: for each input object, collect its placed entries.
+    placed_by_obj: list[list[int]] = [[] for _ in range(n_objs)]
+    for placed_i in range(len(placed)):
+        oi = placed_obj_idx[placed_i]
+        placed_by_obj[oi].append(placed_i)
+
+    # Caller-supplied name/kind overrides (per output group, indexed by group output idx).
+    segnames_opt: list[bytes] = list(opts.get('segnames') or [])
+    segkinds_opt: list[int]   = list(opts.get('segkinds') or [])
+
+    # For each object group, merge its placed segments' bodies and collect relocs.
+    out_groups: list[dict] = []
+    group_out_idx = 0   # index into out_groups (may differ from oi if some objects are empty)
+    for oi in range(n_objs):
+        indices = placed_by_obj[oi]
+        if not indices:
+            continue
+
+        # Merge bodies for this group
+        group_placed = [placed[idx] for idx in indices]
+        group_bodies = [bodies[idx] for idx in indices]
+
+        # Compute segment-relative reloc offsets.
+        # The placed bases are global (from 0 across all objects).
+        # For multi-seg, each output seg's reloc table must encode offsets
+        # relative to the START of that group's merged body.
+        group_base = group_placed[0][2]  # seg_base of first placed seg in this group
+
+        # Collect relocs for this group, subtracting the group base to get group-relative offsets.
+        group_relocs_raw = _scan_relocs(group_placed)
+        group_relocs = {
+            stype: [off - group_base for off in offs]
+            for stype, offs in group_relocs_raw.items()
+        }
+
+        merged = b''.join(group_bodies)
+
+        super_records = bytearray()
+        for stype in sorted(group_relocs):
+            super_records += emit_super(stype, group_relocs[stype])
+        super_records += b'\x00'   # END
+
+        reloc_size_val = len(super_records) - 1
+
+        # Output segment metadata.
+        first_placed = group_placed[0]
+        first_hdr    = first_placed[3]
+        # Use caller-provided name/kind if available, else fall back to first seg's metadata.
+        if group_out_idx < len(segnames_opt):
+            out_name = segnames_opt[group_out_idx]
+        else:
+            out_name = first_hdr['SEGNAME'].rstrip(b'\x00') or b'main'
+        if group_out_idx < len(segkinds_opt):
+            out_kind = segkinds_opt[group_out_idx]
+        else:
+            out_kind = first_hdr['KIND']
+        out_segnum   = group_out_idx + 2   # SEGNUM starts at 2 (1 = ~ExpressLoad)
+
+        # Build the output OMF segment
+        seg_bytes = _make_output_seg(
+            out_name, out_kind, out_segnum, merged, bytes(super_records)
+        )
+
+        out_dispname = 44
+        sname_field  = bytes([len(out_name)]) + out_name
+        out_dispdata = out_dispname + 10 + len(sname_field)
+
+        out_groups.append({
+            'hdr': {
+                'SEGNUM': out_segnum,
+                'KIND': out_kind,
+                'DISPDATA': out_dispdata,
+                'DISPNAME': out_dispname,
+                'SEGNAME': out_name,
+            },
+            'body': merged,
+            'reloc_size': reloc_size_val,
+            'seg_bytes': seg_bytes,
+        })
+        group_out_idx += 1
+
+    N = len(out_groups)
+
+    # Two-pass to resolve ~ExpressLoad file offset.
+    # First pass: compute ~ExpressLoad BYTECNT using placeholder offsets.
+    # The output segments follow ~ExpressLoad in order.
+    placeholder_offsets = [0] * N
+    lconst0   = _build_het_lconst(out_groups, placeholder_offsets)
+    express0  = _build_express_seg(lconst0)
+    express_bc = len(express0)
+
+    # Compute actual file offsets: express_seg | out_groups[0] | out_groups[1] | ...
+    file_offsets = []
+    cum = express_bc
+    for g in out_groups:
+        file_offsets.append(cum)
+        cum += len(g['seg_bytes'])
+
+    lconst    = _build_het_lconst(out_groups, file_offsets)
+    express_seg = _build_express_seg(lconst)
+
     assert len(express_seg) == express_bc, (
-        f"~ExpressLoad segment size changed: {len(express_seg)} != {express_bc}")
+        f'~ExpressLoad size changed: {len(express_seg)} != {express_bc}')
 
-    return bytes(express_seg) + bytes(main_seg)
+    result = bytearray(express_seg)
+    for g in out_groups:
+        result += g['seg_bytes']
+    return bytes(result)
