@@ -227,6 +227,7 @@ class Segment:
         self.org = org                # explicit ORG address, or None
         self.segnum = segnum
         self.private = False          # KIND 0x4000 (PROC without EXPORT)
+        self.absolute = org is not None  # in an ORG'd absolute region (ORG-flow)
         self.is_data = False          # data segment (KIND data bit 0x01) — a
         self.items = []               #   no-operand RECORD..ENDR
         self.exports = []             # (name, kind, value)
@@ -644,15 +645,24 @@ class Asm:
             return s[start-1:start-1+length]
         if u in ('I2S', 'INTTOSTR'):
             v = self.evaluate(args[0]) or 0
-            # &I2S(value [, minwidth [, fmt]]): fmt==1 -> hex (zero-padded to
-            # minwidth); otherwise decimal. (1-arg form is decimal.)
-            if len(args) >= 3:
-                width = self.evaluate(args[1]) or 0
-                fmt = self.evaluate(args[2]) or 0
-                if fmt == 1 or fmt == 16:
-                    s = format(v & 0xFFFFFFFF, 'X')
-                    return s.rjust(width, '0') if width else s
-            return str(v)
+            # &I2S(value [, width [, fmt]]): fmt in {1,16} -> hex, else decimal.
+            # `width` is a minimum field width, zero-filled to |width| digits
+            # (a value needing more digits keeps them all). MPW uses the sign of
+            # width to pick zero- vs blank-fill, but every gsasm-corpus use is
+            # zero-filled — positive hex EQUSECTPC widths (`,6,1`) and negative
+            # decimal/hex widths (`&i2s(&minor,-2)`, `,-4,1`) alike.
+            width = self.evaluate(args[1]) if len(args) > 1 else 0
+            fmt = self.evaluate(args[2]) if len(args) > 2 else 0
+            if fmt == 1 or fmt == 16:
+                s = format(v & 0xFFFFFFFF, 'X')
+            else:
+                s = str(v)
+            if width:
+                neg = s.startswith('-')
+                body = s[1:] if neg else s
+                body = body.rjust(abs(width) - (1 if neg else 0), '0')
+                s = '-' + body if neg else body
+            return s
         if u == 'S2I':
             return str(self.evaluate(args[0]) or 0)
         if u == 'FINDSYM':
@@ -1608,7 +1618,22 @@ class Asm:
                 if mod_part.strip().lower() in ('skip', 'noskip'):
                     org_expr = base_part.strip()
             org = self.evaluate(org_expr)
-        self.loc = org if org is not None else 0
+        # ORG-flow (MPW AsmIIgs absolute location counter): an origin set by a
+        # `PROC ORG` continues through the *following* non-ORG PROCs until the
+        # next ORG. The kernel's `org_dummy PROC ORG addr / ENDP` anchors set an
+        # absolute region; the real code PROCs after them inherit the running
+        # address, so their labels are absolute (GQuit e1_end/e1_mslot at
+        # $E1Dxxx; SCM/Init/Cache segments). A relocatable module (no ORG
+        # anywhere) never enters absolute mode, so each PROC still restarts at 0
+        # — ROM firmware (every PROC ORG'd) and toolbox (none ORG'd) are both
+        # byte-for-byte unaffected.
+        absolute = org is not None or self.segs[-1].absolute
+        if org is not None:
+            self.loc = org
+        elif not absolute:
+            self.loc = 0
+        else:
+            org = self.loc      # flow: this PROC's absolute base = running addr
         name = (ln.label or '').upper()
         loadname = self.pending_loadname or 'main'
         self.pending_loadname = None
@@ -1622,10 +1647,10 @@ class Asm:
         cur = self.segs[-1]
         if cur.name is None and not cur.items:
             cur.name = name; cur.loadname = loadname; cur.org = org
-            cur.private = private
+            cur.private = private; cur.absolute = absolute
         else:
             seg = Segment(name, loadname, org, len(self.segs) + 1)
-            seg.private = private
+            seg.private = private; seg.absolute = absolute
             self.segs.append(seg)
         if ln.label:
             self.define_label(ln.label, self.loc)

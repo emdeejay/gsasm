@@ -175,6 +175,11 @@ GQUIT_FLAT_SIZES = {
     # seg_e1 and seg_e0 have no end padding (skip/noskip bug prevents ORG eval)
 }
 
+# The date this GS/OS 6.0.1 build was assembled, as stamped by AsmIIgs into
+# `&SysDate` expansions (verDate banner in GQuit).  Extracted from the shipping
+# Start.GS.OS copyright string ("...Inc.  06-May-93   All rights reserved.").
+BUILD_SYSDATE = '06-May-93'
+
 
 # ---------------------------------------------------------------------------
 # Golden extraction
@@ -328,6 +333,15 @@ def _code_image(linked_bytes: bytes) -> bytes:
     return bytes(img)
 
 
+def _full_symtab(asm) -> dict[str, int]:
+    """Return {NAME: value} for every resolved symbol in an assembled module.
+
+    Used to seed a group-isolated link with the module's full (cross-group)
+    symbol table, mirroring linkOS resolving all segments together.
+    """
+    return {k: v for k, v in asm.symbols.items() if isinstance(v, int)}
+
+
 def _link_groups(group_segs: list[dict],
                  extern: dict | None = None) -> bytes:
     """Link selected segment dicts into a flat code image."""
@@ -393,17 +407,19 @@ def _build_header_content(header_segs: list[dict],
             if seg['org']:
                 seg_start_addr = seg['org']
                 break
-        # Find all end-group label names (segnames of empty procs with ORG=0).
+        # Find all end-group label names (segnames of empty end-marker procs).
         # e.g. SEG_0_END -> placed at seg_start_addr + len(content_bytes)
         if seg_start_addr is not None:
             end_addr = seg_start_addr + len(content_bytes)
             for seg in end_segs:
                 seg_org = seg.get('org', 0) or 0
-                if seg_org == 0:
-                    # Empty proc with no ORG: placed at seg_start + content_len
+                # The seg_N_end marker has no explicit ORG: it reads as org 0
+                # (ORG-flow off) or, under ORG-flow, inherits the empty pad's
+                # address (== seg_start_addr).  The seg_N_overflow marker carries
+                # an explicit `org seg_N_max` (> seg_start), so it is excluded —
+                # it's a fixed-address bound, not the content end.
+                if seg_org == 0 or seg_org == seg_start_addr:
                     hdr_extern[seg['segname'].upper()] = end_addr
-                # Segs with ORG != 0 (e.g. OVERFLOW) are fixed-address markers;
-                # they don't contribute to the seg_N_end position.
 
     hdr_bytes = _link_groups(header_segs, extern=hdr_extern if hdr_extern else None)
     gap = max(0, SCM_HEADER_LENGTH - len(hdr_bytes))
@@ -518,9 +534,22 @@ def _build_scm_segments() -> dict[str, bytes] | None:
     # seg_gldr: Layout B (end pad to 0x8200), seg_b0: Layout B (end pad to 0x8400)
     # seg_e1, seg_e0: Layout C (no padding)
     try:
-        gquit_obj, gquit_asm = _assemble(f'{GS}/OS/GQuit/GQuit.src')
+        # GQuit's copyright banner embeds the assembler build date via the
+        # `verDate` macro (`dc.b '&SysDate'`); the shipping build stamped
+        # '06-May-93'.  Without it the banner is 9 bytes short, drifting every
+        # subsequent GLDR_STRINGS label (mem_size_err/alloc_err/...).
+        gquit_obj, gquit_asm = _assemble(f'{GS}/OS/GQuit/GQuit.src',
+                                         sysdate=BUILD_SYSDATE)
         gq_segs = _parse_obj_segs(gquit_obj)
         gq_groups = _make_groups(gq_segs)
+        # linkOS resolves symbols across ALL GQuit segments at once; kernelcheck
+        # links each group in isolation, so a seg_gldr reference to an absolute
+        # label in another group (e.g. e1_end/e0_end/e1_mslot, at their ORG-flowed
+        # $E1Dxxx/$E0Dxxx addresses) is a by-name LEXPR the group-local link can't
+        # resolve.  Seed the full assembled symbol table as externs to close that
+        # gap.  ORG-flow makes each label's absolute value equal its in-group
+        # placement, so overriding group-local symbols is value-neutral.
+        gq_extern = _full_symtab(gquit_asm)
 
         for out_name, gname in [
             ('scm.bin.8',  'seg_gldr'),
@@ -530,7 +559,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         ]:
             try:
                 sel = _select_group(gq_groups, gname)
-                code_bytes = _link_groups(sel)
+                code_bytes = _link_groups(sel, extern=gq_extern)
                 if gname in GQUIT_FLAT_SIZES:
                     seg_start, seg_end = GQUIT_FLAT_SIZES[gname]
                     out[out_name] = _build_with_end_padding(
