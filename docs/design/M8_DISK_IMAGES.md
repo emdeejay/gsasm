@@ -81,6 +81,32 @@ Note: `Start` (the Loader) has an ASM data fork but a **resource fork** → whol
 substitute until Rez (M7). A resource-forked file is substituted even when its
 data fork is ours.
 
+## Status / scoreboard (System Disk)
+`python3 work/diskcheck.py`: **26/28 build-files wired, 7 byte-exact, image 100%
+byte-identical.** Builders live in `work/diskbuilders/*.py` (auto-discovered).
+- **Byte-exact (7):** ProDOS, Error.Msg, Char.FST, Tool020, Tool021, Tool022,
+  Tool028.
+- **Wired residual (19):** the rest of the tools, the drivers, Pro.FST,
+  Start.GS.OS, GS.OS/GS.OS.Dev, P8, TS2/TS3 — each at correct segment structure
+  but not yet byte-exact (a non-exact build is reported, NOT overlaid).
+- **Unwired (2):** Tool.Setup, Resource.Mgr.
+
+Landed along the way: multi-segment ExpressLoad + a real SUPER page-list codec fix
+(closed Char.FST); three ROM-safe `asm.py` fixes (`&ord` builtin, a WHILE/ENDIF
+variable-shadowing crash, RECORD EXPORT/ENTRY); the make.p8 recipe and TS2/TS3
+segment layouts codified as builders.
+
+### The convergent worklist (residuals share a small gap set — fix one, move many)
+1. **SUPER type-27 bank-byte** (`#^Label` → `0x00`) — the recurring wall: blocks
+   GS.OS, P8, Start.GS.OS, and several tools. **Highest fan-out; the next lever.**
+2. **expressload reloc-record format** — gold emits `cINTERSEG`/`cRELOC`/`RELOC`;
+   we emit only `SUPER`. Blocks TS2/TS3 and the F5-vs-F7 tools.
+3. **linkiigs multi-object symbol scoping** — same-named symbols across filtered
+   objects resolve wrong. Blocks Tool019/025 and TS2/TS3.
+4. Smaller/localized: `~JumpTable` (KIND 0x0002, MPW-generated, out of reach —
+   Tool015/016/018); a DS forward-ref that ignores segment ORG (P8 sel.alt);
+   M/X-flag mode tracking (P8 QuitCode).
+
 ## Plan
 - **Phase 1 — skeleton** ✅ (`diskcheck.py`: a2til catalog + byte-clean overlay +
   round-trip; 81% buildable quantified).
