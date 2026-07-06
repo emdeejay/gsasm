@@ -60,8 +60,9 @@ SCM segment layout:
     seg_2_start   = $00D000  → header ORG = $CFD0  (gap = $0B)
     seg_3_start   = $01FC00  → header ORG = $1FBD0 (gap = $0B)
     seg_4_start   = $E1D980  → header ORG = $E1D950 (gap = $0B)
-  gsasm bug: PROC ORG with ', noskip' suffix prevents ORG evaluation; the harness
-  hard-codes the known gap = header_length - SEG_N_HEADER.length bytes.
+  The ORG gap (header_length - header_data) between the header proc and content
+  proc is zero-filled by MakeBin but not by our concatenating _code_image, so the
+  harness re-adds it.  (gsasm DOES evaluate the ORGs, `,skip`/`,noskip` included.)
 
 Notes on P8:
   P8 requires assembling mlisrc.aii plus multiple drivers and overlaying them.
@@ -69,8 +70,10 @@ Notes on P8:
   comparison is skipped pending include-path resolution.
 
 Known residuals (reportable gsasm-core gaps, not fixable in harness):
-  1. lda #^Label (bank byte): SUPER type-27 unimplemented — gsasm emits 0x00.
-     Affects ~25% of GS.OS content bytes and ~14% of Start.GS.OS.
+  1. lda #^Label (bank byte): high-word shift of a RELOCATABLE label resolves to
+     0x00 in the fully-resolved (defer_shifts=False) kernel link.  Affects GS.OS.
+     (NB Start.GS.OS's old "14%" residual was ORG-flow + cross-module externals,
+     NOT this — see the ORG-flow fix; its remaining ~71 bytes are externals.)
   2. DC.W label-*: PC-relative offset expressions produce wrong LEXPR bytes in
      gsasm asm.py.  Error.Msg offset table (122 entries) completely wrong → 22% match.
   3. Init1.Src Record/EndR: pseudo-op unsupported; 64 bytes missing from scm.bin.13.
@@ -135,17 +138,6 @@ LOADER_BIN_SIZE = 16590
 #   seg_N_start per segment
 SCM_HEADER_LENGTH = 0x30   # 48 bytes ($30)
 
-# Known SCM segment start addresses (from SCM.src EQUs, transcribed):
-#   seg_0_start = $009A00, seg_1_start = $00B300, seg_2_start = $00D000,
-#   seg_3_start = $01FC00, seg_4_start = $E1D980
-SCM_SEG_STARTS = {
-    'scm_seg_0': 0x009A00,
-    'scm_seg_1': 0x00B300,
-    'scm_seg_2': 0x00D000,
-    'scm_seg_3': 0x01FC00,
-    'scm_seg_4': 0xE1D980,
-}
-
 # Segment header specs: (header_data_size, segment_start_addr) pairs derived from
 # source EQUs and golden binary analysis.  header_length = $30 = 48 for all.
 # gap = header_length - header_data_size (zero-filled bytes between header and content).
@@ -162,18 +154,14 @@ SCM_SEG_STARTS = {
 #   init_3_org = $01D000, header_data = 37 bytes, gap = 11
 #   init_4_org = $E0D400, header_data = 37 bytes, gap = 11
 #
-# GQuit segments (GQuit.src):
-#   seg_gldr: org_dummy_1=0x6800, pad_dummy_2=0x8200 → flat size = 0x8200-0x6800 = 0x1A00
-#   seg_b0:   org_dummy_3=0x8200, pad_dummy_4=0x8400 → flat size = 0x8400-0x8200 = 0x200
-#   seg_e1:   no valid end pad (org_dummy_8 has skip bug) → no padding needed
-#   seg_e0:   no valid end pad (org_dummy_6 has skip bug) → no padding needed
-
-GQUIT_FLAT_SIZES = {
-    # (start_addr, end_addr) for segments with valid end padding
-    'seg_gldr': (0x6800, 0x8200),   # pad to 0x8200
-    'seg_b0':   (0x8200, 0x8400),   # pad to 0x8400
-    # seg_e1 and seg_e0 have no end padding (skip/noskip bug prevents ORG eval)
-}
+# GQuit's seg_gldr and seg_b0 flat images are zero-padded up to the next code
+# region's ORG — replicating MakeBin's gap-fill between ORG'd segments (our
+# _code_image just concatenates CONST/LCONST and does not fill ORG gaps).  Each
+# ends with a plain `org_dummy PROC ORG <pad>` anchor, so the pad address is read
+# from the group's own ORG anchors (first seg = region start, last = pad target)
+# rather than hardcoded.  seg_e1/seg_e0 instead end with `... ORG <max>,skip`
+# bounds-check anchors (not pad targets), so they get no trailing padding.
+GQUIT_PADDED_GROUPS = ('seg_gldr', 'seg_b0')
 
 # The date this GS/OS 6.0.1 build was assembled, as stamped by AsmIIgs into
 # `&SysDate` expansions (verDate banner in GQuit).  Extracted from the shipping
@@ -371,12 +359,14 @@ def _link_groups(group_segs: list[dict],
 #
 # Layout C (GQuit seg_e1, seg_e0, terminator): content only — no header, no gap
 #
-# The gsasm 'PROC ORG expr, noskip' bug prevents ORG evaluation for procs whose
-# ORG has a ', noskip' suffix.  This affects SCM header procs and GQuit pad procs.
-# The harness compensates by:
+# MakeBin lays each ORG'd segment at its ORG and zero-fills the gaps between
+# them; our _code_image only concatenates CONST/LCONST, so the harness re-adds
+# those gaps to match the on-disk flat image:
 #   Layout A: gap = header_length - len(header_data_bytes) (always 48 - N bytes)
 #   Layout B: end_gap = org_end - (org_start + len(content_bytes))
-#   Layout C: no compensation needed
+#   Layout C: no gap
+# (The ORG addresses themselves ARE evaluated by gsasm — including `,skip`/
+# `,noskip` — so org_start/org_end are read from the assembled segments.)
 # ---------------------------------------------------------------------------
 
 def _build_header_content(header_segs: list[dict],
@@ -384,8 +374,9 @@ def _build_header_content(header_segs: list[dict],
                            end_segs: list[dict] | None = None) -> bytes:
     """Build a Layout-A flat binary: header_data + zero_gap + content.
 
-    The gap is computed as header_length (48) minus the actual header data size.
-    This compensates for the gsasm PROC ORG noskip evaluation bug.
+    The gap is computed as header_length (48) minus the actual header data size —
+    the ORG gap between the header proc and the content proc that MakeBin
+    zero-fills but our concatenating _code_image does not.
 
     Cross-segment resolution: the header proc contains DC.W seg_N_end-seg_N_start
     where seg_N_end is defined in a separate end_segs group.  To resolve this
@@ -431,8 +422,9 @@ def _build_with_end_padding(code_bytes: bytes,
                              seg_end: int) -> bytes:
     """Build a Layout-B flat binary: code_bytes + zero_fill to seg_end.
 
-    Compensates for the gsasm PROC ORG skip/noskip bug by hard-coding the
-    end address from the source EQUs.
+    seg_start/seg_end are the group's ORG anchors (assembled, not hardcoded); the
+    end pad is the ORG gap MakeBin zero-fills but _code_image (concatenation)
+    does not.
     """
     end_gap = max(0, seg_end - (seg_start + len(code_bytes)))
     return code_bytes + bytes(end_gap)
@@ -560,8 +552,10 @@ def _build_scm_segments() -> dict[str, bytes] | None:
             try:
                 sel = _select_group(gq_groups, gname)
                 code_bytes = _link_groups(sel, extern=gq_extern)
-                if gname in GQUIT_FLAT_SIZES:
-                    seg_start, seg_end = GQUIT_FLAT_SIZES[gname]
+                if gname in GQUIT_PADDED_GROUPS:
+                    # Pad addresses come from the group's own ORG anchors:
+                    # first seg = region start, last seg = trailing pad target.
+                    seg_start, seg_end = sel[0]['org'], sel[-1]['org']
                     out[out_name] = _build_with_end_padding(
                         code_bytes, seg_start, seg_end)
                 else:
