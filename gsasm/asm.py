@@ -230,6 +230,10 @@ class Segment:
                                       #   but the segment is PLACED relocatably (OMF
                                       #   ORG=0) — position-dependent code copied to
                                       #   `addr` at runtime (e.g. ProDOS boot_code).
+        self.temporg_flow_resume = None  # temporg INSIDE an ORG-flow: labels count
+                                      #   from temporg, but the flow's running address
+                                      #   resumes here for the NEXT PROC (GQuit
+                                      #   load_app tempOrg $1010 inside seg_e0).
         self.segnum = segnum
         self.private = False          # KIND 0x4000 (PROC without EXPORT)
         self.absolute = org is not None  # in an ORG'd absolute region (ORG-flow)
@@ -1745,22 +1749,35 @@ class Asm:
         # — ROM firmware (every PROC ORG'd) and toolbox (none ORG'd) are both
         # byte-for-byte unaffected.
         absolute = org is not None or self.segs[-1].absolute
-        # temporg only takes effect in a RELOCATABLE context. Inside an ORG-flow
-        # (absolute) region the running location counter already assigns each PROC
-        # an absolute base; a temporg there (e.g. GQuit's `load_app tempOrg $1010`
-        # within the SCM flow) must not reset the flow, so it is ignored — the flow
-        # address wins, matching the pre-temporg behaviour for that kernel path.
+        # Resume the ORG-flow after a temporg-in-flow PROC: its self.loc counted
+        # from `temporg`, but the flow's running address must continue as if the
+        # PROC had occupied its normal (flow) space, so the NEXT PROC lands right.
+        prev = self.segs[-1]
+        if prev.temporg_flow_resume is not None:
+            self.loc = prev.temporg_flow_resume + (self.loc - prev.temporg)
+            prev.temporg_flow_resume = None
+        # temporg has two cases:
+        #  - RELOCATABLE context (not absolute): labels take temporg+offset, seg is
+        #    placed relocatably (ProDOS boot_code).
+        #  - INSIDE an ORG-flow (absolute): labels ALSO count from temporg (the code
+        #    is copied to `addr` at runtime), but the flow must not be reset — save
+        #    the flow address to resume at the next PROC (GQuit load_app tempOrg
+        #    $1010 inside seg_e0, followed by launch_p16app).
         apply_temporg = temporg is not None and not absolute
+        temporg_flow = temporg is not None and absolute
+        flow_resume = None
         if org is not None:
             self.loc = org
         elif apply_temporg:
-            self.loc = temporg  # labels take absolute addr+offset values (but the
-                                # segment is placed relocatably; see Segment.temporg)
+            self.loc = temporg
+        elif temporg_flow:
+            flow_resume = self.loc   # flow address to resume after this PROC
+            self.loc = temporg       # labels take temporg+offset
         elif not absolute:
             self.loc = 0
         else:
             org = self.loc      # flow: this PROC's absolute base = running addr
-        temporg = temporg if apply_temporg else None
+        temporg = temporg if (apply_temporg or temporg_flow) else None
         name = (ln.label or '').upper()
         loadname = self.seg_loadname or 'main'   # persists until the next SEG
         private = 'EXPORT' not in up         # PROC without EXPORT is private
@@ -1774,9 +1791,11 @@ class Asm:
         if cur.name is None and not cur.items:
             cur.name = name; cur.loadname = loadname; cur.org = org
             cur.private = private; cur.absolute = absolute; cur.temporg = temporg
+            cur.temporg_flow_resume = flow_resume
         else:
             seg = Segment(name, loadname, org, len(self.segs) + 1)
             seg.private = private; seg.absolute = absolute; seg.temporg = temporg
+            seg.temporg_flow_resume = flow_resume
             self.segs.append(seg)
         if ln.label:
             self.define_label(ln.label, self.loc)
