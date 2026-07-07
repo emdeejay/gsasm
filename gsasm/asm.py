@@ -814,6 +814,22 @@ class Asm:
                     seg = len(self.segs) - 1
                     self.symseg[u] = seg                  # defining segment index
                     self.seg_local.setdefault(seg, {})[u] = value
+                    # A no-operand DATA RECORD (`Name Record` with no operand, or
+                    # ENTRY/EXPORT) emits a named data segment; its interior labels
+                    # are real data labels (this branch, kind='label'), unlike an
+                    # offset-template RECORD whose fields hit the `field` path above.
+                    # A qualified `RecName.field` reference must still resolve, so
+                    # define the RECNAME.LABEL alias too — same value/symtype/symseg
+                    # as the bare label — mirroring the template `field` path. The
+                    # data-segment name IS the record name (segs[-1].name), so the
+                    # alias routes through _expr_for's cross-seg is_data label path.
+                    if (self.record_stack and self.record_stack[-1][3]
+                            and '.' not in name and self.segs[seg].name):
+                        q = (self.segs[seg].name + '.' + name).upper()
+                        if q not in self.symbols:         # don't clobber a real def
+                            self.symbols[q] = value
+                            self.symtype[q] = 'label'
+                            self.symseg[q] = seg
                 # an EQU/SET inside a module (PROC) is local to that module — record
                 # it so a reference within the module resolves to it (as a literal),
                 # shadowing any same-named code label defined in another PROC
