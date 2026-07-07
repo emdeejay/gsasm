@@ -328,7 +328,9 @@ class Asm:
         self.entries = set()          # ENTRY labels
         self.seg_name = None          # first PROC name (OMF segment name)
         self.segs = [Segment(None, 'main', None, 1)]   # OMF segments by PROC
-        self.pending_loadname = None  # from a SEG directive
+        self.seg_loadname = None      # current SEG-directive loadname; PERSISTS
+                                      # across PROCs until the next SEG (MPW
+                                      # semantics), not one-shot
         # MPW IIgs assembler defaults to 16-bit accumulator/index (toolbox is
         # 16-bit native); 8-bit code sets LONGA/LONGI OFF explicitly.
         self.longa = True
@@ -1554,8 +1556,10 @@ class Asm:
         if u == 'END':
             self.in_proc = False; return
         if u == 'SEG':
-            if ln.operand:
-                self.pending_loadname = _unquote(ln.operand)
+            # MPW `SEG 'name'` sets the load-segment name for ALL subsequent
+            # PROCs until the next SEG (persistent, NOT one-shot); a bare SEG
+            # reverts to the default 'main' segment.
+            self.seg_loadname = _unquote(ln.operand) if ln.operand else None
             return
         if u == 'ORG':
             v = self.evaluate(ln.operand)
@@ -1754,8 +1758,7 @@ class Asm:
             org = self.loc      # flow: this PROC's absolute base = running addr
         temporg = temporg if apply_temporg else None
         name = (ln.label or '').upper()
-        loadname = self.pending_loadname or 'main'
-        self.pending_loadname = None
+        loadname = self.seg_loadname or 'main'   # persists until the next SEG
         private = 'EXPORT' not in up         # PROC without EXPORT is private
         # `Name PROC EXPORT` publicly exports the segment name (a global symbol at
         # offset 0). Register it so cross-file by-name refs (IMPORT) resolve to it
