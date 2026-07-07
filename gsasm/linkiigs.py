@@ -235,14 +235,30 @@ def _build_symtab(
 
         # (a) Segment names for this object.
         #
-        # In multi-object links, segment names are PRIVATE to the defining
-        # object — they must not shadow cross-object public EXPORT symbols of
-        # the same name (e.g. a PROC named 'SHUTDOWN' in one object must not
-        # hide the EXPORT 'SHUTDOWN' from a later object).
-        # Single-object links keep the original first-wins global table.
+        # In multi-object links, segment names are normally left PRIVATE to the
+        # defining object (they must not shadow a cross-object public EXPORT of
+        # the same name, e.g. a PROC named 'SHUTDOWN' in one object must not hide
+        # the EXPORT 'SHUTDOWN' from a later object); a clean public segment name
+        # is instead published by the interior-label pass (b) below, which reads
+        # it from asm.symbols.
+        #
+        # EXCEPTION — case-collision repair: gsasm folds label case, so a local
+        # label whose case-folded name equals a PUBLIC segment's name can clobber
+        # the segment's own entry in asm.symbols (last-writer-wins), making pass
+        # (b) publish the interior label's address for the segment name.  Detect
+        # that (the folded name's home segment is not the segment it names) and
+        # publish the authoritative placement base here instead — e.g. notesynth
+        # has a local `UpDate` label inside SetUserUpdateRtn that otherwise hides
+        # the exported `update` segment.  Single-object links keep first-wins.
         for k in range(n_segs):
             segname, _recs, seg_base, _hdr, _asm = placed[placed_idx + k]
-            if len(objects) == 1:
+            is_public_seg = not (_hdr.get('KIND', 0) & 0x4000)
+            clobbered = False
+            if _asm is not None and is_public_seg:
+                home = _asm.symseg.get(segname)
+                if home is not None and 0 <= home < len(_asm.segs):
+                    clobbered = (_asm.segs[home].name or '').upper() != segname
+            if len(objects) == 1 or clobbered:
                 sym.setdefault(segname, seg_base)
             # Always add to per-object map so intra-object cross-segment refs work.
             obj_globals[obj_idx].setdefault(segname, seg_base)
