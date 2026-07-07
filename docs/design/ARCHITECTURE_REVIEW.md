@@ -65,14 +65,20 @@ that is general linker behaviour that should live in `linkiigs`.
 
 ## 3. THE headline decision: linker unification (RATIONALISE D3, reinforced)
 
-There are now **five** placement/symbol models in the tree:
+> **Second-chair correction (accepted):** this said "five"; it is **four**.
+> Model 4 below (expressload duplication) is STALE — P1 (`0905aae`) already
+> de-duplicated it: `expressload.py:751/759` now call `_linkiigs._place` /
+> `_build_symtab`. The count carried a pre-P1 RATIONALISE snapshot forward. See
+> `ARCH_REVIEW_SECOND_CHAIR.md`.
+
+There are ~~five~~ **four** placement/symbol models in the tree:
 
 | # | where | model | status |
 |---|-------|-------|--------|
 | 1 | `gsasm/link.py` | single-file reference | validated (linkcheck 61/61) — keep as reference |
 | 2 | `work/linkrom.py` | ROM banks; `msym`/`msloc`/`objsegbase`/`linkidx` precedence | validated (buildrom byte-exact) — but a whole linker in the harness |
 | 3 | `gsasm/linkiigs.py` | the "general" M2 linker; `sym`+`obj_globals`, placement via `_place` | the intended general home |
-| 4 | `gsasm/expressload.py` | **re-implemented** linkiigs place+symtab inline (D3's flagged duplication; partly de-duped by P1 but diverged) | duplication debt |
+| ~~4~~ | `gsasm/expressload.py` | ~~re-implemented linkiigs place+symtab inline~~ — **STALE: calls `_linkiigs._place`/`_build_symtab` since P1 (`0905aae`)** | **not debt (P1 done)** |
 | 5 | `work/kernelcheck.py` | **new** `_placed_symtab` + hand-built `_make_groups` | this session's leak |
 
 RATIONALISE D3 already argued models 2 & 4 are debt. **WP-K1 added model 5.**
@@ -240,16 +246,52 @@ fixes are general (a bespoke fix would eventually have to move an ROM byte).
 
 ## 6. What the review should decide
 
-1. **Adopt §3a first** (the build-recipe reader) — likely the highest-leverage,
-   lowest-risk move: it's additive, gated by diffing against today's maps,
-   retires the transcription-error residual class, and dissolves TOOLMAP/FSTMAP/
-   DRIVERMAP/BANKS/`_SCM_LSEG_RECIPE` bespokery. Do it before, or alongside, §3.
-2. **Adopt §3** (unify into `linkiigs.link_placed`, retire linkrom + harness
-   placement) — yes/no, and whether it must wait on D2 (symbol model). §3a feeds it.
-3. **Ordering vs. D1/D2/D3** — D1 (omf detector unification) and D2 (symbol
-   model) from RATIONALISE are still open; §3 (D3) may depend on D2. Sequence?
-4. **Generality gate as CI** — encode the smell test: a pre-merge check that
-   `gsasm/*.py` contains no source-symbol/address literals (grep-based, like the
-   audit), so overfitting can't land silently.
-5. **When to stop chasing bytes in the harness** — e.g. the last 36 Start.GS.OS
-   bytes: fix via §3/§3a (general) rather than more `_placed_symtab` special-cases.
+1. **§3a: wire the probe as a CI drift-check, NOT the full parser (revised — see
+   §7).** The probe found zero transcription errors; the maps are correct and
+   frozen. The drift-check captures ~all the value at a fraction of the cost.
+2. **Adopt §3, but SPLIT it (revised — see §7):** §3-kernel (promote the
+   base+offset algorithm out of `kernelcheck._placed_symtab`, no D2) is tractable;
+   §3-ROM (retire linkrom) needs the D2 symbol model first — defer it.
+3. **Ordering vs. D1/D2/D3** — D1 and D2 are still open; §3-ROM depends on D2.
+4. **Generality gate as CI** — encode the smell test (grep `gsasm/*.py` for
+   source-symbol/address literals) **plus the §7 clause** (proxy for a
+   gsasm-internal representational choice).
+5. **When to stop chasing bytes in the harness** — but note (§7) the dominant
+   disk residual is the ExpressLoad *file wrapper*, orthogonal to §3/§3a.
+
+---
+
+## 7. Second-chair amendments (accepted) — see `ARCH_REVIEW_SECOND_CHAIR.md`
+
+An independent second-chair review (Opus, read-only) disagreed with 3 of 4
+headline calls and was right; verified and accepted:
+
+- **Factual (fixed above):** expressload is not duplicated (P1 `0905aae`); four
+  models, not five.
+- **The disk-residual crux (biggest):** 13/16 disk misses are `len < EOF`
+  (missing *trailing* bytes). Proof: **Tool014/WindMgr code image is 100%
+  (28046/28046) yet 20 B short on disk** — the residual is the ExpressLoad
+  *wrapper* (HET / reloc-tail / EOF), **orthogonal to §3 (placement) and §3a
+  (recipe)**. Byte-exact disk does NOT "fall out" of either refactor *for the
+  tools*. (Nuance retained: §3-kernel *does* yield byte-exact Start.GS.OS/GS.OS —
+  those are MakeBin/catenate, not ExpressLoad. And Tool014's 20 B is specifically
+  the parked case-B reloc-pair quirk — the `0x80000000`/`0xc0000000` relOffset
+  flag — so "cheapest, no refactor" collides with a documented wall; worth a fresh
+  systematic look at the reloc-tail as a *class*, not per-tool.)
+- **§3 is bigger than framed:** `linkrom`'s `entry_seg` re-routing of
+  multiply-defined names (`linkrom.py:136-141`) has no representation in
+  `linkiigs` (first-wins `setdefault`, `linkiigs.py:310`), and Pass-3
+  (`{**sym, **obj_globals}`) *inverts* linkrom's local-yields-to-export rule. So
+  §3-ROM needs D2. Split kernel/ROM as above.
+- **§3a downgraded** to a CI drift-check (above).
+- **Smell-test amendment:** add a clause — *is the property a proxy for a
+  gsasm-internal representational choice?* The Tool025 case-collision fix
+  (`a8707cb`) is keyed on a "property" that exists only because gsasm folds case;
+  it repairs gsasm's own artifact, which MPW may not exhibit, and no byte-gate
+  catches it. Also: SEG-persistence's bare-`SEG`→`main` revert (`asm.py:1561`) is
+  an unfired branch (no bare SEG in corpus) — the overfitting shape to watch.
+
+**Second chair's recommended first move:** root-cause the ExpressLoad `len<EOF`
+tail (highest fan-out, no refactor), then the content diffs (Start.GS.OS @0x1475 =
+the known `_defer_shifts` fix; Tool019; P8), then the §3-kernel algorithm lift.
+Defer §3-ROM + D2 until ControlMgr's remaining code bytes demand them.
