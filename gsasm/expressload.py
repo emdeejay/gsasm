@@ -145,6 +145,29 @@ def _encode_page_list(sorted_offsets: list[int]) -> bytes:
     return bytes(out)
 
 
+def emit_creloc(size: int, shift: int, offset: int, rel_offset: int) -> bytes:
+    """Encode one cRELOC record (0xF5): compressed same-segment relocation.
+
+    Layout: opcode(0xF5) + bytesInOperand(1) + bitShiftCount(1, signed) +
+    offset(2) + relOffset(2).  ``shift`` is the positive right-shift amount (as
+    returned by ``_get_shift``); the stored bitShiftCount is its negation.
+    """
+    return (bytes([0xF5, size & 0xFF, (-shift) & 0xFF])
+            + struct.pack('<H', offset & 0xFFFF)
+            + struct.pack('<H', rel_offset & 0xFFFF))
+
+
+def emit_reloc(size: int, shift: int, offset: int, rel_offset: int) -> bytes:
+    """Encode one RELOC record (0xE2): full-width same-segment relocation.
+
+    Layout: opcode(0xE2) + bytesInOperand(1) + bitShiftCount(1, signed) +
+    offset(4) + relOffset(4).  Used when the offset/relOffset exceed 16 bits.
+    """
+    return (bytes([0xE2, size & 0xFF, (-shift) & 0xFF])
+            + struct.pack('<I', offset & 0xFFFFFFFF)
+            + struct.pack('<I', rel_offset & 0xFFFFFFFF))
+
+
 # ---------------------------------------------------------------------------
 # de_express — move from work/toolcheck.py (kept backward-compatible)
 # ---------------------------------------------------------------------------
@@ -265,6 +288,42 @@ def _scan_relocs(
     for k in relocs:
         relocs[k].sort()
     return relocs
+
+
+def _scan_standalone_relocs(
+        placed: list[tuple[str, list, int, dict, Any]],
+) -> list[tuple[int, int, int]]:
+    """Relocations MPW ExpressLoad emits as individual cRELOC/RELOC records
+    rather than folding into a SUPER record.
+
+    The OMF SUPER types cover shift 0 (types 0/1) and the >>16 bank byte (type
+    27) but NOT the >>8 high byte, so a high-byte relocation on a relocatable
+    symbol (``... >> 8``, size 2) has no SUPER encoding and is emitted as a
+    standalone record.  Returns a sorted list of ``(offset, size, shift)``
+    (offset = merged-segment-relative byte offset; shift = positive right shift).
+    """
+    out: list[tuple[int, int, int]] = []
+    for _segname, recs, seg_base, _hdr, _asm in placed:
+        body_off = 0
+        for _, nm, d in recs:
+            if nm == 'END':
+                break
+            if nm in ('CONST', 'LCONST'):
+                body_off += len(d)
+            elif nm in ('LEXPR', 'BEXPR', 'EXPR'):
+                size = d[0]
+                ops = d[1]
+                if _has_sym_ref(ops):
+                    shift = _get_shift(ops)
+                    if size == 2 and shift == 8 and (size, shift) not in _SUPER_TYPE:
+                        out.append((seg_base + body_off, size, shift))
+                body_off += size
+            elif nm == 'RELEXPR':
+                body_off += d[0]
+            elif nm == 'DS':
+                body_off += d
+    out.sort()
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -727,6 +786,18 @@ def expressload(
         # ---- Single-segment output (original behavior) ----
         merged_body = b''.join(bodies)
 
+        # Standalone cRELOC/RELOC records (e.g. >>8 high-byte relocs, which have
+        # no SUPER type) come BEFORE the SUPER records, matching MPW ExpressLoad.
+        # Their relOffset is the target's segment-relative offset, which the
+        # deferred-shift pass already stored as the placeholder in merged_body.
+        standalone = bytearray()
+        for offset, size, shift in _scan_standalone_relocs(placed):
+            rel_off = int.from_bytes(merged_body[offset:offset + size], 'little')
+            if offset < 0x10000 and rel_off < 0x10000:
+                standalone += emit_creloc(size, shift, offset, rel_off)
+            else:
+                standalone += emit_reloc(size, shift, offset, rel_off)
+
         # Scan relocs over ALL placed segments.
         relocs_by_type = _scan_relocs(placed)
         super_records = bytearray()
@@ -734,13 +805,14 @@ def expressload(
             super_records += emit_super(stype, relocs_by_type[stype])
         super_records += b'\x00'   # END record
 
+        all_relocs = bytes(standalone) + bytes(super_records)
         first_hdr   = placed[0][3]
         out_name    = b'main'
         out_kind    = opts.get('kind') or first_hdr['KIND']
-        reloc_size_val = len(super_records) - 1  # exclude trailing END byte
+        reloc_size_val = len(all_relocs) - 1  # exclude trailing END byte
 
         main_seg_bytes = _make_output_seg(
-            out_name, out_kind, 2, merged_body, bytes(super_records)
+            out_name, out_kind, 2, merged_body, all_relocs
         )
 
         # Parse back the output seg's DISPDATA for HET.
