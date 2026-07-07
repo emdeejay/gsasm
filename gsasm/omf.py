@@ -628,6 +628,16 @@ def _branch_xseg(asm, core, cur_seg, ref_off=None):
             and asm.segs[si].temporg is None)
 
 
+def _temporg_label(asm, name):
+    """True if *name* resolves to a label in a temporg segment.  Such labels are
+    absolute literals (the code is copied to `temporg` at runtime), so any
+    reference to them — instruction operand OR a `DC.W label` table entry — is a
+    literal, never a SEGNAME+offset relocation."""
+    u = asm._symkey(name)
+    si = asm.symseg.get(u)
+    return si is not None and si < len(asm.segs) and asm.segs[si].temporg is not None
+
+
 def _cross_seg_label(asm, name):
     """True if name is a label defined in a different segment from the current one.
     Such references need LEXPR even when both segments are ORG'd (e.g., slot firmware
@@ -782,6 +792,12 @@ def emit_segment(asm, seg, exports):
                 if _pc_rel_const(asm, it):
                     return False
                 m = _SIMPLE_REF.match(it)
+                # a `DC.W label` to a temporg-segment label is an absolute literal
+                # (the temporg address), NOT a SEGNAME+offset reloc — must precede
+                # the _linear_reloc check, which treats any single label as a coeff-1
+                # relocatable (GQuit load_app's `DC.W p8_setpfx_list` parameter table).
+                if m and _temporg_label(asm, m.group(1)):
+                    return False
                 if m and (asm.needs_reloc(m.group(1))
                           or _undef_external(asm, m.group(1))
                           or _in_org_seg(asm, asm.evaluate(it))
