@@ -466,6 +466,18 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
         if alias is not None:
             name = alias[0]
             addend = (addend or 0) + alias[1]
+        # A reference to a temporg-segment label is an ABSOLUTE literal (the code
+        # runs at `temporg` after being copied there), not a SEGNAME/by-name
+        # relocation — emit the value directly so the linker's placement of that
+        # segment (its flow/relocatable base) cannot override it (GQuit's cross-
+        # segment `ldy #load_app_begin`).  Any <>^ / >>N shift applies to the value.
+        if _temporg_label(asm, name):
+            v = ((asm.resolve(name) or 0) + (addend or 0)) & 0xFFFFFF
+            if shift > 0:
+                v >>= shift
+            elif shift < 0:
+                v = (v << -shift) & 0xFFFFFF
+            return bytes(bytes([0x81]) + _num(v & 0xFFFFFF) + bytes([0x00]))
         kind = asm.sym_kind(name)
         if kind in ('label', None):           # local/relocatable label
             nu = asm._symkey(name)            # scoped key (@-labels -> scope+name)
