@@ -613,7 +613,10 @@ def _branch_xseg(asm, core, cur_seg, ref_off=None):
     if _undef_external(asm, u):            # branch to an undefined external
         return True
     si = asm.symseg.get(u)
-    return (si is not None and si != cur_seg and asm.segs[si].org is None)
+    # a temporg segment's labels are absolute literals (addr+offset), so a ref from
+    # another segment is a literal too, not a relocation.
+    return (si is not None and si != cur_seg and asm.segs[si].org is None
+            and asm.segs[si].temporg is None)
 
 
 def _cross_seg_label(asm, name):

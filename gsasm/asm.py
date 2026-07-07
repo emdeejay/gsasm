@@ -225,6 +225,11 @@ class Segment:
         self.name = name              # SEGNAME (PROC name)
         self.loadname = loadname      # LOADNAME (SEG directive, or 'main')
         self.org = org                # explicit ORG address, or None
+        self.temporg = None           # `PROC temporg addr`: labels are absolute
+                                      #   (addr+offset) and self-refs are literals,
+                                      #   but the segment is PLACED relocatably (OMF
+                                      #   ORG=0) — position-dependent code copied to
+                                      #   `addr` at runtime (e.g. ProDOS boot_code).
         self.segnum = segnum
         self.private = False          # KIND 0x4000 (PROC without EXPORT)
         self.absolute = org is not None  # in an ORG'd absolute region (ORG-flow)
@@ -833,15 +838,19 @@ class Asm:
             # 'label' defs) — shadows a same-named global equate, e.g. a dp
             # equate `frame` vs a code label `frame` inside this segment
             if seg is not None and u in self.seg_local.get(seg, {}):
-                if self.segs[seg].org is None:
+                s = self.segs[seg]
+                if s.org is None and s.temporg is None:
                     return True
-                continue
+                continue        # ORG'd or temporg segment -> absolute literal
             # a PROC-local equate is an absolute value -> never relocated
             if seg is not None and u in self.seg_equ.get(seg, {}):
                 continue
             if self.symtype.get(u) == 'label':
                 si = self.symseg.get(u)
-                if si is not None and self.segs[si].org is None:
+                # a label in a temporg segment is an absolute literal (addr+offset),
+                # like an ORG'd segment's — not relocated.
+                if si is not None and self.segs[si].org is None \
+                        and self.segs[si].temporg is None:
                     return True
         return False
 
@@ -1609,6 +1618,7 @@ class Asm:
         # Each PROC is a separate OMF segment whose location restarts at 0,
         # unless an explicit ORG gives it an absolute base.
         org = None
+        temporg = None
         if 'ORG' in up:
             org_expr = ' '.join(toks[up.index('ORG')+1:])
             # Strip trailing `,skip` or `,noskip` modifier (MPW AsmIIgs range-check
@@ -1618,6 +1628,14 @@ class Asm:
                 if mod_part.strip().lower() in ('skip', 'noskip'):
                     org_expr = base_part.strip()
             org = self.evaluate(org_expr)
+        elif 'TEMPORG' in up:
+            # `PROC temporg addr` — a temporary origin: labels are assembled as
+            # absolute (addr+offset) and self-references are baked as literals (the
+            # code runs at `addr` after being copied there), but the segment's OMF
+            # stays RELOCATABLE (ORG=0) so the linker places its bytes normally.
+            # Unlike ORG, temporg does NOT set seg.org (no firmware SEGNAME+offset
+            # relocation, no absolute placement) and does NOT flow to later PROCs.
+            temporg = self.evaluate(' '.join(toks[up.index('TEMPORG')+1:]))
         # ORG-flow (MPW AsmIIgs absolute location counter): an origin set by a
         # `PROC ORG` continues through the *following* non-ORG PROCs until the
         # next ORG. The kernel's `org_dummy PROC ORG addr / ENDP` anchors set an
@@ -1628,12 +1646,22 @@ class Asm:
         # — ROM firmware (every PROC ORG'd) and toolbox (none ORG'd) are both
         # byte-for-byte unaffected.
         absolute = org is not None or self.segs[-1].absolute
+        # temporg only takes effect in a RELOCATABLE context. Inside an ORG-flow
+        # (absolute) region the running location counter already assigns each PROC
+        # an absolute base; a temporg there (e.g. GQuit's `load_app tempOrg $1010`
+        # within the SCM flow) must not reset the flow, so it is ignored — the flow
+        # address wins, matching the pre-temporg behaviour for that kernel path.
+        apply_temporg = temporg is not None and not absolute
         if org is not None:
             self.loc = org
+        elif apply_temporg:
+            self.loc = temporg  # labels take absolute addr+offset values (but the
+                                # segment is placed relocatably; see Segment.temporg)
         elif not absolute:
             self.loc = 0
         else:
             org = self.loc      # flow: this PROC's absolute base = running addr
+        temporg = temporg if apply_temporg else None
         name = (ln.label or '').upper()
         loadname = self.pending_loadname or 'main'
         self.pending_loadname = None
@@ -1647,10 +1675,10 @@ class Asm:
         cur = self.segs[-1]
         if cur.name is None and not cur.items:
             cur.name = name; cur.loadname = loadname; cur.org = org
-            cur.private = private; cur.absolute = absolute
+            cur.private = private; cur.absolute = absolute; cur.temporg = temporg
         else:
             seg = Segment(name, loadname, org, len(self.segs) + 1)
-            seg.private = private; seg.absolute = absolute
+            seg.private = private; seg.absolute = absolute; seg.temporg = temporg
             self.segs.append(seg)
         if ln.label:
             self.define_label(ln.label, self.loc)
