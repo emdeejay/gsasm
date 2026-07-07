@@ -112,6 +112,73 @@ Open sub-questions for the reviewer:
 
 ---
 
+## 3a. The other half: read the recipes from the real build files (not hand-transcribed)
+
+§3 makes the *engine* general. This makes the *driver* general — and it is the
+higher-leverage of the two, because it attacks the largest remaining source of
+bespokery and of *false* residuals.
+
+**The finding.** Every codebase-specific recipe the harnesses hand-code already
+exists, authoritatively, as a source build file:
+- `GS.OS/MakeFiles/make.os` + `GS.OS/Scripts/linkOS` — the exact `linkiigs -apw
+  -lseg scm_seg_0 … # becomes scm.bin`, `MakeBinIIGS scm.lnk`, and `catenate
+  scm.bin.8..11 > Start.GS.OS`. (kernelcheck's `_SCM_LSEG_RECIPE`, `_make_groups`,
+  Layout A/B/C, and catenation orders are hand-copies of this.)
+- `ref/gsrom3/ROM 03/makeROM3.bat` — the ROM bank recipe (linkrom's `BANKS`).
+- 194 component makefiles (`GSToolbox/*/makefile`, `FSTs/*/MakeFile`,
+  `Drivers/*/*.make`) with literal `asmiigs … / LinkIIGS -x -t $BC -lseg:code:
+  nospecial:static … / MakeBinIIgs …` — the object lists, `-lseg` groups **with
+  attributes**, `-org`, `-t` filetype, `-i` includes, and `-d` defines that
+  `toolcheck.TOOLMAP`/`FSTMAP`/`DRIVERMAP` transcribe (and repeatedly got wrong).
+
+**Why it matters — evidence, not theory.** Hand-transcription has been a recurring
+source of *false* residuals blamed on gsasm and later found to be wrong harness
+lists (all in the session log): ControlMgr 54→96% (TOOLMAP missing
+`CtlPatch`+`DummyDrag`), LineEdit 83→98% & FontMgr 81→99% (missing `common.asm`),
+Scrap →100% (missing `common.asm`), multiple include-path bugs in fst/drivercheck.
+A parser eliminates that entire class **by construction** — the list is complete
+and correct because it *is* the shipping recipe.
+
+**Proposal — a build-recipe reader** (`work/mpwmake.py`, a general interpreter):
+parse an MPW makefile / link script into a normalized recipe —
+```
+Recipe(target, filetype, objects=[(src, asmflags, defines, includes)],
+       lsegs=[(name, members=[obj|@loadname], attrs, org?)],
+       makebin, catenate=[parts]) 
+```
+then have the harnesses **consume** it instead of hand-coding maps. This:
+1. retires `TOOLMAP`/`FSTMAP`/`DRIVERMAP`/`BANKS`/`_SCM_LSEG_RECIPE` and much of
+   `_make_groups` — the recipe becomes *read data*, the harness a general driver;
+2. moves the codebase-specific knowledge back to where the smell test says it
+   belongs — the Apple build files — leaving `work/` a genuine interpreter;
+3. feeds §3's `link_placed` its `-lseg`/`-org`/attrs directly (engine + driver);
+4. is a **cheap correctness win NOW, before any refactor**: parse the recipes and
+   *diff them against the current hand-transcribed maps* — every discrepancy is
+   either a transcription bug to fix (free residual) or a real gsasm gap to log.
+
+**Honest limits (so the review scopes it right):**
+- MPW Make has its own grammar (`ƒ` deps, `∂` continuation, `{Var}` expansion,
+  `if/end`); and some builds are shell scripts (`linkOS`, `BuildEverything`) not
+  makefiles. Both are bounded, but it's a real (small) parser + a build-env
+  variable resolver ({Object}/{Common}/{WorkFolder}/…).
+- A flag→API mapping layer is needed (`-lseg:…:static|dynamic`, `-org`, `-t`,
+  `-x`, `-i`, `-d`; ignore `-unsafe`/`-wi`). Bounded and general.
+- `reziigs` (Rez) targets are out of scope (M7); the code-image path doesn't need
+  them — the reader just skips resource rules.
+- **It does not replace core correctness.** A correct recipe still needs a correct
+  assembler/linker: the remaining *code-image* gaps (sizing drift, `#^Label`,
+  temporg-in-flow, the case-B reloc quirk, D1/D2/D3) are orthogonal. This retires
+  *recipe* bespokery and *transcription-error* residuals, not assembler bugs.
+
+**Verdict:** §3a is complementary to §3 and arguably should come first (it's lower
+risk — a reader is additive, gated by diffing against today's maps — and it
+immediately converts a chunk of "harness knows this codebase" into "harness reads
+this codebase's build files"). Together, §3 + §3a are the real answer to the
+triggering question: point the toolchain at the Apple source **and its makefiles**,
+get byte-exact output, with zero hand-copied recipe.
+
+---
+
 ## 4. Worked example — classifying this session against the smell test
 
 | change | keyed on | verdict |
@@ -151,12 +218,16 @@ fixes are general (a bespoke fix would eventually have to move an ROM byte).
 
 ## 6. What the review should decide
 
-1. **Adopt §3** (unify into `linkiigs.link_placed`, retire linkrom + harness
-   placement) — yes/no, and whether it must wait on D2 (symbol model).
-2. **Ordering vs. D1/D2/D3** — D1 (omf detector unification) and D2 (symbol
+1. **Adopt §3a first** (the build-recipe reader) — likely the highest-leverage,
+   lowest-risk move: it's additive, gated by diffing against today's maps,
+   retires the transcription-error residual class, and dissolves TOOLMAP/FSTMAP/
+   DRIVERMAP/BANKS/`_SCM_LSEG_RECIPE` bespokery. Do it before, or alongside, §3.
+2. **Adopt §3** (unify into `linkiigs.link_placed`, retire linkrom + harness
+   placement) — yes/no, and whether it must wait on D2 (symbol model). §3a feeds it.
+3. **Ordering vs. D1/D2/D3** — D1 (omf detector unification) and D2 (symbol
    model) from RATIONALISE are still open; §3 (D3) may depend on D2. Sequence?
-3. **Generality gate as CI** — encode the smell test: a pre-merge check that
+4. **Generality gate as CI** — encode the smell test: a pre-merge check that
    `gsasm/*.py` contains no source-symbol/address literals (grep-based, like the
    audit), so overfitting can't land silently.
-4. **When to stop chasing bytes in the harness** — e.g. the last 36 Start.GS.OS
-   bytes: fix via §3 (general) rather than more `_placed_symtab` special-cases.
+5. **When to stop chasing bytes in the harness** — e.g. the last 36 Start.GS.OS
+   bytes: fix via §3/§3a (general) rather than more `_placed_symtab` special-cases.
