@@ -13,8 +13,8 @@ fstcheck.FSTMAP/INCS, and drivercheck.DRIVERMAP/INCS — do NOT edit those files
 
 Multi-segment wiring (from makefile -lseg directives, confirmed byte-exact vs gold):
 
-  Tool014 (windmgr): single-seg KIND=0x0000 — residual (missing cRELOC/RELOC records,
-      code image identical to gold)
+  Tool014 (windmgr): single-seg KIND=0x0000 — residual -20B = ONE case-B far-pointer
+      RELOC pair (see below); >>8 cRELOCs now emitted, code image identical to gold
 
   Tool015 (menumgr): MainTool(KIND=0x0000, menumgr+wcm) + ~JumpTable(KIND=0x0002,
       MPW-generated, NOT reproduced) + PopUpProc(KIND=0x8000, popupproc).
@@ -33,18 +33,27 @@ Multi-segment wiring (from makefile -lseg directives, confirmed byte-exact vs go
   Tool019 (printmgr): single-seg KIND=0x0000, residual (1 code-image diff, symbol
       scoping bug: interior label 'PEA' target resolves differently)
 
-  Tool023 (stdfile): single-seg KIND=0x4000 — residual (missing RELOC records +
-      4 code-image diffs)
+  Tool023 (stdfile): single-seg KIND=0x4000 — residual -42B = 4 case-B RELOCs (2 pairs)
+      + 4 code-image diffs; the 3 >>8 cRELOCs are now emitted (was -63B)
 
   Tool025 (notesynth): single-seg KIND=0x4000 — residual (4 code-image diffs,
       interior label 'UpDate' in SETUSERUPDATERTN shadows segment name 'UPDATE',
       linkiigs symbol scoping bug)
 
-  Tool027 (fontmgr): single-seg KIND=0x0000 — residual (missing RELOC record +
-      2 code-image diffs)
+  Tool027 (fontmgr): single-seg KIND=0x0000 — residual -10B = ONE case-B RELOC
+      (>>16, top-bit-set relOff) + 2 code-image diffs
 
   Tool034 (textedit): single-seg KIND=0x0000 — residual (4444-byte code-image
       shortfall, assembler bug)
+
+CASE A vs CASE B relocations (MPW emits standalone records for both; no SUPER type):
+  CASE A = >>8 high-byte reloc (size=2, shift=8) -> standalone cRELOC.  NOW HANDLED
+      (gsasm.expressload._scan_standalone_relocs; flipped Console.Driver byte-exact).
+  CASE B = far-pointer PEA pair: `PEA Label>>16`(shift-16) at X + `PEA Label`(shift0)
+      at X+3, SAME target; gold emits BOTH as standalone RELOC with relOff = FLAG|off
+      where FLAG (0x80000000 / 0xc0000000) is a per-reloc MPW LinkIIgs/ExpressLoad
+      INTERNAL value NOT derivable from source.  PARKED as a quirk (blocks Tool014
+      fully, part of Tool023/Tool027).  We SUPER-ize these instead (type-27 + type-0).
 """
 import os
 import sys
@@ -149,8 +158,9 @@ def _build_driver(subdir, srcs, defines=None):
 
 def _build_tool014():
     # WindMgr — single-segment KIND=0x0000 (no -lseg in makefile).
-    # Code image is byte-identical to gold; residual diff = missing cRELOC/RELOC
-    # records that our expressload() does not generate (-34 bytes vs gold).
+    # Code image is byte-identical to gold.  Residual -20B = ONE case-B far-pointer
+    # RELOC pair (PEA Label>>16 @0x5073 + PEA Label @0x5076, relOff 0x80005225) that
+    # MPW keeps standalone but we SUPER-ize; case-A >>8 cRELOCs now match (was -34B).
     return _build_tool('windmgr', [
         'windmgr.asm', 'task.asm', 'NewCalls.asm', 'WDefProc.asm',
         'WCtlDef.asm', 'WMPatch.asm', '../MenuMgr/wcm.asm',
@@ -313,9 +323,9 @@ def _build_tool022():
 
 def _build_tool023():
     # StandardFile — single-segment KIND=0x4000 (no -lseg in makefile).
-    # Residual: gold has 4 RELOC + 3 cRELOC records that expressload() does
-    # not generate, plus 4 code-image diffs caused by those RELOC patches
-    # (gold pre-stores relative values; our build stores absolute addresses).
+    # Residual -42B = 4 case-B far-pointer RELOCs (2 PEA pairs) that MPW keeps
+    # standalone but we SUPER-ize, plus 4 code-image diffs.  The 3 case-A >>8
+    # cRELOCs are now emitted (was -63B).
     return _build_tool('stdfile', ['sfmain.asm', 'sf.asm'])
 
 
@@ -333,9 +343,9 @@ def _build_tool025():
 
 def _build_tool027():
     # FontMgr — single-segment KIND=0x0000 (no -lseg in makefile).
-    # Residual: gold has 1 RELOC record (11 bytes) that expressload() does
-    # not generate, plus 2 code-image diffs (gold stores 0x0000 at the RELOC
-    # site; our build resolves to $02e3 pre-patched at link time, -10 bytes).
+    # Residual -10B = ONE case-B RELOC (>>16, off=0x1a71, relOff=0x80001cbb,
+    # top bit set) that MPW keeps standalone but we fold into SUPER type-27,
+    # plus 2 code-image diffs.  (Not a case-A >>8 reloc — that class is fixed.)
     return _build_tool('fontmgr', ['fm.asm', 'common.asm', 'scale.asm'])
 
 
