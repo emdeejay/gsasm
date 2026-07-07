@@ -1614,13 +1614,31 @@ class Asm:
         if self.seg_name is None and ln.label:
             self.seg_name = ln.label
         toks = ln.operand.split() if ln.operand else []
-        up = [t.upper() for t in toks]
+        # Build flat keyword list by splitting comma-joined attribute tokens like
+        # 'Export,TempOrg' or 'ENTRY,TEMPORG' into individual keywords.  This lets
+        # the EXPORT/ENTRY/ORG/TEMPORG detection below find them whether they appear
+        # as separate whitespace-delimited tokens or comma-joined in one token.
+        # The expression after ORG/TEMPORG is extracted from toks[] (whitespace-
+        # split), so commas *inside* an ORG expression (e.g. '$E10000,skip') are
+        # preserved and not mis-split.
+        kws = []
+        for t in toks:
+            kws.extend(t.upper().split(','))
+        up = kws  # kept as 'up' for the EXPORT/ENTRY/ORG/TEMPORG checks below
+        # Helper: given a keyword KW (e.g. 'ORG' or 'TEMPORG'), find the index of
+        # the whitespace-token in toks[] that CONTAINS it, then return the
+        # remaining tokens (toks[i+1:]) as the expression string.
+        def _expr_after(kw):
+            for i, t in enumerate(toks):
+                if kw in t.upper().split(','):
+                    return ' '.join(toks[i+1:])
+            return ''
         # Each PROC is a separate OMF segment whose location restarts at 0,
         # unless an explicit ORG gives it an absolute base.
         org = None
         temporg = None
         if 'ORG' in up:
-            org_expr = ' '.join(toks[up.index('ORG')+1:])
+            org_expr = _expr_after('ORG')
             # Strip trailing `,skip` or `,noskip` modifier (MPW AsmIIgs range-check
             # sentinel; the modifier affects overflow checking only, not the address).
             if ',' in org_expr:
@@ -1629,13 +1647,14 @@ class Asm:
                     org_expr = base_part.strip()
             org = self.evaluate(org_expr)
         elif 'TEMPORG' in up:
-            # `PROC temporg addr` — a temporary origin: labels are assembled as
-            # absolute (addr+offset) and self-references are baked as literals (the
-            # code runs at `addr` after being copied there), but the segment's OMF
-            # stays RELOCATABLE (ORG=0) so the linker places its bytes normally.
-            # Unlike ORG, temporg does NOT set seg.org (no firmware SEGNAME+offset
-            # relocation, no absolute placement) and does NOT flow to later PROCs.
-            temporg = self.evaluate(' '.join(toks[up.index('TEMPORG')+1:]))
+            # `PROC temporg addr` / `PROC Export,TempOrg addr` — a temporary origin:
+            # labels are assembled as absolute (addr+offset) and self-references are
+            # baked as literals (the code runs at `addr` after being copied there),
+            # but the segment's OMF stays RELOCATABLE (ORG=0) so the linker places
+            # its bytes normally.  Unlike ORG, temporg does NOT set seg.org (no
+            # firmware SEGNAME+offset relocation, no absolute placement) and does NOT
+            # flow to later PROCs.
+            temporg = self.evaluate(_expr_after('TEMPORG'))
         # ORG-flow (MPW AsmIIgs absolute location counter): an origin set by a
         # `PROC ORG` continues through the *following* non-ORG PROCs until the
         # next ORG. The kernel's `org_dummy PROC ORG addr / ENDP` anchors set an
