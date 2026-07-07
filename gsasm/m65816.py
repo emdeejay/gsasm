@@ -221,7 +221,16 @@ def encode(mnem, operand, longa, longi, evaluate, pc, reloc=None):
         base, _ = _strip_index(inner)
         return _emit(tab['dp'], _unpfx(base), 1, 'val', evaluate, pc)
     if m == 'PEA':
-        return _emit(tab['abs'], _unpfx(op.lstrip('#')), 2, 'val', evaluate, pc)
+        inner = op.lstrip('#')
+        # `pea #^X` / `#>X` / `#<X` push the bank / high / low part of X (2-byte
+        # immediate), same byte-extraction the generic immediate path applies —
+        # PEA previously dropped it, so `pea #^Loader_Entry` evaluated `^X` as a
+        # bitwise op (-> $ffff) instead of X>>16.
+        if inner[:1] in '<>^':
+            shift = {'<': 0, '>': 8, '^': 16}[inner[0]]
+            return _emit(tab['abs'], _unpfx(inner[1:].strip()), 2, 'byte',
+                         evaluate, pc, shift)
+        return _emit(tab['abs'], _unpfx(inner), 2, 'val', evaluate, pc)
 
     # single-byte-immediate mnemonics (BRK/COP/REP/SEP/WDM) take a 1-byte
     # operand, with or without a leading '#'
