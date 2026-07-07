@@ -457,6 +457,15 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
                     name, addend = Lname, add
     ops = bytearray()
     if name is not None:
+        # An EQU aliasing a relocatable label (asm.equ_alias) is a second name for
+        # that address: emit it AS the target label + addend so it relocates
+        # (SEGNAME+offset) instead of baking the snapshot value as a constant. The
+        # target's symtype is 'label', so the label paths below fire naturally; the
+        # alias's own symtype stays 'equ' (operand sizing is untouched).
+        alias = getattr(asm, 'equ_alias', {}).get(asm._symkey(name))
+        if alias is not None:
+            name = alias[0]
+            addend = (addend or 0) + alias[1]
         kind = asm.sym_kind(name)
         if kind in ('label', None):           # local/relocatable label
             nu = asm._symkey(name)            # scoped key (@-labels -> scope+name)

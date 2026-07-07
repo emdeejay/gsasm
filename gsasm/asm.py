@@ -282,6 +282,13 @@ class Asm:
         # [segidx][NAME]=value. (e.g. dialog `nextItem equ output`=$14 shadows the
         # `NextItem` routine label.)
         self.seg_equ = {}
+        # EQU that ALIASES a single relocatable label (`comp_temp equ and_mask`,
+        # ProDOS.FST) — a second name for the same address, NOT a constant. Keyed
+        # NAME(upper) -> (TARGET_upper, addend). A ref to NAME must inherit the
+        # target's relocatability (SEGNAME+offset reloc), so needs_reloc and
+        # omf._expr_for consult this map. Strictly single-relocatable-label RHS;
+        # label-DIFFERENCE equates (`max equ end-start`) stay absolute constants.
+        self.equ_alias = {}
         # @-labels can recur within one scope (reused local labels): track ALL
         # definition locs so a reference resolves to the NEXT-forward one.
         self.at_defs = {}             # @-label scope key -> [seg-relative offsets]
@@ -850,6 +857,12 @@ class Asm:
             u = self._symkey(ident)
             if u in self.imports:
                 return True
+            # an EQU that aliases a relocatable label is itself relocatable (it is a
+            # second name for that address). Checked before the seg_equ `continue`
+            # below: an in-PROC alias is recorded in seg_equ too, but unlike a plain
+            # PROC-local constant it MUST relocate (via its target label).
+            if u in self.equ_alias:
+                return True
             # a label local to the current emit segment (seg_local only holds
             # 'label' defs) — shadows a same-named global equate, e.g. a dp
             # equate `frame` vs a code label `frame` inside this segment
@@ -869,6 +882,37 @@ class Asm:
                         and self.segs[si].temporg is None:
                     return True
         return False
+
+    def _equ_alias_of(self, operand):
+        """If EQU operand is exactly ONE relocatable label (optionally +/-const),
+        return (TARGET_upper, addend); else None. A relocatable label = symtype
+        'label' whose home segment is not ORG'd/temporg (its final address is
+        link-assigned). Anything else — a bare constant, an equate/import alias, a
+        `*`-relative or two-label DIFFERENCE — returns None (stays an absolute
+        constant), which is the safe default (matches gsasm's prior behaviour)."""
+        if not operand:
+            return None
+        m = re.fullmatch(r'\s*([A-Za-z_~@?.][\w~@?.]*)\s*'
+                         r'([+\-]\s*\$?[0-9A-Fa-f]+)?\s*', operand)
+        if not m:                     # two idents, `*`, complex expr -> not an alias
+            return None
+        tgt = m.group(1)
+        u = self._symkey(tgt)
+        if u in self.imports:         # never touch EQU-vs-import precedence
+            return None
+        if self.symtype.get(u) != 'label':   # RHS must be a real (relocatable) label
+            return None
+        si = self.symseg.get(u)
+        if si is None or si >= len(self.segs):
+            return None
+        s = self.segs[si]
+        if s.org is not None or s.temporg is not None:
+            return None               # ORG'd/temporg label -> absolute literal
+        addend = 0
+        if m.group(2):
+            extra = m.group(2).replace(' ', '')
+            addend = int(extra.replace('$', ''), 16 if '$' in extra else 10)
+        return (u, addend)
 
     def sym_kind(self, name):
         u = self._symkey(name)
@@ -1389,6 +1433,18 @@ class Asm:
         # equates (SET is a redefinable equate)
         if u in ('EQU', 'GEQU', '=', 'SET'):
             self.define_label(ln.label, self.evaluate(ln.operand) or 0, kind='equ')
+            # An EQU whose RHS is exactly ONE relocatable label (optionally +/-const)
+            # is an ALIAS (a second name for that address), not a constant: refs must
+            # relocate. Record it so needs_reloc/omf._expr_for treat NAME as the
+            # target label + addend. Keyed strictly on RHS-resolves-to-relocatable-
+            # LABEL: equates aliasing other equates/imports/constants, and label-
+            # DIFFERENCE equates (two idents / `*`), fall through and stay absolute.
+            if ln.label and not ln.label.startswith('@'):
+                al = self._equ_alias_of(ln.operand)
+                if al is not None:
+                    self.equ_alias[ln.label.upper()] = al
+                else:
+                    self.equ_alias.pop(ln.label.upper(), None)   # SET redefine
             return
 
         # state directives
