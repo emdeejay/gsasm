@@ -34,6 +34,8 @@ def tokenize(s, msb=False):
         two = s[i:i+2]
         if two in _TWO:
             toks.append(two); i += 2; continue
+        if c == '≈':          # '≈' = MPW AsmIIgs one's-complement operator
+            toks.append('~'); i += 1; continue
         if c in '+-*/<>=()~|':
             toks.append(c); i += 1; continue
         if c == '$':
