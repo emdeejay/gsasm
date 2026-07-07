@@ -1592,9 +1592,13 @@ class Asm:
                 self._note_entry_seg(ln.label.upper())
             return
         if u == 'IMPORT':
-            nm = ln.operand.split(':')[0].strip() if ln.operand else ''
-            if nm:
-                self.imports.add(nm.upper())
+            # `IMPORT a,b,c` declares several externals on one line; each may carry
+            # a `:attr` suffix (stripped).  (Was: only the first was taken, so
+            # e.g. GQuit's `Import e1_errBuf,e1_errStr` became one bogus symbol.)
+            for part in (ln.operand or '').split(','):
+                nm = part.split(':')[0].strip()
+                if nm:
+                    self.imports.add(nm.upper())
             self._lbl(ln); return
         if u == 'ALIGN':
             a = self.evaluate(ln.operand) or 1
