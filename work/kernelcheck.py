@@ -330,6 +330,55 @@ def _full_symtab(asm) -> dict[str, int]:
     return {k: v for k, v in asm.symbols.items() if isinstance(v, int)}
 
 
+def _placed_symtab(asm, groups, recipe) -> dict[str, int]:
+    """Global PLACED symbol table for a module's -lseg groups (linkOS WP-K1).
+
+    linkOS links all -lseg load segments together, so a symbol's final address
+    is its content group's placement base + its offset within that placed group.
+    The base is the group's `start_seg` PAD ORG (the last non-zero ORG in the
+    start group); content segments accumulate from there.  ``recipe`` is a list
+    of ``(start_group, content_group, end_group)`` loadname triples.
+
+    Returns ``{NAME_upper: placed_abs}`` for every symbol whose home segment is
+    a content segment — e.g. INIT_SCM (scm_main, +$408, base $d000) -> $d408.
+    Depends on WP-K0 (persistent SEG loadnames) so the grouping is correct.
+    """
+    seg_base_off: dict[str, tuple[int, int]] = {}
+    for start_g, content_g, _end_g in recipe:
+        starts = groups.get(start_g.lower(), [])
+        orgs = [s['org'] for s in starts if s['org']]
+        if not orgs:
+            continue
+        base = orgs[-1]
+        off = 0
+        for s in groups.get(content_g.lower(), []):
+            seg_base_off[s['segname'].upper()] = (base, off)
+            off += s['length']
+    out: dict[str, int] = {}
+    for name, val in asm.symbols.items():
+        if not isinstance(val, int):
+            continue
+        sg = asm.symseg.get(name)
+        if sg is None or sg >= len(asm.segs):
+            continue
+        home = (asm.segs[sg].name or '').upper()
+        if home in seg_base_off:
+            base, segoff = seg_base_off[home]
+            out[name.upper()] = base + segoff + val
+    return out
+
+
+# The linkOS -lseg recipe for SCM (start_seg, content, end_seg) — becomes
+# scm.bin.{1..5}; the placement base of each content group is its start_seg PAD ORG.
+_SCM_LSEG_RECIPE = [
+    ('start_seg0', 'oscall_seg', 'end_seg0'),
+    ('start_seg1', 'misc_seg',   'end_seg1'),
+    ('start_seg2', 'scm_main',   'end_seg2'),
+    ('start_seg3', 'system_svc', 'end_seg3'),
+    ('start_seg4', 'bank_e1',    'end_seg4'),
+]
+
+
 def _link_groups(group_segs: list[dict],
                  extern: dict | None = None) -> bytes:
     """Link selected segment dicts into a flat code image."""
@@ -542,6 +591,13 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         # gap.  ORG-flow makes each label's absolute value equal its in-group
         # placement, so overriding group-local symbols is value-neutral.
         gq_extern = _full_symtab(gquit_asm)
+        # WP-K1: seed with the global PLACED kernel symtab so GQuit's cross-module
+        # imports (INIT_SCM=$d408, ADD_FST, DEALLOCATE, OS_EVENT, ...) resolve to
+        # their linked addresses — mirroring linkOS's single global link, which
+        # kernelcheck's per-group links otherwise can't see.  GQuit's own
+        # definitions win (setdefault), so only its unresolved externals are filled.
+        for _k, _v in _placed_symtab(scm_asm, scm_groups, _SCM_LSEG_RECIPE).items():
+            gq_extern.setdefault(_k, _v)
 
         for out_name, gname in [
             ('scm.bin.8',  'seg_gldr'),
