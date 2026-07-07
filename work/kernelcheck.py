@@ -598,6 +598,15 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         # definitions win (setdefault), so only its unresolved externals are filled.
         for _k, _v in _placed_symtab(scm_asm, scm_groups, _SCM_LSEG_RECIPE).items():
             gq_extern.setdefault(_k, _v)
+        # WP-1.1: cache (scm.bin.12) content follows its ORG'd header in source, so
+        # ORG-flow makes its symbols already ABSOLUTE — its own symtab IS the placed
+        # table.  Resolves GQuit's `jsl >cache_in_queue` (CACHE_IN_QUEUE=$a914).
+        try:
+            _cache_obj, _cache_asm = _assemble(f'{GS}/OS/CacheManager/Cache.Src')
+            for _k, _v in _full_symtab(_cache_asm).items():
+                gq_extern.setdefault(_k, _v)
+        except Exception:
+            pass
 
         for out_name, gname in [
             ('scm.bin.8',  'seg_gldr'),
