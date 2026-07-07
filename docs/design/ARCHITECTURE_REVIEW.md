@@ -170,6 +170,28 @@ then have the harnesses **consume** it instead of hand-coding maps. This:
   temporg-in-flow, the case-B reloc quirk, D1/D2/D3) are orthogonal. This retires
   *recipe* bespokery and *transcription-error* residuals, not assembler bugs.
 
+**Probe result (data, `work/mpwmake_probe.py` — read-only, parses the makefiles
+and diffs against the harness maps):**
+- **Tools 8/8 EXACT** vs `TOOLMAP` — including ControlMgr & LineEdit once the make
+  *dependency* line is used (their LinkIIGS *rule* is half-`#`-commented; the
+  target's prerequisites are authoritative and match the shipping binary).
+- **FSTs 6/7 EXACT**, **Drivers 7/12 EXACT** vs `FSTMAP`/`DRIVERMAP` — the SCSI
+  four show identical 13-source lists (only my define-string format differs); the
+  2 “no-match” are probe output-name quirks, not harness errors.
+- **No remaining transcription errors found.** The current maps are faithful — the
+  historical mistakes (ControlMgr `CtlPatch`/`DummyDrag`, LineEdit/FontMgr/Scrap
+  `common.asm`) were already hand-corrected.
+
+**So the win is *derivation*, not bug-fixing.** The maps are correct today but are
+hand-maintained copies that were repeatedly wrong before; a reader makes them
+*derived data*, killing the maintenance and the error class, and — the actual
+point — turning "the harness knows this codebase" into "the harness reads this
+codebase's build files."  Reader scope confirmed by the probe: use the make
+*dependency* line as authoritative; `make.<component>` per FST/driver; first
+real positional of `asmiigs` = the source. Remaining reader work is bounded and
+now known: **{Variable} resolution** (defines like `DEBUGSYMBOLS`, and 2 output
+names) and **quoted multi-word object names** (the SCSI drivers).
+
 **Verdict:** §3a is complementary to §3 and arguably should come first (it's lower
 risk — a reader is additive, gated by diffing against today's maps — and it
 immediately converts a chunk of "harness knows this codebase" into "harness reads
