@@ -23,15 +23,18 @@ Known residuals (precise, not unknown gaps):
     - Loader.bin: SIZE-exact (16590B) via the RECORD `DS RecordName` sizeof fix
       (Data.a GLOBALS: 204B of record-template DS now allocate correctly) plus
       the AError / Func / endf directives.  CONTENT still differs (~5976/16590B),
-      but the cause is LOAD-SEGMENT ORDERING, not relocs: makebin packs segment
-      bodies in LINK order (extend, ORG gaps ignored), whereas golden LinkIIgs
-      groups by SEG/load segment — all 'Loader' segs (zloader_header + CALLTABLE +
-      code) then all 'Loader_LC' (zloader_lc_header + LC data).  Ours emits
-      zloader_lc_header at flat 0x30 where gold has the CALLTABLE.  FIX = group the
-      Loader link's segments by loadname before makebin (reuse the WP-2.1
-      linkiigs.group_load_segments model).  Only ~19B are true `ffff` import-diffs
-      (`DC.W import-label`, e.g. byte0 zloader_end-zloader_start = ffff vs 2515) —
-      omf bakes a placeholder instead of an EXPR record; a separate, minor gap.
+      but the cause is LOAD-SEGMENT PLACEMENT, not relocs.  CRACKED + proven at
+      97% (from 64%) in work/loader_placed.py: golden groups by SEG/load segment
+      ('Loader' then 'Loader_LC'; a default-'main' seg inherits the preceding
+      named loadname within its object), STORES the groups contiguously, but
+      LOADS each at its own base (the group header's ORG: 0x1a5d0 / 0x1cfd0) —
+      relocs resolve against the runtime base, not the flat position.  linkiigs
+      instead places in link order anchored on the two headers' ORGs, so
+      zloader_lc_header lands at flat 0x30 where gold has CALLTABLE.  The residual
+      3% is NOT placement — it is the operand-resolution long-tail (qualified
+      record fields e.g. HEADER.DISPNAME, cross-seg refs) + ~4B DC.W import-diff
+      (omf bakes CONST ffff not an EXPR record).  To flip GS.OS: integrate the
+      loader_placed algorithm + close that long-tail + the SCM DC.W LEXPR gap.
     - SCM: the WP-2.1 placed symtab is now seeded into every SCM content link,
       so macro-generated `lda #^Label` bank bytes resolve to real addresses
       (SCM 74% -> 95%; kernelcheck GS.OS 28831 -> 37072/38805).  ~1731 SCM bytes
