@@ -265,29 +265,6 @@ def _parse_obj_segs(obj_bytes: bytes) -> list[dict]:
     return segs
 
 
-def _make_groups(segs: list[dict]) -> dict[str, list[dict]]:
-    """Group segments by source-order SEG ranges.
-
-    A new group starts at each non-'main' loadname segment.  All subsequent
-    'main' loadname segments belong to that group until the next named one.
-    This replicates the MPW '@segname' group semantics that gsasm's single-PROC
-    SEG directive doesn't produce (a known gsasm limitation).
-
-    Returns {group_name_lower: [seg, ...]} preserving source order.
-    """
-    groups: dict[str, list[dict]] = {}
-    current: str | None = None
-    for seg in segs:
-        ln = seg['loadname'].lower()
-        if ln != 'main':
-            current = ln
-            groups.setdefault(current, [])
-            groups[current].append(seg)
-        elif current is not None:
-            groups[current].append(seg)
-    return groups
-
-
 def _select_group(groups: dict[str, list[dict]], name: str) -> list[dict]:
     """Return the segment list for *name* (case-insensitive)."""
     key = name.lower()
@@ -328,44 +305,6 @@ def _full_symtab(asm) -> dict[str, int]:
     symbol table, mirroring linkOS resolving all segments together.
     """
     return {k: v for k, v in asm.symbols.items() if isinstance(v, int)}
-
-
-def _placed_symtab(asm, groups, recipe) -> dict[str, int]:
-    """Global PLACED symbol table for a module's -lseg groups (linkOS WP-K1).
-
-    linkOS links all -lseg load segments together, so a symbol's final address
-    is its content group's placement base + its offset within that placed group.
-    The base is the group's `start_seg` PAD ORG (the last non-zero ORG in the
-    start group); content segments accumulate from there.  ``recipe`` is a list
-    of ``(start_group, content_group, end_group)`` loadname triples.
-
-    Returns ``{NAME_upper: placed_abs}`` for every symbol whose home segment is
-    a content segment — e.g. INIT_SCM (scm_main, +$408, base $d000) -> $d408.
-    Depends on WP-K0 (persistent SEG loadnames) so the grouping is correct.
-    """
-    seg_base_off: dict[str, tuple[int, int]] = {}
-    for start_g, content_g, _end_g in recipe:
-        starts = groups.get(start_g.lower(), [])
-        orgs = [s['org'] for s in starts if s['org']]
-        if not orgs:
-            continue
-        base = orgs[-1]
-        off = 0
-        for s in groups.get(content_g.lower(), []):
-            seg_base_off[s['segname'].upper()] = (base, off)
-            off += s['length']
-    out: dict[str, int] = {}
-    for name, val in asm.symbols.items():
-        if not isinstance(val, int):
-            continue
-        sg = asm.symseg.get(name)
-        if sg is None or sg >= len(asm.segs):
-            continue
-        home = (asm.segs[sg].name or '').upper()
-        if home in seg_base_off:
-            base, segoff = seg_base_off[home]
-            out[name.upper()] = base + segoff + val
-    return out
 
 
 # The linkOS -lseg recipe for SCM (start_seg, content, end_seg) — becomes
@@ -496,7 +435,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         scm_src = f'{GS}/OS/SCM/SCM.src'
         scm_obj, scm_asm = _assemble(scm_src)
         scm_segs = _parse_obj_segs(scm_obj)
-        scm_groups = _make_groups(scm_segs)
+        scm_groups = _lnk.group_load_segments(scm_segs)
     except Exception as exc:
         print(f'  FAIL: SCM assembly: {exc}', file=sys.stderr)
         return None
@@ -582,7 +521,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         gquit_obj, gquit_asm = _assemble(f'{GS}/OS/GQuit/GQuit.src',
                                          sysdate=BUILD_SYSDATE)
         gq_segs = _parse_obj_segs(gquit_obj)
-        gq_groups = _make_groups(gq_segs)
+        gq_groups = _lnk.group_load_segments(gq_segs)
         # linkOS resolves symbols across ALL GQuit segments at once; kernelcheck
         # links each group in isolation, so a seg_gldr reference to an absolute
         # label in another group (e.g. e1_end/e0_end/e1_mslot, at their ORG-flowed
@@ -596,7 +535,8 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         # their linked addresses — mirroring linkOS's single global link, which
         # kernelcheck's per-group links otherwise can't see.  GQuit's own
         # definitions win (setdefault), so only its unresolved externals are filled.
-        for _k, _v in _placed_symtab(scm_asm, scm_groups, _SCM_LSEG_RECIPE).items():
+        for _k, _v in _lnk.link_placed(
+                [(scm_obj, scm_asm)], _SCM_LSEG_RECIPE).items():
             gq_extern.setdefault(_k, _v)
         # WP-1.1: cache (scm.bin.12) content follows its ORG'd header in source, so
         # ORG-flow makes its symbols already ABSOLUTE — its own symtab IS the placed
@@ -637,7 +577,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
     # ---- Cache / scm.bin.12 — Layout A: header + gap + content ----
     # cashseg_org = $A280, header_data = 41 bytes, gap = 7 bytes
     # Note: Cache.Src uses no SEG directives; all segments have loadname='main'.
-    # _make_groups() returns {} for this file.  Use direct first-seg-is-header split.
+    # group_load_segments() returns {} for this file.  Use first-seg-is-header split.
     try:
         cache_obj, cache_asm = _assemble(f'{GS}/OS/CacheManager/Cache.Src')
         cache_segs = _parse_obj_segs(cache_obj)
@@ -853,7 +793,7 @@ def main() -> int:
             p8_obj, p8_asm = _assemble(src_mli, extra_incs=[f'{GS}/P8'],
                                        sysdate='06-May-93')
             p8_segs = _parse_obj_segs(p8_obj)
-            p8_groups = _make_groups(p8_segs)
+            p8_groups = _lnk.group_load_segments(p8_segs)
 
             # PROCONE is the first named group (at ORG $2000)
             try:

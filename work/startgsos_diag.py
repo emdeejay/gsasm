@@ -18,7 +18,7 @@ def build_start_gsos(gq_extern=None):
     gquit_obj, gquit_asm = kc._assemble(f'{GS}/OS/GQuit/GQuit.src',
                                         sysdate=kc.BUILD_SYSDATE)
     gq_segs = kc._parse_obj_segs(gquit_obj)
-    gq_groups = kc._make_groups(gq_segs)
+    gq_groups = _lnk.group_load_segments(gq_segs)
     if gq_extern is None:
         gq_extern = kc._full_symtab(gquit_asm)
     parts = []

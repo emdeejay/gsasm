@@ -68,6 +68,8 @@ def _parse_obj(obj_bytes: bytes) -> list[dict]:
             'recs': recs,
             'segname': _decode_segname(h),
             'length': h['LENGTH'],
+            'loadname': h['LOADNAME'].decode('mac_roman', 'replace').strip(),
+            'org': h.get('ORG', 0) or 0,
         })
         off += bc
     return segs
@@ -453,3 +455,102 @@ def link(objects: list[tuple[bytes, Any | None]],
                 seg_name, seg_load, seg_base, seg_kind, seg_idx + 1, body
             )
         return bytes(out)
+
+
+# ---------------------------------------------------------------------------
+# Placed (-lseg) load-segment linking — the linkOS / kernel placement model.
+#
+# MPW LinkIIgs's -lseg directive groups object segments into named LOAD
+# SEGMENTS and places each at a base; a symbol's final address is its load
+# segment's placement base plus its offset within that segment.  gsasm emits one
+# OMF segment per PROC (LOADNAME stamped only on the SEG-directive PROC, the rest
+# defaulting to 'main'), so load-segment membership is recovered from the LOADNAME
+# run.  These two helpers are the general core of that model; the -lseg recipe
+# itself stays caller config.  (Body-building for a full placed link — with
+# defer_shifts — joins here when the harness's per-group linking is lifted.)
+# ---------------------------------------------------------------------------
+
+def group_load_segments(segs: list[dict]) -> dict[str, list[dict]]:
+    """Group OMF segments into load segments by LOADNAME, in source order.
+
+    A named (non-'main') LOADNAME opens a load segment; subsequent default-'main'
+    segments join the current one until the next named LOADNAME.  (This recovers
+    MPW's load-segment grouping from gsasm's per-PROC 'main'-defaulted emission,
+    and is equally correct when the loadname persists across PROCs.)  Reads only
+    ``seg['loadname']`` — shape-agnostic across the harness's ``_parse_obj_segs``
+    dicts and linkiigs' own ``_parse_obj`` dicts.
+
+    Returns ``{loadname_lower: [seg, ...]}`` preserving source order.
+    """
+    groups: dict[str, list[dict]] = {}
+    current: str | None = None
+    for seg in segs:
+        ln = seg['loadname'].lower()
+        if ln != 'main':
+            current = ln
+            groups.setdefault(current, [])
+            groups[current].append(seg)
+        elif current is not None:
+            groups[current].append(seg)
+    return groups
+
+
+def link_placed(
+        objects: list[tuple[bytes, Any | None]],
+        lsegs: list[tuple[str, str, str]],
+) -> dict[str, int]:
+    """Placed symbol table for a set of -lseg load-segment groups.
+
+    linkOS links all load segments together, so a symbol's final address is its
+    content group's placement base plus its offset within the placed group.  The
+    base is the group's *start* group PAD ORG (the last non-zero ORG in that
+    group); content segments accumulate sequentially from there.
+
+    Parameters
+    ----------
+    objects
+        ``[(obj_bytes, asm_or_None), ...]`` — same shape as ``link()``.  Each
+        asm supplies the interior symbols (``.symbols``/``.symseg``/``.segs``)
+        that get placed.
+    lsegs
+        The placement recipe: ``[(start_group, content_group, end_group), ...]``
+        LOADNAME triples (caller config).  Only ``start_group`` (for the base)
+        and ``content_group`` (the placed segments) are consulted here.
+
+    Returns
+    -------
+    dict
+        ``{NAME_upper: placed_abs}`` for every symbol whose home segment is a
+        placed content segment — e.g. INIT_SCM (scm_main, +$408, base $d000)
+        -> $d408.
+    """
+    # (1) Map each content segment name -> (group base, offset within group).
+    seg_base_off: dict[str, tuple[int, int]] = {}
+    for obj_bytes, _asm in objects:
+        groups = group_load_segments(_parse_obj(obj_bytes))
+        for start_g, content_g, _end_g in lsegs:
+            orgs = [s['org'] for s in groups.get(start_g.lower(), []) if s['org']]
+            if not orgs:
+                continue
+            base = orgs[-1]
+            off = 0
+            for s in groups.get(content_g.lower(), []):
+                seg_base_off[s['segname'].upper()] = (base, off)
+                off += s['length']
+
+    # (2) Place every interior symbol whose home segment is a content segment.
+    out: dict[str, int] = {}
+    for _obj_bytes, asm in objects:
+        if asm is None:
+            continue
+        for name, val in asm.symbols.items():
+            if not isinstance(val, int):
+                continue
+            sg = asm.symseg.get(name)
+            if sg is None or sg >= len(asm.segs):
+                continue
+            home = (asm.segs[sg].name or '').upper()
+            if home in seg_base_off:
+                base, segoff = seg_base_off[home]
+                out[name.upper()] = base + segoff + val
+    return out
