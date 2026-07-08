@@ -21,11 +21,13 @@ So: keep linkiigs `placed` in object order but base each seg at its RUNTIME
 address (reuse the tested _build_symtab), then concatenate bodies in FLAT
 (grouped) order.  With the typed-DS-instance field fix (asm._explode_record_
 fields, commit d74139a) this reaches 99% (16562/16590); the residual 28B is:
-  * 3 segments (FIND_SEGMENT / LOAD_SEGMENT / SET_MARK, all near the end of
-    'Loader_LC') whose gold RUNTIME address is ~0xb21 above their contiguous
-    position — i.e. the load segment is NOT purely contiguous; a late ORG'd
-    boundary (org_dummy at Loader_End etc.) shifts the runtime base.  A finer
-    within-group placement detail, not the group model.
+  * 3 CASE-ON collisions (FIND_SEGMENT / LOAD_SEGMENT / SET_MARK).  Loader.a
+    line 1 sets `CASE ON` (case-SENSITIVE symbols) — the ONLY file in the whole
+    corpus that does.  So MPW keeps find_Segment (ExpressLoad.a) distinct from
+    Find_Segment (Segments.a), load_segment/Load_Segment, set_mark/Save_Mark;
+    gsasm uppercase-folds them, so a reference binds to the wrong duplicate
+    segment.  FIX = honor CASE ON (ROM-safe: no ROM/tool uses it; but pervasive
+    — `.upper()` on symbol names runs through asm.py/omf.py/linkiigs.py).
   * ~4B DC.W import-difference (omf bakes a CONST ffff instead of an EXPR
     record: _linear_reloc bails on undef imports @omf.py, _diff_reloc needs
     both defined).
