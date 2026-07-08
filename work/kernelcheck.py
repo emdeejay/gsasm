@@ -359,7 +359,8 @@ def _link_groups(group_segs: list[dict],
 
 def _build_header_content(header_segs: list[dict],
                            content_segs: list[dict],
-                           end_segs: list[dict] | None = None) -> bytes:
+                           end_segs: list[dict] | None = None,
+                           content_extern: dict | None = None) -> bytes:
     """Build a Layout-A flat binary: header_data + zero_gap + content.
 
     The gap is computed as header_length (48) minus the actual header data size —
@@ -371,8 +372,12 @@ def _build_header_content(header_segs: list[dict],
     at header-link time we inject seg_N_end's absolute address as an extern.
     seg_N_start is the ORG of the pad segment (last header seg with a non-zero
     ORG), and seg_N_end = seg_N_start + len(content_bytes).
+
+    content_extern: optional placed symtab seeded into the CONTENT link so that
+    cross-group references (e.g. macro-generated `lda #^Label`) resolve to their
+    real absolute addresses rather than 0-based segment offsets (WP-4.1b).
     """
-    content_bytes = _link_groups(content_segs)
+    content_bytes = _link_groups(content_segs, extern=content_extern)
     end_bytes = _link_groups(end_segs) if end_segs else b''
 
     # Build extern map: inject seg_N_end absolute addresses so the header's
@@ -440,6 +445,17 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         print(f'  FAIL: SCM assembly: {exc}', file=sys.stderr)
         return None
 
+    # WP-4.1b: PLACED symtab for the SCM -lseg groups.  linkOS resolves all kernel
+    # segments globally; kernelcheck links each group in isolation, so cross-group
+    # references (e.g. macro-generated `lda #^Label` from misc_seg/bank_e1/... into
+    # oscall_seg) resolve to 0 without this seed.  The placed table gives their real
+    # absolute addresses, mirroring linkOS's single global link (same as GQuit).
+    try:
+        scm_placed = _lnk.link_placed([(scm_obj, scm_asm)], _SCM_LSEG_RECIPE) or None
+    except Exception as exc:
+        print(f'  WARN: link_placed for SCM failed: {exc}', file=sys.stderr)
+        scm_placed = None
+
     # Each tuple: (output_name, header_group, content_group, end_group)
     scm_bin_recipes = [
         ('scm.bin',   'start_seg0', 'oscall_seg',  'end_seg0'),
@@ -456,7 +472,8 @@ def _build_scm_segments() -> dict[str, bytes] | None:
                 end_segs = _select_group(scm_groups, end_g)
             except KeyError:
                 end_segs = None
-            out[out_name] = _build_header_content(hdr_segs, content_segs, end_segs)
+            out[out_name] = _build_header_content(hdr_segs, content_segs, end_segs,
+                                                  content_extern=scm_placed)
         except Exception as exc:
             print(f'  FAIL {out_name}: {exc}', file=sys.stderr)
             out[out_name] = b''
@@ -464,7 +481,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
     # scm.bin.17 = terminator (Layout C: content only)
     try:
         term_segs = _select_group(scm_groups, 'terminator')
-        out['scm.bin.17'] = _link_groups(term_segs)
+        out['scm.bin.17'] = _link_groups(term_segs, extern=scm_placed)
     except Exception as exc:
         print(f'  FAIL scm.bin.17: {exc}', file=sys.stderr)
         out['scm.bin.17'] = b''
@@ -485,7 +502,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         hdr_segs_b00     = b00s_segs[:1]                    # header proc
         content_segs_b00 = b00s_segs[1:] + bank0_segs + b00e_segs  # content
         out['scm.bin.6'] = _build_header_content(
-            hdr_segs_b00, content_segs_b00)
+            hdr_segs_b00, content_segs_b00, content_extern=scm_placed)
     except Exception as exc:
         print(f'  FAIL scm.bin.6: {exc}', file=sys.stderr)
         out['scm.bin.6'] = b''
@@ -504,7 +521,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         hdr_segs_be0     = be0s_segs[:1]                    # header proc
         content_segs_be0 = be0s_segs[1:] + devd_segs + be0e_segs  # content
         out['scm.bin.7'] = _build_header_content(
-            hdr_segs_be0, content_segs_be0)
+            hdr_segs_be0, content_segs_be0, content_extern=scm_placed)
     except Exception as exc:
         print(f'  FAIL scm.bin.7: {exc}', file=sys.stderr)
         out['scm.bin.7'] = b''
@@ -585,7 +602,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         hdr_segs_cache  = cache_segs[:1]   # CASHSEG_HEADER (41 bytes, gap=7)
         rest_segs_cache = cache_segs[1:]   # CASHSEG_DUMMY (empty) + content procs
         out['scm.bin.12'] = _build_header_content(
-            hdr_segs_cache, rest_segs_cache)
+            hdr_segs_cache, rest_segs_cache, content_extern=scm_placed)
     except Exception as exc:
         print(f'  FAIL scm.bin.12: {exc}', file=sys.stderr)
         out['scm.bin.12'] = b''
@@ -606,7 +623,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
             hdr_segs_init  = init_segs[:1]   # INIT_N_HEADER
             rest_segs_init = init_segs[1:]   # INIT_N_START (empty) + content procs
             out[f'scm.bin.{n}'] = _build_header_content(
-                hdr_segs_init, rest_segs_init)
+                hdr_segs_init, rest_segs_init, content_extern=scm_placed)
         except Exception as exc:
             print(f'  FAIL scm.bin.{n}: {exc}', file=sys.stderr)
             out[f'scm.bin.{n}'] = b''

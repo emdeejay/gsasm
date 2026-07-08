@@ -176,7 +176,7 @@ def parse_line(raw):
 
 # Directives whose operand legitimately contains spaces.
 _MULTI_TOKEN_OPS = {'IF', 'ELSEIF', 'WHILE', 'AIF', 'PROC', 'ERRIF', 'DO',
-                    'ASSERT', 'PRINT', 'TITLE', 'LIST'}
+                    'ASSERT', 'PRINT', 'TITLE', 'LIST', 'AERROR'}
 
 
 def first_field(s):
@@ -320,6 +320,7 @@ class Asm:
         self.record_stack = []        # saved (loc, emit, name) per RECORD..ENDR
         self.cur_record = None        # current RECORD name (for qualified fields)
         self._record_dec = False      # current RECORD allocates fields downward
+        self.record_sizes = {}        # {RECORD_NAME: sizeof} for `DS RecordName`
         self.with_stack = []          # active WITH record names (field namespace)
         self.last_global = ''         # most recent global label (@-local scope)
         self.local_ctx = ''           # current macro-expansion context id
@@ -1493,10 +1494,14 @@ class Asm:
                     if 'decrement' in modl or 'increment' in modl:
                         dec = 'decrement' in modl
                         op = base_txt.strip()
-                self.record_stack.append((self.loc, self.emit_enabled,
-                                          self.cur_record, False, self._record_dec))
-                self.emit_enabled = False
                 base = self.evaluate(op) or 0
+                # Store base + label so ENDR can set the record name to
+                # sizeof(record) — MPW AsmIIgs makes a template record's label
+                # equal its total size (so `DS RecordType` allocates that many bytes).
+                self.record_stack.append((self.loc, self.emit_enabled,
+                                          self.cur_record, False, self._record_dec,
+                                          base, ln.label))
+                self.emit_enabled = False
                 self.loc = base
                 self._record_dec = dec             # fields allocate downward
                 if ln.label:
@@ -1529,8 +1534,19 @@ class Asm:
                 self.define_label(ln.label, self.loc,
                                   kind='label' if data_rec else 'equ')
             if self.record_stack:
+                entry = self.record_stack.pop()
+                final_rec_loc = self.loc          # position at end of record body
                 (self.loc, self.emit_enabled, self.cur_record, _,
-                 self._record_dec) = self.record_stack.pop()
+                 self._record_dec) = entry[:5]
+                # Template (non-data) record: remember sizeof = final_loc - base so
+                # `DS RecordName` allocates that many bytes (MPW AsmIIgs behaviour).
+                # The record LABEL keeps its base value (used by WITH and by value
+                # refs like `lda #Record`) — clobbering it to sizeof regresses
+                # firmware that references a WITH'd zero-page record (SmartPort).
+                if not data_rec and len(entry) >= 7:
+                    saved_base, saved_label = entry[5], entry[6]
+                    if saved_label:
+                        self.record_sizes[saved_label.upper()] = final_rec_loc - saved_base
             if data_rec:
                 # finalize: trailing content goes to a fresh segment (next PROC
                 # reuses it if still empty/unnamed)
@@ -1653,6 +1669,24 @@ class Asm:
             if data is None:
                 data = b'\x00'
             self.emit_line(ln, data, [(1, fx)] if fx else [])
+            return
+
+        # AError: MPW compile-time assertion — emits zero bytes; records an error
+        # when reached.  The operand is a message string that may contain spaces
+        # (consumed whole via _MULTI_TOKEN_OPS above).
+        if u == 'AERROR':
+            self._lbl(ln)
+            msg = (ln.operand or '').strip().strip("'\"")
+            self._err(f"AError: {msg}")
+            return
+
+        # Func / endf: MPW function-block construct.  `Label Func` starts a new
+        # OMF segment (like PROC); `endf` ends it (like ENDP).
+        if u == 'FUNC':
+            self._proc(ln); return
+        if u == 'ENDF':
+            self.proc_depth = max(0, self.proc_depth - 1)
+            self.in_proc = self.proc_depth > 0
             return
 
         # unknown
@@ -1845,6 +1879,12 @@ class Asm:
 
     def _ds_size(self, u, operand):
         w = self._width(u)
+        # `DS RecordName` reserves sizeof(RecordName) — MPW allocates a record
+        # template's size.  record_sizes holds each template's byte size; the
+        # record label itself keeps its base value (used by WITH / value refs).
+        key = (operand or '').strip().upper()
+        if key in self.record_sizes:
+            return self.record_sizes[key] * w
         cnt = self.evaluate(operand)
         return (cnt or 0) * w
 

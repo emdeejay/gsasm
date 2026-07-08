@@ -19,16 +19,20 @@ Build recipe (from GS.OS/MakeFiles/make.os and GS.OS/Scripts/linkOS):
   GS.OS.Dev: linkiigs -t $bc NewDispatcher.Obj -> GS.OS.Dev
 
 Known residuals (precise, not unknown gaps):
-  GS.OS:
-    - Loader.bin: Loader.a missing toolbox headers (M16.Memory, E16.Memory,
-      M16.MiscTool, E16.GSOS etc.) and AError pseudo-op; built Loader.bin is
-      16386B vs golden 16590B (204 bytes short).
-    - SCM: bank-byte SUPER type-27 relocations unresolved (lda #^Label emits
-      $00 placeholder); SUPER type-6 cINTERSEG records missing; init1
-      Record/EndR data segment STD_BUFFER is now assembled correctly but
-      still 34 bytes short across all SCM segments vs golden.
-    - Net: built 55361B vs golden 55395B (34 bytes short -- size mismatch
-      prevents overlay; reported as precise residual).
+  GS.OS (WP-4.1: now LENGTH-exact (55395B) but not yet byte-exact):
+    - Loader.bin: SIZE-exact (16590B) via the RECORD `DS RecordName` sizeof fix
+      (Data.a GLOBALS: 204B of record-template DS now allocate correctly) plus
+      the AError / Func / endf directives.  CONTENT still differs (~5976/16590B):
+      the GSHeader/Loader/GSFooter link leaves `ffff` relocation placeholders at
+      reloc sites (byte 0 = ffff vs golden 2515) — a Loader-link resolution gap,
+      the remaining Loader frontier.
+    - SCM: the WP-2.1 placed symtab is now seeded into every SCM content link,
+      so macro-generated `lda #^Label` bank bytes resolve to real addresses
+      (SCM 74% -> 95%; kernelcheck GS.OS 28831 -> 37072/38805).  ~1731 SCM bytes
+      still differ (DC.W offset-table LEXPR values + residual relocs).
+    - Net: LENGTH-exact 55395B; ~7707 content bytes differ (Loader + SCM) -> not
+      yet a byte-exact overlay (no diskcheck flip).  SUPER type-6 cINTERSEG is
+      OMF-internal and does not affect the flat GS.OS image.
   GS.OS.Dev:
     - NewDispatcher.src: 32 bytes of code missing in install_dev_svc proc
       (likely from unimplemented #^Label / SUPER type-27 bank-byte records)
