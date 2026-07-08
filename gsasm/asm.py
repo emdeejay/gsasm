@@ -1635,11 +1635,20 @@ class Asm:
             self.emit_line(ln, data, fixups); return
         if u == 'DS' or u.startswith('DS.'):
             size = self._ds_size(u, ln.operand)
+            rec = (ln.operand or '').strip().upper()
             if self._record_dec:                   # decrement record: field grows
                 self.loc -= size                   # downward; label at the new loc
                 self._lbl(ln)
+                base = self.loc
             else:
-                self._lbl(ln); self.reserve(size)
+                self._lbl(ln)
+                base = self.loc
+                self.reserve(size)
+            # `Label ds RecordName` is a TYPED instance: explode the record's
+            # fields into Label.field so qualified refs (`Label.field`) resolve to
+            # Label + RecordName.field (MPW typed-DS semantics).
+            if ln.label and rec in self.record_sizes:
+                self._explode_record_fields(ln.label, base, rec)
             return
         if u in ('DCB',) or u.startswith('DCB.'):
             self._lbl(ln)
@@ -1876,6 +1885,18 @@ class Asm:
                 else:
                     out += bytes((v >> (8 * i)) & 0xFF for i in range(w))
         return bytes(out), fixups
+
+    def _explode_record_fields(self, label, base, rec):
+        """For a typed DS instance (`Label ds RecordName`), define Label.field =
+        Label + RecordName.field for every field of the record, so that qualified
+        references `Label.field` resolve (MPW typed-DS semantics).  The fields are
+        already in .symbols as ``RECORDNAME.field`` (offsets); Label.field lands
+        in the current segment so it relocates as a normal same-segment ref."""
+        prefix = rec.upper() + '.'
+        for sname, sval in list(self.symbols.items()):
+            if isinstance(sval, int) and sname.upper().startswith(prefix):
+                self.define_label(label + '.' + sname[len(prefix):],
+                                  base + sval, kind='label')
 
     def _ds_size(self, u, operand):
         w = self._width(u)
