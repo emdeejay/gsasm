@@ -77,3 +77,37 @@ bytes as decoded above (inverse of the walker).
   experiment in the M1 notes showed guessing it is error-prone.
 - Some tools are single-segment (`main` only); multi-segment tools (bigger managers)
   will exercise INTERSEG SUPER types — handle single-segment first, then generalize.
+
+## Phase-3 spike (2026-07-08): case-B reloc-tail is PROVEN not source-derivable — STOP
+
+WP-3.1 (empirical survey, `work/reloc_survey.py`) + WP-3.2 (converter-source read)
+ran as a time-boxed spike to decide whether the case-B standalone-RELOC flag is
+reproducible. Verdict: **no — do not implement; it is a closed-toolchain quirk.**
+
+Survey — every standalone RELOC/cRELOC in the 6 `len<EOF` gold files (Tool014/023/
+027/034, TS2/TS3): **30 records, a perfect partition:**
+- **21 unflagged = case A:** all cRELOC, (size=2, shift=±8), NO SUPER type → must be
+  standalone, relOff < 0x10000. Already handled (`_scan_standalone_relocs`).
+- **9 flagged = case B:** all RELOC(0xE2), (size=2, shift=0 or 16) — combos that DO
+  have SUPER types (type-0 / type-27) — yet gold emits standalone RELOC with
+  `relOff = FLAG | offset`, FLAG ∈ {0x80000000 (7×), 0xc0000000 (2×)}. They occur as
+  the far-pointer PEA pair (`PEA Label>>16` shift-16 at X + `PEA Label` shift-0 at
+  X+3, same target), except Tool027 (unpaired shift-16). The low 28 bits are the
+  clean segment-relative offset gsasm already computes; the FLAG is OR'd on top, and
+  0x80 vs 0xc0 has **no structural predictor** in the corpus (both appear in Tool023
+  for different targets at identical (size,shift)).
+
+Why not derivable (WP-3.2, dispositive): the ExpressLoad **converter** source — the
+tool that GENERATES these records — is **absent from the GS.OS 6.0.1 archive.** Only
+the runtime loader is present (`Loader/ExpressLoad*`, `ProcReloc.DataBankChanged`,
+`Relocation.a`), and it adds relOff **unmasked**, so it cannot even reveal the flag's
+meaning. The generator was part of MPW `LinkIIgs`; the full `IIGS.601.SRC.tar.txt`
+listing contains no LinkIIgs / converter / "compress" source. The FLAG is internal
+LinkIIgs state copied verbatim into the output — nothing in-tree computes it.
+
+Consequence: gsasm's reloc for these sites carries the clean offset (e.g. 0x5225),
+never the flagged 0x80005225, and cannot choose 0x80 vs 0xc0. SUPER-izing (type-27 +
+type-0) is byte-different but functionally identical; the residual is exactly the
+record-format delta (e.g. Tool023 −42B = 4×11B RELOC − 2B SUPER/pair). Reproducing
+it would be per-tool magic-number bespokery (forbidden). This closes the case-B line;
+re-verify anytime with `work/reloc_survey.py`. **NEXT = Phase 4.**

@@ -56,6 +56,14 @@ harness so it is general engine, not `kernelcheck` bespoke.
 
 ## Phase 3 — ExpressLoad reloc-tail as a CLASS  [HIGHEST fan-out, HIGH risk — TIME-BOXED]
 
+> **OUTCOME (2026-07-08): STOPPED at the STOP condition.** WP-3.1 (survey) + WP-3.2
+> (converter source) ran; the case-B standalone-RELOC flag is **PROVEN not
+> source-derivable** — the ExpressLoad *converter* source is absent from the GS.OS
+> 6.0.1 archive (only the runtime loader ships), and 0x80 vs 0xc0 has no structural
+> predictor across the 30-record survey. WP-3.3 NOT implemented (would be per-tool
+> bespokery). Oracle `work/reloc_survey.py`; full writeup in `expressload.md`.
+> Dropped to Phase 4.
+
 13/16 disk misses are `len < EOF`; Tool014 is 100% code-exact yet 20B short — the
 residual is the ExpressLoad wrapper (standalone RELOC/cRELOC + HET tail). Case A
 (`>>8` cRELOC) is done; case B (far-pointer pair, `0x80000000`/`0xc0000000`

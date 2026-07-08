@@ -52,8 +52,10 @@ CASE A vs CASE B relocations (MPW emits standalone records for both; no SUPER ty
   CASE B = far-pointer PEA pair: `PEA Label>>16`(shift-16) at X + `PEA Label`(shift0)
       at X+3, SAME target; gold emits BOTH as standalone RELOC with relOff = FLAG|off
       where FLAG (0x80000000 / 0xc0000000) is a per-reloc MPW LinkIIgs/ExpressLoad
-      INTERNAL value NOT derivable from source.  PARKED as a quirk (blocks Tool014
-      fully, part of Tool023/Tool027).  We SUPER-ize these instead (type-27 + type-0).
+      INTERNAL value NOT derivable from source — PROVEN by the Phase-3 spike: the
+      ExpressLoad *converter* source is absent from the archive, and 0x80 vs 0xc0 has
+      no structural predictor (survey oracle work/reloc_survey.py; docs/design/
+      expressload.md).  We SUPER-ize these instead (type-27 + type-0).
 """
 import os
 import sys
