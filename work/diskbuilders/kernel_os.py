@@ -22,10 +22,16 @@ Known residuals (precise, not unknown gaps):
   GS.OS (WP-4.1: now LENGTH-exact (55395B) but not yet byte-exact):
     - Loader.bin: SIZE-exact (16590B) via the RECORD `DS RecordName` sizeof fix
       (Data.a GLOBALS: 204B of record-template DS now allocate correctly) plus
-      the AError / Func / endf directives.  CONTENT still differs (~5976/16590B):
-      the GSHeader/Loader/GSFooter link leaves `ffff` relocation placeholders at
-      reloc sites (byte 0 = ffff vs golden 2515) — a Loader-link resolution gap,
-      the remaining Loader frontier.
+      the AError / Func / endf directives.  CONTENT still differs (~5976/16590B),
+      but the cause is LOAD-SEGMENT ORDERING, not relocs: makebin packs segment
+      bodies in LINK order (extend, ORG gaps ignored), whereas golden LinkIIgs
+      groups by SEG/load segment — all 'Loader' segs (zloader_header + CALLTABLE +
+      code) then all 'Loader_LC' (zloader_lc_header + LC data).  Ours emits
+      zloader_lc_header at flat 0x30 where gold has the CALLTABLE.  FIX = group the
+      Loader link's segments by loadname before makebin (reuse the WP-2.1
+      linkiigs.group_load_segments model).  Only ~19B are true `ffff` import-diffs
+      (`DC.W import-label`, e.g. byte0 zloader_end-zloader_start = ffff vs 2515) —
+      omf bakes a placeholder instead of an EXPR record; a separate, minor gap.
     - SCM: the WP-2.1 placed symtab is now seeded into every SCM content link,
       so macro-generated `lda #^Label` bank bytes resolve to real addresses
       (SCM 74% -> 95%; kernelcheck GS.OS 28831 -> 37072/38805).  ~1731 SCM bytes
