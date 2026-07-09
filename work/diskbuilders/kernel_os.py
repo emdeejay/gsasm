@@ -62,6 +62,7 @@ sys.path.insert(0, _ROOT)                   # so `import gsasm` resolves
 
 from gsasm import asm      as _asm
 from gsasm import omf      as _omf
+from gsasm import link     as _link
 from gsasm import linkiigs as _lnk
 from gsasm import makebin  as _makebin
 
@@ -131,6 +132,91 @@ def _reformat_omf_header(linked_bytes,
 
 
 # ---------------------------------------------------------------------------
+# Loader.bin — grouped-placed link (byte-exact; proven in work/loader_placed.py)
+# ---------------------------------------------------------------------------
+
+# The Loader region of GS.OS is `LinkIIgs -x GSHeader.obj Loader.obj GSFooter.obj`
+# -> MakeBinIIgs.  A plain link places segments in LINK order (CALLTABLE lands
+# after the LC header — a ~5957B layout shift, 64% match).  The golden placement
+# groups segments by LOAD SEGMENT and loads each group at its own runtime ORG base
+# while storing them contiguously; relocs resolve against the runtime base.  See
+# work/loader_placed.py (the oracle that validates this to 16590/16590 byte-exact).
+_LOADER_ORDER = ('loader', 'loader_lc')
+_LOADER_BASE  = 0x1a5d0
+
+
+def _build_loader_bin(order=_LOADER_ORDER, base0=_LOADER_BASE, return_meta=False):
+    """Byte-exact Loader.bin image (GSHeader+Loader+GSFooter, grouped-placed).
+
+    Groups the three objects' segments by resolved LOAD SEGMENT (a default-'main'
+    seg inherits the preceding NAMED loadname within its object), stores the groups
+    contiguously in ``order``, but bases each group at its runtime ORG (the group
+    header's ORG) so relocations resolve against the runtime address, not the flat
+    position.  Reuses the tested ``linkiigs._build_symtab`` + ``link._build_body``.
+    """
+    loader = os.path.join(_GS, 'Loader')
+    objs = [_assemble(os.path.join(loader, s))
+            for s in ('GSHeader.a', 'Loader.a', 'GSFooter.a')]
+
+    # Per-(obj,emit) segment info: resolved loadname, body length, ORG.
+    info = {}
+    for oi, (obj, _a) in enumerate(objs):
+        cur = None
+        for ei, sd in enumerate(_lnk._parse_obj(obj)):
+            ln = sd['loadname'].lower()
+            if ln != 'main':
+                cur = ln
+            info[(oi, ei)] = {'ln': ln if ln != 'main' else (cur or 'main'),
+                              'len': _link._body_length(sd['recs']),
+                              'org': sd.get('org', 0) or 0}
+
+    # Flat order = groups in ``order``, stable within a group (obj then emit idx).
+    keys = sorted(info, key=lambda k: (order.index(info[k]['ln'])
+                                       if info[k]['ln'] in order else 99, k))
+    # Runtime base per group = the group's first ORG'd seg (its header).
+    gbase = {}
+    for kk in keys:
+        ln = info[kk]['ln']
+        if ln not in gbase and info[kk]['org']:
+            gbase[ln] = info[kk]['org']
+    flat = 0
+    rt_cur = {}
+    for kk in keys:
+        i = info[kk]
+        i['flat'] = flat
+        flat += i['len']
+        b = rt_cur.get(i['ln'], gbase.get(i['ln'], base0))
+        i['rt'] = b
+        rt_cur[i['ln']] = b + i['len']
+
+    # linkiigs._build_symtab inputs in OBJECT order, each seg at its runtime base.
+    placed, obj_seg_bases, placed_obj_idx = [], [], []
+    pidx = {}
+    for oi, (obj, asm) in enumerate(objs):
+        bases = []
+        for ei, sd in enumerate(_lnk._parse_obj(obj)):
+            rt = info[(oi, ei)]['rt']
+            pidx[(oi, ei)] = len(placed)
+            placed.append((sd['segname'], sd['recs'], rt, sd['hdr'], asm))
+            placed_obj_idx.append(oi)
+            bases.append(rt)
+        obj_seg_bases.append(bases)
+    sym, obj_globals = _lnk._build_symtab(objs, placed, obj_seg_bases, placed_obj_idx)
+
+    # Emit bodies in FLAT (grouped) order, each resolved at its runtime base.
+    out = bytearray()
+    for kk in keys:
+        pi = pidx[kk]
+        _seg, recs, rt, _hdr, _asm = placed[pi]
+        oi = placed_obj_idx[pi]
+        local = sym if not obj_globals[oi] else {**sym, **obj_globals[oi]}
+        out += _link._build_body(recs, dict(local, __LOC__=rt), rt)
+    if return_meta:
+        return bytes(out), [(info[k], k) for k in keys]
+    return bytes(out)
+
+
+# ---------------------------------------------------------------------------
 # GS.OS builder
 # ---------------------------------------------------------------------------
 
@@ -142,12 +228,11 @@ def _build_gsos() -> bytes:
         MakeBinIIgs Loader.S16 -> Loader.bin (+ Loader.bin.2)
         catenate Loader.bin Loader.bin.2 scm.bin ... scm.bin.17 > GS.OS
 
-    Precise residuals (output will not match golden byte-for-byte):
-      - Loader.bin: missing toolbox includes + AError pseudo-op -> 16386B
-        vs golden 16590B (204 bytes short); correct bytes up to missing
-        includes.
-      - SCM segments: bank-byte SUPER type-27 not implemented; 34 bytes short.
-      - Net: 55361B built vs 55395B golden.
+    Residual (length-exact 55395B):
+      - Loader region [0:16590]: BYTE-EXACT via _build_loader_bin (grouped-placed
+        link + CASE ON + DC.W char-literal + import-diff EXPR + placed-base symtab).
+      - SCM region [16590:]: ~1731 bytes differ — DC.W offset-table LEXPR values
+        (the remaining GS.OS gap; see kernelcheck._build_scm_segments()).
 
     Target: /System.Disk/System/GS.OS — $F9 aux $0000, 55395 bytes
     """
@@ -155,21 +240,10 @@ def _build_gsos() -> bytes:
         sys.path.insert(0, _WORK)
     import kernelcheck as _kc                              # noqa: PLC0415
 
-    # Build Loader.bin + Loader.bin.2 from source
-    loader_src   = os.path.join(_GS, 'Loader', 'Loader.a')
-    header_src   = os.path.join(_GS, 'Loader', 'GSHeader.a')
-    footer_src   = os.path.join(_GS, 'Loader', 'GSFooter.a')
-
-    loader_obj, loader_asm = _assemble(loader_src)
-    header_obj, header_asm = _assemble(header_src)
-    footer_obj, footer_asm = _assemble(footer_src)
-
-    # Link: GSHeader.obj Loader.obj GSFooter.obj (order from make.os: -x flag)
-    linked_s16 = _lnk.link(
-        [(header_obj, header_asm), (loader_obj, loader_asm),
-         (footer_obj, footer_asm)],
-        opts={'merge': False})
-    loader_bin = _makebin.makebin(linked_s16, 0)
+    # Build the Loader region (Loader.bin ++ Loader.bin.2) via the byte-exact
+    # grouped-placed link — GSHeader/Loader/GSFooter grouped by load segment and
+    # based at each group's runtime ORG (see _build_loader_bin / loader_placed.py).
+    loader_bin = _build_loader_bin()
 
     # Build SCM segments via kernelcheck helpers
     scm_bins = _kc._build_scm_segments()
