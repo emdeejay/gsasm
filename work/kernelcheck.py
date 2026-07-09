@@ -471,6 +471,24 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         print(f'  WARN: link_placed for SCM failed: {exc}', file=sys.stderr)
         scm_placed = None
 
+    # Kernel-global placed symtab.  linkOS links every kernel segment together, so a
+    # group's references to OTHER groups' symbols must see their PLACED addresses.
+    # The SCM -lseg groups come from scm_placed; the ORG-flowed groups (cache,
+    # init1-4) self-place, so each one's own assembled symtab IS its placed table
+    # (the same basis as the GQuit/cache seeding below).  Seeded into cross-
+    # referencing content links; each group still forces its OWN symbols last so a
+    # shared label name can't be shadowed by a sibling group's copy.
+    gextern: dict[str, int] = dict(scm_placed) if scm_placed else {}
+    for _gp in (f'{GS}/OS/CacheManager/Cache.Src',
+                f'{GS}/OS/InitManager/Init1.Src', f'{GS}/OS/InitManager/Init2.Src',
+                f'{GS}/OS/InitManager/Init3.Src', f'{GS}/OS/InitManager/Init4.Src'):
+        try:
+            _go, _ga = _assemble(_gp)
+            for _k, _v in _full_symtab(_ga).items():
+                gextern.setdefault(_k, _v)
+        except Exception:
+            pass
+
     # Each tuple: (output_name, header_group, content_group, end_group)
     scm_bin_recipes = [
         ('scm.bin',   'start_seg0', 'oscall_seg',  'end_seg0'),
@@ -637,8 +655,12 @@ def _build_scm_segments() -> dict[str, bytes] | None:
             # INIT_N_HEADER is the first segment (has a non-zero ORG)
             hdr_segs_init  = init_segs[:1]   # INIT_N_HEADER
             rest_segs_init = init_segs[1:]   # INIT_N_START (empty) + content procs
+            # Seed the kernel-global symtab so init's cross-refs to sibling init
+            # files / SCM / cache resolve to placed addresses; force THIS init's own
+            # symbols last so shared label names bind locally.
             out[f'scm.bin.{n}'] = _build_header_content(
-                hdr_segs_init, rest_segs_init, content_extern=scm_placed)
+                hdr_segs_init, rest_segs_init,
+                content_extern={**gextern, **_full_symtab(init_asm)})
         except Exception as exc:
             print(f'  FAIL scm.bin.{n}: {exc}', file=sys.stderr)
             out[f'scm.bin.{n}'] = b''
