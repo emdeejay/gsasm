@@ -340,6 +340,19 @@ def _link_groups(group_segs: list[dict],
     return _code_image(linked)
 
 
+def _placed_exports(content_segs: list[dict], content_org: int) -> dict[str, int]:
+    """Placed (absolute) symbol table for a content group linked at content_org.
+
+    For a relocatable-content group (bank0/device dispatcher: labels are 0-based),
+    _full_symtab gives 0-based values; this resolves its GLOBAL/segment symbols to
+    their real addresses (base + offset) so OTHER groups can reference them.  Same
+    place()+build_symtab path link() uses internally."""
+    objs = [(b''.join(s['raw'] for s in content_segs), None)]
+    placed, obj_seg_bases, placed_obj_idx = _lnk._place(objs, content_org)
+    sym, _ = _lnk._build_symtab(objs, placed, obj_seg_bases, placed_obj_idx)
+    return {k: v for k, v in sym.items() if isinstance(v, int)}
+
+
 # ---------------------------------------------------------------------------
 # Flat-binary construction helpers
 #
@@ -488,6 +501,24 @@ def _build_scm_segments() -> dict[str, bytes] | None:
                 gextern.setdefault(_k, _v)
         except Exception:
             pass
+    # Relocatable-content groups (b00segr/be0segr): their exports (B0DSPTCH,
+    # dispatcher vars, device routines) must be PLACED at the group's content ORG,
+    # not read 0-based — other groups (be0segr, init) reference them.
+    for _hdr_src, _body_srcs in (
+        (f'{GS}/OS/BankZero/B00segr.s.src',
+         (f'{GS}/OS/BankZero/bank0.dispatcher.src', f'{GS}/OS/BankZero/B00segr.e.src')),
+        (f'{GS}/OS/DeviceDispatcher/be0segr.s.src',
+         (f'{GS}/OS/DeviceDispatcher/Device.Dispatcher.Src',
+          f'{GS}/OS/DeviceDispatcher/BE0Segr.e.Src'))):
+        try:
+            _hs = _parse_obj_segs(_assemble(_hdr_src)[0])
+            _content = _hs[1:] + [s for _b in _body_srcs
+                                  for s in _parse_obj_segs(_assemble(_b)[0])]
+            _org = next((s['org'] for s in reversed(_hs[:1]) if s['org']), 0)
+            for _k, _v in _placed_exports(_content, _org).items():
+                gextern.setdefault(_k, _v)
+        except Exception:
+            pass
 
     # Each tuple: (output_name, header_group, content_group, end_group)
     scm_bin_recipes = [
@@ -534,8 +565,10 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         # content = D_B00SEGR_DUMMY (empty) + bank0 + b00e
         hdr_segs_b00     = b00s_segs[:1]                    # header proc
         content_segs_b00 = b00s_segs[1:] + bank0_segs + b00e_segs  # content
+        _b00_org = next((s['org'] for s in reversed(hdr_segs_b00) if s['org']), 0)
         out['scm.bin.6'] = _build_header_content(
-            hdr_segs_b00, content_segs_b00, content_extern=scm_placed)
+            hdr_segs_b00, content_segs_b00,
+            content_extern={**gextern, **_placed_exports(content_segs_b00, _b00_org)})
     except Exception as exc:
         print(f'  FAIL scm.bin.6: {exc}', file=sys.stderr)
         out['scm.bin.6'] = b''
@@ -553,8 +586,10 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         be0e_segs = _parse_obj_segs(be0e_obj)   # [BE0SEGR_END, BE0SEGR0_OVF]
         hdr_segs_be0     = be0s_segs[:1]                    # header proc
         content_segs_be0 = be0s_segs[1:] + devd_segs + be0e_segs  # content
+        _be0_org = next((s['org'] for s in reversed(hdr_segs_be0) if s['org']), 0)
         out['scm.bin.7'] = _build_header_content(
-            hdr_segs_be0, content_segs_be0, content_extern=scm_placed)
+            hdr_segs_be0, content_segs_be0,
+            content_extern={**gextern, **_placed_exports(content_segs_be0, _be0_org)})
     except Exception as exc:
         print(f'  FAIL scm.bin.7: {exc}', file=sys.stderr)
         out['scm.bin.7'] = b''
