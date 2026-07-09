@@ -537,7 +537,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
             except KeyError:
                 end_segs = None
             out[out_name] = _build_header_content(hdr_segs, content_segs, end_segs,
-                                                  content_extern=scm_placed)
+                                                  content_extern=gextern)
         except Exception as exc:
             print(f'  FAIL {out_name}: {exc}', file=sys.stderr)
             out[out_name] = b''
@@ -545,7 +545,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
     # scm.bin.17 = terminator (Layout C: content only)
     try:
         term_segs = _select_group(scm_groups, 'terminator')
-        out['scm.bin.17'] = _link_groups(term_segs, extern=scm_placed)
+        out['scm.bin.17'] = _link_groups(term_segs, extern=gextern)
     except Exception as exc:
         print(f'  FAIL scm.bin.17: {exc}', file=sys.stderr)
         out['scm.bin.17'] = b''
@@ -670,7 +670,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         hdr_segs_cache  = cache_segs[:1]   # CASHSEG_HEADER (41 bytes, gap=7)
         rest_segs_cache = cache_segs[1:]   # CASHSEG_DUMMY (empty) + content procs
         out['scm.bin.12'] = _build_header_content(
-            hdr_segs_cache, rest_segs_cache, content_extern=scm_placed)
+            hdr_segs_cache, rest_segs_cache, content_extern=gextern)
     except Exception as exc:
         print(f'  FAIL scm.bin.12: {exc}', file=sys.stderr)
         out['scm.bin.12'] = b''
