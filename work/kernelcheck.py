@@ -319,14 +319,23 @@ _SCM_LSEG_RECIPE = [
 
 
 def _link_groups(group_segs: list[dict],
-                 extern: dict | None = None) -> bytes:
-    """Link selected segment dicts into a flat code image."""
+                 extern: dict | None = None,
+                 org: int = 0) -> bytes:
+    """Link selected segment dicts into a flat code image.
+
+    ``org`` bases the merged group at its runtime address so INTERNAL
+    SEGNAME+offset references bake their real placed addresses (linkOS links every
+    kernel segment globally; a group linked in isolation at base 0 would resolve
+    its own cross-segment refs 0-based — the SCM placement gap).  Cross-GROUP refs
+    still resolve via ``extern`` (the placed symtab)."""
     combined = b''.join(s['raw'] for s in group_segs)
     # The kernel is a fully-resolved image (MakeBin/catenate, no ExpressLoad), so
     # #^/>>16 high-word shifts must resolve here, not defer to a load-time reloc.
     opts: dict = {'merge': True, 'defer_shifts': False}
     if extern:
         opts['extern'] = extern
+    if org:
+        opts['org'] = org
     linked = _lnk.link([(combined, None)], opts=opts)
     return _code_image(linked)
 
@@ -377,7 +386,13 @@ def _build_header_content(header_segs: list[dict],
     cross-group references (e.g. macro-generated `lda #^Label`) resolve to their
     real absolute addresses rather than 0-based segment offsets (WP-4.1b).
     """
-    content_bytes = _link_groups(content_segs, extern=content_extern)
+    # Content placed base = the header group's last non-zero ORG (its PAD ORG),
+    # the same base link_placed() gives the content group.  Link the content THERE
+    # so its internal SEGNAME+offset cross-references bake their real placed
+    # addresses (a group linked in isolation at base 0 resolves its own refs
+    # 0-based — the SCM placement gap), CONSISTENT with the by-name content_extern.
+    content_org = next((s['org'] for s in reversed(header_segs) if s['org']), 0)
+    content_bytes = _link_groups(content_segs, extern=content_extern, org=content_org)
     end_bytes = _link_groups(end_segs) if end_segs else b''
 
     # Build extern map: inject seg_N_end absolute addresses so the header's
