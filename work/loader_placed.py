@@ -20,17 +20,18 @@ as anchors, so CALLTABLE lands after the LC header — a ~5957B layout shift
 So: keep linkiigs `placed` in object order but base each seg at its RUNTIME
 address (reuse the tested _build_symtab), then concatenate bodies in FLAT
 (grouped) order.  With the typed-DS-instance field fix (asm._explode_record_
-fields, commit d74139a) this reaches 99% (16562/16590); the residual 28B is:
-  * 3 CASE-ON collisions (FIND_SEGMENT / LOAD_SEGMENT / SET_MARK).  Loader.a
-    line 1 sets `CASE ON` (case-SENSITIVE symbols) — the ONLY file in the whole
-    corpus that does.  So MPW keeps find_Segment (ExpressLoad.a) distinct from
-    Find_Segment (Segments.a), load_segment/Load_Segment, set_mark/Save_Mark;
-    gsasm uppercase-folds them, so a reference binds to the wrong duplicate
-    segment.  FIX = honor CASE ON (ROM-safe: no ROM/tool uses it; but pervasive
-    — `.upper()` on symbol names runs through asm.py/omf.py/linkiigs.py).
-  * ~4B DC.W import-difference (omf bakes a CONST ffff instead of an EXPR
-    record: _linear_reloc bails on undef imports @omf.py, _diff_reloc needs
-    both defined).
+fields, commit d74139a) plus the CASE ON fix this reaches 99.96% (16584/16590);
+the residual 6B is now only two SEPARATE, non-placement operand gaps:
+  * 4B DC.W import-difference (omf bakes a CONST ffff instead of an EXPR record:
+    _linear_reloc bails on undef imports @omf.py, _diff_reloc needs both defined)
+    — two `DC.W` label-difference values at flat 0x0000 and 0x1555.
+  * 2B `boot_flag dc.w 'GB'` (Data.a) — gsasm evaluates the 2-char string
+    literal to 0000; MPW packs it to 0x4247. A DC.W char-literal eval gap.
+CASE ON is now FIXED IN THE CORE (asm/omf/linkiigs/link _fold, commit CASE_ON):
+Loader.a line 1 sets `CASE ON` (case-SENSITIVE symbols) — the ONLY corpus file
+that does — so MPW kept find_Segment (ExpressLoad.a) ≠ Find_Segment (Segments.a),
+load_segment/Load_Segment, set_mark/Save_Mark distinct; gsasm now honours it
+(_fold ≡ str.upper elsewhere -> byte-neutral corpus).  Dropped 28B -> 6B.
 Those + the SCM DC.W LEXPR gap (~1731B) are what remain for a byte-exact GS.OS.
 Run: `python3 work/loader_placed.py`.
 """
@@ -106,7 +107,7 @@ def build(order=ORDER, base0=BASE):
         for ei, sd in enumerate(parsed):
             rt = info[(oi, ei)]['rt']
             pidx[(oi, ei)] = len(placed)
-            placed.append((sd['segname'].upper(), sd['recs'], rt, sd['hdr'], asm))
+            placed.append((sd['segname'], sd['recs'], rt, sd['hdr'], asm))
             placed_obj_idx.append(oi)
             bases.append(rt)
         obj_seg_bases.append(bases)
@@ -133,9 +134,9 @@ def main():
     print(f'  match {n-len(diff)}/{len(g)} ({100*(n-len(diff))//len(g)}%)  '
           f'diff={len(diff)}   [current link-order build ~= 64%]')
     print(f'  residual: {ff} ffff (DC.W import-difference, omf bakes CONST not EXPR)')
-    print(f'            {len(diff)-ff} operand-resolution gaps (qualified record')
-    print(f'            fields e.g. HEADER.DISPNAME, cross-seg refs) — same long-')
-    print(f'            tail that limits other modules; NOT a placement issue.')
+    print(f'            {len(diff)-ff} DC.W char-literal gap (Data.a boot_flag dc.w '
+          f"'GB' -> gsasm emits 0000)")
+    print(f'            CASE ON collisions RESOLVED (asm/omf/linkiigs/link _fold).')
 
 
 if __name__ == '__main__':

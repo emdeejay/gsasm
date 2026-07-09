@@ -342,6 +342,11 @@ class Asm:
         self.longi = True
         self.string_mode = 'ASIS'
         self.msb = 'OFF'
+        # CASE ON (Loader.a, line 1) makes symbols case-SENSITIVE. It is the only
+        # file in the whole corpus that sets it; _fold() folds through str.upper
+        # for every other module, so this stays byte-neutral. See _fold below and
+        # docs/design/CASE_ON.md.
+        self.case_sensitive = False
         self.out = []                 # expanded primitive lines (text)
         self.emitted = []             # (loc, sline, bytes) for byte validation
         self.labels = []              # (name, loc) in order, for validation
@@ -398,6 +403,14 @@ class Asm:
         return name in self.globals
 
     # ---- symbol resolution for expressions ----
+    def _fold(self, name):
+        """Canonical case for a symbol name. `CASE ON` (Loader.a) keeps symbols
+        case-SENSITIVE; every other module folds to upper, so `_fold ≡ str.upper`
+        and the whole non-CASE-ON corpus is byte-neutral BY CONSTRUCTION. INVARIANT:
+        a name is folded EXACTLY once — on entry to a table or the OMF bytes — then
+        carried/compared/emitted as-is, never re-folded (docs/design/CASE_ON.md)."""
+        return name if self.case_sensitive else name.upper()
+
     def _symkey(self, name):
         # @-labels are LOCAL to the enclosing non-@ label (or, inside a macro
         # expansion, to THAT expansion's unique local_ctx). During deferred fixup
@@ -417,16 +430,16 @@ class Asm:
             else:
                 primary = self.local_ctx or self.last_global
                 enclosing = self.last_global
-            key = (primary + name).upper()
+            key = self._fold(primary + name)
             # While DEFINING a label, always key it in its own scope. When
             # REFERENCING, a macro body may name a @-label defined in the calling
             # routine: if the macro-local key is undefined, fall back to the
             # enclosing scope.
             if self._defining or self._defined(key) or enclosing == primary:
                 return key
-            alt = (enclosing + name).upper()
+            alt = self._fold(enclosing + name)
             return alt if self._defined(alt) else key
-        return name.upper()
+        return self._fold(name)
 
     def _defined(self, key):
         return (key in self.at_defs or key in self.at_seed
@@ -500,7 +513,7 @@ class Asm:
                 if self.seed_type.get(u) == 'label':
                     return based(s, self.symseg.get(u, seg))
                 return s
-            return self.extern.get(name.upper())            # cross-module symbol
+            return self.extern.get(self._fold(name))        # cross-module symbol
         return self.seed.get(u)        # forward reference resolved from prior pass
 
     def evaluate(self, text, pc=None):
@@ -787,7 +800,7 @@ class Asm:
             # non-@ label) — code labels AND equates (e.g. `NAME EQU *`), but not
             # RECORD field definitions (those live in the record's namespace).
             if not name.startswith('@') and not self.cur_record:
-                self.last_global = name.upper()
+                self.last_global = self._fold(name)
             self._defining = True         # key @-labels in their own scope
             u = self._symkey(name)
             self._defining = False
@@ -799,7 +812,7 @@ class Asm:
             # name (unless the bare name is otherwise undefined — harmless).
             field = self.cur_record and '.' not in name
             if field:
-                q = (self.cur_record + '.' + name).upper()
+                q = self._fold(self.cur_record + '.' + name)
                 self.symbols[q] = value
                 self.symtype[q] = 'equ'
                 if u not in self.symbols:             # don't clobber a real symbol
@@ -839,7 +852,7 @@ class Asm:
                     # alias routes through _expr_for's cross-seg is_data label path.
                     if (self.record_stack and self.record_stack[-1][3]
                             and '.' not in name and self.segs[seg].name):
-                        q = (self.segs[seg].name + '.' + name).upper()
+                        q = self._fold(self.segs[seg].name + '.' + name)
                         if q not in self.symbols:         # don't clobber a real def
                             self.symbols[q] = value
                             self.symtype[q] = 'label'
@@ -1449,9 +1462,9 @@ class Asm:
             if ln.label and not ln.label.startswith('@'):
                 al = self._equ_alias_of(ln.operand)
                 if al is not None:
-                    self.equ_alias[ln.label.upper()] = al
+                    self.equ_alias[self._fold(ln.label)] = al
                 else:
-                    self.equ_alias.pop(ln.label.upper(), None)   # SET redefine
+                    self.equ_alias.pop(self._fold(ln.label), None)   # SET redefine
             return
 
         # state directives
@@ -1463,6 +1476,11 @@ class Asm:
             self.string_mode = ln.operand.strip().upper() or 'ASIS'; return
         if u == 'MSB':
             self.msb = ln.operand.strip().upper(); return
+        if u == 'CASE':
+            # CASE ON -> case-sensitive symbols (only Loader.a uses it); CASE OFF
+            # restores upper-folding. _fold() reads self.case_sensitive.
+            self.case_sensitive = (ln.operand or '').strip().upper() == 'ON'
+            self._lbl(ln); return
 
         # record (structure) templates: fields are offsets, emit no bytes
         if u == 'RECORD':
@@ -1516,7 +1534,7 @@ class Asm:
                                           self.cur_record, True, self._record_dec))
                 self._record_dec = False
                 self.loc = 0                       # new segment starts at 0
-                name = (ln.label or '').upper()
+                name = self._fold(ln.label or '')
                 cur = self.segs[-1]
                 if cur.name is None and not cur.items:
                     cur.name = name; cur.loadname = 'main'; cur.is_data = True
@@ -1546,7 +1564,7 @@ class Asm:
                 if not data_rec and len(entry) >= 7:
                     saved_base, saved_label = entry[5], entry[6]
                     if saved_label:
-                        self.record_sizes[saved_label.upper()] = final_rec_loc - saved_base
+                        self.record_sizes[self._fold(saved_label)] = final_rec_loc - saved_base
             if data_rec:
                 # finalize: trailing content goes to a fresh segment (next PROC
                 # reuses it if still empty/unnamed)
@@ -1557,7 +1575,7 @@ class Asm:
             # WITH RecA[,RecB] establishes a record field namespace: unqualified
             # field names resolve to RecA.field (innermost WITH wins)
             self._lbl(ln)
-            recs = [r.strip().upper() for r in (ln.operand or '').split(',') if r.strip()]
+            recs = [self._fold(r.strip()) for r in (ln.operand or '').split(',') if r.strip()]
             self.with_stack.append(recs)
             return
         if u == 'ENDWITH':
@@ -1594,11 +1612,11 @@ class Asm:
             for tok in _split_commas(ln.operand or ''):
                 nm = tok.split(':')[0].strip()
                 if nm:
-                    self.entries.add(nm.upper())
-                    self._note_entry_seg(nm.upper())
+                    self.entries.add(self._fold(nm))
+                    self._note_entry_seg(self._fold(nm))
             if ln.label:
-                self.entries.add(ln.label.upper())
-                self._note_entry_seg(ln.label.upper())
+                self.entries.add(self._fold(ln.label))
+                self._note_entry_seg(self._fold(ln.label))
             return
         if u == 'EXPORT':
             self._lbl(ln)
@@ -1606,10 +1624,10 @@ class Asm:
                 for tok in _split_commas(ln.operand):
                     nm = tok.split(':')[0].strip()
                     if nm:
-                        self.exports.add(nm.upper())
-                        self._note_entry_seg(nm.upper())
+                        self.exports.add(self._fold(nm))
+                        self._note_entry_seg(self._fold(nm))
             if ln.label:
-                self._note_entry_seg(ln.label.upper())
+                self._note_entry_seg(self._fold(ln.label))
             return
         if u == 'IMPORT':
             # `IMPORT a,b,c` declares several externals on one line; each may carry
@@ -1618,7 +1636,7 @@ class Asm:
             for part in (ln.operand or '').split(','):
                 nm = part.split(':')[0].strip()
                 if nm:
-                    self.imports.add(nm.upper())
+                    self.imports.add(self._fold(nm))
             self._lbl(ln); return
         if u == 'ALIGN':
             a = self.evaluate(ln.operand) or 1
@@ -1635,7 +1653,7 @@ class Asm:
             self.emit_line(ln, data, fixups); return
         if u == 'DS' or u.startswith('DS.'):
             size = self._ds_size(u, ln.operand)
-            rec = (ln.operand or '').strip().upper()
+            rec = self._fold((ln.operand or '').strip())
             if self._record_dec:                   # decrement record: field grows
                 self.loc -= size                   # downward; label at the new loc
                 self._lbl(ln)
@@ -1662,7 +1680,7 @@ class Asm:
 
         # listing / diagnostics: ignore (define a label if present)
         if u in ('TITLE', 'PRINT', 'LIST', 'PAGE', 'PAGESIZE', 'EJECT', 'SPACE',
-                 'NOGEN', 'GEN', 'MACHINE', 'WRITELN', 'ERR', 'ERRIF', 'CASE',
+                 'NOGEN', 'GEN', 'MACHINE', 'WRITELN', 'ERR', 'ERRIF',
                  'NEEDS', 'BLANKS', 'LONGTABLE', 'KEEP', 'NOTE', 'WHILE', 'MEXIT'):
             self._lbl(ln); return
 
@@ -1708,7 +1726,7 @@ class Asm:
         record is emitted only in the segment owning the directive; an in-segment
         directive wins over a top-level forward declaration (last-write wins)."""
         if self.emit_enabled and self.segs:
-            self.entry_seg[name] = (self.segs[-1].name or '').upper()
+            self.entry_seg[name] = self._fold(self.segs[-1].name or '')
 
     def _maybe_global(self, label):
         """Record an ENTRY/EXPORT code label's position so the OMF emitter can
@@ -1716,7 +1734,7 @@ class Asm:
         labels are public (priv 0); ENTRY labels are private (priv 1)."""
         if not (label and self.emit_enabled):
             return
-        u = label.upper()
+        u = self._fold(label)
         if u in self.exports:                      # explicit EXPORT -> public
             self.segs[-1].items.append(('global', u, 0))
         elif u in self.entries:                    # ENTRY only -> private
@@ -1821,7 +1839,7 @@ class Asm:
         else:
             org = self.loc      # flow: this PROC's absolute base = running addr
         temporg = temporg if (apply_temporg or temporg_flow) else None
-        name = (ln.label or '').upper()
+        name = self._fold(ln.label or '')
         loadname = self.seg_loadname or 'main'   # persists until the next SEG
         private = 'EXPORT' not in up         # PROC without EXPORT is private
         # `Name PROC EXPORT` publicly exports the segment name (a global symbol at
@@ -1892,9 +1910,9 @@ class Asm:
         references `Label.field` resolve (MPW typed-DS semantics).  The fields are
         already in .symbols as ``RECORDNAME.field`` (offsets); Label.field lands
         in the current segment so it relocates as a normal same-segment ref."""
-        prefix = rec.upper() + '.'
+        prefix = self._fold(rec) + '.'
         for sname, sval in list(self.symbols.items()):
-            if isinstance(sval, int) and sname.upper().startswith(prefix):
+            if isinstance(sval, int) and sname.startswith(prefix):
                 self.define_label(label + '.' + sname[len(prefix):],
                                   base + sval, kind='label')
 
@@ -1903,7 +1921,7 @@ class Asm:
         # `DS RecordName` reserves sizeof(RecordName) — MPW allocates a record
         # template's size.  record_sizes holds each template's byte size; the
         # record label itself keeps its base value (used by WITH / value refs).
-        key = (operand or '').strip().upper()
+        key = self._fold((operand or '').strip())
         if key in self.record_sizes:
             return self.record_sizes[key] * w
         cnt = self.evaluate(operand)

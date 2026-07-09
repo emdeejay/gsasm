@@ -22,7 +22,9 @@ from . import omf as _omf
 def _eval(ops: list, sym: dict) -> int:
     """Evaluate an OMF stack-machine expression.
 
-    sym maps upper-case name -> integer value (segment bases + GLOBAL labels).
+    sym maps FOLDED name -> integer value (segment bases + GLOBAL labels). Names
+    are folded (upper-cased, unless a CASE ON module keeps them case-sensitive)
+    exactly once at emit time, so the operand `val` is looked up as-is here.
     All arithmetic is 32-bit unsigned; the caller masks to the desired width.
     """
     stack: list[int] = []
@@ -38,7 +40,7 @@ def _eval(ops: list, sym: dict) -> int:
         if kind == 'lit':
             stack.append(val & 0xFFFFFFFF)
         elif kind.startswith('sym'):            # sym83 / sym84 / sym85 …
-            stack.append(sym.get(val.upper(), 0) & 0xFFFFFFFF)
+            stack.append(sym.get(val, 0) & 0xFFFFFFFF)
         elif kind == 'op':
             if len(stack) < 2:
                 continue

@@ -47,7 +47,10 @@ from . import link as _link
 
 def _decode_segname(h: dict) -> str:
     """Return the upper-cased, stripped segment name from a parsed header."""
-    return h['SEGNAME'].decode('mac_roman', 'replace').rstrip('\x00').strip().upper()
+    # Read the SEGNAME AS-IS: omf writes it already folded (upper unless the
+    # source set CASE ON), so the object bytes are authoritative. Re-folding here
+    # would upper-case a case-sensitive Loader.a segname. (docs/design/CASE_ON.md)
+    return h['SEGNAME'].decode('mac_roman', 'replace').rstrip('\x00').strip()
 
 
 def _parse_obj(obj_bytes: bytes) -> list[dict]:
@@ -259,7 +262,7 @@ def _build_symtab(
             if _asm is not None and is_public_seg:
                 home = _asm.symseg.get(segname)
                 if home is not None and 0 <= home < len(_asm.segs):
-                    clobbered = (_asm.segs[home].name or '').upper() != segname
+                    clobbered = _asm._fold(_asm.segs[home].name or '') != segname
             if len(objects) == 1 or clobbered:
                 sym.setdefault(segname, seg_base)
             # Always add to per-object map so intra-object cross-segment refs work.
@@ -306,10 +309,10 @@ def _build_symtab(
                 # Global table: only ENTRY/EXPORT labels (unless single-object)
                 is_public = lab in asm_obj.entries or lab in asm_obj.exports
                 if is_single_obj or is_public:
-                    sym.setdefault(lab.upper(), abs_val)
+                    sym.setdefault(lab, abs_val)
 
                 # Per-object table: ALL labels (for intra-object resolution)
-                obj_globals[obj_idx].setdefault(lab.upper(), abs_val)
+                obj_globals[obj_idx].setdefault(lab, abs_val)
 
         placed_idx += n_segs
 
@@ -334,7 +337,7 @@ def _build_symtab(
             elif nm == 'DS':
                 body_off += d
             elif nm == 'GLOBAL':
-                label = d['label'].upper()
+                label = d['label']
                 val = seg_base + body_off
                 is_priv = d.get('priv', 0)  # 1 = ENTRY (private), 0 = EXPORT (public)
                 if is_priv:
@@ -354,7 +357,7 @@ def _build_symtab(
                 # intra-object cross-segment references resolve correctly.
                 obj_globals[oi][label] = val
             elif nm == 'GEQU':
-                label = d['label'].upper()
+                label = d['label']
                 sym.setdefault(label, _link._eval(d['expr'], sym))
 
     # Caller-supplied externals (e.g. from linkrom's rommap) — last-wins

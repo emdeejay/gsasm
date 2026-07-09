@@ -191,8 +191,8 @@ def linear_decompose(asm, text):
             val = 0
 
         def bumped_res(n, _name=name, _val=val):
-            u = n.upper()
-            if u == _name.upper():
+            u = asm._fold(n)
+            if u == asm._fold(_name):
                 return _val + 0x100
             return asm.resolve(n)
 
@@ -270,7 +270,7 @@ def _mul_reloc_expr(asm, text, segname):
         return None
     # Coefficient via finite difference (same as original)
     def _res(n, bump=0):
-        return (Lval + bump) if n.upper() == L.upper() else asm.resolve(n)
+        return (Lval + bump) if asm._fold(n) == asm._fold(L) else asm.resolve(n)
     V = _expr.try_eval(text, lambda n: _res(n, 0), asm.loc)
     V1 = _expr.try_eval(text, lambda n: _res(n, 1), asm.loc)
     if V is None or V1 is None:
@@ -339,7 +339,7 @@ def _diff_reloc(asm, text):
         nu = asm._symkey(name)
         seg = asm.segs[asm.symseg[nu]]
         off = ((asm.resolve(nu) or 0) & 0xFFFFFF) - (seg.org or 0)
-        o = bytes([0x83]) + _omfstr((seg.name or '').upper())
+        o = bytes([0x83]) + _omfstr(asm._fold(seg.name or ''))
         if off:
             o += bytes([0x81]) + _num(off & 0xFFFFFFFF) + bytes([0x01])
         return o
@@ -451,7 +451,7 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
             if len(ext) == 1:
                 Lname = ext[0]
                 def _res0(n, _L=Lname):
-                    return 0 if n.upper() == _L.upper() else asm.resolve(n)
+                    return 0 if asm._fold(n) == asm._fold(_L) else asm.resolve(n)
                 add = _expr.try_eval(text, _res0, asm.loc)
                 if add is not None:
                     name, addend = Lname, add
@@ -485,7 +485,7 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
             # is also defined elsewhere (symseg is global/last-wins for dups)
             local_here = asm._rseg is not None and nu in asm.seg_local.get(asm._rseg, {})
             same_seg = local_here or (asm.symseg.get(nu) is not None and
-                        (asm.segs[asm.symseg[nu]].name or '').upper() == segname)
+                        asm._fold(asm.segs[asm.symseg[nu]].name or '') == segname)
             base = (asm.segs[asm._rseg].org or 0) if asm._rseg is not None else 0
             def_off = ((asm.resolve(nu) or 0) & 0xFFFFFF) - base
             # a ref to a same-seg GLOBAL (ENTRY or EXPORT) is by-name only when
@@ -519,15 +519,15 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
                 if other_seg is not None and getattr(other_seg, 'is_data', False):
                     other_base = other_seg.org or 0
                     other_off = ((asm.resolve(nu) or 0) & 0xFFFFFF) + addend - other_base
-                    ops += bytes([0x83]) + _omfstr((other_seg.name or '').upper())
+                    ops += bytes([0x83]) + _omfstr(asm._fold(other_seg.name or ''))
                     if other_off:
                         ops += bytes([0x81]) + _num(other_off) + bytes([0x01])
                 else:
-                    ops += bytes([0x83]) + _omfstr(name.upper())
+                    ops += bytes([0x83]) + _omfstr(asm._fold(name))
                     if addend:
                         ops += bytes([0x81]) + _num(addend) + bytes([0x01])
         elif kind == 'import':
-            ops += bytes([0x83]) + _omfstr(name.upper())
+            ops += bytes([0x83]) + _omfstr(asm._fold(name))
             if addend:
                 ops += bytes([0x81]) + _num(addend) + bytes([0x01])
         else:                                  # equate / absolute
@@ -609,7 +609,7 @@ def _branch_xseg(asm, core, cur_seg, ref_off=None):
     m = _SIMPLE_REF.match(core)
     if not m:
         return False
-    u = m.group(1).upper()
+    u = asm._fold(m.group(1))
     # a branch to an ENTRY is relocated by name (RELEXPR) — but a BACKWARD branch
     # to a same-segment ENTRY (already defined) is a fixed offset; only a FORWARD
     # same-seg branch (or a cross-segment one) needs a RELEXPR.
@@ -680,7 +680,7 @@ def _ctl_external(asm, mnem, core):
 def emit_segment(asm, seg, exports):
     """Emit one OMF v2.0 segment object (header + body)."""
     from . import m65816
-    segname = (seg.name or 'main').upper()
+    segname = asm._fold(seg.name or 'main')
     try:
         asm._rseg = asm.segs.index(seg)   # resolve local labels in this segment
     except ValueError:
@@ -864,7 +864,7 @@ def emit_segment(asm, seg, exports):
     # PRIVATE (0x4000) unless the segment is EXPORT'd (public). An ENTRY-only
     # segment stays PRIVATE. The EXPORT may be a separate directive, not on the
     # PROC line.
-    _nm = (seg.name or '').upper()
+    _nm = asm._fold(seg.name or '')
     _public = (not seg.private) or _nm in asm.exports
     kind = 0x0000 if _public else 0x4000
     if getattr(seg, 'is_data', False):          # data segment (no-operand RECORD)
