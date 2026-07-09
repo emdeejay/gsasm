@@ -455,6 +455,14 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
                 add = _expr.try_eval(text, _res0, asm.loc)
                 if add is not None:
                     name, addend = Lname, add
+        if name is None and as_data:
+            # a DC field linear in one external (declared IMPORT or implicit
+            # undefined) + an absolute-EQU constant — e.g. GSHeader's segment-length
+            # `DC.W zloader_end-zloader_start`: emit the external by name + addend so
+            # the linker resolves it (gsasm otherwise bakes an unresolved 0xffff).
+            ed = _ext_plus_const(asm, text)
+            if ed is not None:
+                name, addend = ed
     ops = bytearray()
     if name is not None:
         # An EQU aliasing a relocatable label (asm.equ_alias) is a second name for
@@ -668,6 +676,34 @@ def _undef_external(asm, name):
             and asm.symtype.get(u) is None and asm.seed_type.get(u) is None)
 
 
+def _ext_plus_const(asm, text):
+    """Decompose `text` into (external_name, const_addend) when it is linear in
+    exactly ONE external — a declared IMPORT or an implicit undefined symbol —
+    plus a constant, every OTHER identifier being an absolute equate.  E.g. the
+    GS.OS Loader header `DC.W zloader_end-zloader_start` (zloader_end is IMPORTed,
+    zloader_start an absolute EQU) -> ('zloader_end', -zloader_start).  The value
+    is unknown until the import is placed, so the caller emits it as a by-name OMF
+    expression the LINKER computes, not an assembly-time literal (which gsasm bakes
+    as an unresolved 0xffff).  None when there isn't exactly one external, a
+    non-external term is relocatable, or the constant part can't be evaluated."""
+    ids = list(dict.fromkeys(
+        re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
+    ext = [i for i in ids
+           if _undef_external(asm, i) or asm._symkey(i) in asm.imports]
+    if len(ext) != 1:
+        return None
+    for i in ids:                          # every other term must be a constant
+        if i != ext[0] and asm.sym_kind(i) != 'equ':
+            return None
+    Lname = ext[0]
+    def _res0(n, _L=Lname):
+        return 0 if asm._fold(n) == asm._fold(_L) else asm.resolve(n)
+    add = _expr.try_eval(text, _res0, asm.loc)
+    if add is None:
+        return None
+    return Lname, add
+
+
 def _ctl_external(asm, mnem, core):
     """A control-flow target (JSR/JMP/JSL/JML) that is a single undefined symbol
     is an implicit external reference (MPW resolves it at link time by name)."""
@@ -834,6 +870,11 @@ def emit_segment(asm, seg, exports):
                 # constant, not an assembly-time one -> emit it as an expression so
                 # the linker computes it (a same-segment/ORG'd diff stays a literal).
                 if _diff_reloc(asm, it) is not None:
+                    return True
+                # a DC field linear in one external (declared IMPORT or implicit
+                # undefined) + an absolute-EQU constant, e.g. GSHeader's
+                # `DC.W zloader_end-zloader_start` -> a LINK-time value, emit by name.
+                if _ext_plus_const(asm, it) is not None:
                     return True
                 return False
             w = asm._width(u)

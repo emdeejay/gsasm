@@ -301,10 +301,15 @@ def _build_symtab(
                 # for ORG=0 segs, absolute for ORG'd segs).
                 seg_obj = asm_obj.segs[sg_idx]
                 seg_own_org = seg_obj.org or 0
-                if seg_own_org:
-                    abs_val = v & 0xFFFFFF
-                else:
-                    abs_val = (seg_placed_base + v) & 0xFFFFFF
+                # A symbol's final address is its segment's PLACED base plus its
+                # OFFSET within the segment. For an ORG'd seg the interior value v
+                # is absolute (org+offset), so subtract the seg's own ORG to recover
+                # that offset. A seg is normally placed AT its ORG (base==org, so
+                # this is just v — byte-neutral for link()/_place). A seg placed
+                # AWAY from its assembly ORG — a load-group end marker whose ORG is
+                # only a range-check artifact (GSFooter zloaderLC_end, ORG'd by the
+                # flow yet placed at the group's true end) — uses its real placed base.
+                abs_val = (seg_placed_base + v - seg_own_org) & 0xFFFFFF
 
                 # Global table: only ENTRY/EXPORT labels (unless single-object)
                 is_public = lab in asm_obj.entries or lab in asm_obj.exports

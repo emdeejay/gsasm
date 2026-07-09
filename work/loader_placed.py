@@ -19,20 +19,24 @@ as anchors, so CALLTABLE lands after the LC header — a ~5957B layout shift
 
 So: keep linkiigs `placed` in object order but base each seg at its RUNTIME
 address (reuse the tested _build_symtab), then concatenate bodies in FLAT
-(grouped) order.  With the typed-DS-instance field fix (asm._explode_record_
-fields, commit d74139a) plus the CASE ON fix this reaches 99.96% (16584/16590);
-the residual 6B is now only two SEPARATE, non-placement operand gaps:
-  * 4B DC.W import-difference (omf bakes a CONST ffff instead of an EXPR record:
-    _linear_reloc bails on undef imports @omf.py, _diff_reloc needs both defined)
-    — two `DC.W` label-difference values at flat 0x0000 and 0x1555.
-  * 2B `boot_flag dc.w 'GB'` (Data.a) — gsasm evaluates the 2-char string
-    literal to 0000; MPW packs it to 0x4247. A DC.W char-literal eval gap.
-CASE ON is now FIXED IN THE CORE (asm/omf/linkiigs/link _fold, commit CASE_ON):
-Loader.a line 1 sets `CASE ON` (case-SENSITIVE symbols) — the ONLY corpus file
-that does — so MPW kept find_Segment (ExpressLoad.a) ≠ Find_Segment (Segments.a),
-load_segment/Load_Segment, set_mark/Save_Mark distinct; gsasm now honours it
-(_fold ≡ str.upper elsewhere -> byte-neutral corpus).  Dropped 28B -> 6B.
-Those + the SCM DC.W LEXPR gap (~1731B) are what remain for a byte-exact GS.OS.
+(grouped) order.  This is now BYTE-EXACT: 16590/16590.  The path there:
+  * placement CRACKED (f69fe4b) + typed-DS-instance fields (d74139a): 452B -> 28B.
+  * CASE ON honoured in the core (ea4fb70, asm/omf/linkiigs/link _fold): Loader.a
+    line 1 is the ONLY corpus file that sets it, so MPW kept find_Segment !=
+    Find_Segment, load_segment/Load_Segment, set_mark/Save_Mark distinct; the 3
+    collisions bound to the wrong dup segment.  28B -> 6B.
+  * `dc.w 'GB'` char-literal (asm._dc_bytes: a string in a width>1 DC lays down
+    its bytes, zero-padded to a multiple of the element width).  6B -> 4B.
+  * DC.W import-difference `DC.W zloader_end-zloader_start` (omf._ext_plus_const):
+    a field linear in ONE external (declared IMPORT / implicit undef) + a const
+    is a LINK-time value -> emit the external by name + addend so the linker
+    resolves it, not an assembly-time literal (which baked an unresolved 0xffff).
+    4B -> 2B (fixed the 'Loader' header; exposed the next one).
+  * placed-base symtab (linkiigs._build_symtab): a symbol's final address is its
+    PLACED base + offset-in-seg.  zloaderLC_end (the Loader_LC end marker) is
+    ORG'd by the flow but PLACED at the group's true end; the old code used the
+    assembly ORG value.  Byte-neutral for link()/_place (base==org).  2B -> 0.
+The SCM DC.W LEXPR gap (~1731B) is what remains for a byte-exact GS.OS kernel.
 Run: `python3 work/loader_placed.py`.
 """
 import sys, os
@@ -133,10 +137,12 @@ def main():
     print(f'grouped-placed Loader.bin: len={len(lb)} (golden 16590)')
     print(f'  match {n-len(diff)}/{len(g)} ({100*(n-len(diff))//len(g)}%)  '
           f'diff={len(diff)}   [current link-order build ~= 64%]')
-    print(f'  residual: {ff} ffff (DC.W import-difference, omf bakes CONST not EXPR)')
-    print(f'            {len(diff)-ff} DC.W char-literal gap (Data.a boot_flag dc.w '
-          f"'GB' -> gsasm emits 0000)")
-    print(f'            CASE ON collisions RESOLVED (asm/omf/linkiigs/link _fold).')
+    if not diff:
+        print('  BYTE-EXACT — CASE ON + dc.w char-literal + import-diff EXPR + '
+              'placed-base symtab all landed.')
+    else:
+        print(f'  residual: {ff} ffff (DC.W import-diff), '
+              f'{len(diff)-ff} other; offsets {[hex(i) for i in diff[:8]]}')
 
 
 if __name__ == '__main__':

@@ -1883,18 +1883,23 @@ class Asm:
                 # (`'won''t'` -> won't), per AsmIIgs; collapse it to one.
                 q = item[0]
                 s = _mac_bytes(item[1:-1].replace(q * 2, q))
+                # MSB ON sets the high bit of the CONTENT characters only —
+                # NOT a Pascal length prefix or a C null terminator
+                if self.msb == 'ON':
+                    s = bytes(b | 0x80 for b in s)
                 if w == 1:
-                    # MSB ON sets the high bit of the CONTENT characters only —
-                    # NOT a Pascal length prefix or a C null terminator
-                    if self.msb == 'ON':
-                        s = bytes(b | 0x80 for b in s)
                     if self.string_mode == 'PASCAL':
                         s = bytes([len(s) & 0xFF]) + s
                     elif self.string_mode in ('C', 'CSTRING'):
                         s = s + b'\x00'
                     out += s
                 else:
-                    out += b'\x00' * w
+                    # A string in a width>1 DC lays down its bytes, zero-padded to
+                    # a multiple of the element width (MPW: `dc.w 'GB'` -> 'G','B';
+                    # the .W/.L size is a padding boundary, not a packed integer).
+                    if len(s) % w:
+                        s += b'\x00' * (w - len(s) % w)
+                    out += s
             elif item:
                 v = self.evaluate(item)
                 if v is None:
