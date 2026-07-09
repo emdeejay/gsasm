@@ -492,12 +492,21 @@ def _build_scm_segments() -> dict[str, bytes] | None:
     # referencing content links; each group still forces its OWN symbols last so a
     # shared label name can't be shadowed by a sibling group's copy.
     gextern: dict[str, int] = dict(scm_placed) if scm_placed else {}
-    for _gp in (f'{GS}/OS/CacheManager/Cache.Src',
-                f'{GS}/OS/InitManager/Init1.Src', f'{GS}/OS/InitManager/Init2.Src',
-                f'{GS}/OS/InitManager/Init3.Src', f'{GS}/OS/InitManager/Init4.Src'):
+    # cache self-places (ORG-flowed): its own assembled symtab is already placed.
+    try:
+        for _k, _v in _full_symtab(_assemble(f'{GS}/OS/CacheManager/Cache.Src')[1]).items():
+            gextern.setdefault(_k, _v)
+    except Exception:
+        pass
+    # init1-4: the header/START/DATA segs are ORG'd but the CODE procs are
+    # RELOCATABLE (org 0), so _full_symtab reads them 0-based.  PLACE each init at
+    # its own init_N_org (from the header PAD ORG) so cross-init CODE refs resolve
+    # (e.g. Init3 -> Init1's GET_STRING at $B2B6 = init_1_org $B200 + offset).
+    for _if in ('Init1.Src', 'Init2.Src', 'Init3.Src', 'Init4.Src'):
         try:
-            _go, _ga = _assemble(_gp)
-            for _k, _v in _full_symtab(_ga).items():
+            _isegs = _parse_obj_segs(_assemble(f'{GS}/OS/InitManager/{_if}')[0])
+            _iorg = next((s['org'] for s in reversed(_isegs[:1]) if s['org']), 0)
+            for _k, _v in _placed_exports(_isegs[1:], _iorg).items():
                 gextern.setdefault(_k, _v)
         except Exception:
             pass
@@ -692,10 +701,11 @@ def _build_scm_segments() -> dict[str, bytes] | None:
             rest_segs_init = init_segs[1:]   # INIT_N_START (empty) + content procs
             # Seed the kernel-global symtab so init's cross-refs to sibling init
             # files / SCM / cache resolve to placed addresses; force THIS init's own
-            # symbols last so shared label names bind locally.
+            # PLACED exports last so shared export names bind to this init's copy.
+            _iorg = next((s['org'] for s in reversed(hdr_segs_init) if s['org']), 0)
             out[f'scm.bin.{n}'] = _build_header_content(
                 hdr_segs_init, rest_segs_init,
-                content_extern={**gextern, **_full_symtab(init_asm)})
+                content_extern={**gextern, **_placed_exports(rest_segs_init, _iorg)})
         except Exception as exc:
             print(f'  FAIL scm.bin.{n}: {exc}', file=sys.stderr)
             out[f'scm.bin.{n}'] = b''
