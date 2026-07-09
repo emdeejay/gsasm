@@ -12,7 +12,13 @@ INCS = ['work/includes'] + [d for d, _, _ in os.walk(ROOT)]
 
 
 def src_for(objf):
-    for cand in (objf[:-4], objf[:-4] + '.asm', objf[:-4] + '.aii'):
+    # Prefer the real source extensions (.asm/.aii) over the bare stem: for
+    # `monitor.obj` the stem `monitor` matches a BINARY artifact `Monitor` on a
+    # case-insensitive FS (assembling it crashes parse_line on binary bytes),
+    # while the real source is `Monitor.aii`.  For the common `X.asm.obj` the
+    # .asm/.aii candidates don't exist, so it still falls through to the stem.
+    stem = objf[:-4]
+    for cand in (stem + '.asm', stem + '.aii', stem):
         if os.path.exists(cand) and not cand.endswith('.obj'):
             return cand
     return None
