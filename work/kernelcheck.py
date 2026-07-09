@@ -353,6 +353,17 @@ def _placed_exports(content_segs: list[dict], content_org: int) -> dict[str, int
     return {k: v for k, v in sym.items() if isinstance(v, int)}
 
 
+def _placed_full(obj_bytes: bytes, asm, org: int) -> dict[str, int]:
+    """Placed symtab INCLUDING interior (non-exported) labels — for a single-object
+    group (an init file) whose asm supplies the interior symbols.  ORG'd segs land
+    at their ORG, relocatable code procs follow contiguously from `org`; drops 0
+    (unresolved-import) values so they can't clobber a sibling's real address."""
+    objs = [(obj_bytes, asm)]
+    placed, obj_seg_bases, placed_obj_idx = _lnk._place(objs, org)
+    sym, _ = _lnk._build_symtab(objs, placed, obj_seg_bases, placed_obj_idx)
+    return {k: v for k, v in sym.items() if isinstance(v, int) and v}
+
+
 # ---------------------------------------------------------------------------
 # Flat-binary construction helpers
 #
@@ -504,9 +515,10 @@ def _build_scm_segments() -> dict[str, bytes] | None:
     # (e.g. Init3 -> Init1's GET_STRING at $B2B6 = init_1_org $B200 + offset).
     for _if in ('Init1.Src', 'Init2.Src', 'Init3.Src', 'Init4.Src'):
         try:
-            _isegs = _parse_obj_segs(_assemble(f'{GS}/OS/InitManager/{_if}')[0])
+            _iobj, _iasm = _assemble(f'{GS}/OS/InitManager/{_if}')
+            _isegs = _parse_obj_segs(_iobj)
             _iorg = next((s['org'] for s in reversed(_isegs[:1]) if s['org']), 0)
-            for _k, _v in _placed_exports(_isegs[1:], _iorg).items():
+            for _k, _v in _placed_full(_iobj, _iasm, _iorg).items():
                 gextern.setdefault(_k, _v)
         except Exception:
             pass
@@ -705,7 +717,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
             _iorg = next((s['org'] for s in reversed(hdr_segs_init) if s['org']), 0)
             out[f'scm.bin.{n}'] = _build_header_content(
                 hdr_segs_init, rest_segs_init,
-                content_extern={**gextern, **_placed_exports(rest_segs_init, _iorg)})
+                content_extern={**gextern, **_placed_full(init_obj, init_asm, _iorg)})
         except Exception as exc:
             print(f'  FAIL scm.bin.{n}: {exc}', file=sys.stderr)
             out[f'scm.bin.{n}'] = b''
