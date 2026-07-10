@@ -142,7 +142,14 @@ relOffset flag) is parked as un-derived. Attack it as a **class**, not per-tool.
 - **Full MPW-Make recipe parser** — beyond WP-4.3's drift-check; only if new
   components are added or the maps start drifting.
 - **Drivers `AppleDisk3.5/5.25`** (−657/−258) — structural sizing drift; a Pro.FST-
-  style dig, medium value.  **`~JumpTable` tools (Tool015/016/018)** — MPW-linker-
+  style dig, medium value.
+  > **OUTCOME (2026-07-10): DONE — both BYTE-EXACT on disk, diskcheck 14/26**
+  > (commits f9b8d6b, a737108). Eight general fixes: `PROC align N` (OMF ALIGN,
+  > placement rounding, align-gap zero-fill, ExpressLoad header/HET mirror),
+  > duplicate-entry local-wins, standalone cRELOC for SUPER-less (size,shift)
+  > combos (1-byte bank relocs), backward-ORG overlay, `&TYPE`='UNDEFINED',
+  > logical NOT, `EQU *` = code label + overlay-GLOBAL stream-mismatch detour.
+  **`~JumpTable` tools (Tool015/016/018)** — MPW-linker-
   generated cross-bank stub, not reproducible from source; OUT OF REACH.
   **Tool019** (@0x95c) — likely a source discrepancy; confirm then park.  **P8**
   (@0xc9) — M/X-flag + `$BFxx` cross-module; messy, low priority.
