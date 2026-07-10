@@ -441,13 +441,20 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
         if dec:
             name, addend = dec
         elif not as_data:
-            # instruction operand linear in ONE undefined external + a constant,
-            # e.g. `lda >arrowMap-UP_ARROW,x` (arrowMap external, UP_ARROW=8 equ):
-            # resolve arrowMap by name with addend -8. (Scoped to instructions;
-            # DC tables resolve undefined symbols differently.)
+            # instruction operand linear in ONE external + a constant, e.g.
+            # `lda >arrowMap-UP_ARROW,x` (arrowMap external, UP_ARROW=8 equ)
+            # or HFS btree's `lda |cat_buffer+cat_type` (cat_buffer a declared
+            # IMPORT, cat_type an equ): resolve the external by name + addend.
+            # A declared IMPORT counts only while UNDEFINED locally — an
+            # import that a local EQU satisfies keeps the local value
+            # (Pro.FST Max_call).  (Scoped to instructions; DC tables resolve
+            # undefined symbols differently.)
             ids = list(dict.fromkeys(
                 re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
-            ext = [i for i in ids if _undef_external(asm, i)]
+            ext = [i for i in ids
+                   if _undef_external(asm, i)
+                   or (asm._symkey(i) in asm.imports
+                       and asm.resolve(asm._symkey(i)) is None)]
             if len(ext) == 1:
                 Lname = ext[0]
                 def _res0(n, _L=Lname):
