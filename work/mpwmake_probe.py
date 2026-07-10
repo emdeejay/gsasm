@@ -35,9 +35,13 @@ def _logical_lines(path):
 
 
 def _tokens(s):
-    """Split respecting 'single-quoted names with spaces' (MPW quoting)."""
-    return [t[1:-1] if t.startswith("'") else t
-            for t in re.findall(r"'[^']*'|\S+", s)]
+    """Split respecting 'single-quoted names with spaces' (MPW quoting).
+
+    A quote can sit MID-token (`:HD.Obj:'SCSIHD Driver main.obj'`), so a token
+    is any run of non-space/non-quote chars and quoted spans; the quotes are
+    then removed (MPW quoting, like shell quote-removal)."""
+    return [t.replace("'", '')
+            for t in re.findall(r"(?:[^\s']+|'[^']*')+", s)]
 
 
 def _srcname(obj_token):
@@ -187,22 +191,40 @@ def index_makefiles(root):
 _ASM_RE = re.compile(r'^\s*asmiigs\b', re.I)
 
 
+def _strip_var(tok):
+    """Strip a leading MPW `{Variable}` (optionally double-quoted) prefix."""
+    return re.sub(r'^"?\{[^}]*\}"?', '', tok).strip()
+
+
 def parse_component(path):
     """For a single-component make.<x> file: return (output_name, {src_basenames},
     {defines}).  output = the `{SDfsts}X`/`{SDdrivers}X`/link `-o X` target; sources
-    = every `asmiigs <src>` arg; defines = every `-d NAME=VAL`."""
+    = every `asmiigs <src>` arg; defines = every `-d NAME=VAL`.
+
+    A component whose objects are built by the generic `.obj ƒ .aii` suffix rule
+    (e.g. MSDos.FST) has no per-source asmiigs line — its sources are recovered
+    from the target's `.obj` dependency list (one level of `.lib` indirection),
+    mapped obj -> src via that suffix rule."""
     output = None
     srcs, defines = set(), {}
+    deps = {}          # target basename (lower) -> [dep tokens]
     for line in _logical_lines(path):
         body = line.split('#', 1)[0]
         low = body.lower()
         # output target: `{SDfsts}Pro.FST ƒ ...` or link `-o {object}Pro.FST`
         if 'ƒ' in body and ('{sdfsts}' in low or '{sddrivers}' in low):
             tgt = body.split('ƒ', 1)[0].strip()
-            output = re.sub(r'^\{[^}]*\}', '', tgt).strip()
+            output = _strip_var(tgt)
+        if 'ƒ' in body:
+            left, right = body.split('ƒ', 1)
+            ltoks = [_strip_var(t) for t in _tokens(left)]
+            for lt in ltoks:
+                if lt:
+                    deps.setdefault(lt.lower(), []).extend(
+                        _strip_var(t) for t in _tokens(right))
         m = re.search(r'-o\s+(\S+)', body)
         if _LINK_RE.match(body) and m and output is None:
-            output = re.sub(r'^\{[^}]*\}', '', m.group(1))
+            output = _strip_var(m.group(1))
         if _ASM_RE.match(body):
             toks = _tokens(body)[1:]
             src = None
@@ -211,21 +233,37 @@ def parse_component(path):
                 t = toks[i]
                 if t.lower() == '-d' and i + 1 < len(toks):
                     kv = toks[i+1].split('=')
-                    defines[kv[0].lstrip('&')] = kv[1] if len(kv) > 1 else '1'
+                    val = kv[1] if len(kv) > 1 else '1'
+                    # `-d &type,type=0` defines a comma-list of names
+                    for nm in kv[0].split(','):
+                        defines[nm.lstrip('&')] = val
                     i += 2; continue
                 if t.lower() in _SKIP_VAL_FLAGS:
                     i += 2; continue
                 if t.startswith('-'):
                     i += 1; continue
-                # first positional that is a real filename (strip {Var} prefix + path,
-                # skip pure {Variable} tokens like {AOptions}) = the assembled source
+                # first real positional (strip {Var} prefix + MPW path; skip pure
+                # {Variable} tokens like {AOptions}) = the assembled source.
+                # Sources may be extensionless ('SCSI Driver main').
                 if src is None:
-                    name = re.sub(r'^\{[^}]*\}', '', t).rsplit(':', 1)[-1].lower()
-                    if name and ('.' in name):
-                        src = re.sub(r'\.obj$', '', name)
+                    name = _strip_var(t).rsplit(':', 1)[-1].lower()
+                    # an unresolved {var} (e.g. the suffix rule's {default})
+                    # is not a concrete source
+                    if name and '{' not in name:
+                        src = re.sub(r'\.obj$', '', name).strip('"')
                 i += 1
             if src:
                 srcs.add(src)
+    # suffix-rule fallback: no asmiigs-derived sources -> walk the output
+    # target's .obj deps (expanding one level of .lib) and map obj -> .aii
+    if output and not srcs:
+        pend = list(deps.get(output.lower(), []))
+        for t in pend:
+            base = t.rsplit(':', 1)[-1].strip().lower()
+            if base.endswith('.lib'):
+                pend.extend(deps.get(base, []))
+            elif base.endswith('.obj'):
+                srcs.add(re.sub(r'\.obj$', '.aii', base))
     return output, srcs, defines
 
 
@@ -262,6 +300,7 @@ def diff_components(map_obj, roots, label):
         if extra:
             print(f'       only in HARNESS  : {sorted(extra)}')
     print(f'  --> {exact}/{len(map_obj)} {label} EXACT match the shipping makefile')
+    return exact, len(map_obj)
 
 
 def diff_tools():
@@ -288,18 +327,33 @@ def diff_tools():
         if extra:
             print(f'       only in HARNESS  : {sorted(extra)}')
     print(f'  --> {exact}/{len(TOOLMAP)} tools EXACT match the shipping makefile')
+    return exact, len(TOOLMAP)
 
 
-def main():
-    diff_tools()
+def main(check=False):
+    """Report mode prints the diff; --check mode (WP-4.3 drift gate) exits 1
+    unless EVERY harness map entry EXACTLY matches its shipping makefile.
+    Baseline: 8/8 tools, 7/7 FSTs, 12/12 drivers (2026-07-10)."""
+    results = []
+    results.append(diff_tools())
     print()
     from fstcheck import FSTMAP
-    diff_components(FSTMAP, [f'{_SRC}/GS.OS/MakeFiles', f'{_SRC}/GS.OS/FSTs'], 'FSTs')
+    results.append(diff_components(
+        FSTMAP, [f'{_SRC}/GS.OS/MakeFiles', f'{_SRC}/GS.OS/FSTs'], 'FSTs'))
     print()
     from drivercheck import DRIVERMAP
-    diff_components(DRIVERMAP, [f'{_SRC}/GS.OS/MakeFiles', f'{_SRC}/GS.OS/Drivers'],
-                    'Drivers')
+    results.append(diff_components(
+        DRIVERMAP, [f'{_SRC}/GS.OS/MakeFiles', f'{_SRC}/GS.OS/Drivers'],
+        'Drivers'))
+    if check:
+        bad = [(e, t) for e, t in results if e != t]
+        if bad:
+            print('\nDRIFT: harness map(s) no longer match the shipping '
+                  'makefiles — fix the map or the parser, do not ship drift.')
+            return 1
+        print('\nOK: all harness maps match the shipping makefiles.')
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main(check='--check' in sys.argv[1:]))

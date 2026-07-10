@@ -106,10 +106,23 @@ relOffset flag) is parked as un-derived. Attack it as a **class**, not per-tool.
   into a gate: assert TOOLMAP/FSTMAP/DRIVERMAP == parsed makefiles; fail on drift.
   Captures ~all §3a value at a fraction of the parser cost.  Files: `work/
   mpwmake_probe.py` (+ a check mode).  Risk: LOW.  Effort: S.  **Do anytime.**
+  > **OUTCOME (2026-07-10): DONE.** `python3 work/mpwmake_probe.py --check`
+  > exits 1 unless every map entry EXACTLY matches its makefile. Parser fixes
+  > got the baseline to **8/8 tools, 7/7 FSTs, 12/12 drivers**: mid-token MPW
+  > quotes (`:HD.Obj:'SCSIHD Driver main.obj'`), `-d name,name=val` comma
+  > defines, double-quoted `"{Var}"` prefixes, and MSDos's suffix-rule
+  > (`.obj ƒ .aii`) sources recovered from the target's dep list.
 - **WP-4.4 — generality gate.** CI grep of `gsasm/*.py` for source-symbol/address
   literals (like the audit) + document the §7 smell-test clause ("proxy for a
   gsasm-internal representational choice", e.g. Tool025 case-folding).  Risk: LOW.
   Effort: S.  **Do anytime.**
+  > **OUTCOME (2026-07-10): DONE.** `python3 work/generality_check.py` — an
+  > AST scan of gsasm/*.py for identifier-like string literals and
+  > address-sized ints (docstrings/comments excluded by construction) against
+  > the audited whitelist (all directives / OMF fields / addressing modes /
+  > structural constants; zero corpus symbols). New literal ⇒ exit 1 until a
+  > human applies the §7 smell test (documented in its docstring) and
+  > whitelists it or moves it to a harness.
 
 ---
 
