@@ -38,14 +38,15 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ALLOWED_STRS = {
     '.filetype', '.obj', '.out', '0123456789abcdefABCDEF',
     'AERROR', 'ALIGN', 'ANOP', 'ASIS', 'ASSERT', 'BANKSIZE', 'BEXPR',
-    'BLANKS', 'BYTECNT', 'CASE', 'CONCAT', 'CONST', 'CSTRING', 'DCB.',
+    'BLANKS', 'BYTE', 'BYTECNT', 'CASE', 'CONCAT', 'CONST', 'CSTRING', 'DCB.',
+    'DSECT',       # MPW dummy-section directive (record-template conversion)
     'DECR', 'DECREMENT', 'DEFAULT', 'DISPDATA', 'DISPNAME', 'DOWNCASE',
     'EJECT', 'ELSE', 'ELSEIF', 'ENDF', 'ENDIF', 'ENDM', 'ENDP', 'ENDPROC',
     'ENDR', 'ENDWHILE', 'ENDWITH', 'ENTRY', 'ERRIF', 'EVAL', 'EXPORT',
     'EXPR', 'FILE', 'FINDSYM', 'FUNC', 'GBLA', 'GBLB', 'GBLC', 'GEQU',
     'GLOBAL', 'GOTO', 'IMPORT', 'INCLUDE', 'INCR', 'INCREMENT', 'INTERSEG',
     'INTTOSTR', 'ISINT', 'KEEP', 'KIND', 'LABLEN', 'LCLA', 'LCLB', 'LCLC',
-    'LCONST', 'LENGTH', 'LEXPR', 'LIST', 'LOADNAME', 'LOCAL', 'LONGA',
+    'LCONST', 'LENGTH', 'LEXPR', 'LIST', 'LOADNAME', 'LOCAL', 'LONG', 'LONGA',
     'LONGI', 'LONGTABLE', 'M65816', 'MACHINE', 'MACRO', 'MEND', 'MEXIT',
     'NEEDS', 'NOGEN', 'NOTE', 'NUMLEN', 'NUMSEX', 'PAGE', 'PAGESIZE',
     'PASCAL', 'PRINT', 'PROC', 'RECORD', 'RELEXPR', 'RELOC', 'RESSPC',
@@ -54,7 +55,8 @@ ALLOWED_STRS = {
     'SYSTIME', 'TEMPORG', 'THEN', 'TITLE', 'TRIM', 'TYPE',
     'UNDEFINED',   # MPW &TYPE() return value for an unknown symbol
     'UNHANDLED',
-    'UPCASE', 'UPPERCASE', 'VERSION', 'WHILE', 'WITH', 'WRITELN', 'ZEXPR',
+    'UPCASE', 'UPPERCASE', 'VERSION', 'WHILE', 'WITH', 'WORD', 'WRITELN',
+    'ZEXPR',
     '__LOC__', '__fspath__', '__main__',
     'ablx', 'absx', 'absy', 'aind', 'aindl', 'aindx', 'append', 'base',
     'body', 'byte', 'cINTERSEG', 'cRELOC', 'code', 'comment', 'decrement',

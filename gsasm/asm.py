@@ -227,24 +227,68 @@ def first_field(s, expr_cont=False):
             # `sta foo,x , put it back`.)
             if prev and prev[-1] == ',':
                 i = j; continue
-            if expr_cont:
-                # `access -` (trailing operator) always continues; `- g`
-                # (operator then a term) continues.  Operators limited to +/-
-                # and the term set excludes '*' so a `***...` ruler comment
-                # after a DC field is still a comment.
-                if prev and prev[-1] in '+-':
-                    i = j; continue
-                if j < n and s[j] in '+-':
-                    k = j + 1
-                    while k < n and s[k] in ' \t':
-                        k += 1
-                    if k < n and (s[k].isalnum() or s[k] in "_@?.$('"
-                                  or s[k] == '*' and (k + 1 == n
-                                                      or s[k+1] in ' \t')):
-                        i = j; continue
+            # Expression continuation (data/equate directives, and IMMEDIATE
+            # instruction operands): the operand continues across whitespace
+            # ONLY when the ENTIRE tail parses as a clean [operator term]*
+            # chain — all-or-nothing, since ';' comments are already stripped
+            # and MPW folds the whole expression:
+            #   `dc.w access - g + dec`   `x equ $100 * 16`
+            #   `dc.w @no_copy ++ @dec`   `lda #invalid_ref_num OR $8000`
+            # A tail with trailing prose is an unmarked comment and never
+            # matches: `equ $80 * bit7 set when...` cuts at `$80`,
+            # `adc #2  and add offset...` cuts at `#2`, `bne x -yes.` cuts.
+            if ((expr_cont or s.lstrip(' \t')[:1] == '#')
+                    and _expr_tail(s[j:])):
+                return s.rstrip()
             return s[:i]
         i += 1
     return s
+
+
+_EXPR_TAIL_OP = re.compile(
+    r'(\+\+|--|<<|>>|[+\-*/&|])'
+    r'|((?:OR|AND|EOR|XOR|MOD|DIV|NOT)\b)', re.I)
+_EXPR_TAIL_TERM = re.compile(
+    r"[<>^]?(?:[A-Za-z_@?.&][\w@?.&]*|\$[0-9A-Fa-f]+|%[01]+|\d+|'[^']*')")
+
+
+def _expr_tail(s):
+    """True iff *s* (starting at the whitespace-separated continuation point)
+    is a CLEAN ``[operator term]*`` chain to end-of-string — i.e. genuinely
+    the rest of an expression, not an unmarked comment."""
+    i, n = 0, len(s)
+    while True:
+        while i < n and s[i] in ' \t':
+            i += 1
+        if i >= n:
+            return True
+        m = _EXPR_TAIL_OP.match(s, i)
+        if not m:
+            return False
+        i = m.end()
+        while i < n and s[i] in ' \t':
+            i += 1
+        if i >= n:
+            return False                       # trailing operator, no term
+        if s[i] == '(':                        # parenthesised term
+            depth = 0
+            while i < n:
+                if s[i] == '(':
+                    depth += 1
+                elif s[i] == ')':
+                    depth -= 1
+                    if depth == 0:
+                        i += 1
+                        break
+                i += 1
+            continue
+        if s[i] == '*' and (i + 1 >= n or s[i+1] in ' \t'):
+            i += 1                             # lone '*' = PC term
+            continue
+        mt = _EXPR_TAIL_TERM.match(s, i)
+        if not mt:
+            return False
+        i = mt.end()
 
 
 # --------------------------------------------------------------------------
@@ -320,6 +364,9 @@ class Asm:
         # [segidx][NAME]=value. (e.g. dialog `nextItem equ output`=$14 shadows the
         # `NextItem` routine label.)
         self.seg_equ = {}
+        self.setvars = set()          # names OWNED by SET (assembler variables:
+                                      #   a record-scoped SET only updates the
+                                      #   bare name when it owns it)
         # EQU that ALIASES a single relocatable label (`comp_temp equ and_mask`,
         # ProDOS.FST) — a second name for the same address, NOT a constant. Keyed
         # NAME(upper) -> (TARGET_upper, addend). A ref to NAME must inherit the
@@ -354,6 +401,9 @@ class Asm:
         self.record_stack = []        # saved (loc, emit, name) per RECORD..ENDR
         self.cur_record = None        # current RECORD name (for qualified fields)
         self._record_dec = False      # current RECORD allocates fields downward
+        self._record_data = False     # current RECORD is a DATA segment (its
+                                      #   positional labels stay global; only
+                                      #   interior EQUs become fields)
         self.record_sizes = {}        # {RECORD_NAME: sizeof} for `DS RecordName`
         self.with_stack = []          # active WITH record names (field namespace)
         self.last_global = ''         # most recent global label (@-local scope)
@@ -835,7 +885,7 @@ class Asm:
     # ----------------------------------------------------------------
     # Symbol / location helpers
     # ----------------------------------------------------------------
-    def define_label(self, name, value, kind='label'):
+    def define_label(self, name, value, kind='label', redefinable=False):
         if name:
             # ANY label not beginning with @ delimits @-local-label scope (MPW
             # Asm Ref, "@-labels": scope extends both directions to the nearest
@@ -852,14 +902,31 @@ class Asm:
             # of the same name (e.g. PopUpCtlRecord.titleWidth=64 vs the menu
             # `titleWidth EQU 14`). So inside a RECORD, define ONLY the qualified
             # name (unless the bare name is otherwise undefined — harmless).
-            field = self.cur_record and '.' not in name
+            # In a DATA-segment record, positional labels stay global (they
+            # address emitted content); only interior EQUs are record fields.
+            field = (self.cur_record and '.' not in name
+                     and not (self._record_data and kind == 'label'))
             if field:
                 q = self._fold(self.cur_record + '.' + name)
                 self.symbols[q] = value
                 self.symtype[q] = 'equ'
-                if u not in self.symbols:             # don't clobber a real symbol
+                # The bare name: a DATA record keeps the historical global
+                # last-wins (the qualified field is ADDITIVE); a TEMPLATE
+                # record's def leaves an already-claimed bare name alone
+                # (PopUpCtlRecord.titleWidth must not clobber the menu
+                # `titleWidth EQU 14`).  Exception: a SET that OWNS the bare
+                # name (claimed or last updated it) keeps updating it — a
+                # redefinable assembler VARIABLE (param.records' `DummyPC SET
+                # DummyPC+2`; a stale bare would equate every field to 0) —
+                # while a record-scoped SET shadowing someone else's global
+                # (the DefineStack family) stays field-only.
+                owns = u not in self.symbols
+                if (owns or self._record_data
+                        or (redefinable and u in self.setvars)):
                     self.symbols[u] = value
                     self.symtype[u] = kind
+                    if redefinable and (owns or u in self.setvars):
+                        self.setvars.add(u)
                 self.defcount[u] = self.defcount.get(u, 0) + 1
                 self.labels.append((name, value))
                 return
@@ -1547,7 +1614,8 @@ class Asm:
                     and self.segs[-1].temporg is None):
                 self.define_label(ln.label, self.loc)
                 return
-            self.define_label(ln.label, self.evaluate(ln.operand) or 0, kind='equ')
+            self.define_label(ln.label, self.evaluate(ln.operand) or 0, kind='equ',
+                              redefinable=(u == 'SET'))
             # An EQU whose RHS is exactly ONE relocatable label (optionally +/-const)
             # is an ALIAS (a second name for that address), not a constant: refs must
             # relocate. Record it so needs_reloc/omf._expr_for treat NAME as the
@@ -1617,6 +1685,7 @@ class Asm:
                 self.emit_enabled = False
                 self.loc = base
                 self._record_dec = dec             # fields allocate downward
+                self._record_data = False
                 if ln.label:
                     self.define_label(ln.label, base, kind='equ')
                 self.cur_record = ln.label
@@ -1628,6 +1697,14 @@ class Asm:
                 self.record_stack.append((self.loc, self.emit_enabled,
                                           self.cur_record, True, self._record_dec))
                 self._record_dec = False
+                # interior EQUs are record-scoped FIELDS (DOS3.3 param.records:
+                # `vol_name long` expands to `vol_name equ DummyPC` inside a
+                # bare `volume1 record` — gold resolves volume1.vol_name);
+                # positional labels stay global (define_label checks
+                # _record_data so an emitting data record's code labels are
+                # unaffected).
+                self.cur_record = ln.label
+                self._record_data = True
                 self.loc = 0                       # new segment starts at 0
                 name = self._fold(ln.label or '')
                 cur = self.segs[-1]
@@ -1641,6 +1718,46 @@ class Asm:
                 if ln.label:
                     self.define_label(ln.label, self.loc)
             return
+        if (u == 'DSECT' and self.record_stack and self.record_stack[-1][3]
+                and not self.segs[-1].items):
+            # MPW dummy section INSIDE a just-opened bare RECORD (DOS3.3
+            # param.records: `volume1 record` then `dsect 0`): convert the
+            # data-segment record to an offset TEMPLATE (fields become record
+            # offsets, ENDR records sizeof).  A bare DSECT anywhere else keeps
+            # the historical unknown-op no-op (tool sources use free-standing
+            # `dsect`/`word`/`long` groups with their own macros).
+            base = self.evaluate(ln.operand) or 0
+            saved = self.record_stack.pop()
+            cur = self.segs[-1]
+            rec_label = cur.name          # folded record name
+            # return the data segment to "fresh/reusable" (omf.emit drops
+            # empty unnamed segments; the next PROC reuses this one)
+            cur.name = None; cur.is_data = False; cur.private = False
+            self.record_stack.append((saved[0], saved[1], saved[2], False,
+                                      saved[4], base, rec_label))
+            self.emit_enabled = False
+            self._record_dec = False
+            self._record_data = False
+            self.cur_record = rec_label
+            if rec_label:
+                self.define_label(rec_label, base, kind='equ')
+            self.loc = base
+            self._lbl(ln)
+            return
+        if u in ('BYTE', 'WORD', 'LONG') and self.cur_record:
+            # MPW record-field type allocators (param.records dialect):
+            # `dev_name long` reserves 4 at the current record offset.  An
+            # operand is a COUNT (`buf word 8`).  Template records only.
+            w = {'BYTE': 1, 'WORD': 2, 'LONG': 4}[u]
+            cnt = self.evaluate(ln.operand) if (ln.operand or '').strip() else 1
+            size = w * (cnt or 1)
+            if self._record_dec:
+                self.loc -= size
+                self._lbl(ln)
+            else:
+                self._lbl(ln)
+                self.reserve(size)
+            return
         if u == 'ENDR':
             data_rec = self.record_stack[-1][3] if self.record_stack else False
             if ln.label:
@@ -1651,6 +1768,8 @@ class Asm:
                 final_rec_loc = self.loc          # position at end of record body
                 (self.loc, self.emit_enabled, self.cur_record, _,
                  self._record_dec) = entry[:5]
+                self._record_data = (self.record_stack[-1][3]
+                                     if self.record_stack else False)
                 # Template (non-data) record: remember sizeof = final_loc - base so
                 # `DS RecordName` allocates that many bytes (MPW AsmIIgs behaviour).
                 # The record LABEL keeps its base value (used by WITH and by value
