@@ -167,10 +167,12 @@ def parse_line(raw):
     rest2 = rest[m.end():].lstrip(' \t').rstrip()
     # Operands have no internal whitespace (except quoted strings / multi-token
     # directives); anything past the first field is an unmarked comment.
-    if op.upper() in _MULTI_TOKEN_OPS:
+    up = op.upper()
+    if up in _MULTI_TOKEN_OPS:
         operand = rest2
     else:
-        operand = first_field(rest2)
+        operand = first_field(rest2, expr_cont=(up in _EXPR_CONT_OPS
+                                                or up.startswith('DC')))
     return Line(label, op, operand, raw, comment)
 
 
@@ -178,12 +180,27 @@ def parse_line(raw):
 _MULTI_TOKEN_OPS = {'IF', 'ELSEIF', 'WHILE', 'AIF', 'PROC', 'ERRIF', 'DO',
                     'ASSERT', 'PRINT', 'TITLE', 'LIST', 'AERROR'}
 
+# Data/equate directives whose operand EXPRESSION continues across
+# whitespace around +/- (see first_field expr_cont).  Instructions and
+# branches are excluded: their unmarked comments can start with '-' etc.
+# DS is also excluded for now: P8's `ds.b $C80 - (loader_end-procstart)`
+# pad needs forward-reference DS sizing (multi-pass) that gsasm lacks —
+# re-add DS here when that lands.
+_EXPR_CONT_OPS = {'EQU', 'GEQU', '=', 'SET'}
 
-def first_field(s):
+
+def first_field(s, expr_cont=False):
     """Leading operand token: stops at the first whitespace that is at paren/
     bracket depth 0 and outside a quoted string. Whitespace ADJACENT to a comma
     is part of a comma-separated list (e.g. `DC.W Flag, 0`), not a comment
-    boundary, so the operand continues across it."""
+    boundary, so the operand continues across it.
+
+    ``expr_cont`` (data/equate directives only): a `+`/`-` infix operator
+    continues the EXPRESSION across the whitespace when a term follows
+    (`dc.w access - g + dec`, `end_tbl equ * - cmd_tbl` — MPW folds the
+    whole expression).  Instructions/branches keep the plain cut: their
+    unmarked comments can start with those characters (`bne exit140 -yes.`,
+    `stx <w_work+2  ***** ...`)."""
     depth = 0
     in_str = False
     quote = ''
@@ -210,6 +227,21 @@ def first_field(s):
             # `sta foo,x , put it back`.)
             if prev and prev[-1] == ',':
                 i = j; continue
+            if expr_cont:
+                # `access -` (trailing operator) always continues; `- g`
+                # (operator then a term) continues.  Operators limited to +/-
+                # and the term set excludes '*' so a `***...` ruler comment
+                # after a DC field is still a comment.
+                if prev and prev[-1] in '+-':
+                    i = j; continue
+                if j < n and s[j] in '+-':
+                    k = j + 1
+                    while k < n and s[k] in ' \t':
+                        k += 1
+                    if k < n and (s[k].isalnum() or s[k] in "_@?.$('"
+                                  or s[k] == '*' and (k + 1 == n
+                                                      or s[k+1] in ' \t')):
+                        i = j; continue
             return s[:i]
         i += 1
     return s
