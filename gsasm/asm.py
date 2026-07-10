@@ -1929,6 +1929,13 @@ class Asm:
         key = self._fold((operand or '').strip())
         if key in self.record_sizes:
             return self.record_sizes[key] * w
+        # Bare DS counts WORDS (MPW AsmIIgs: DS defaults to .W, like DC) —
+        # only an explicit .B narrows to bytes.  The record-template path
+        # above is a TYPE operand (one instance), not a count, so it is
+        # unaffected.  (Golden proof: NewDispatcher.src `ds 32` reserves
+        # 64 zero bytes in the shipping GS.OS.Dev.)
+        if '.' not in u:
+            w = 2
         cnt = self.evaluate(operand)
         return (cnt or 0) * w
 

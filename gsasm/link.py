@@ -130,8 +130,12 @@ def _p2(v: int) -> bytes:
 
 
 def _make_segment(segname: bytes, loadname: bytes, org: int, kind: int,
-                  segnum: int, body: bytes) -> bytes:
-    """Build a complete OMF segment: header + LCONST(body) + END."""
+                  segnum: int, body: bytes, tail_recs: bytes = b'') -> bytes:
+    """Build a complete OMF segment: header + LCONST(body) [+ tail_recs] + END.
+
+    ``tail_recs`` — pre-encoded OMF records (e.g. SUPER relocation records)
+    inserted between the LCONST and the END record.
+    """
     sname_field = bytes([len(segname)]) + segname
     lname_field = (loadname + b'\x00' * 10)[:10]
     dispname = 44
@@ -152,7 +156,7 @@ def _make_segment(segname: bytes, loadname: bytes, org: int, kind: int,
     hdr[42:44] = _p2(dispdata)        # DISPDATA
 
     # LCONST: opcode 0xF2 + 4-byte count + body bytes
-    body_rec = bytes([0xF2]) + _p4(len(body)) + body + bytes([0x00])  # + END
+    body_rec = bytes([0xF2]) + _p4(len(body)) + body + tail_recs + bytes([0x00])  # + END
 
     seg = bytearray(hdr) + lname_field + sname_field + body_rec
     seg[0:4] = _p4(len(seg))          # BYTECNT

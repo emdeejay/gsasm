@@ -448,7 +448,16 @@ def link(objects: list[tuple[bytes, Any | None]],
         out_org = placed[0][2]
         out_kind = kind if opts.get('kind') is not None else first_hdr['KIND']
         merged = b''.join(bodies)
-        return _link._make_segment(out_name, out_load, out_org, out_kind, 1, merged)
+        # opts['super']: emit SUPER relocation records for the merged load
+        # segment (MPW LinkIIgs does this for every load file; gsasm's flat
+        # MakeBin/catenate consumers don't need them, so it is opt-in).
+        tail = b''
+        if opts.get('super'):
+            from . import expressload as _exl        # lazy: avoids import cycle
+            relocs = _exl._scan_relocs(placed)
+            tail = b''.join(_exl.emit_super(t, relocs[t]) for t in sorted(relocs))
+        return _link._make_segment(out_name, out_load, out_org, out_kind, 1,
+                                   merged, tail_recs=tail)
     else:
         # Segmented: re-emit each segment as a separate OMF segment with its
         # resolved body replacing the original records.  The segment header

@@ -93,6 +93,15 @@ relOffset flag) is parked as un-derived. Attack it as a **class**, not per-tool.
   Acceptance: GS.OS len==EOF (55395) → **diskcheck +1**.  Risk: MED.  Effort: M.  Dep: 2.1.
 - **WP-4.2 — GS.OS.Dev** (−132B): NewDispatcher missing code + SUPER records.
   Effort: S–M.
+  > **OUTCOME (2026-07-10): DONE — BYTE-EXACT (2388/2388), diskcheck 12/26.**
+  > Two general fixes: (1) bare `DS n` counts WORDS (MPW AsmIIgs default
+  > width, like DC) — `asm._ds_size`; a record-template operand still
+  > reserves one instance. Corpus survey: no ROM/tool source uses bare
+  > numeric DS, so byte-neutral there; DOS3.3.FST flipped 9%→97%
+  > (fstcheck 50234→57784) as a free win. (2) `linkiigs.link`
+  > `opts['super']` emits SUPER type-0/1 relocation records for the merged
+  > load segment (reuses `expressload._scan_relocs`/`emit_super`); opt-in,
+  > so every other link consumer is byte-identical by construction.
 - **WP-4.3 — CI drift-check (the §3a downgrade).** Wire `work/mpwmake_probe.py`
   into a gate: assert TOOLMAP/FSTMAP/DRIVERMAP == parsed makefiles; fail on drift.
   Captures ~all §3a value at a fraction of the parser cost.  Files: `work/

@@ -43,10 +43,11 @@ Known residuals (precise, not unknown gaps):
       yet a byte-exact overlay (no diskcheck flip).  SUPER type-6 cINTERSEG is
       OMF-internal and does not affect the flat GS.OS image.
   GS.OS.Dev:
-    - NewDispatcher.src: 32 bytes of code missing in install_dev_svc proc
-      (likely from unimplemented #^Label / SUPER type-27 bank-byte records)
-      plus SUPER relocation records absent; built 2256B vs golden 2388B
-      (size mismatch prevents overlay; reported as precise residual).
+    - BYTE-EXACT (2388/2388).  Two general fixes closed it: bare `ds N`
+      counts WORDS (asm._ds_size, MPW default width — NewDispatcher's
+      `ds 32` reserves 64 zero bytes), and linkiigs.link opts['super']
+      emits SUPER type-0/1 relocation records for the merged load segment
+      (scan via expressload._scan_relocs, encode via emit_super).
 """
 import os
 import struct
@@ -277,16 +278,14 @@ def _build_gsos_dev() -> bytes:
         SEGNAME = b'main', LOADNAME = 10 zero bytes, DISPDATA = 59.
     We reformat the header post-link to match.
 
-    Precise residual: 2256B built vs 2388B golden (132 bytes short).
-      - LCONST: 2180B built vs 2212B golden (32 bytes of code missing,
-        likely from #^Label / SUPER type-27 bank-byte not implemented).
-      - SUPER relocation records: absent in built output.
+    BYTE-EXACT: 2388/2388 (opts['super'] emits the SUPER type-0/1
+    relocation records the shipping load file carries).
 
     Target: /System.Disk/System/GS.OS.Dev — $BC aux $0000, 2388 bytes
     """
     src    = os.path.join(_GS, 'OS', 'DeviceDispatcher', 'NewDispatcher.src')
     obj, a = _assemble(src)
-    linked = _lnk.link([(obj, a)], opts={'merge': True})
+    linked = _lnk.link([(obj, a)], opts={'merge': True, 'super': True})
     return _reformat_omf_header(linked)
 
 
@@ -301,11 +300,10 @@ def builders(V):
     Each callable returns the FULL on-disk file bytes (== data-fork EOF length,
     or close to it — see module docstring for precise residuals).
 
-    Both GS.OS and GS.OS.Dev are wired as precise residuals: the builders
-    run, produce correct bytes up to known gsasm gaps, but the sizes and
-    some byte values will not match the golden exactly.  diskcheck reports
-    them as logical mismatches (not overlaid) so the physical image stays
-    byte-identical.
+    GS.OS.Dev is byte-exact.  GS.OS is wired as a precise residual: the
+    builder runs, produces correct bytes up to known gsasm gaps (the SCM
+    external floor), so diskcheck reports it as a logical mismatch (not
+    overlaid) and the physical image stays byte-identical.
     """
     return {
         f'{V}/System/GS.OS':     _build_gsos,
