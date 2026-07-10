@@ -193,8 +193,12 @@ class _Parser:
             self.next(); return -self.unary()
         if t == '+':
             self.next(); return self.unary()
-        if t == '~' or t == ('kw', 'NOT'):
+        if t == '~':
             self.next(); return ~self.unary()
+        if t == ('kw', 'NOT'):
+            # MPW NOT is LOGICAL (`if NOT Version6x` with Version6x=1 is
+            # FALSE); the bitwise one's complement is the ≈ operator.
+            self.next(); return 0 if self.unary() else 1
         return self.primary()
 
     def primary(self):

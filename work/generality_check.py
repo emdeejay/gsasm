@@ -51,12 +51,16 @@ ALLOWED_STRS = {
     'PASCAL', 'PRINT', 'PROC', 'RECORD', 'RELEXPR', 'RELOC', 'RESSPC',
     'SEGNAME', 'SEGNUM', 'SETA', 'SETB', 'SETC', 'SETTING', 'SPACE',
     'STRING', 'SUBSTR', 'SUPER', 'SYSDATE', 'SYSGLOBAL', 'SYSLOCAL',
-    'SYSTIME', 'TEMPORG', 'THEN', 'TITLE', 'TRIM', 'TYPE', 'UNHANDLED',
+    'SYSTIME', 'TEMPORG', 'THEN', 'TITLE', 'TRIM', 'TYPE',
+    'UNDEFINED',   # MPW &TYPE() return value for an unknown symbol
+    'UNHANDLED',
     'UPCASE', 'UPPERCASE', 'VERSION', 'WHILE', 'WITH', 'WRITELN', 'ZEXPR',
     '__LOC__', '__fspath__', '__main__',
     'ablx', 'absx', 'absy', 'aind', 'aindl', 'aindx', 'append', 'base',
     'body', 'byte', 'cINTERSEG', 'cRELOC', 'code', 'comment', 'decrement',
     'defer_shifts', 'defines', 'equ_alias', 'expr', 'extern', 'global',
+    '_gstream_cache',   # omf: memo attr for GLOBAL item-stream positions
+    'align',            # asm Segment attr (`PROC align N`), via getattr
     'gsasm', 'gslink', 'import', 'incdirs', 'increment', 'indl', 'indly',
     'indx', 'indy', 'is_data', 'kind', 'label', 'length', 'little',
     'loadname', 'mac_roman', 'main', 'merge', 'multiseg', 'name', 'nbytes',

@@ -722,6 +722,14 @@ class Asm:
         if u == 'ISINT':
             return '1' if (args and self.evaluate(args[0]) is not None) else '0'
         if u == 'TYPE':
+            # &TYPE('name') — the symbol's class; every corpus use only tests
+            # `= 'UNDEFINED'` (default-define guards like AD3.5's VERSION6X),
+            # so report 'UNDEFINED' vs the historical 'INT' for defined names.
+            name = _unquote(args[0]) if args else ''
+            key = self._symkey(name)
+            if (key not in self.symbols and key not in self.record_sizes
+                    and key.upper() not in self.macros):
+                return 'UNDEFINED'
             return 'INT'
         # &ORD(expr): return the integer value of expr.
         # If expr is a relocatable numeric expression (e.g. *, a label),
@@ -974,12 +982,49 @@ class Asm:
         return False
 
     # ---- emission (per-line, self-contained) ----
+    def _overlay_patch(self, seg, off, data):
+        """Overwrite ``data`` at item-space offset ``off`` in *seg* (a backward
+        mid-segment ORG overlays previously emitted bytes).  Only patches when
+        the whole span falls inside existing 'code' items; returns False (no
+        write) otherwise so the caller can fall back to appending."""
+        end = off + len(data)
+        spans = []                       # (item_barr, item_start, lo, hi)
+        pos = 0
+        for it in seg.items:
+            if it[0] == 'code':
+                n = len(it[2])
+                if pos < end and pos + n > off:
+                    lo, hi = max(pos, off), min(pos + n, end)
+                    spans.append((it[2], pos, lo, hi))
+                pos += n
+            elif it[0] == 'ds':
+                if pos < end and pos + it[1] > off:
+                    return False         # overlay into reserved space: punt
+                pos += it[1]
+        if sum(hi - lo for _b, _s, lo, hi in spans) != len(data):
+            return False
+        for barr, start, lo, hi in spans:
+            barr[lo - start:hi - start] = data[lo - off:hi - off]
+        return True
+
     def emit_line(self, ln, data, fixups):
         """Record an emitted line: (loc, source line, mutable bytes).
         `fixups` is a list of (offset_in_line, Fixup). Inside a RECORD we only
         advance the location (fields are offsets, not stored bytes)."""
         at = self.loc
         barr = bytearray(data)
+        # Backward mid-segment ORG (MPW overlay): in a plain relocatable
+        # segment the location counter equals the emitted length, so loc <
+        # length() means this line OVERWRITES earlier bytes instead of
+        # appending (AD3.5.data `ORG trk_ctr` re-lays the multi-track parms).
+        cur = self.segs[-1]
+        if (self.emit_enabled and barr and not fixups
+                and not cur.absolute and cur.temporg is None
+                and self.loc < cur.length()
+                and self._overlay_patch(cur, self.loc, bytes(barr))):
+            self.emitted.append((at, ln, barr))
+            self.loc += len(barr)
+            return
         if self.emit_enabled:
             self.emitted.append((at, ln, barr))
             seg = len(self.segs) - 1
@@ -992,6 +1037,12 @@ class Asm:
         self.loc += len(barr)
 
     def reserve(self, n):
+        # inside a backward-ORG overlay the space already exists — advance only
+        cur = self.segs[-1]
+        if (self.emit_enabled and n > 0 and not cur.absolute
+                and cur.temporg is None and self.loc + n <= cur.length()):
+            self.loc += n
+            return
         if self.emit_enabled and n > 0:
             self.segs[-1].items.append(('ds', n, None))
         self.loc += n
@@ -1454,6 +1505,16 @@ class Asm:
 
         # equates (SET is a redefinable equate)
         if u in ('EQU', 'GEQU', '=', 'SET'):
+            # `name EQU *` inside a relocatable PROC is a code LABEL by another
+            # spelling (AD3.5.read `FastBufr EQU *`): references must relocate
+            # (SEGNAME+offset), not bake the segment-relative literal.  In an
+            # absolute (ORG'd) segment the equate value already equals the
+            # label's absolute address, so the historical equate path stands.
+            if ((ln.operand or '').strip() == '*' and ln.label
+                    and self.in_proc and not self.segs[-1].absolute
+                    and self.segs[-1].temporg is None):
+                self.define_label(ln.label, self.loc)
+                return
             self.define_label(ln.label, self.evaluate(ln.operand) or 0, kind='equ')
             # An EQU whose RHS is exactly ONE relocatable label (optionally +/-const)
             # is an ALIAS (a second name for that address), not a constant: refs must
@@ -1602,6 +1663,16 @@ class Asm:
             self.seg_loadname = _unquote(ln.operand) if ln.operand else None
             return
         if u == 'ORG':
+            if not (ln.operand or '').strip():
+                # bare ORG: resume at the segment's high-water mark (ends a
+                # backward-ORG overlay).  In a plain relocatable segment the
+                # high water IS the emitted length; absolute/temporg segments
+                # keep the historical no-op (their loc is not item-indexed).
+                cur = self.segs[-1]
+                if not cur.absolute and cur.temporg is None:
+                    self.loc = max(self.loc, cur.length())
+                self._lbl(ln)
+                return
             v = self.evaluate(ln.operand)
             if v is not None:
                 self.loc = v

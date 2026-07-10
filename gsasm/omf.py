@@ -532,7 +532,13 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
                 # Labels in code segments (PROC) are resolvable by name.
                 other_idx = asm.symseg.get(nu)
                 other_seg = asm.segs[other_idx] if other_idx is not None else None
-                if other_seg is not None and getattr(other_seg, 'is_data', False):
+                # A backward-ORG overlay label's GLOBAL record sits at the
+                # item-stream position, NOT at the label's (earlier, patched)
+                # address — a positional GLOBAL cannot represent it, so a
+                # by-name reference would resolve wrong.  Use SEGNAME+offset.
+                if other_seg is not None and (
+                        getattr(other_seg, 'is_data', False)
+                        or _global_stream_mismatch(asm, nu, other_idx)):
                     other_base = other_seg.org or 0
                     other_off = ((asm.resolve(nu) or 0) & 0xFFFFFF) + addend - other_base
                     ops += bytes([0x83]) + _omfstr(asm._fold(other_seg.name or ''))
@@ -654,6 +660,34 @@ def _branch_xseg(asm, core, cur_seg, ref_off=None):
     # another segment is a literal too, not a relocation.
     return (si is not None and si != cur_seg and asm.segs[si].org is None
             and asm.segs[si].temporg is None)
+
+
+def _global_stream_mismatch(asm, nu, segidx):
+    """True if *nu*'s GLOBAL item sits at an item-stream position that differs
+    from the label's value — a backward-ORG overlay label (the bytes were
+    patched in place, so the positional GLOBAL marker landed at the segment's
+    high-water mark instead of the label's address).  Only meaningful for
+    plain relocatable segments, where a label's value IS its stream offset."""
+    seg = asm.segs[segidx]
+    if seg.org is not None or seg.temporg is not None:
+        return False
+    cache = getattr(asm, '_gstream_cache', None)
+    if cache is None:
+        cache = {}
+        for si, s in enumerate(asm.segs):
+            pos = 0
+            for it in s.items:
+                if it[0] == 'code':
+                    pos += len(it[2])
+                elif it[0] == 'ds':
+                    pos += it[1]
+                elif it[0] == 'global':
+                    cache[(si, it[1])] = pos
+        asm._gstream_cache = cache
+    sp = cache.get((segidx, nu))
+    if sp is None:
+        return False
+    return sp != ((asm.resolve(nu) or 0) & 0xFFFFFF)
 
 
 def _temporg_label(asm, name):
