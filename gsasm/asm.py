@@ -942,12 +942,29 @@ class Asm:
                 self.defcount[u] = self.defcount.get(u, 0) + 1
                 self.labels.append((name, value))
             else:
-                self.symbols[u] = value
-                self.symtype[u] = kind
+                # A plain (non-ENTRY) code-PROC label does not CLOBBER a
+                # same-named DATA-RECORD label: the record's label is the
+                # canonical file-visible binding and MASKS the proc-interior
+                # duplicate EVERYWHERE — golden Pascal.FST binds `temp` to the
+                # GLOBALS field even INSIDE P_CREATE_DATE, which defines its
+                # own `temp dc.w 0` (the local's bytes emit; its name is
+                # inert).  So the masked label is kept out of seg_local too.
+                seg = len(self.segs) - 1
+                prior = self.symseg.get(u)
+                keep_prior = (kind == 'label' and prior is not None
+                              and prior != seg
+                              and self.symtype.get(u) == 'label'
+                              and prior < len(self.segs)
+                              and getattr(self.segs[prior], 'is_data', False)
+                              and not getattr(self.segs[seg], 'is_data', False)
+                              and u not in self.entries
+                              and u not in self.exports)
+                if not keep_prior:
+                    self.symbols[u] = value
+                    self.symtype[u] = kind
                 self.defcount[u] = self.defcount.get(u, 0) + 1
                 self.labels.append((name, value))
-                if kind == 'label':
-                    seg = len(self.segs) - 1
+                if kind == 'label' and not keep_prior:
                     self.symseg[u] = seg                  # defining segment index
                     self.seg_local.setdefault(seg, {})[u] = value
                     # A no-operand DATA RECORD (`Name Record` with no operand, or
