@@ -1029,6 +1029,16 @@ class Asm:
         u = self._symkey(tgt)
         if u in self.imports:         # never touch EQU-vs-import precedence
             return None
+        # an alias OF an alias chains to the base label (HFS `mod_date equ
+        # mod_date_time` then `mod_time equ mod_date+2` -> MOD_DATE_TIME+2)
+        chained = self.equ_alias.get(u)
+        if chained is not None:
+            base, base_add = chained
+            addend = 0
+            if m.group(2):
+                extra = m.group(2).replace(' ', '')
+                addend = int(extra.replace('$', ''), 16 if '$' in extra else 10)
+            return (base, base_add + addend)
         if self.symtype.get(u) != 'label':   # RHS must be a real (relocatable) label
             return None
         si = self.symseg.get(u)
@@ -1077,6 +1087,12 @@ class Asm:
         (such an operand must use absolute/long, never direct page)."""
         for ident in re.findall(r'[A-Za-z_~@?.][\w~@?.]*', expr):
             if self.sym_kind(ident) in ('label', 'import'):
+                return True
+            # an EQU aliasing a relocatable label is a second name for that
+            # address — it relocates, so it must SIZE absolute too (HFS
+            # `mod_date equ mod_date_time`: `lda mod_date` is 16-bit
+            # absolute in gold even though the assembly-time value < $100)
+            if self._symkey(ident) in self.equ_alias:
                 return True
         return False
 
