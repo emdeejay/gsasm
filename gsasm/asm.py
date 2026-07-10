@@ -235,6 +235,8 @@ class Segment:
                                       #   resumes here for the NEXT PROC (GQuit
                                       #   load_app tempOrg $1010 inside seg_e0).
         self.segnum = segnum
+        self.align = 0                # `PROC align N` — OMF header ALIGN field;
+                                      #   the linker rounds the placed base up
         self.private = False          # KIND 0x4000 (PROC without EXPORT)
         self.absolute = org is not None  # in an ORG'd absolute region (ORG-flow)
         self.is_data = False          # data segment (KIND data bit 0x01) — a
@@ -1800,6 +1802,12 @@ class Asm:
             # firmware SEGNAME+offset relocation, no absolute placement) and does NOT
             # flow to later PROCs.
             temporg = self.evaluate(_expr_after('TEMPORG'))
+        # `PROC align N` — link-time alignment: goes into the OMF segment
+        # header's ALIGN field; the linker rounds the placed base up to the
+        # boundary (the location counter is untouched — labels stay 0-based).
+        align = 0
+        if 'ALIGN' in up:
+            align = self.evaluate(_expr_after('ALIGN')) or 0
         # ORG-flow (MPW AsmIIgs absolute location counter): an origin set by a
         # `PROC ORG` continues through the *following* non-ORG PROCs until the
         # next ORG. The kernel's `org_dummy PROC ORG addr / ENDP` anchors set an
@@ -1853,10 +1861,12 @@ class Asm:
             cur.name = name; cur.loadname = loadname; cur.org = org
             cur.private = private; cur.absolute = absolute; cur.temporg = temporg
             cur.temporg_flow_resume = flow_resume
+            cur.align = align
         else:
             seg = Segment(name, loadname, org, len(self.segs) + 1)
             seg.private = private; seg.absolute = absolute; seg.temporg = temporg
             seg.temporg_flow_resume = flow_resume
+            seg.align = align
             self.segs.append(seg)
         if ln.label:
             self.define_label(ln.label, self.loc)

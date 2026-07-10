@@ -164,6 +164,10 @@ def _place(
                 seg_base = seg_org
             else:
                 seg_base = base
+                # header ALIGN (`PROC align N`): round the placed base up
+                a = h.get('ALIGN') or 0
+                if a and seg_base % a:
+                    seg_base += a - seg_base % a
             placed.append((seg['segname'], seg['recs'], seg_base, h, asm_obj))
             placed_obj_idx.append(obj_idx)
             bases_this_obj.append(seg_base)
@@ -171,6 +175,26 @@ def _place(
         obj_seg_bases.append(bases_this_obj)
 
     return placed, obj_seg_bases, placed_obj_idx
+
+
+def _merge_bodies(placed, bodies) -> bytes:
+    """Concatenate resolved segment bodies, zero-filling ALIGN-induced gaps.
+
+    Only a gap smaller than the following segment's header ALIGN is filled
+    (that gap exists solely because ``_place`` rounded the base up); any other
+    base discontinuity (ORG'd absolute segments) keeps plain concatenation —
+    byte-identical to ``b''.join(bodies)`` for every module without
+    ``PROC align``.
+    """
+    out = bytearray()
+    origin = placed[0][2] if placed else 0
+    for (_segname, _recs, seg_base, hdr, _asm), body in zip(placed, bodies):
+        a = hdr.get('ALIGN') or 0
+        gap = seg_base - (origin + len(out))
+        if a and 0 < gap < a:
+            out += bytes(gap)
+        out += body
+    return bytes(out)
 
 
 def _build_symtab(
@@ -447,7 +471,7 @@ def link(objects: list[tuple[bytes, Any | None]],
         out_load = first_hdr['LOADNAME']
         out_org = placed[0][2]
         out_kind = kind if opts.get('kind') is not None else first_hdr['KIND']
-        merged = b''.join(bodies)
+        merged = _merge_bodies(placed, bodies)
         # opts['super']: emit SUPER relocation records for the merged load
         # segment (MPW LinkIIgs does this for every load file; gsasm's flat
         # MakeBin/catenate consumers don't need them, so it is opt-in).

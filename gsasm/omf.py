@@ -504,6 +504,14 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
             is_global = nu in asm.entries or nu in asm.exports
             entry_byname = (is_global and
                             (ref_off is None or def_off > ref_off))
+            # a DUPLICATE entry name (defined in more than one segment) cannot
+            # be referenced by name from a segment that has its OWN definition:
+            # the linker would resolve the name to the entry-owner segment's
+            # GLOBAL, but MPW scoping gives the same-segment definition
+            # precedence (AppleDisk5.25 format16's `jsr wexit` → its own wexit,
+            # not write16's).  Same rule as the branch detector (_branch_xseg).
+            if entry_byname and local_here and asm.defcount.get(nu, 0) > 1:
+                entry_byname = False
             if same_seg and entry_byname:
                 # a same-segment ENTRY is referenced by name; an EXPORT-only
                 # label is still referenced as SEGNAME+offset internally
@@ -920,6 +928,7 @@ def emit_segment(asm, seg, exports):
     hdr[16:20] = _num(_banksize)                # BANKSIZE
     hdr[20:22] = _num(kind, 2)                  # KIND
     hdr[24:28] = _num(seg.org or 0)             # ORG
+    hdr[28:32] = _num(getattr(seg, 'align', 0) or 0)  # ALIGN (`PROC align N`)
     hdr[34:36] = _num(seg.segnum, 2)            # SEGNUM
     hdr[40:42] = _num(dispname, 2)
     hdr[42:44] = _num(dispdata, 2)

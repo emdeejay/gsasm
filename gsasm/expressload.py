@@ -296,13 +296,15 @@ def _scan_standalone_relocs(
     """Relocations MPW ExpressLoad emits as individual cRELOC/RELOC records
     rather than folding into a SUPER record.
 
-    The OMF SUPER types cover shift 0 (types 0/1) and the >>16 bank byte (type
-    27) but NOT the >>8 high byte, so a high-byte relocation on a relocatable
-    symbol (``... >> 8``, size 2) has no SUPER encoding and is emitted as a
-    standalone record.  Returns a sorted list of ``(offset, size, shift)``
-    (offset = merged-segment-relative byte offset; shift = positive right shift).
+    A shifted relocation whose ``(size, shift)`` has NO SUPER encoding must be
+    standalone: the >>8 high byte (size 2), and the 1-byte >>16 bank byte
+    (``lda #^label`` under ``longa off`` — SUPER type 27 is size 2 only; a
+    1-byte patch field also cannot hold the target offset in-image, which is
+    why MPW emits the explicit-relOffset record).  Returns a sorted list of
+    ``(offset, size, shift, ops)`` (offset = merged-segment-relative byte
+    offset; shift = positive right shift; ops = the OMF expression op-list).
     """
-    out: list[tuple[int, int, int]] = []
+    out: list[tuple[int, int, int, list]] = []
     for _segname, recs, seg_base, _hdr, _asm in placed:
         body_off = 0
         for _, nm, d in recs:
@@ -315,8 +317,8 @@ def _scan_standalone_relocs(
                 ops = d[1]
                 if _has_sym_ref(ops):
                     shift = _get_shift(ops)
-                    if size == 2 and shift == 8 and (size, shift) not in _SUPER_TYPE:
-                        out.append((seg_base + body_off, size, shift))
+                    if shift and (size, shift) not in _SUPER_TYPE:
+                        out.append((seg_base + body_off, size, shift, ops))
                 body_off += size
             elif nm == 'RELEXPR':
                 body_off += d[0]
@@ -330,8 +332,14 @@ def _scan_standalone_relocs(
 # ~ExpressLoad HET (Header Entry Table) LCONST builder
 # ---------------------------------------------------------------------------
 
-def _make_suffix_template(kind: int, segnum: int, dispname: int = 44) -> bytes:
+def _make_suffix_template(kind: int, segnum: int, dispname: int = 44,
+                          align: int = 0) -> bytes:
     """Build the 42-byte suffix template for one output segment's HET entry.
+
+    The template mirrors the OMF segment header shifted by 12
+    (template[k] = header[k+12]): NUMLEN/VERSION at [2..3], BANKSIZE at
+    [4..7], KIND at [8..9], ALIGN at [16..19], SEGNUM at [22..25],
+    DISPNAME at [28..31].
 
     The full template is:
       [0..1]   = 0x0000
@@ -341,7 +349,11 @@ def _make_suffix_template(kind: int, segnum: int, dispname: int = 44) -> bytes:
       [6]      = 0x01
       [7]      = 0x00
       [8..9]   = KIND as LE 16-bit word
-      [10..21] = 12 zero bytes
+      [10..15] = 6 zero bytes
+      [16..19] = ALIGN as LE dword (`PROC align N` — max of the input
+                 segments' alignments, same value as the stored output
+                 segment header's ALIGN)
+      [20..21] = 0x0000
       [22..25] = SEGNUM as LE dword
       [26..27] = 0x0000
       [28..31] = DISPNAME as LE dword
@@ -349,7 +361,9 @@ def _make_suffix_template(kind: int, segnum: int, dispname: int = 44) -> bytes:
     """
     return (bytes([0, 0, 4, 2, 0, 0, 1, 0])
             + struct.pack('<H', kind)
-            + bytes(12)
+            + bytes(6)
+            + struct.pack('<I', align)
+            + bytes(2)
             + struct.pack('<I', segnum)
             + bytes(2)
             + struct.pack('<I', dispname)
@@ -443,6 +457,7 @@ def _build_het_lconst(
         entry[32] = 1   # constant
         # KIND as LE word at entry[34..35] (suffix offset 8..9 from entry body start)
         struct.pack_into('<H', entry, 34, kind)
+        struct.pack_into('<I', entry, 42, h.get('ALIGN', 0))  # ALIGN dword
         struct.pack_into('<I', entry, 48, segnum)    # SEGNUM dword
         struct.pack_into('<I', entry, 54, dispname)  # DISPNAME dword
 
@@ -456,7 +471,8 @@ def _build_het_lconst(
     for seg_info in segs:
         h = seg_info['hdr']
         templates.append(_make_suffix_template(
-            h['KIND'], h['SEGNUM'], h.get('DISPNAME', 44)
+            h['KIND'], h['SEGNUM'], h.get('DISPNAME', 44),
+            h.get('ALIGN', 0)
         ))
 
     # Compute partial_suffix sizes for each entry.
@@ -666,11 +682,14 @@ def _make_output_seg(
         out_segnum: int,
         merged_body: bytes,
         super_records: bytes,
+        align: int = 0,
 ) -> bytes:
     """Build one OMF load segment from a resolved code body and SUPER records.
 
     Returns the complete OMF segment bytes (header + body records).
     ``super_records`` must already include the trailing END byte (0x00).
+    ``align`` — the output header's ALIGN field (max of the input segments'
+    ``PROC align`` values; MPW keeps it on the ExpressLoad output segment).
     """
     sname_field  = bytes([len(out_name)]) + out_name
     out_load     = b'\x00' * 10
@@ -690,6 +709,7 @@ def _make_output_seg(
     hdr[15] = 2                                          # VERSION
     struct.pack_into('<I', hdr, 16, banksize)            # BANKSIZE
     struct.pack_into('<H', hdr, 20, out_kind)            # KIND
+    struct.pack_into('<I', hdr, 28, align)               # ALIGN
     struct.pack_into('<H', hdr, 34, out_segnum)          # SEGNUM
     struct.pack_into('<H', hdr, 40, out_dispname)        # DISPNAME
     struct.pack_into('<H', hdr, 42, out_dispdata)        # DISPDATA
@@ -784,15 +804,27 @@ def expressload(
 
     if not use_multiseg:
         # ---- Single-segment output (original behavior) ----
-        merged_body = b''.join(bodies)
+        merged_body = _linkiigs._merge_bodies(placed, bodies)
 
         # Standalone cRELOC/RELOC records (e.g. >>8 high-byte relocs, which have
         # no SUPER type) come BEFORE the SUPER records, matching MPW ExpressLoad.
         # Their relOffset is the target's segment-relative offset, which the
         # deferred-shift pass already stored as the placeholder in merged_body.
         standalone = bytearray()
-        for offset, size, shift in _scan_standalone_relocs(placed):
-            rel_off = int.from_bytes(merged_body[offset:offset + size], 'little')
+        for offset, size, shift, ops in _scan_standalone_relocs(placed):
+            if size >= 2:
+                rel_off = int.from_bytes(merged_body[offset:offset + size],
+                                         'little')
+            else:
+                # a 1-byte field can't hold the target offset — evaluate the
+                # expression without its tail shift (same strip as
+                # _defer_shifts) against the placed symbol table
+                ops_wo = ops
+                if (len(ops) >= 4 and ops[-1] == 'end'
+                        and ops[-2] == ('op', 7)
+                        and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
+                    ops_wo = ops[:-3] + ['end']
+                rel_off = _link._eval(ops_wo, sym) & 0xFFFFFF
             if offset < 0x10000 and rel_off < 0x10000:
                 standalone += emit_creloc(size, shift, offset, rel_off)
             else:
@@ -809,10 +841,11 @@ def expressload(
         first_hdr   = placed[0][3]
         out_name    = b'main'
         out_kind    = opts.get('kind') or first_hdr['KIND']
+        out_align   = max((p[3].get('ALIGN') or 0) for p in placed)
         reloc_size_val = len(all_relocs) - 1  # exclude trailing END byte
 
         main_seg_bytes = _make_output_seg(
-            out_name, out_kind, 2, merged_body, all_relocs
+            out_name, out_kind, 2, merged_body, all_relocs, align=out_align
         )
 
         # Parse back the output seg's DISPDATA for HET.
@@ -827,6 +860,7 @@ def expressload(
                 'DISPDATA': out_dispdata,
                 'DISPNAME': out_dispname,
                 'SEGNAME': out_name,
+                'ALIGN': out_align,
             },
             'body': merged_body,
             'reloc_size': reloc_size_val,
@@ -1019,10 +1053,12 @@ def expressload(
         else:
             out_kind = first_hdr['KIND']
         out_segnum   = group_out_idx + 2   # SEGNUM starts at 2 (1 = ~ExpressLoad)
+        out_align    = max((p[3].get('ALIGN') or 0) for p in group_placed)
 
         # Build the output OMF segment
         seg_bytes = _make_output_seg(
-            out_name, out_kind, out_segnum, merged, bytes(super_records)
+            out_name, out_kind, out_segnum, merged, bytes(super_records),
+            align=out_align
         )
 
         out_dispname = 44
@@ -1036,6 +1072,7 @@ def expressload(
                 'DISPDATA': out_dispdata,
                 'DISPNAME': out_dispname,
                 'SEGNAME': out_name,
+                'ALIGN': out_align,
             },
             'body': merged,
             'reloc_size': reloc_size_val,
