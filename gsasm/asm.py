@@ -58,32 +58,42 @@ def strip_comment(s):
     return ''.join(out), ''
 
 
-def _body_ends_backslash(line):
-    """Return True if the meaningful content of *line* (after stripping a
-    trailing ;-comment and outside any quoted string) ends with a backslash.
-    This identifies MPW AsmIIgs line-continuation markers.
+def _backslash_cut(body):
+    """Return the index of the line-continuation backslash in *body*
+    (;-comment already stripped), or None.
 
-    The backslash may be followed by whitespace and/or a ;-comment:
-        prio_mask  equ  bit_5+ \\  ;a comment  → True
-        ENTRY opendriver,\\\\\\t\\t;vectors     → True
-        dc.b  '\\\\hello'           → False  (backslash is inside a string)
+    The backslash officially ends the line; it may be followed by whitespace
+    (and the stripped ;-comment).  MPW AsmIIgs additionally tolerates plain
+    TEXT after the backslash and ignores it (self-documented as "NOT
+    officially supported but works" in the DOS3.3 copy_tbl, whose dc.w
+    continuation lines carry field-name annotations after the \\) — so any
+    unquoted backslash followed by whitespace/EOL marks a continuation and
+    everything after it is discarded.  A backslash inside a quoted string is
+    literal.  The LAST such backslash wins.
+        prio_mask  equ  bit_5+ \\  ;a comment    → cut at the \\
+        no_copy  << 0  ++  \\  fcr_ref_num       → cut at the \\
+        dc.b  '\\\\hello'                          → None (inside a string)
     """
-    body, _comment = strip_comment(line.rstrip('\n'))
-    t = body.rstrip()
-    if not t.endswith('\\'):
-        return False
-    # Verify the trailing backslash is NOT inside a quoted string by
-    # re-scanning the body (strip_comment already ejected unquoted ';').
     in_str = False
     quote = ''
-    for ch in body:
+    cand = None
+    for i, ch in enumerate(body):
         if in_str:
             if ch == quote:
                 in_str = False
         elif ch in "'\"":
             in_str = True; quote = ch
-    # If we ended inside a string the trailing \ is literal, not a continuation.
-    return not in_str
+        elif ch == '\\':
+            nxt = body[i + 1:i + 2]
+            if nxt == '' or nxt in ' \t':
+                cand = i
+    return cand
+
+
+def _body_ends_backslash(line):
+    """True if *line* carries an MPW line-continuation backslash."""
+    body, _comment = strip_comment(line.rstrip('\n'))
+    return _backslash_cut(body) is not None
 
 
 def join_continuations(lines):
@@ -105,12 +115,12 @@ def join_continuations(lines):
         if not _body_ends_backslash(raw):
             out.append(raw)
             continue
-        # Strip comment from the current line, remove the trailing backslash,
+        # Strip comment from the current line, cut at the continuation
+        # backslash (any tolerated trailing text after it is discarded),
         # then stitch continuation lines onto the body.
         body, _comment = strip_comment(raw.rstrip('\n'))
-        body = body.rstrip()        # e.g. "ENTRY opendriver,\t\\"
-        body = body[:-1]            # drop the trailing backslash
-        # body may now end with trailing whitespace (e.g. "opendriver,  ");
+        body = body[:_backslash_cut(body)]
+        # body may end with trailing whitespace (e.g. "opendriver,  ");
         # keep it — the sources rely on no extra space being inserted.
         while True:
             if i >= n:
@@ -119,12 +129,9 @@ def join_continuations(lines):
             i += 1
             cbody, _cc = strip_comment(cont.rstrip('\n'))
             cbody = cbody.lstrip(' \t')   # strip leading indent of continuation
-            # Re-attach any trailing-\-continuation from this line too.
-            # rstrip before checking: the \ may be followed by trailing
-            # whitespace (tabs between the backslash and the ;-comment).
-            cbody_rstripped = cbody.rstrip()
-            if cbody_rstripped.endswith('\\'):
-                body = body + cbody_rstripped[:-1]
+            cut = _backslash_cut(cbody)
+            if cut is not None:
+                body = body + cbody[:cut]
                 # loop to consume further continuations
                 continue
             body = body + cbody
