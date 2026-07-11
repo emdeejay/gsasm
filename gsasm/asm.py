@@ -121,7 +121,15 @@ def join_continuations(lines):
         body, _comment = strip_comment(raw.rstrip('\n'))
         body = body[:_backslash_cut(body)]
         # body may end with trailing whitespace (e.g. "opendriver,  ");
-        # keep it — the sources rely on no extra space being inserted.
+        # keep it — the sources rely on no extra space being inserted EXCEPT
+        # where the join would fuse two identifier characters into one token
+        # (e.g. a multi-line `IF x = a\`<nl>`OR y = b` must keep OR a word):
+        # there MPW's line boundary is a token separator, so insert one space.
+        def _splice(a, b):
+            if a[-1:].isalnum() or a[-1:] == '_':
+                if b[:1].isalnum() or b[:1] == '_':
+                    return a + ' ' + b
+            return a + b
         while True:
             if i >= n:
                 break
@@ -131,10 +139,10 @@ def join_continuations(lines):
             cbody = cbody.lstrip(' \t')   # strip leading indent of continuation
             cut = _backslash_cut(cbody)
             if cut is not None:
-                body = body + cbody[:cut]
+                body = _splice(body, cbody[:cut])
                 # loop to consume further continuations
                 continue
-            body = body + cbody
+            body = _splice(body, cbody)
             break
         out.append(body + '\n')
     return out
