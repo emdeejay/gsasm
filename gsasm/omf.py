@@ -7,7 +7,7 @@ from . import expr as _expr
 
 # A data operand is relocatable only if it is a single symbol with an optional
 # constant addend; complex arithmetic (X-Y, X/4, ...) is a computed literal.
-_SIMPLE_REF = re.compile(r'^([A-Za-z_~@?.][\w~@?.]*)\s*([+-]\s*\$?[0-9A-Fa-f]+)?$')
+_SIMPLE_REF = re.compile(r'^([A-Za-z_~@?.][\w~@?.$]*)\s*([+-]\s*\$?[0-9A-Fa-f]+)?$')
 
 # OMF segment-header field offsets (v2.0). Verified against AsmIIgs .obj output.
 def parse_header(d):
@@ -161,7 +161,7 @@ def linear_decompose(asm, text):
     """
     # Collect all identifiers in the expression (avoiding hex-literal false positives)
     idents = list(dict.fromkeys(
-        re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
+        re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.$]*', text)))
 
     # Partition into relocatable vs constant symbols
     reloc_names = [i for i in idents
@@ -260,7 +260,7 @@ def _mul_reloc_expr(asm, text, segname):
     # as potentially relocatable — linear_decompose excludes equates from terms
     # since they are constants, so we handle them here with finite difference).
     idents = list(dict.fromkeys(
-        re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
+        re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.$]*', text)))
     reloc = [i for i in idents if asm.sym_kind(i) in ('label', 'equ')]
     if len(reloc) != 1:
         return None
@@ -427,7 +427,7 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
         if enclosing:
             text = text[1:-1].strip()
     # single symbol, optionally  symbol+const
-    m = re.match(r'^([A-Za-z_~@?.][\w~@?.]*)\s*([+\-]\s*\$?[0-9A-Fa-f]+)?$', text)
+    m = re.match(r'^([A-Za-z_~@?.][\w~@?.$]*)\s*([+\-]\s*\$?[0-9A-Fa-f]+)?$', text)
     name = addend = None
     if m:
         name = m.group(1)
@@ -450,7 +450,7 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
             # (Pro.FST Max_call).  (Scoped to instructions; DC tables resolve
             # undefined symbols differently.)
             ids = list(dict.fromkeys(
-                re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
+                re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.$]*', text)))
             ext = [i for i in ids
                    if _undef_external(asm, i)
                    or (asm._symkey(i) in asm.imports
@@ -736,7 +736,7 @@ def _ext_plus_const(asm, text):
     as an unresolved 0xffff).  None when there isn't exactly one external, a
     non-external term is relocatable, or the constant part can't be evaluated."""
     ids = list(dict.fromkeys(
-        re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.]*', text)))
+        re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.$]*', text)))
     ext = [i for i in ids
            if _undef_external(asm, i) or asm._symkey(i) in asm.imports]
     if len(ext) != 1:
@@ -870,7 +870,7 @@ def emit_segment(asm, seg, exports):
                      parts[0] if parts else '0']
 
             def _bank_reloc(p):
-                return bool(re.fullmatch(r'[A-Za-z_~@?.][\w~@?.]*', p)) and (
+                return bool(re.fullmatch(r'[A-Za-z_~@?.][\w~@?.$]*', p)) and (
                     asm.needs_reloc(p) or _undef_external(asm, p))
 
             # all-literal block move: the two bank bytes are one operand field
@@ -889,7 +889,7 @@ def emit_segment(asm, seg, exports):
             continue
         if u in m65816.MNEMONICS and len(barr) > 1 and not is_branch:
             core = _core(ln.operand or '')
-            _idm = re.match(r'^[<>^]?\s*([A-Za-z_~@?.][\w~@?.]*)', core) if core else None
+            _idm = re.match(r'^[<>^]?\s*([A-Za-z_~@?.][\w~@?.$]*)', core) if core else None
             # evaluate the address ignoring any leading byte-extraction operator
             _ev = (asm.resolve(_idm.group(1)) if _idm
                    else asm.evaluate(core[1:] if core[:1] in '<>^' else core))
@@ -947,7 +947,7 @@ def emit_segment(asm, seg, exports):
                 # (Require the shift so a plain label-difference constant like
                 # `A-B` stays a literal.)
                 if '>>' in it or '<<' in it or it.lstrip('(')[:1] in '<>^':
-                    ids = re.findall(r'[A-Za-z_~@?.][\w~@?.]*', it)
+                    ids = re.findall(r'[A-Za-z_~@?.][\w~@?.$]*', it)
                     rel = [x for x in ids
                            if asm.needs_reloc(x) or _undef_external(asm, x)
                            or _in_org_seg(asm, asm.resolve(x))]

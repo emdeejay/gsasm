@@ -90,7 +90,10 @@ def _idstart(c):
 
 
 def _idchar(c):
-    return c.isalnum() or c in '_~@?.'
+    # '$' is a hex prefix only at a term START (handled before _idstart in
+    # tokenize); WITHIN a symbol it is a name character (MPW allows it, e.g.
+    # the SCSI driver's `cmd_$8028` command-block labels).
+    return c.isalnum() or c in '_~@?.$'
 
 
 class _Parser:

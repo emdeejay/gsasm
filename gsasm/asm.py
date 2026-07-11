@@ -1035,7 +1035,7 @@ class Asm:
         a label in a relocatable (non-ORG) segment, or an undefined symbol (an
         implicit external — MPW lets you reference externals without IMPORT)."""
         seg = self._rseg
-        for ident in re.findall(r'[A-Za-z_~@?.][\w~@?.]*', expr):
+        for ident in re.findall(r'[A-Za-z_~@?.][\w~@?.$]*', expr):
             u = self._symkey(ident)
             if u in self.imports:
                 return True
@@ -1074,7 +1074,7 @@ class Asm:
         constant), which is the safe default (matches gsasm's prior behaviour)."""
         if not operand:
             return None
-        m = re.fullmatch(r'\s*([A-Za-z_~@?.][\w~@?.]*)\s*'
+        m = re.fullmatch(r'\s*([A-Za-z_~@?.][\w~@?.$]*)\s*'
                          r'([+\-]\s*\$?[0-9A-Fa-f]+)?\s*', operand)
         if not m:                     # two idents, `*`, complex expr -> not an alias
             return None
@@ -1151,7 +1151,7 @@ class Asm:
     def is_reloc(self, expr):
         """True if the expression references a relocatable label or import
         (such an operand must use absolute/long, never direct page)."""
-        for ident in re.findall(r'[A-Za-z_~@?.][\w~@?.]*', expr):
+        for ident in re.findall(r'[A-Za-z_~@?.][\w~@?.$]*', expr):
             if self.sym_kind(ident) in ('label', 'import'):
                 return True
             # an EQU aliasing a relocatable label is a second name for that
