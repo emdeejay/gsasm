@@ -584,13 +584,25 @@ def link_lib(roots: list[tuple[bytes, Any | None]],
 
     B = 512
     buckets: list[list[str]] = [[] for _ in range(B)]
+    moved: set[str] = set()      # symbols whose first re-reference already moved them
+    cur_bucket = [None]          # bucket being scanned (None during the root phase)
 
     def add(sym: str) -> None:
         if sym in resolved:
             return
         b = _lib_hash(sym, B)
-        if sym not in buckets[b]:
-            buckets[b].insert(0, sym)          # chains prepend (LIFO)
+        if sym in buckets[b]:
+            # A re-referenced pending symbol moves to its chain head ONCE (the
+            # FIRST re-reference), and not while its own bucket is being
+            # scanned.  Empirical (golden MSDOS.FST): with this rule the
+            # 160-segment recovered placement reproduces exactly (160/160);
+            # always-move or never-move each break two chains.
+            if sym not in moved and b != cur_bucket[0]:
+                buckets[b].remove(sym)
+                buckets[b].insert(0, sym)
+                moved.add(sym)
+            return
+        buckets[b].insert(0, sym)              # fresh chains prepend (LIFO)
 
     for key in order:
         for r in info[key][1]:
@@ -600,6 +612,7 @@ def link_lib(roots: list[tuple[bytes, Any | None]],
     bi = 0
     idle = 0
     while idle < B:
+        cur_bucket[0] = bi
         found = False
         j = 0
         while j < len(buckets[bi]):

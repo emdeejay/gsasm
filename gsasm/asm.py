@@ -1065,7 +1065,20 @@ class Asm:
             return None
         tgt = m.group(1)
         u = self._symkey(tgt)
-        if u in self.imports:         # never touch EQU-vs-import precedence
+        if u in self.imports:
+            # An EQU whose RHS is a DECLARED IMPORT with no local definition is
+            # a second name for that external — alias it so refs relocate
+            # (MSDos `check_cluster equ entries_checked`: sta is 16-bit abs
+            # against the imported data record).  An import that also has a
+            # local value stays untouched (EQU-vs-import precedence, the
+            # ctlPart scar — do not re-break it).
+            if u not in self.symbols and self.symtype.get(u) is None:
+                addend = 0
+                if m.group(2):
+                    extra = m.group(2).replace(' ', '')
+                    addend = int(extra.replace('$', ''),
+                                 16 if '$' in extra else 10)
+                return (u, addend)
             return None
         # an alias OF an alias chains to the base label (HFS `mod_date equ
         # mod_date_time` then `mod_time equ mod_date+2` -> MOD_DATE_TIME+2)
@@ -1947,9 +1960,20 @@ class Asm:
                     f = self._fold(nm)
                     self.imports.add(f)
                     # `IMPORT name:Type` — remember the declared type; WITH on
-                    # the import binds the type's fields to name+offset
+                    # the import binds the type's fields to name+offset, and a
+                    # QUALIFIED `name.field` reference is the same external
+                    # (MSDos `ldy #one_entry.attributes` = ONE_ENTRY+0x0b, an
+                    # import+addend the linker resolves)
                     if len(bits) > 1 and bits[1].strip():
-                        self.import_type[f] = self._fold(bits[1].strip())
+                        t = self._fold(bits[1].strip())
+                        self.import_type[f] = t
+                        prefix = t + '.'
+                        for q in self.record_ds_fields:
+                            if q.startswith(prefix):
+                                off = self.symbols.get(q)
+                                if isinstance(off, int):
+                                    self.equ_alias.setdefault(
+                                        f + '.' + q[len(prefix):], (f, off))
                     # evict a courtesy bare claimed by a template-RECORD field:
                     # the import is the canonical bare binding (the qualified
                     # RecName.field def stays)
