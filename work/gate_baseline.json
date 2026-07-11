@@ -1,0 +1,38 @@
+{
+  "disk_logical_exact": [
+    14,
+    12
+  ],
+  "driver_bytes": [
+    55517,
+    33581
+  ],
+  "fst_bytes": [
+    93759,
+    0
+  ],
+  "kernel_bytes": [
+    61815,
+    12396
+  ],
+  "link_identical": [
+    61,
+    0
+  ],
+  "obj_identical": [
+    40,
+    21
+  ],
+  "opcode_bytes": [
+    97202,
+    0
+  ],
+  "operand_values": [
+    62714,
+    745
+  ],
+  "tool_bytes": [
+    102588,
+    550
+  ]
+}
