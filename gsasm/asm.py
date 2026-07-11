@@ -395,6 +395,12 @@ class Asm:
         self.link_bases = None        # link mode: seg index -> final base address
         self.extern = {}              # link mode: cross-module symbol -> final addr
         self.imports = set()
+        self.field_bare = set()       # bare names claimed only as a COURTESY by a
+                                      #   template-RECORD field (owner-less at the
+                                      #   time); a later IMPORT of the name evicts
+                                      #   the courtesy def (MPW scopes template
+                                      #   fields to the record: bare binds the
+                                      #   import, RecName.field binds the field)
         self.loc = 0
         self.emit_enabled = True      # False inside RECORD (offsets only)
         self.fixups = []              # (bytearray, offset, Fixup) to patch later
@@ -920,16 +926,26 @@ class Asm:
                 # DummyPC+2`; a stale bare would equate every field to 0) —
                 # while a record-scoped SET shadowing someone else's global
                 # (the DefineStack family) stays field-only.
-                owns = u not in self.symbols
+                # a declared IMPORT also claims the bare name: the external is
+                # the canonical bare binding (MPW template fields never leak),
+                # so the field must not shadow it (MSDos `stz newline_len`
+                # sizes absolute against the imported data record, not the
+                # fcr template field)
+                owns = u not in self.symbols and u not in self.imports
                 if (owns or self._record_data
                         or (redefinable and u in self.setvars)):
                     self.symbols[u] = value
                     self.symtype[u] = kind
                     if redefinable and (owns or u in self.setvars):
                         self.setvars.add(u)
+                    if owns and not self._record_data and not redefinable:
+                        self.field_bare.add(u)
                 self.defcount[u] = self.defcount.get(u, 0) + 1
                 self.labels.append((name, value))
                 return
+            # any real (non-field) definition supersedes a courtesy field claim:
+            # a later IMPORT must not evict it
+            self.field_bare.discard(u)
             # A proc-scoped EQU (a DefineStack/BegParms stack offset) that reuses a
             # name which ALREADY has a CODE LABEL must not clobber the label: the
             # label is the real address (for cross-segment address references), the
@@ -1893,7 +1909,15 @@ class Asm:
             for part in (ln.operand or '').split(','):
                 nm = part.split(':')[0].strip()
                 if nm:
-                    self.imports.add(self._fold(nm))
+                    f = self._fold(nm)
+                    self.imports.add(f)
+                    # evict a courtesy bare claimed by a template-RECORD field:
+                    # the import is the canonical bare binding (the qualified
+                    # RecName.field def stays)
+                    if f in self.field_bare:
+                        self.field_bare.discard(f)
+                        self.symbols.pop(f, None)
+                        self.symtype.pop(f, None)
             self._lbl(ln); return
         if u == 'ALIGN':
             a = self.evaluate(ln.operand) or 1
