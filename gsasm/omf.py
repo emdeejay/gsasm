@@ -394,6 +394,62 @@ def _pc_rel_const(asm, text):
     return same_seg_sum == 0
 
 
+def _extern_diff_expr(asm, text):
+    """`A - B [+ K]` where A and B are two EXTERNALS (declared IMPORT or implicit
+    undefined, each with no local value) and every other term is an absolute
+    equate -> OMF by-name difference expression (0x83 A, 0x83 B, SUB, +K) the
+    LINKER evaluates.  E.g. the SCSI driver's `#lst_rslt_scode+2-lst_rslt_ec`, a
+    difference of two imported data labels: unknown at assembly, but a link-time
+    constant.  (linear_decompose can't handle this — it needs the symbols to
+    resolve; externals don't — so coefficients are found by zeroing the externals,
+    the same trick as _ext_plus_const.)  Returns ops bytes (no trailing 0x00) or
+    None."""
+    ids = list(dict.fromkeys(
+        re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.$]*', text)))
+
+    def _is_ext(i):
+        return _undef_external(asm, i) or (
+            asm._symkey(i) in asm.imports and asm.resolve(asm._symkey(i)) is None)
+
+    ext = [i for i in ids if _is_ext(i)]
+    if len(ext) != 2:
+        return None
+    for i in ids:                          # every non-external term must be a const
+        if i not in ext and asm.sym_kind(i) != 'equ':
+            return None
+
+    def _res(vals):
+        folds = {asm._fold(e): vals[e] for e in ext}
+
+        def r(n):
+            return folds.get(asm._fold(n), asm.resolve(n))
+        return r
+
+    base = {e: 0 for e in ext}
+    V0 = _expr.try_eval(text, _res(base), asm.loc)   # externals=0 -> constant part
+    if V0 is None:
+        return None
+    coeff = {}
+    for e in ext:
+        b = dict(base); b[e] = 0x100
+        Ve = _expr.try_eval(text, _res(b), asm.loc)
+        if Ve is None:
+            return None
+        coeff[e] = (Ve - V0) // 0x100
+    plus = [e for e in ext if coeff[e] == 1]
+    minus = [e for e in ext if coeff[e] == -1]
+    if len(plus) != 1 or len(minus) != 1:            # only ±1 differences
+        return None
+    ops = bytearray()
+    ops += bytes([0x83]) + _omfstr(asm._fold(plus[0]))
+    ops += bytes([0x83]) + _omfstr(asm._fold(minus[0]))
+    ops += bytes([0x02])                             # SUB: A - B
+    K_m = V0 & 0xFFFFFFFF
+    if K_m:
+        ops += bytes([0x81]) + _num(K_m) + bytes([0x01])
+    return bytes(ops)
+
+
 def _expr_for(asm, text, segname, as_data=False, ref_off=None):
     """Build an OMF load-time expression for an operand reference.
     Local labels -> SEGNAME + offset; imports -> name; equates -> literal.
@@ -573,6 +629,8 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
                 ops += bytes([0x81]) + _num(v)
     else:
         diff = _diff_reloc(asm, text)          # cross-seg two-label difference
+        if diff is None:
+            diff = _extern_diff_expr(asm, text)  # two-external difference
         if diff is not None:
             ops += diff
         else:
