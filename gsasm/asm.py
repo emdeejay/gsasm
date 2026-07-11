@@ -395,6 +395,11 @@ class Asm:
         self.link_bases = None        # link mode: seg index -> final base address
         self.extern = {}              # link mode: cross-module symbol -> final addr
         self.imports = set()
+        self.import_type = {}         # `IMPORT name:Type` — declared record type
+                                      #   of an imported instance (typed import)
+        self.record_ds_fields = set() # qualified REC.field names allocated by DS
+                                      #   inside a TEMPLATE record (true fields,
+                                      #   as opposed to interior EQU constants)
         self.field_bare = set()       # bare names claimed only as a COURTESY by a
                                       #   template-RECORD field (owner-less at the
                                       #   time); a later IMPORT of the name evicts
@@ -1756,6 +1761,11 @@ class Asm:
                 self._record_data = True
                 self.loc = 0                       # new segment starts at 0
                 name = self._fold(ln.label or '')
+                # `Name Record EXPORT` publicly exports the record label (same
+                # semantics as `Name PROC EXPORT`): cross-object by-name refs
+                # resolve to it through the linker's global symbol table.
+                if exported and name:
+                    self.exports.add(name)
                 cur = self.segs[-1]
                 if cur.name is None and not cur.items:
                     cur.name = name; cur.loadname = 'main'; cur.is_data = True
@@ -1766,6 +1776,14 @@ class Asm:
                     self.segs.append(seg)
                 if ln.label:
                     self.define_label(ln.label, self.loc)
+                    # `Name Record EXPORT` owns its GLOBAL record (same as an
+                    # in-segment EXPORT directive): a later same-named label in
+                    # another segment must not emit the public GLOBAL there
+                    # (MSDos `length Record Export` vs filename's interior
+                    # `length ds.w 1` field)
+                    if exported:
+                        self._note_entry_seg(name)
+                        self._maybe_global(ln.label)
             return
         if (u == 'DSECT' and self.record_stack and self.record_stack[-1][3]
                 and not self.segs[-1].items):
@@ -1840,6 +1858,22 @@ class Asm:
             self._lbl(ln)
             recs = [self._fold(r.strip()) for r in (ln.operand or '').split(',') if r.strip()]
             self.with_stack.append(recs)
+            # WITH over a TYPED IMPORT (`Import inst:Type` then `WITH inst`)
+            # binds each DS field of the Type template to inst+offset — an
+            # EXTERNAL reference the linker resolves (MSDos `lda FAT_count`
+            # under `with bios_parm_block` is absolute BIOS_PARM_BLOCK+5, not
+            # the direct-page template offset).  equ_alias carries both the
+            # absolute sizing (is_reloc) and the by-name+addend emission.
+            for r in recs:
+                t = self.import_type.get(r)
+                if not t:
+                    continue
+                prefix = t + '.'
+                for q in self.record_ds_fields:
+                    if q.startswith(prefix):
+                        off = self.symbols.get(q)
+                        if isinstance(off, int):
+                            self.equ_alias.setdefault(q[len(prefix):], (r, off))
             return
         if u == 'ENDWITH':
             self._lbl(ln)
@@ -1907,10 +1941,15 @@ class Asm:
             # a `:attr` suffix (stripped).  (Was: only the first was taken, so
             # e.g. GQuit's `Import e1_errBuf,e1_errStr` became one bogus symbol.)
             for part in (ln.operand or '').split(','):
-                nm = part.split(':')[0].strip()
+                bits = part.split(':')
+                nm = bits[0].strip()
                 if nm:
                     f = self._fold(nm)
                     self.imports.add(f)
+                    # `IMPORT name:Type` — remember the declared type; WITH on
+                    # the import binds the type's fields to name+offset
+                    if len(bits) > 1 and bits[1].strip():
+                        self.import_type[f] = self._fold(bits[1].strip())
                     # evict a courtesy bare claimed by a template-RECORD field:
                     # the import is the canonical bare binding (the qualified
                     # RecName.field def stays)
@@ -1943,6 +1982,13 @@ class Asm:
                 self._lbl(ln)
                 base = self.loc
                 self.reserve(size)
+            # a DS-allocated label inside a TEMPLATE record is a true FIELD
+            # (instance-relative offset) — as opposed to an interior EQU
+            # constant.  Typed-import WITH binds only these.
+            if (ln.label and self.cur_record and not self._record_data
+                    and not self.emit_enabled and '.' not in ln.label):
+                self.record_ds_fields.add(
+                    self._fold(self.cur_record + '.' + ln.label))
             # `Label ds RecordName` is a TYPED instance: explode the record's
             # fields into Label.field so qualified refs (`Label.field`) resolve to
             # Label + RecordName.field (MPW typed-DS semantics).

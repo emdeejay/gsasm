@@ -92,10 +92,13 @@ FSTMAP = {
         ['DOS3.3.FST'],
         {'DEBUGSYMBOLS': 0},
     ),
+    # make.MSDos: linkiigs MSDos.obj -lib MSDos.lib (Calls+Subs+Data are library
+    # members, extracted on demand) — first source is the root, the rest the lib
     'MSDos.FST': (
         'FSTs/MSDos',
         ['MSDos.aii', 'MSDos.Calls.aii', 'MSDos.Subs.aii', 'MSDos.Data.aii'],
         {},
+        'lib',
     ),
     # AppleShare.FST: sources absent in this source tree — skipped
 }
@@ -153,7 +156,7 @@ def golden(name: str) -> bytes | None:
     return None
 
 
-def link_fst(subdir, sources, defines):
+def link_fst(subdir, sources, defines, mode=None):
     """Assemble and link one FST.  Returns the code image bytes."""
     fst_dir = f'{GSOS}/{subdir}'
     extra = [fst_dir]
@@ -163,19 +166,23 @@ def link_fst(subdir, sources, defines):
         a = asm.assemble(f'{fst_dir}/{src}', incs, defines=defines or None)
         obj = omf.emit(a)
         objects.append((obj, a))
-    result = linkiigs.link(objects, opts={'merge': True})
+    if mode == 'lib':      # first source = root object, rest = library members
+        result = linkiigs.link_lib(objects[:1], objects[1:], opts={'merge': True})
+    else:
+        result = linkiigs.link(objects, opts={'merge': True})
     return _extract_img(result)
 
 
 def check(name: str, verbose: bool = False):
     if name not in FSTMAP:
         return name, None, None, f'not in FSTMAP'
-    subdir, sources, defines = FSTMAP[name]
+    subdir, sources, defines, *rest = FSTMAP[name]
+    mode = rest[0] if rest else None
     g = golden(name)
     if g is None:
         return name, subdir, None, 'no golden binary (run cadius extraction)'
     try:
-        mine = link_fst(subdir, sources, defines)
+        mine = link_fst(subdir, sources, defines, mode)
     except Exception as e:
         return name, subdir, None, f'{type(e).__name__}: {e}'
     n = min(len(mine), len(g))

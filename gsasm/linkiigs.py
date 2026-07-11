@@ -130,6 +130,7 @@ def _defer_shifts(recs):
 def _place(
         objects: list[tuple[bytes, Any | None]],
         base_org: int = 0,
+        order: list[tuple[int, int]] | None = None,
 ) -> tuple[list, list[list[int]], list[int]]:
     """Pass-1: parse all input objects and place segments sequentially.
 
@@ -139,40 +140,52 @@ def _place(
         List of ``(obj_bytes, asm_or_None)`` pairs (same as ``link()``).
     base_org
         Base address for the first non-ORG'd segment (default 0).
+    order
+        Optional explicit placement order as ``(obj_idx, seg_idx)`` pairs —
+        a library link places extracted member segments interleaved across
+        objects, not object-by-object.  Segments not listed are NOT placed
+        (their ``obj_seg_bases`` entry is None).  Default (None) keeps the
+        sequential object-by-object placement.
 
     Returns
     -------
     placed
         List of ``(segname, recs, seg_base, hdr, asm_obj)`` in link order.
     obj_seg_bases
-        ``obj_seg_bases[obj_idx][seg_idx]`` — placed base for each segment.
+        ``obj_seg_bases[obj_idx][seg_idx]`` — placed base for each segment
+        (None for a segment omitted by ``order``).
     placed_obj_idx
         ``placed_obj_idx[i]`` — which object index produced ``placed[i]``.
     """
     placed: list[tuple[str, list, int, dict, Any | None]] = []
-    obj_seg_bases: list[list[int]] = []
     placed_obj_idx: list[int] = []
 
+    parsed = [_parse_obj(ob) for ob, _a in objects]
+    obj_seg_bases: list[list[int | None]] = [[None] * len(p) for p in parsed]
+
+    if order is None:
+        seq = [(oi, si) for oi, p in enumerate(parsed) for si in range(len(p))]
+    else:
+        seq = order
+
     base = base_org
-    for obj_idx, (obj_bytes, asm_obj) in enumerate(objects):
-        segs = _parse_obj(obj_bytes)
-        bases_this_obj: list[int] = []
-        for seg in segs:
-            h = seg['hdr']
-            seg_org = h['ORG'] or 0
-            if seg_org:
-                seg_base = seg_org
-            else:
-                seg_base = base
-                # header ALIGN (`PROC align N`): round the placed base up
-                a = h.get('ALIGN') or 0
-                if a and seg_base % a:
-                    seg_base += a - seg_base % a
-            placed.append((seg['segname'], seg['recs'], seg_base, h, asm_obj))
-            placed_obj_idx.append(obj_idx)
-            bases_this_obj.append(seg_base)
-            base = seg_base + _link._body_length(seg['recs'])
-        obj_seg_bases.append(bases_this_obj)
+    for oi, si in seq:
+        seg = parsed[oi][si]
+        asm_obj = objects[oi][1]
+        h = seg['hdr']
+        seg_org = h['ORG'] or 0
+        if seg_org:
+            seg_base = seg_org
+        else:
+            seg_base = base
+            # header ALIGN (`PROC align N`): round the placed base up
+            a = h.get('ALIGN') or 0
+            if a and seg_base % a:
+                seg_base += a - seg_base % a
+        placed.append((seg['segname'], seg['recs'], seg_base, h, asm_obj))
+        placed_obj_idx.append(oi)
+        obj_seg_bases[oi][si] = seg_base
+        base = seg_base + _link._body_length(seg['recs'])
 
     return placed, obj_seg_bases, placed_obj_idx
 
@@ -254,12 +267,13 @@ def _build_symtab(
     obj_globals: list[dict[str, int]] = [{} for _ in objects]
 
     # We process segment-name/interior-label pairs per object.  The placed list
-    # is ordered globally; we need per-object segment slices.
-    placed_idx = 0   # index into placed[], advances as we consume each obj's segs
+    # is ordered globally (an explicit `order` interleaves objects); group its
+    # indices per object so each object's segments process in placed order.
+    per_obj_placed: list[list[int]] = [[] for _ in objects]
+    for pi, oi in enumerate(placed_obj_idx):
+        per_obj_placed[oi].append(pi)
 
     for obj_idx, (obj_bytes, asm_obj) in enumerate(objects):
-        segs_in_obj = _parse_obj(obj_bytes)
-        n_segs = len(segs_in_obj)
         bases_this_obj = obj_seg_bases[obj_idx]
 
         # (a) Segment names for this object.
@@ -279,8 +293,8 @@ def _build_symtab(
         # publish the authoritative placement base here instead — e.g. notesynth
         # has a local `UpDate` label inside SetUserUpdateRtn that otherwise hides
         # the exported `update` segment.  Single-object links keep first-wins.
-        for k in range(n_segs):
-            segname, _recs, seg_base, _hdr, _asm = placed[placed_idx + k]
+        for pi in per_obj_placed[obj_idx]:
+            segname, _recs, seg_base, _hdr, _asm = placed[pi]
             is_public_seg = not (_hdr.get('KIND', 0) & 0x4000)
             clobbered = False
             if _asm is not None and is_public_seg:
@@ -321,6 +335,8 @@ def _build_symtab(
                 if emit_idx >= len(bases_this_obj):
                     continue
                 seg_placed_base = bases_this_obj[emit_idx]
+                if seg_placed_base is None:      # omitted by explicit order
+                    continue
                 # v is the label's value within the segment (segment-relative
                 # for ORG=0 segs, absolute for ORG'd segs).
                 seg_obj = asm_obj.segs[sg_idx]
@@ -342,8 +358,6 @@ def _build_symtab(
 
                 # Per-object table: ALL labels (for intra-object resolution)
                 obj_globals[obj_idx].setdefault(lab, abs_val)
-
-        placed_idx += n_segs
 
     # (c) GLOBAL / GEQU records from all OMF bodies (setdefault — lower priority)
     #
@@ -434,7 +448,8 @@ def link(objects: list[tuple[bytes, Any | None]],
     # ------------------------------------------------------------------
     # Pass 1: parse all input objects and place segments sequentially
     # ------------------------------------------------------------------
-    placed, obj_seg_bases, placed_obj_idx = _place(objects, base_org)
+    placed, obj_seg_bases, placed_obj_idx = _place(objects, base_org,
+                                                   order=opts.get('seg_order'))
 
     if not placed:
         return b''
@@ -496,6 +511,118 @@ def link(objects: list[tuple[bytes, Any | None]],
                 seg_name, seg_load, seg_base, seg_kind, seg_idx + 1, body
             )
         return bytes(out)
+
+
+# ---------------------------------------------------------------------------
+# Library linking (MPW LinkIIgs -lib) — on-demand member extraction.
+#
+# A library link includes the root object(s) whole, then pulls in ONLY the
+# library segments that resolve otherwise-unresolved references, transitively.
+# MPW LinkIIgs keeps its unresolved externals in a 512-bucket hash table
+# (h = (h*2 + char) mod 512 over the symbol name, chains PREPENDED) and scans
+# the buckets cyclically: at each bucket it extracts the defining member for
+# every unresolved symbol chained there (newly-added refs join the table as
+# extraction proceeds; a symbol whose bucket the scan already passed is caught
+# on the next lap).  Placement order IS that extraction order.  This was
+# reverse-engineered from the golden MSDOS.FST layout (System 6.0.1): the
+# recovered 153-segment placement matches the simulation, and the hash is the
+# only 1-parameter family that orders it (7 lap-wraps vs ~76 random descents).
+# ---------------------------------------------------------------------------
+
+def _lib_hash(name: str, buckets: int = 512) -> int:
+    h = 0
+    for c in name.encode('mac_roman', 'replace'):
+        h = ((h << 1) + c) % buckets
+    return h
+
+
+def _seg_globals_refs(seg: dict) -> tuple[set[str], list[str]]:
+    """(defined global names, referenced external names in record order) for a
+    parsed segment.  Qualified ``Rec.field`` refs collapse to the base name
+    (the record segment / exported base label is what the dictionary lists)."""
+    globs = {seg['segname']}
+    refs: list[str] = []
+    for _at, nm, det in seg['recs']:
+        if nm in ('GLOBAL', 'ENTRY') and isinstance(det, dict):
+            globs.add(det['label'].upper())
+        elif (isinstance(det, tuple) and len(det) >= 2
+              and isinstance(det[-1], list)):
+            for op in det[-1]:
+                if isinstance(op, tuple) and str(op[0]).startswith('sym'):
+                    r = op[1].upper()
+                    r = r.split('.')[0] if '.' in r else r
+                    if r not in refs:
+                        refs.append(r)
+    return globs, refs
+
+
+def link_lib(roots: list[tuple[bytes, Any | None]],
+             libs: list[tuple[bytes, Any | None]],
+             opts: dict | None = None) -> bytes:
+    """Link root object(s) against library objects (MPW `-lib` semantics):
+    include every root segment, extract referenced library segments in the
+    hash-table scan order described above, and delegate to link() with the
+    resulting explicit segment order."""
+    objects = roots + libs
+    parsed = [_parse_obj(ob) for ob, _a in objects]
+    n_root = len(roots)
+
+    info = {}                     # (obj_idx, seg_idx) -> (globs, refs)
+    libdef: dict[str, tuple[int, int]] = {}
+    for oi, p in enumerate(parsed):
+        for si, seg in enumerate(p):
+            g, r = _seg_globals_refs(seg)
+            info[(oi, si)] = (g, r)
+            if oi >= n_root:
+                for name in g:
+                    libdef.setdefault(name, (oi, si))
+
+    order = [(oi, si) for oi in range(n_root) for si in range(len(parsed[oi]))]
+    resolved: set[str] = set()
+    for key in order:
+        resolved |= info[key][0]
+
+    B = 512
+    buckets: list[list[str]] = [[] for _ in range(B)]
+
+    def add(sym: str) -> None:
+        if sym in resolved:
+            return
+        b = _lib_hash(sym, B)
+        if sym not in buckets[b]:
+            buckets[b].insert(0, sym)          # chains prepend (LIFO)
+
+    for key in order:
+        for r in info[key][1]:
+            add(r)
+
+    included = set(order)
+    bi = 0
+    idle = 0
+    while idle < B:
+        found = False
+        j = 0
+        while j < len(buckets[bi]):
+            sym = buckets[bi][j]
+            j += 1
+            if sym in resolved:
+                continue
+            key = libdef.get(sym)
+            if key is None or key in included:
+                resolved.add(sym)
+                continue
+            included.add(key)
+            order.append(key)
+            resolved |= info[key][0]
+            for r in info[key][1]:
+                add(r)
+            found = True
+        idle = 0 if found else idle + 1
+        bi = (bi + 1) % B
+
+    lopts = dict(opts or {})
+    lopts['seg_order'] = order
+    return link(objects, lopts)
 
 
 # ---------------------------------------------------------------------------

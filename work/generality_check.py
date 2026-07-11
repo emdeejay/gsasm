@@ -69,6 +69,8 @@ ALLOWED_STRS = {
     'noskip', 'operand', 'output', 'priv', 'read', 'recs', 'rel16', 'rel8',
     'rell', 'reloc_size', 'replace', 'seg_bytes', 'segkinds', 'segname',
     'segnames', 'shift', 'skip', 'source', 'sriy', 'super', 'type',
+    'seg_order',        # linkiigs opts key: explicit cross-object placement
+                        #   order (library extraction) — structural, no corpus name
 }
 
 # Audited int-literal population (>= 0x2000): masks, bank size, OMF KIND

@@ -282,7 +282,7 @@ def diff_components(map_obj, roots, label):
                     comps[out.lower()] = (f, srcs, defs)
     print(f'=== {label}: make.<component> sources vs harness map ===')
     exact = 0
-    for name, (_sub, hsrcs, hdefs) in map_obj.items():
+    for name, (_sub, hsrcs, hdefs, *_mode) in map_obj.items():
         c = comps.get(name.lower())
         H = {os.path.basename(s).lower() for s in hsrcs}
         if not c:
