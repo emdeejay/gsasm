@@ -778,20 +778,48 @@ def emit_segment(asm, seg, exports):
             body += bytes([0x81]) + _num(asm.symbols[name]) + bytes([0x00])
 
     lit = bytearray()
+    nocut = bytearray()   # parallel to lit: nocut[k]=1 forbids a record cut at
+                          #   boundary k (k is INTERIOR to an instruction's
+                          #   operand field).  MPW AsmIIgs keeps each operand
+                          #   field contiguous within one CONST/LCONST record
+                          #   (it is the backpatch unit); the record may split
+                          #   between an opcode and its operand, but never
+                          #   inside the operand (TextState/le/misc.tools:
+                          #   golden LCONST is 253/254 where a greedy 255
+                          #   would strand operand bytes in the next record).
+
+    def _lit_ins(barr):
+        # instruction line: opcode byte, then the operand as an atomic field
+        for j in range(len(barr)):
+            lit.append(barr[j])
+            nocut.append(1 if j >= 2 else 0)
+
+    def _lit(bs):
+        lit.extend(bs)
+        nocut.extend(bytes(len(bs)))
 
     def flush():
-        # Chunk literal runs at 0xFF bytes. LCONST (0xF2) for chunks > 0xDF (223);
-        # plain CONST (op = count byte) for chunks ≤ 0xDF. (Use body.extend,
-        # NOT `body +=`, which would make `body` a local and break the closure.)
+        # Chunk literal runs at 0xFF bytes, backing a cut off to the nearest
+        # allowed boundary (never inside an operand field).  LCONST (0xF2) for
+        # chunks > 0xDF (223); plain CONST (op = count byte) for chunks ≤ 0xDF.
+        # (Use body.extend, NOT `body +=`, which would make `body` a local and
+        # break the closure.)
         i = 0
         while i < len(lit):
-            chunk = lit[i:i+0xFF]
+            end = min(i + 0xFF, len(lit))
+            if end < len(lit):
+                while end > i and nocut[end]:
+                    end -= 1
+                if end == i:                       # >255-byte field: forced cut
+                    end = min(i + 0xFF, len(lit))
+            chunk = lit[i:end]
             if len(chunk) > 0xDF:
                 body.extend(bytes([0xF2]) + _num(len(chunk)) + bytes(chunk))
             else:
                 body.append(len(chunk)); body.extend(chunk)
-            i += len(chunk)
+            i = end
         del lit[:]
+        del nocut[:]
 
     # image offset of each item (for forward/backward entry-ref decisions)
     item_img = []
@@ -829,7 +857,7 @@ def emit_segment(asm, seg, exports):
             core = _core(ln.operand or '')
             if core and _branch_xseg(asm, core, asm._rseg, ref_off=item_img[ii]):
                 nb = len(barr) - 1
-                lit.extend(barr[:1]); flush()        # branch opcode -> CONST
+                _lit(barr[:1]); flush()              # branch opcode -> CONST
                 body += bytes([0xEE, nb]) + _num(nb) + _expr_for(asm, core, segname)
                 continue
         # block move (MVN/MVP): the two operand bytes are BANK bytes, each
@@ -840,14 +868,14 @@ def emit_segment(asm, seg, exports):
             parts = [p.strip() for p in (ln.operand or '').split(',')]
             order = [parts[1] if len(parts) > 1 else '0',
                      parts[0] if parts else '0']
-            lit.append(barr[0])                          # opcode -> literal
+            _lit(barr[:1])                               # opcode -> literal
             for k, p in enumerate(order):
                 if (re.fullmatch(r'[A-Za-z_~@?.][\w~@?.]*', p) and
                         (asm.needs_reloc(p) or _undef_external(asm, p))):
                     flush()
                     body += bytes([0xF3, 1]) + _expr_for(asm, p + '>>16', segname)
                 else:
-                    lit.append(barr[1 + k])              # constant bank byte
+                    _lit(barr[1 + k:2 + k])              # constant bank byte
             continue
         if u in m65816.MNEMONICS and len(barr) > 1 and not is_branch:
             core = _core(ln.operand or '')
@@ -860,7 +888,7 @@ def emit_segment(asm, seg, exports):
                          or (_idm and _undef_external(asm, _idm.group(1)))
                          or (_idm and _cross_seg_label(asm, _idm.group(1)))):
                 nb = len(barr) - 1
-                lit.extend(barr[:1]); flush()
+                _lit(barr[:1]); flush()
                 opd = (ln.operand or '').strip()
                 indirect = '(' in opd or '[' in opd
                 immediate = opd.startswith('#')
@@ -940,9 +968,12 @@ def emit_segment(asm, seg, exports):
                             asm, it, segname, as_data=True,
                             ref_off=item_img[ii] + k * w)
                     else:
-                        lit.extend(barr[k*w:(k+1)*w])
+                        _lit(barr[k*w:(k+1)*w])
                 continue
-        lit.extend(barr)
+        if u in m65816.MNEMONICS and len(barr) > 1:
+            _lit_ins(barr)               # operand field is cut-atomic
+        else:
+            _lit(barr)
     flush()
     body += bytes([0x00])                                 # END
 
