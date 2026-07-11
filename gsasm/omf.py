@@ -868,10 +868,20 @@ def emit_segment(asm, seg, exports):
             parts = [p.strip() for p in (ln.operand or '').split(',')]
             order = [parts[1] if len(parts) > 1 else '0',
                      parts[0] if parts else '0']
+
+            def _bank_reloc(p):
+                return bool(re.fullmatch(r'[A-Za-z_~@?.][\w~@?.]*', p)) and (
+                    asm.needs_reloc(p) or _undef_external(asm, p))
+
+            # all-literal block move: the two bank bytes are one operand field
+            # and must not split across CONST/LCONST records (same invariant as
+            # the generic mnemonic path below).
+            if not any(_bank_reloc(p) for p in order):
+                _lit_ins(barr)                           # operand field is cut-atomic
+                continue
             _lit(barr[:1])                               # opcode -> literal
             for k, p in enumerate(order):
-                if (re.fullmatch(r'[A-Za-z_~@?.][\w~@?.]*', p) and
-                        (asm.needs_reloc(p) or _undef_external(asm, p))):
+                if _bank_reloc(p):
                     flush()
                     body += bytes([0xF3, 1]) + _expr_for(asm, p + '>>16', segname)
                 else:
