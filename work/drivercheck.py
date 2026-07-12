@@ -246,14 +246,25 @@ def golden(name: str) -> bytes | None:
     return None
 
 
-def link_driver(subdir, sources, defines):
+# Drivers that embed the original build timestamp via `dc.b '&Sysdate &SysTime'`
+# — the &Sysdate/&SysTime builtins must reproduce the captured build time for a
+# byte-exact match (same mechanism kernelcheck uses for GS.OS's 06-May-93 build).
+# The value is a fact of the shipping binary, extracted from the golden image.
+DRIVER_BUILD_TIME = {
+    'RAM5': ('06-May-93', '16:11:47'),
+}
+
+
+def link_driver(subdir, sources, defines, build_time=None):
     """Assemble and link one driver.  Returns the code image bytes."""
     drv_dir = f'{GSOS}/{subdir}'
     extra = [drv_dir]
     incs = extra + INCS
+    sysdate, systime = build_time or (None, None)
     objects = []
     for src in sources:
-        a = asm.assemble(f'{drv_dir}/{src}', incs, defines=defines or None)
+        a = asm.assemble(f'{drv_dir}/{src}', incs, defines=defines or None,
+                         sysdate=sysdate, systime=systime)
         obj = omf.emit(a)
         objects.append((obj, a))
     result = linkiigs.link(objects, opts={'merge': True})
@@ -268,7 +279,8 @@ def check(name: str, verbose: bool = False):
     if g is None:
         return name, subdir, None, 'no golden binary (run cadius extraction)'
     try:
-        mine = link_driver(subdir, sources, defines)
+        mine = link_driver(subdir, sources, defines,
+                           DRIVER_BUILD_TIME.get(name))
     except Exception as e:
         import traceback
         return name, subdir, None, f'{type(e).__name__}: {e}'
