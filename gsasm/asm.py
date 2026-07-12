@@ -2317,10 +2317,29 @@ class Asm:
         w = self._width(u)
         parts = _split_commas(operand)
         cnt = self.evaluate(parts[0]) if parts else 0
-        val = self.evaluate(parts[1]) if len(parts) > 1 else 0
         cnt = cnt or 0
-        val = val or 0
-        unit = bytes((val >> (8 * i)) & 0xFF for i in range(w))
+        fill = parts[1].strip() if len(parts) > 1 else '0'
+        # A QUOTED-STRING fill replicates the string's BYTES (a Pascal length
+        # prefix under STRING PASCAL, a C null under STRING C — same as a DC
+        # string) cnt times, NOT the low byte of a packed char constant.  The
+        # SCSI Manager header's `dcb.b 20,' '` under STRING PASCAL is 20 copies
+        # of the 2-byte pascal string `01 20`, not 20 bare spaces.
+        if len(fill) >= 2 and fill[0] in "'\"" and fill[-1] == fill[0]:
+            q = fill[0]
+            s = _mac_bytes(fill[1:-1].replace(q * 2, q))
+            if self.msb == 'ON':
+                s = bytes(b | 0x80 for b in s)
+            if w == 1:
+                if self.string_mode == 'PASCAL':
+                    s = bytes([len(s) & 0xFF]) + s
+                elif self.string_mode in ('C', 'CSTRING'):
+                    s = s + b'\x00'
+            elif len(s) % w:
+                s += b'\x00' * (w - len(s) % w)
+            unit = bytes(s)
+        else:
+            val = self.evaluate(fill) or 0
+            unit = bytes((val >> (8 * i)) & 0xFF for i in range(w))
         return unit * cnt, []
 
 
