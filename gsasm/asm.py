@@ -1305,7 +1305,22 @@ class Asm:
         elif t.upper() in ('THEN', 'DO'):
             return True
         t = t.replace('≠', '<>').replace('≤', '<=').replace('≥', '>=')
+        # With NO relational operator (= <> < > <= >=), AND/OR/EOR are BITWISE
+        # operators inside ONE arithmetic expression — MPW `IF size AND $1`
+        # tests size&1, not `bool(size) and bool($1)`.  Evaluate the whole
+        # expression and test it non-zero.  A relation present makes it a
+        # boolean expression whose AND/OR are logical connectives (the split
+        # below).  (tokenize distinguishes the shift ops << >> from < >.)
+        if not self._cond_has_relational(t, raw):
+            return bool(self.evaluate(self.subst(t) if raw else t))
         return self._cond_or(t, raw)
+
+    def _cond_has_relational(self, t, raw):
+        try:
+            toks = expr.tokenize(self.subst(t) if raw else t)
+        except Exception:
+            return True    # unparseable (& macro args, etc.) -> keep the split
+        return any(tk in ('=', '<>', '<', '>', '<=', '>=') for tk in toks)
 
     def _cond_or(self, t, raw=False):
         parts = _split_kw(t, 'OR')
