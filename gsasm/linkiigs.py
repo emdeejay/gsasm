@@ -82,7 +82,7 @@ def _parse_obj(obj_bytes: bytes) -> list[dict]:
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def _defer_shifts(recs):
+def _defer_shifts(recs, abs_syms=frozenset()):
     """Rewrite EXPR-family records whose expression ends in a RIGHT shift
     (e.g. `#^Label` / `Label>>16` in a relocatable segment) so the STORED value
     is the un-shifted, segment-relative placeholder, and collect the shift as a
@@ -93,7 +93,12 @@ def _defer_shifts(recs):
     the loader apply the high-word shift via a SUPER type-27 reloc; resolving the
     shift at link time would bake 0 (`offset >> 16`), which is the bank-byte gap.
     Only right shifts on a reloc expression are deferred; left shifts / non-reloc
-    constants fall through and resolve normally."""
+    constants fall through and resolve normally.
+
+    ``abs_syms`` names the GEQU (link-time CONSTANT) symbols: a right shift whose
+    value references ONLY constants (e.g. the SCSI Manager's `#work_vars_size>>16`
+    where work_vars_size is an exported EQU) is NOT placement-dependent, so it
+    resolves now (`89 >> 16 == 0`) rather than deferring a spurious load reloc."""
     out = []
     relocs = []
     pos = 0
@@ -106,7 +111,12 @@ def _defer_shifts(recs):
                     and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
                 lit = ops[-3][1]
                 count = lit if lit < 0x80000000 else lit - 0x100000000
-                if count < 0:                       # right shift -> defer to load
+                syms = [o[1] for o in ops[:-3] if isinstance(o, tuple)
+                        and isinstance(o[0], str) and o[0].startswith('sym')]
+                # a shift over ONLY constant (GEQU) symbols is not placement-
+                # dependent: resolve it here instead of deferring a load reloc.
+                const_only = bool(syms) and all(s in abs_syms for s in syms)
+                if count < 0 and not const_only:    # right shift -> defer to load
                     out.append((at, nm, (size, ops[:-3] + ['end'])))
                     relocs.append((pos, size, count))
                     pos += size
@@ -465,9 +475,15 @@ def link(objects: list[tuple[bytes, Any | None]],
     # augmented by this segment's object's own GLOBAL definitions so that
     # intra-object cross-segment references use the local export.
     # ------------------------------------------------------------------
+    # GEQU (link-time constant) symbol names across all objects — a right shift
+    # over only these resolves at link time, never defers a load reloc.
+    abs_syms = frozenset(
+        d['label'] for _sn, recs, _b, _h, _a in placed for _at, nm, d in recs
+        if nm == 'GEQU' and isinstance(d, dict))
+
     bodies: list[bytes] = []
     for placed_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
-        recs2 = _defer_shifts(recs)[0] if defer_shifts else recs
+        recs2 = _defer_shifts(recs, abs_syms)[0] if defer_shifts else recs
         oi = placed_obj_idx[placed_i]
         # Local sym: global table overridden by this object's own GLOBALs.
         # This ensures e.g. WDefProc's JSR PUSHRECT resolves to WDefProc's
