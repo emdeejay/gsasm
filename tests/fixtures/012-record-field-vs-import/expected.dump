@@ -1,0 +1,6 @@
+SEGMENT 1: 'FIELDIMP'
+  LOADNAME='main' LENGTH=3 KIND=$4000 ORG=0 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=75
+  +0003f CONST     len=1    ad
+  +00041 LEXPR     size=2 [sym83:BETA]
+  +0004a END
+TOTAL 75 bytes, 1 segment(s)

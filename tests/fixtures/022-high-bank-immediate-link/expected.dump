@@ -1,0 +1,10 @@
+SEGMENT 1: 'HIGHSHIFT'
+  LOADNAME='main' LENGTH=11 KIND=$4000 ORG=0 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=122
+  +00040 CONST     len=1    a9
+  +00042 LEXPR     size=2 [sym83:HIGHSHIFT $7 op1 $FFFFFFF0 op7]
+  +0005c CONST     len=1    a9
+  +0005e LEXPR     size=2 [sym83:HIGHSHIFT $7 op1]
+  +00072 CONST     len=1    60
+  +00074 DS        4 zero bytes
+  +00079 END
+TOTAL 122 bytes, 1 segment(s)

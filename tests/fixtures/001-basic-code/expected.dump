@@ -1,0 +1,7 @@
+SEGMENT 1: 'SMOKE'
+  LOADNAME='main' LENGTH=13 KIND=$0000 ORG=0 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=90
+  +0003c CONST     len=7    a9 34 12 8d 00 20 a2
+  +00044 LEXPR     size=2 [sym83:SMOKE $A op1]
+  +00054 CONST     len=4    60 ef be 42
+  +00059 END
+TOTAL 90 bytes, 1 segment(s)

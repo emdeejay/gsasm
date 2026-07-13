@@ -1,0 +1,6 @@
+{
+  "note": "&sysdate/&systime builtins honor injected values for reproducible builds",
+  "commit": "851f69c",
+  "sysdate": "06-May-93",
+  "systime": "12:34:56 PM"
+}

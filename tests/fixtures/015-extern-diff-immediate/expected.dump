@@ -1,0 +1,6 @@
+SEGMENT 1: 'EXTDIFF'
+  LOADNAME='main' LENGTH=3 KIND=$4000 ORG=0 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=89
+  +0003e CONST     len=1    a9
+  +00040 LEXPR     size=2 [sym83:EXTHI sym83:EXTLO op2 $2 op1]
+  +00058 END
+TOTAL 89 bytes, 1 segment(s)

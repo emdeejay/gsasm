@@ -1,0 +1,4 @@
+{
+  "note": "DC/EQU operand expressions continue across whitespace around +/-",
+  "commit": "ce71e12"
+}

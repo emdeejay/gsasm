@@ -1,0 +1,4 @@
+{
+  "note": "an instruction's operand field never splits across CONST/LCONST records",
+  "commit": "22eef96+6c25dbe"
+}

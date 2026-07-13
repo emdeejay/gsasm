@@ -1,0 +1,4 @@
+{
+  "note": "width>1 DC string = bytes padded to element width",
+  "commit": "5f4a8c9"
+}

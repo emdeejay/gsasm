@@ -1,0 +1,10 @@
+SEGMENT 1: 'TYPEDDS'
+  LOADNAME='main' LENGTH=17 KIND=$4000 ORG=0 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=110
+  +0003e DS        10 zero bytes
+  +00043 CONST     len=1    ad
+  +00045 LEXPR     size=2 [sym83:TYPEDDS $2 op1]
+  +00057 CONST     len=1    a2
+  +00059 LEXPR     size=2 [sym83:TYPEDDS $6 op1]
+  +0006b CONST     len=1    60
+  +0006d END
+TOTAL 110 bytes, 1 segment(s)

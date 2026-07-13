@@ -1,0 +1,4 @@
+{
+  "note": "EQU aliasing a relocatable label relocates via its target",
+  "commit": "c1526c4"
+}

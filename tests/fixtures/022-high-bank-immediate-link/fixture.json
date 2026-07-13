@@ -1,0 +1,5 @@
+{
+  "note": "#^Label defers a >>16 shift to a load-time relocation; link resolves it",
+  "commit": "8cc1a55+700dad5",
+  "link": true
+}

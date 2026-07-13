@@ -1,0 +1,4 @@
+{
+  "note": "difference of two externals in an immediate -> by-name difference expression",
+  "commit": "fbced28"
+}

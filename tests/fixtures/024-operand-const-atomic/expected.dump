@@ -1,0 +1,7 @@
+SEGMENT 1: 'ATOMIC'
+  LOADNAME='main' LENGTH=511 KIND=$4000 ORG=0 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=584
+  +0003d LCONST    len=254  ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ... (+222 bytes)
+  +00140 LCONST    len=254  21 43 ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ea ... (+222 bytes)
+  +00243 CONST     len=3    02 01 60
+  +00247 END
+TOTAL 584 bytes, 1 segment(s)

@@ -1,0 +1,4 @@
+{
+  "note": "AND/OR in an IF with no relation are BITWISE, not logical",
+  "commit": "575be9e"
+}

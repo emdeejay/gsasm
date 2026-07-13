@@ -1,0 +1,4 @@
+{
+  "note": "doubled quote inside a string literal collapses ('won''t' -> won't)",
+  "commit": "c336b13"
+}

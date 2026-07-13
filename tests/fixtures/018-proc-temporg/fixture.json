@@ -1,0 +1,4 @@
+{
+  "note": "PROC TEMPORG: labels take the temporary origin; refs bake its addresses",
+  "commit": "025f204+c6a5112"
+}

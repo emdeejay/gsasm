@@ -1,0 +1,4 @@
+{
+  "note": "same-segment `label-*` is a computed literal, not a relocation",
+  "commit": "650a698"
+}
