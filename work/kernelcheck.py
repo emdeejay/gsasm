@@ -64,24 +64,17 @@ SCM segment layout:
   proc is zero-filled by MakeBin but not by our concatenating _code_image, so the
   harness re-adds it.  (gsasm DOES evaluate the ORGs, `,skip`/`,noskip` included.)
 
-Notes on P8:
-  P8 requires assembling mlisrc.aii plus multiple drivers and overlaying them.
-  mlisrc.aii uses include files M16.UTIL and e16.memory not in the GS.OS tree;
-  comparison is skipped pending include-path resolution.
-
-Known residuals (reportable gsasm-core gaps, not fixable in harness):
-  1. lda #^Label (bank byte): high-word shift of a RELOCATABLE label resolves to
-     0x00 in the fully-resolved (defer_shifts=False) kernel link.  Affects GS.OS.
-     (NB Start.GS.OS's old "14%" residual was ORG-flow + cross-module externals,
-     NOT this — see the ORG-flow fix; its remaining ~71 bytes are externals.)
-  2. DC.W label-*: PC-relative offset expressions produce wrong LEXPR bytes in
-     gsasm asm.py.  Error.Msg offset table (122 entries) completely wrong → 22% match.
-  3. Init1.Src Record/EndR: pseudo-op unsupported; 64 bytes missing from scm.bin.13.
-  4. Loader.a: complex IF/WHILE macros crash gsasm; Loader.bin excluded.
-  5. &ord builtin: 346 non-fatal errors in SCM.src.
-  6. P8: &sysdate implemented; harness injects '06-May-93' (extracted from
-     golden P8#FF0000 offset 0x26).  PROCONE jump table now correct.
-  7. Init.Data.Src: backslash line continuation unsupported; ~11 errors in Init3/4.
+Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
+  1. GS.OS (SCM): 94 bytes short.  The dominant class is references to bank-$E1
+     vectors (E1_MSG_ADDRESS, E1_VOLNAME, E1_GET_REF_INFO, ...) that are defined
+     in NO file in IIGS.601.SRC — genuine externals outside the archive, so the
+     residual is not closable from these sources.  Two minor classes remain
+     (init1/init3 header DC.W length, b00segr interior refs), moot given that.
+  2. Loader.bin is excluded from this harness's GS.OS comparison; the Loader is
+     built and verified byte-exact separately (work/loader_placed.py, 16590/16590).
+  3. P8: only PROCONE is compared (golden P8 is 4 PROCs + driver overlays laid
+     in by OverlayIIgs); &sysdate is injected as '06-May-93' (from golden
+     P8#FF0000 offset 0x26).  P8 is documented out of scope.
 
 Usage:
     python3 work/kernelcheck.py              # full report
@@ -972,28 +965,17 @@ def main() -> int:
         print(f'  {"TOTAL":<22} {total_m:>6}/{total_n:<6} {tot_pct:>5}%')
 
     print()
-    print('Known gaps (not fixed — reportable):')
-    print('  1. lda #^Label: bank-byte immediate emits 0x00 in gsasm (SUPER type-27')
-    print('     record unimplemented).  Affects ~25% of GS.OS and ~14% of Start.GS.OS.')
-    print('  2. DC.W label-*: PC-relative offset expressions produce wrong LEXPR values.')
-    print('     gsasm asm.py emits e.g. LEXPR(sym+lit) where the literal is wrong.')
-    print('     Affects Error.Msg offset table (122 DC.W entries = 244 bytes wrong);')
-    print('     cascades to effectively the whole file (match: ~22%).')
-    print('  3. Init1.Src Record/EndR: gsasm does not support Record/EndR pseudo-ops;')
-    print('     64 bytes of data missing from scm.bin.13.')
-    print('  4. SEG directive semantics: gsasm pending_loadname consumed after')
-    print('     one PROC; AsmIIgs keeps until next SEG.  Harness works around')
-    print('     via source-order group selection (no core change needed).')
-    print('  5. Loader.a crashes gsasm: complex IF/WHILE macros in Loader.Macros')
-    print('     cause an uncaught error.  Loader.bin excluded from GS.OS comparison.')
-    print('  6. &ord builtin: 346 non-fatal errors in SCM.src from unknown builtin.')
-    print('     Assembly continues; bytes are emitted as if &ord returned 0.')
-    print('  7. Init.Data.Src: backslash line continuation unsupported in gsasm.')
-    print('     Affects ~11 continuations in Init3.Src/Init4.Src (Init.Data.Src).')
-    print('  8. P8: &sysdate implemented; harness injects original build date')
-    print('     (06-May-93, extracted from golden P8#FF0000 offset 0x26).')
-    print('  9. P8 PROCONE is 6358 bytes; golden P8 has 4 PROCs, total 17128 bytes.')
-    print('     Only PROCONE compared (driver overlays and higher PROCs excluded).')
+    print('Known residuals (prodos / Start.GS.OS / Error.Msg are byte-exact):')
+    print('  1. GS.OS (SCM): 94 bytes short.  Dominant class: references to bank-$E1')
+    print('     vectors (E1_MSG_ADDRESS, E1_VOLNAME, ...) defined in no file in')
+    print('     IIGS.601.SRC — externals outside the archive; not closable from')
+    print('     these sources.  Minor classes (init1/init3 header length, b00segr')
+    print('     interiors) are moot given that floor.')
+    print('  2. Loader.bin is excluded from the GS.OS comparison here; the Loader')
+    print('     is built byte-exact separately (work/loader_placed.py, 16590/16590).')
+    print('  3. P8: only PROCONE compared (golden P8 = 4 PROCs + OverlayIIgs driver')
+    print('     overlays); &sysdate injected as 06-May-93 from the golden binary.')
+    print('     P8 is documented out of scope.')
 
     return 0
 
