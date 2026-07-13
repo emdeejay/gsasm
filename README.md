@@ -205,9 +205,10 @@ which are copyrighted and **not included** (everything under `ref/` and
 ## Background
 
 The ROM 03 and System 6.0.1 sources were assembled with **AsmIIgs** (circa
-1989–1993), an Apple-internal 65816 cross-assembler for MPW that produced OMF
-v2.0 object files. AsmIIgs was never released publicly. This project
-reverse-engineered its behaviour from captured `.obj` and `.lst` files: given
+1989–1993), Apple's 65816 cross-assembler for MPW, distributed through APDA
+with the rest of the MPW IIgs cross-development tools. The tools' own source
+code was never published, so this project is a clean-room reimplementation:
+behaviour was reverse-engineered from captured `.obj` and `.lst` files. Given
 source, listings, and objects from a known-good build, every discrepancy
 between `gsasm`'s output and the original is a measurable bug, and every
 target that passes a differential comparison is proven correct rather than

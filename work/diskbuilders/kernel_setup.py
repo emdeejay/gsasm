@@ -1,22 +1,16 @@
 """diskbuilders/kernel_setup.py — M8 disk-file builders for GS/OS kernel files.
 
-Wires builders for the kernel and setup files on the System Disk:
+Wires builders for two kernel files on the System Disk, both logical-exact:
 
-  Wired (logical-exact or residual):
-    Error.Msg    — linkiigs(english.obj) plain OMF; code 100%, header reformatted
-                   to match shipping SEGNAME/LOADNAME format → logical-exact
-    Start.GS.OS  — catenate(scm.bin.8..11); size exact, content ~87% → residual
+    Error.Msg    — linkiigs(english.obj) plain OMF; header reformatted to the
+                   shipping SEGNAME/LOADNAME format (see below)
+    Start.GS.OS  — catenate(scm.bin.8..11), byte-exact
 
-  Skipped (length cannot be matched with current gsasm):
-    GS.OS        — needs Loader.bin (Loader.a crashes gsasm) + SCM 64B short
-                   (Init1.Src Record/EndR unsupported); built=55331 vs EOF=55395
-    GS.OS.Dev    — NewDispatcher.src: built=2256B vs EOF=2388B (content gap)
-    CDev.Data    — binary data file; no ASM source available
-    P8           — needs 4 PROCs + driver overlays; only PROCONE buildable
-    Resource.Mgr — built=11309B vs EOF=11798B (bank-byte / SUPER type-27 gap)
-    Tool.Setup   — multi-object build required (tl, desk, misc.tools, etc.)
-    TS2          — multi-object build (dozens of files); multi-seg ExpressLoad
-    TS3          — multi-object build; multi-seg ExpressLoad
+Other kernel/setup files live in sibling builder modules: GS.OS and GS.OS.Dev
+in kernel_os.py, Resource.Mgr in expressload_files.py, TS2/TS3 in toolsets.py.
+Not buildable from the archive: CDev.Data (binary data, no source), P8 (needs
+the OverlayIIgs driver-overlay build), Tool.Setup (blocked on the ExpressLoad
+case-B encoding — see docs/RESULTS.md).
 
 The 'Error.Msg header reformat' technique: the OMF header format that gsasm's
 linker emits (SEGNAME=proc-name, LOADNAME=b'main') differs from the shipping
@@ -175,18 +169,7 @@ def builders(V):
 
     ``V`` is the volume prefix string, e.g. ``'/System.Disk'``.
     Each callable returns the FULL on-disk file bytes (== data-fork EOF length).
-
-    Skipped files and reasons:
-      GS.OS        — 55331B built vs 55395B EOF: Loader.a crashes gsasm + 64B
-                     missing from Init1.Src (Record/EndR unsupported)
-      GS.OS.Dev    — 2256B built vs 2388B EOF: NewDispatcher content gap
-      CDev.Data    — no ASM source; it's a binary CDEV configuration data file
-      P8           — only PROCONE (6358B) buildable; full file needs 4 PROCs
-                     + driver overlays (cclock, tclock, ram, sel, xrwtot)
-      Resource.Mgr — 11309B built vs 11798B EOF: bank-byte reloc gap
-      Tool.Setup   — multi-object build (tl, desk, misc.tools, …) not yet wired
-      TS2          — multi-object / multi-seg ExpressLoad; not yet wired
-      TS3          — multi-object / multi-seg ExpressLoad; not yet wired
+    See the module docstring for where the other kernel/setup files are built.
     """
     return {
         f'{V}/System/Error.Msg':    _build_errmsg,

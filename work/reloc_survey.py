@@ -1,4 +1,4 @@
-"""reloc_survey.py — WP-3.1 empirical survey of standalone RELOC/cRELOC records.
+"""reloc_survey.py — empirical survey of standalone RELOC/cRELOC records.
 
 Loops over all 6 target gold files (Tool014, Tool023, Tool027, Tool034, TS2, TS3)
 and tabulates every standalone RELOC (0xE2) and cRELOC (0xF5) record found in the

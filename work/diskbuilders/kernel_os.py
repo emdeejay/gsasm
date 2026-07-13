@@ -19,29 +19,16 @@ Build recipe (from GS.OS/MakeFiles/make.os and GS.OS/Scripts/linkOS):
   GS.OS.Dev: linkiigs -t $bc NewDispatcher.Obj -> GS.OS.Dev
 
 Known residuals (precise, not unknown gaps):
-  GS.OS (WP-4.1: now LENGTH-exact (55395B) but not yet byte-exact):
-    - Loader.bin: SIZE-exact (16590B) via the RECORD `DS RecordName` sizeof fix
-      (Data.a GLOBALS: 204B of record-template DS now allocate correctly) plus
-      the AError / Func / endf directives.  CONTENT still differs (~5976/16590B),
-      but the cause is LOAD-SEGMENT PLACEMENT, not relocs.  CRACKED + proven at
-      97% (from 64%) in work/loader_placed.py: golden groups by SEG/load segment
-      ('Loader' then 'Loader_LC'; a default-'main' seg inherits the preceding
-      named loadname within its object), STORES the groups contiguously, but
-      LOADS each at its own base (the group header's ORG: 0x1a5d0 / 0x1cfd0) —
-      relocs resolve against the runtime base, not the flat position.  linkiigs
-      instead places in link order anchored on the two headers' ORGs, so
-      zloader_lc_header lands at flat 0x30 where gold has CALLTABLE.  The residual
-      3% is NOT placement — it is the operand-resolution long-tail (qualified
-      record fields e.g. HEADER.DISPNAME, cross-seg refs) + ~4B DC.W import-diff
-      (omf bakes CONST ffff not an EXPR record).  To flip GS.OS: integrate the
-      loader_placed algorithm + close that long-tail + the SCM DC.W LEXPR gap.
-    - SCM: the WP-2.1 placed symtab is now seeded into every SCM content link,
-      so macro-generated `lda #^Label` bank bytes resolve to real addresses
-      (SCM 74% -> 95%; kernelcheck GS.OS 28831 -> 37072/38805).  ~1731 SCM bytes
-      still differ (DC.W offset-table LEXPR values + residual relocs).
-    - Net: LENGTH-exact 55395B; ~7707 content bytes differ (Loader + SCM) -> not
-      yet a byte-exact overlay (no diskcheck flip).  SUPER type-6 cINTERSEG is
-      OMF-internal and does not affect the flat GS.OS image.
+  GS.OS (LENGTH-exact 55395B; 94 content bytes short of byte-exact):
+    - Loader.bin: byte-exact (16590/16590) — built with the load-segment
+      placement algorithm from work/loader_placed.py (golden groups by
+      SEG/load segment, stores groups contiguously, loads each at its own
+      header ORG so relocs resolve against the runtime base).
+    - SCM: each content group links at its placed ORG with a kernel-global
+      placed symbol table seeded in.  The remaining 94 bytes reference
+      bank-$E1 vectors (E1_MSG_ADDRESS, ...) defined in no file in the
+      source archive — a proven external floor, not closable from these
+      sources (see docs/RESULTS.md).  Hence no diskcheck flip for GS.OS.
   GS.OS.Dev:
     - BYTE-EXACT (2388/2388).  Two general fixes closed it: bare `ds N`
       counts WORDS (asm._ds_size, MPW default width — NewDispatcher's

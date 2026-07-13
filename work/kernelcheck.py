@@ -45,8 +45,8 @@ Notes on Loader.bin:
     AsmIIgs GSFooter.a -> GSFooter.obj
     LinkIIgs -x GSHeader.obj Loader.obj GSFooter.obj -> Loader.S16
     MakeBinIIgs Loader.S16 -> Loader.bin (+ Loader.bin.2)
-  Loader.a crashes gsasm on complex macro expansion (Loader.Macros IF/WHILE).
-  GS.OS comparison is made against the SCM portion only (golden offset 16590+).
+  This harness compares the SCM portion only (golden offset 16590+); the Loader
+  itself is built and verified byte-exact by work/loader_placed.py.
 
 SCM segment layout:
   Each scm.bin.N starts with a 48-byte header (SEG_N_HEADER) followed by the
@@ -402,7 +402,7 @@ def _build_header_content(header_segs: list[dict],
 
     content_extern: optional placed symtab seeded into the CONTENT link so that
     cross-group references (e.g. macro-generated `lda #^Label`) resolve to their
-    real absolute addresses rather than 0-based segment offsets (WP-4.1b).
+    real absolute addresses rather than 0-based segment offsets.
 
     content_full: optional placed symtab (INCLUDING interior labels) also seeded
     into the HEADER link.  Needed when the header's `DC.W seg_end-seg_start`
@@ -499,7 +499,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         print(f'  FAIL: SCM assembly: {exc}', file=sys.stderr)
         return None
 
-    # WP-4.1b: PLACED symtab for the SCM -lseg groups.  linkOS resolves all kernel
+    # PLACED symtab for the SCM -lseg groups.  linkOS resolves all kernel
     # segments globally; kernelcheck links each group in isolation, so cross-group
     # references (e.g. macro-generated `lda #^Label` from misc_seg/bank_e1/... into
     # oscall_seg) resolve to 0 without this seed.  The placed table gives their real
@@ -651,7 +651,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         # gap.  ORG-flow makes each label's absolute value equal its in-group
         # placement, so overriding group-local symbols is value-neutral.
         gq_extern = _full_symtab(gquit_asm)
-        # WP-K1: seed with the global PLACED kernel symtab so GQuit's cross-module
+        # Seed with the global PLACED kernel symtab so GQuit's cross-module
         # imports (INIT_SCM=$d408, ADD_FST, DEALLOCATE, OS_EVENT, ...) resolve to
         # their linked addresses — mirroring linkOS's single global link, which
         # kernelcheck's per-group links otherwise can't see.  GQuit's own
@@ -659,7 +659,7 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         for _k, _v in _lnk.link_placed(
                 [(scm_obj, scm_asm)], _SCM_LSEG_RECIPE).items():
             gq_extern.setdefault(_k, _v)
-        # WP-1.1: cache (scm.bin.12) content follows its ORG'd header in source, so
+        # cache (scm.bin.12) content follows its ORG'd header in source, so
         # ORG-flow makes its symbols already ABSOLUTE — its own symtab IS the placed
         # table.  Resolves GQuit's `jsl >cache_in_queue` (CACHE_IN_QUEUE=$a914).
         try:
@@ -884,7 +884,7 @@ def main() -> int:
         results.append(('GS.OS (SCM only)', m, n,
                         'Loader.bin(excl.) ++ cat(scm.bin,{2..7,12..17})'))
         print(f'  (Loader.bin = first {LOADER_BIN_SIZE} bytes of golden, '
-              f'excluded — Loader.a crashes gsasm)')
+              f'excluded here; built byte-exact by loader_placed.py)')
     else:
         print('  golden not found.')
     print()

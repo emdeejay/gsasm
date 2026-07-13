@@ -1,6 +1,6 @@
-"""generality_check.py — WP-4.4 gate: no source-symbol / address literals in gsasm/*.py.
+"""generality_check.py — gate: no source-symbol / address literals in gsasm/*.py.
 
-The project's central claim (BESPOKERY_AUDIT.md): `gsasm/*.py` is a GENERAL
+The project's central claim: `gsasm/*.py` is a GENERAL
 AsmIIgs/LinkIIgs reimplementation — no branch keyed on a real corpus symbol
 name, no module-specific address baked into logic.  Module-specific build
 config belongs in the `work/` harnesses (recipes, like a makefile).

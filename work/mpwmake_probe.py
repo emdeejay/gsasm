@@ -331,7 +331,7 @@ def diff_tools():
 
 
 def main(check=False):
-    """Report mode prints the diff; --check mode (WP-4.3 drift gate) exits 1
+    """Report mode prints the diff; --check mode (drift gate) exits 1
     unless EVERY harness map entry EXACTLY matches its shipping makefile.
     Baseline: 8/8 tools, 7/7 FSTs, 12/12 drivers (2026-07-10)."""
     results = []
