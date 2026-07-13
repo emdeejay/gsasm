@@ -393,7 +393,8 @@ def _placed_full(obj_bytes: bytes, asm, org: int) -> dict[str, int]:
 def _build_header_content(header_segs: list[dict],
                            content_segs: list[dict],
                            end_segs: list[dict] | None = None,
-                           content_extern: dict | None = None) -> bytes:
+                           content_extern: dict | None = None,
+                           content_full: dict | None = None) -> bytes:
     """Build a Layout-A flat binary: header_data + zero_gap + content.
 
     The gap is computed as header_length (48) minus the actual header data size —
@@ -409,6 +410,12 @@ def _build_header_content(header_segs: list[dict],
     content_extern: optional placed symtab seeded into the CONTENT link so that
     cross-group references (e.g. macro-generated `lda #^Label`) resolve to their
     real absolute addresses rather than 0-based segment offsets (WP-4.1b).
+
+    content_full: optional placed symtab (INCLUDING interior labels) also seeded
+    into the HEADER link.  Needed when the header's `DC.W seg_end-seg_start`
+    references an end-marker that is a bare interior proc rather than an EXPORT
+    (the init files: `init_N_end`), which _placed_exports (exports-only) can't
+    supply.  Merged before the end_segs override so a genuine seg_N_end still wins.
     """
     # Content placed base = the header group's last non-zero ORG (its PAD ORG),
     # the same base link_placed() gives the content group.  Link the content THERE
@@ -419,9 +426,24 @@ def _build_header_content(header_segs: list[dict],
     content_bytes = _link_groups(content_segs, extern=content_extern, org=content_org)
     end_bytes = _link_groups(end_segs) if end_segs else b''
 
-    # Build extern map: inject seg_N_end absolute addresses so the header's
-    # DC.W seg_N_end-seg_N_start resolves correctly.
-    hdr_extern: dict[str, int] = {}
+    # Seed the header link with the content group's PLACED export table so that a
+    # header `DC.W seg_end-seg_start` resolves seg_end (an IMPORT satisfied by the
+    # content's trailing end-marker proc, e.g. b00segr_end/be0segr_end/cashseg_end/
+    # init_N end) to its real address.  Without it seg_end is unresolved (0) and
+    # gsasm bakes `0 - seg_start` = a bogus 16-bit negative length.  The content's
+    # true runtime base is its own first explicit ORG (the pad proc at seg_org)
+    # when present, else the header's content_org.  For the SCM -lseg segs the pad
+    # lives in the header group so content_org already IS the true base and the
+    # scm_main exports don't collide with seg_N_end (handled by end_segs below).
+    _content_base = next((s['org'] for s in content_segs if s.get('org')),
+                         content_org)
+    try:
+        hdr_extern: dict[str, int] = dict(_placed_exports(content_segs,
+                                                          _content_base))
+    except Exception:
+        hdr_extern = {}
+    if content_full:
+        hdr_extern.update(content_full)
     if end_segs:
         # Find seg_N_start from the header group: the pad segment has ORG=seg_N_start.
         # The pad segment is the last segment in header_segs with a non-zero ORG.
@@ -715,9 +737,11 @@ def _build_scm_segments() -> dict[str, bytes] | None:
             # files / SCM / cache resolve to placed addresses; force THIS init's own
             # PLACED exports last so shared export names bind to this init's copy.
             _iorg = next((s['org'] for s in reversed(hdr_segs_init) if s['org']), 0)
+            _init_full = _placed_full(init_obj, init_asm, _iorg)
             out[f'scm.bin.{n}'] = _build_header_content(
                 hdr_segs_init, rest_segs_init,
-                content_extern={**gextern, **_placed_full(init_obj, init_asm, _iorg)})
+                content_extern={**gextern, **_init_full},
+                content_full=_init_full)
         except Exception as exc:
             print(f'  FAIL scm.bin.{n}: {exc}', file=sys.stderr)
             out[f'scm.bin.{n}'] = b''
