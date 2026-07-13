@@ -190,6 +190,15 @@ gated file is silently short by a blank timestamp field.
   diskcheck attempted-but-residual count). Probe:
   scratchpad/toolsetup_probe.py.
 
+### Tier 2 (objcheck small-delta) — probed, it's the encoding floor
+SmartPort's +6 localizes to the C6XXCODE segment (mine BYTECNT 385 vs 379, same
+256-byte code): gsasm splits a 3-byte zero run into a `DS` record and re-chunks
+the `CONST` bytes around an embedded `BEXPR` address (`C6XXCODE+68`), yielding 13
+records where AsmIIgs emits 10 — same code image, different record chunking. This
+is a DS-vs-literal-zeros / record-merging heuristic in the OMF emitter, pure
+encoding fidelity with zero ROM/disk impact (the linked ROM is already
+byte-exact). Left as the documented fidelity floor; not worth the emitter surgery.
+
 ### Net
 Gate: `disk_logical_exact 14→15`, `kernel_bytes 61815→61821`, all others
 unchanged. Two questions the project wanted settled are now settled with proof:
