@@ -407,6 +407,22 @@ def _build_console_driver():
 
 
 # ---------------------------------------------------------------------------
+# System.Setup builders — ExpressLoad'd toolbox files
+# ---------------------------------------------------------------------------
+
+def _build_resource_mgr():
+    # Resource.Mgr — GSToolbox/ResourceMgr/makefile:
+    #   Asmiigs -d debug=0 -d JimsExperiment=1 Resource.a ; Linkiigs ... -t $B6
+    # Single ExpressLoad'd object; byte-exact (SUPER-ized relocs).  The earlier
+    # "489B bank-byte gap" was pre-SUPER-ization; the case-A/SUPER work closed it.
+    rm_dir = f'{_TB}/ResourceMgr'
+    incs = [rm_dir] + _GOS_INCS
+    a = asm.assemble(f'{rm_dir}/Resource.a', incs,
+                     defines={'debug': 0, 'JimsExperiment': 1})
+    return expressload([(omf.emit(a), a)])
+
+
+# ---------------------------------------------------------------------------
 # Public entry point — auto-discovered by diskcheck.diskbuilders.load()
 # ---------------------------------------------------------------------------
 
@@ -437,4 +453,6 @@ def builders(V):
         f'{V}/System/Drivers/AppleDisk3.5':   _build_appledisk35,
         f'{V}/System/Drivers/AppleDisk5.25':  _build_appledisk525,
         f'{V}/System/Drivers/Console.Driver': _build_console_driver,
+        # System.Setup
+        f'{V}/System/System.Setup/Resource.Mgr': _build_resource_mgr,
     }
