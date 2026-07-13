@@ -128,3 +128,71 @@ ship/contribute to. Out of the disk-image critical path.
 3. **1.2** — wire Tool.Setup / Resource.Mgr; take any easy flip.
 4. **Tier 2 small-delta** — 3 quick objcheck wins if budget remains.
 Everything else is a documented wall.
+
+---
+
+## RUN RESULTS (2026-07-13, executed)
+
+**Disk north star moved: 14 → 15 byte-exact (Resource.Mgr flipped).**
+
+### 1.1 GS.OS external floor — SETTLED (floor is real)
+- Fixed a general, byte-neutral bug first: the Layout-A header `DC.W
+  seg_end-seg_start` (b00segr/be0segr/cache/init) baked `0 - seg_org` because
+  `seg_end` (IMPORTed from the content group's trailing end-marker proc) was
+  unresolved in kernelcheck's isolated header link. Seeding the header link with
+  the content group's placed export table (+ init's `content_full` interior
+  symtab) resolved it. **cache/scm.bin.12 now byte-EXACT; GS.OS SCM mismatch
+  100 → 94; kernel_bytes 61815 → 61821.** (commit "resolve Layout-A header DC.W")
+- Enumerated the remaining GS.OS SCM residual (94 bytes). The largest class —
+  the cross-bank `000000/020000/ffffff → $E1Dxxx/$E0Dxxx` refs in scm.bin.3/.4/
+  .13 — are references to `E1_MSG_ADDRESS`, `E1_VOLNAME`, `E1_GET_REF_INFO`,
+  `E1_CURRENT_ID`, … **These are defined/exported in NO file anywhere in
+  IIGS.601.SRC** (grepped the whole tree) — genuine bank-$E1 externals outside
+  the kernel build. **Since these are unresolvable from any component we build,
+  GS.OS can never go byte-exact — the floor is now PROVEN, not assumed.** The
+  diskcheck GS.OS flip is blocked on this external floor, full stop.
+- Two smaller sub-classes remain but are moot given the floor: init1/init3
+  header length (4B; `sym_kind` prefers a same-named local label over the
+  Import, collapsing `end-start` to a constant — a real but low-value gsasm
+  quirk, not worth a risky core change) and b00segr's `STY/LDA $AC2E` interior
+  refs (20B; group-link base, entangled — zero disk value now).
+
+### 3.1 SCSIHD — CLOSED (source-revision skew, unwinnable)
+gsasm builds type=0 (direct_acc/HD) to 13842B matching the source; golden is
+15690B. No type config reproduces it (0/1/2/3 = 13842/13442/17257/8354). The
+divergence is **pervasive** (only 211-byte prefix + 37-byte suffix match; the
+command-table pointers are uniformly larger in golden → code inserted
+throughout). The archived `SCSI.Drivers` source does not correspond to the
+shipping SCSIHD.Driver binary. Document and close.
+
+### 3.2 &Sysdate/&SysTime sweep — CLEAN
+Only two source files embed a build timestamp: A.U.G Installer (not gated) and
+P8's MliSrc (already handled). Every gated driver is byte-exact except SCSIHD
+(a device-class skew, not a timestamp). RAM5's injection verified working. No
+gated file is silently short by a blank timestamp field.
+
+### 1.2 Disk builders
+- **Resource.Mgr — WIRED, byte-exact FLIP (11798/11798).** The kernel_setup.py
+  "489B bank-byte gap" note was stale (predated the case-A cRELOC / SUPER-ization
+  work). Built via `expressload([(obj, asm)])` from GSToolbox/ResourceMgr with
+  `-d debug=0 -d JimsExperiment=1`. diskcheck logical-exact **14 → 15**, wired
+  26 → 27. (commit "wire Resource.Mgr")
+- **Tool.Setup — investigated, tractability now KNOWN: code-byte-exact, blocked
+  on the case-B reloc wall (NOT wired).** All 9 constituents assemble with zero
+  errors; the multi-object, segment-name-filtered, 2-`-lseg` (`main` $3000 +
+  `patches`) + ExpressLoad build reproduces **both segments' code LENGTHs
+  exactly (1078 + 16402)**. The only residual (300B) is relocation-record
+  ENCODING: gsasm SUPER-izes everything, but golden keeps 31 standalone
+  cINTERSEG (main) + 11 standalone cRELOC (patches). This is the SAME
+  ExpressLoad converter case-B wall as Tool014/023/027/**TS2/TS3** (its
+  System.Setup siblings) — standalone-vs-SUPER is the converter-internal choice
+  proven not source-derivable. NOT wired (a non-exact builder would regress the
+  diskcheck attempted-but-residual count). Probe:
+  scratchpad/toolsetup_probe.py.
+
+### Net
+Gate: `disk_logical_exact 14→15`, `kernel_bytes 61815→61821`, all others
+unchanged. Two questions the project wanted settled are now settled with proof:
+the GS.OS floor IS external (1.1), and SCSIHD IS a skew (3.1). Tool.Setup's code
+is exact — only the ExpressLoad reloc encoding (the known wall) stands between
+it and a 16th image.
