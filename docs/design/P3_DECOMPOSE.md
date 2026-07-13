@@ -1,7 +1,7 @@
-# P3 — Unify the omf.py reloc-value detectors onto one `linear_decompose`
+# Unify the omf.py reloc-value detectors onto one `linear_decompose`
 
-Executes P3 of `RATIONALISE.md` (dissolve debt **D1**). This note is the validated
-design; the mechanical migration is grinder work, gated by the equivalence oracle.
+Status: designed, not yet executed. This note is the validated design; the
+migration itself is mechanical, gated at every step by the equivalence oracle.
 
 ## The finding (validated read-only over the whole ROM+corpus)
 
@@ -43,9 +43,9 @@ Over buildrom + toolcheck + drivercheck + fstcheck: `_linear_reloc` and
 `_mul_reloc_expr`/`_diff_reloc` fire **0× in the ROM** (only in the non-byte-exact
 corpus). ~4,500 distinct expressions overall. So the oracle must be **exact
 refactor-equivalence** (`new_ops == old_ops`) for *every* expression across *all*
-harnesses, with the ROM's byte-identity + 36/61 obj-set as the byte-level anchor.
+harnesses, with the ROM's byte-identity + the objcheck set as the byte anchor.
 
-## Migration plan (each step gated on buildrom True / 36 / 61 AND the ops-oracle)
+## Migration plan (each step gated on `work/gate.py` AND the ops-oracle)
 1. Add `linear_decompose` to `omf.py`.
 2. **Ops-oracle harness** (`work/p3_oracle.py`): instrument `_expr_for` to compute,
    for every call, the *would-be* new path alongside the old and assert byte-equal;

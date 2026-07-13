@@ -1,9 +1,17 @@
 # Design docs — shared context (read first)
 
-These designs extend gsasm into a full clean-room MPW IIgs toolchain to reproduce
-System 6.0.1 shipping images byte-exact. See `../GSOS_MILESTONES.md` for the
-roadmap. Each design here is written to be handed to an implementer (e.g. Sonnet)
-who has this README as context.
+These documents cover the design of the tools that extend gsasm into a full
+clean-room MPW IIgs toolchain reproducing System 6.0.1 shipping images. Most
+are now implemented — see `../GSOS_MILESTONES.md` for the roadmap and
+`../RESULTS.md` for what was achieved and where the proven limits are. This
+README is the shared context the individual designs assume:
+
+- `linkiigs.md` — the general OMF load-file linker (implemented: `gsasm/linkiigs.py`)
+- `makebin.md` — MakeBin/Overlay/catenate packaging (implemented: `gsasm/makebin.py`)
+- `expressload.md` — the ExpressLoad relinker, including the analysis of the
+  relocation-encoding limit (implemented: `gsasm/expressload.py`)
+- `rez.md` — a Rez resource-compiler stretch design (not implemented)
+- `P3_DECOMPOSE.md` — a planned refactor unifying `omf.py`'s relocation detectors
 
 ## The existing codebase to reuse (do not reinvent)
 
@@ -61,10 +69,10 @@ Extraction one-liner (mirror in each harness):
 ## Non-negotiable gotchas (learned the hard way)
 
 1. **Never regress the ROM.** `gsasm/asm.py` + `gsasm/omf.py` are shared with the
-   byte-exact ROM build. After ANY change to them run
-   `python3 work/buildrom.py && python3 work/objcheck.py && python3 work/linkcheck.py`
-   and confirm ROM byte-identical / 36-61 / 61-61. Revert on regression. Prefer
-   putting new logic in new files (`gsasm/linkiigs.py`, `gsasm/expressload.py`).
+   byte-exact ROM build. After ANY change to them run `python3 work/gate.py`
+   and confirm every metric holds its committed baseline. Revert on regression.
+   Prefer putting new logic in new files (`gsasm/linkiigs.py`,
+   `gsasm/expressload.py`).
 2. **Cross-segment refs must go through OMF emit + link, not `flat()`+`relink`.**
    `flat()` bakes cross-segment `DC.L Label-1` as segment-relative literals (0 →
    `0xFFFFFFFF`); `omf.emit` turns them into LEXPR reloc records the linker resolves.

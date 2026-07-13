@@ -1,5 +1,7 @@
 # Design: MakeBin / Overlay / catenate packager (M3)
 
+**Status: implemented** (`gsasm/makebin.py`; `prodos` reproduces byte-exact) —
+kept as the design record.
 **Replaces:** MPW `MakeBinIIgs`, `OverlayIIgs`, `catenate`, and the `setfile`/
 `Rez -t -c` filetype stamping. **Unlocks:** GS/OS kernel binaries (M6), flat
 device drivers (M5), GSBug ROM, BASIC.SYSTEM, ProDOS boot. Read `README.md` first.

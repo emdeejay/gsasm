@@ -1,5 +1,6 @@
 # Design: general LinkIIgs (M2 — the keystone)
 
+**Status: implemented** (`gsasm/linkiigs.py`) — kept as the design record.
 **Replaces:** MPW `LinkIIgs -apw`. **Unlocks:** tools (M1), FSTs+drivers (M5),
 GS/OS kernel (M6). Read `README.md` first.
 

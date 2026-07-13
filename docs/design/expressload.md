@@ -1,5 +1,7 @@
 # Design: ExpressLoad relinker (M4)
 
+**Status: implemented** (`gsasm/expressload.py`), with one documented limit —
+the case-B relocation encoding analysed at the end of this doc.
 **Replaces:** MPW `ExpressLoad`. **Unlocks:** byte-exact `System/Tools/ToolNNN`
 (M1) and the GS/OS `Loader2.0`. Read `README.md` first.
 
@@ -78,11 +80,12 @@ bytes as decoded above (inverse of the walker).
 - Some tools are single-segment (`main` only); multi-segment tools (bigger managers)
   will exercise INTERSEG SUPER types — handle single-segment first, then generalize.
 
-## Phase-3 spike (2026-07-08): case-B reloc-tail is PROVEN not source-derivable — STOP
+## Why the case-B relocation encoding is not reproducible
 
-WP-3.1 (empirical survey, `work/reloc_survey.py`) + WP-3.2 (converter-source read)
-ran as a time-boxed spike to decide whether the case-B standalone-RELOC flag is
-reproducible. Verdict: **no — do not implement; it is a closed-toolchain quirk.**
+An empirical survey (`work/reloc_survey.py`) plus a read of the archived
+converter-side source settled whether the case-B standalone-RELOC flag can be
+derived from the input. It cannot; it is a closed-toolchain quirk, and
+reproducing it is out of scope.
 
 Survey — every standalone RELOC/cRELOC in the 6 `len<EOF` gold files (Tool014/023/
 027/034, TS2/TS3): **30 records, a perfect partition:**
@@ -97,7 +100,7 @@ Survey — every standalone RELOC/cRELOC in the 6 `len<EOF` gold files (Tool014/
   0x80 vs 0xc0 has **no structural predictor** in the corpus (both appear in Tool023
   for different targets at identical (size,shift)).
 
-Why not derivable (WP-3.2, dispositive): the ExpressLoad **converter** source — the
+Why not derivable (dispositive): the ExpressLoad **converter** source — the
 tool that GENERATES these records — is **absent from the GS.OS 6.0.1 archive.** Only
 the runtime loader is present (`Loader/ExpressLoad*`, `ProcReloc.DataBankChanged`,
 `Relocation.a`), and it adds relOff **unmasked**, so it cannot even reveal the flag's
@@ -109,5 +112,5 @@ Consequence: gsasm's reloc for these sites carries the clean offset (e.g. 0x5225
 never the flagged 0x80005225, and cannot choose 0x80 vs 0xc0. SUPER-izing (type-27 +
 type-0) is byte-different but functionally identical; the residual is exactly the
 record-format delta (e.g. Tool023 −42B = 4×11B RELOC − 2B SUPER/pair). Reproducing
-it would be per-tool magic-number bespokery (forbidden). This closes the case-B line;
-re-verify anytime with `work/reloc_survey.py`. **NEXT = Phase 4.**
+it would be per-tool magic-number bespokery, which this project does not do.
+The conclusion can be re-verified anytime with `work/reloc_survey.py`.
