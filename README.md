@@ -1,7 +1,5 @@
 # gsasm
 
-[![tests](https://github.com/emdeejay/gsasm/actions/workflows/tests.yml/badge.svg)](https://github.com/emdeejay/gsasm/actions/workflows/tests.yml)
-
 A clean-room Python reimplementation of the **MPW IIgs cross-development
 toolchain** — the `AsmIIgs` assembler, `LinkIIgs` linker, the
 `MakeBinIIgs`/`OverlayIIgs`/`catenate` packagers, and the `ExpressLoad`
@@ -174,10 +172,10 @@ python3 tests/run_fixtures.py
 ```
 
 The `tests/` fixture suite runs on a bare checkout — no reference material
-needed — and is what CI runs. Each fixture is an original source pinning one
-discovered dialect or OMF behavior, with expected bytes minted only while the
-full golden-corpus validation passes. See [tests/README.md](tests/README.md)
-for how blessing works and why the expected bytes are trustworthy.
+needed. Each fixture is an original source pinning one discovered dialect or
+OMF behavior, with expected bytes minted only while the full golden-corpus
+validation passes. See [tests/README.md](tests/README.md) for how blessing
+works and why the expected bytes are trustworthy.
 
 ## Validation harnesses (work/)
 
