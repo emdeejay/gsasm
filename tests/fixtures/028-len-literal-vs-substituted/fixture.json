@@ -1,0 +1,4 @@
+{
+  "note": "&LEN counts a literal's CONTENT but a substituted macro-parameter's RAW text (quotes included)",
+  "commit": "R8 (promoted from a work/rezloadcheck.py harness-local shim)"
+}

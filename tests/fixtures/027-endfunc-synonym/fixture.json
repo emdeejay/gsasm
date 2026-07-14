@@ -1,0 +1,4 @@
+{
+  "note": "ENDFUNC is a synonym for ENDF (closes a FUNC block)",
+  "commit": "R8 (promoted from a work/rezloadcheck.py harness-local shim)"
+}

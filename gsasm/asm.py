@@ -203,6 +203,11 @@ _MULTI_TOKEN_OPS = {'IF', 'ELSEIF', 'WHILE', 'AIF', 'PROC', 'ERRIF', 'DO',
 # re-add DS here when that lands.
 _EXPR_CONT_OPS = {'EQU', 'GEQU', '=', 'SET'}
 
+# Mnemonic spellings AsmIIgs accepts as plain synonyms of a real 65816
+# instruction (distinct from m65816.ALIAS, which covers 65816-level
+# addressing/encoding aliases): TSA/TAS for TSC/TCS (Thermodial.aii:802,805).
+_MNEM_SYNONYM = {'TSA': 'TSC', 'TAS': 'TCS'}
+
 
 def first_field(s, expr_cont=False):
     """Leading operand token: stops at the first whitespace that is at paren/
@@ -437,6 +442,13 @@ class Asm:
         self.macro_uid = 0
         self.macro_at = []            # stack of {@LABEL: (ctx,lg)} for @-labels
                                       # passed as macro params (retain caller scope)
+        self._call_raws = None        # pre-substitution text of the builtin-call
+                                      # arg(s) currently being evaluated (&LEN needs
+                                      # to tell a literal quoted string apart from a
+                                      # substituted variable/expression); set right
+                                      # before call_builtin() and not re-entered
+                                      # (each builtin's own body does no further
+                                      # substitution of its own)
         self.in_proc = False
         self.proc_depth = 0           # PROC/ENDP nesting (nested PROC != new seg)
         self.exports = set()          # names exported (EXPORT / ENTRY)
@@ -655,7 +667,8 @@ class Asm:
                 out.append('&'); i += 1; continue
             # function call?
             if j < n and text[j] == '(':
-                args, j2 = self._read_args(text, j)
+                args, raws, j2 = self._read_args(text, j)
+                self._call_raws = raws
                 val = self.call_builtin(name, args)
                 out.append(val)
                 i = j2
@@ -690,7 +703,11 @@ class Asm:
         return str(v)
 
     def _read_args(self, text, jopen):
-        """text[jopen]=='(' -> (list_of_substituted_args, index_after_close)."""
+        """text[jopen]=='(' -> (substituted_args, raw_args, index_after_close).
+
+        raw_args holds each argument's text exactly AS WRITTEN at the call
+        site, before any &-substitution — &LEN uses this to tell a literal
+        quoted string apart from a variable/expression (see call_builtin)."""
         depth = 0
         i = jopen
         args = []
@@ -725,10 +742,11 @@ class Asm:
             i += 1
         # no-argument call: empty parens
         if len(args) == 1 and args[0].strip() == '':
-            return [], i
+            return [], [], i
+        raws = [a.strip() for a in args]
         # recursively substitute each arg
         args = [self.subst(a.strip()) for a in args]
-        return args, i
+        return args, raws, i
 
     def _read_bracket(self, text, jopen):
         depth = 0
@@ -775,7 +793,26 @@ class Asm:
         if u == 'TRIM':
             return _unquote(args[0]).strip() if args else ''
         if u == 'LEN':
-            return str(len(_unquote(args[0]))) if args else '0'
+            if not args:
+                return '0'
+            # A literal quoted string written directly as the argument (e.g.
+            # `&len('CONSOLE')`) counts its CONTENT (quotes stripped) -- golden
+            # proof: Console.aii's `dcb.b 31-&len('CONSOLE'),' '` pads to
+            # exactly 31 chars (7 + 24), needing len('CONSOLE')==7.  Anything
+            # else -- a macro-string VARIABLE or a nested call (e.g.
+            # `&len(&str)`) -- counts the fully-SUBSTITUTED raw text as-is,
+            # quotes included if the substituted value has any: golden proof
+            # is Launcher.mac's `wstr` macro, `dc.w &len(&str)-2`, whose
+            # golden words are 2/6 for 'P8'/'PRODOS' -- only consistent if
+            # &str substitutes to the quoted text ('P8', 4 chars) and &len
+            # counts all 4 (macro parameters carry their quotes through
+            # verbatim; only a directly-written literal is unquoted here).
+            raws = self._call_raws
+            raw0 = raws[0] if raws else None
+            if (raw0 is not None and len(raw0) >= 2
+                    and raw0[0] in "'\"" and raw0[-1] == raw0[0]):
+                return str(len(_unquote(args[0])))
+            return str(len(args[0]))
         if u in ('UC', 'UPCASE', 'UPPERCASE'):
             return _unquote(args[0]).upper() if args else ''
         if u in ('LC', 'DOWNCASE'):
@@ -2045,9 +2082,26 @@ class Asm:
                     self._fold(self.cur_record + '.' + ln.label))
             # `Label ds RecordName` is a TYPED instance: explode the record's
             # fields into Label.field so qualified refs (`Label.field`) resolve to
-            # Label + RecordName.field (MPW typed-DS semantics).
+            # Label + RecordName.field (MPW typed-DS semantics).  Inside ANOTHER
+            # record's TEMPLATE this `ds` is a NESTED field (e.g. `Ctl RECORD`
+            # containing `Rect ds Rectangle`): the composite must be qualified
+            # by the ENCLOSING template too (`Ctl.Rect.y2`), not just the bare
+            # field name (`Rect.y2`), so deeper qualified refs resolve -- and it
+            # is a plain offset EQUATE like any other template field (not a
+            # relocatable code label: `Label` there is a real segment address,
+            # but `Ctl.Rect` is just a record-relative offset), so it must
+            # explode with kind='equ', not the 'label' kind the typed-DS-
+            # instance case uses.  The explosion itself already recurses
+            # through any further-nested `RecordName.*` composites already in
+            # .symbols, so this qualify-and-kind fix is the only piece needed
+            # for arbitrary nesting depth.
             if ln.label and rec in self.record_sizes:
-                self._explode_record_fields(ln.label, base, rec)
+                qual_label, qual_kind = ln.label, 'label'
+                if (self.cur_record and not self._record_data
+                        and not self.emit_enabled):
+                    qual_label = self.cur_record + '.' + ln.label
+                    qual_kind = 'equ'
+                self._explode_record_fields(qual_label, base, rec, kind=qual_kind)
             return
         if u in ('DCB',) or u.startswith('DCB.'):
             self._lbl(ln)
@@ -2065,7 +2119,10 @@ class Asm:
                  'NEEDS', 'BLANKS', 'LONGTABLE', 'KEEP', 'NOTE', 'WHILE', 'MEXIT'):
             self._lbl(ln); return
 
-        # instruction?
+        # instruction?  (_MNEM_SYNONYM translates a plain-synonym spelling to
+        # its canonical mnemonic first, e.g. TSA/TAS -> TSC/TCS.)
+        if u in _MNEM_SYNONYM:
+            op = u = _MNEM_SYNONYM[u]
         if u in m65816.MNEMONICS:
             self._lbl(ln)
             try:
@@ -2092,7 +2149,7 @@ class Asm:
         # OMF segment (like PROC); `endf` ends it (like ENDP).
         if u == 'FUNC':
             self._proc(ln); return
-        if u == 'ENDF':
+        if u in ('ENDF', 'ENDFUNC'):
             self.proc_depth = max(0, self.proc_depth - 1)
             self.in_proc = self.proc_depth > 0
             return
@@ -2298,17 +2355,20 @@ class Asm:
                     out += bytes((v >> (8 * i)) & 0xFF for i in range(w))
         return bytes(out), fixups
 
-    def _explode_record_fields(self, label, base, rec):
+    def _explode_record_fields(self, label, base, rec, kind='label'):
         """For a typed DS instance (`Label ds RecordName`), define Label.field =
         Label + RecordName.field for every field of the record, so that qualified
         references `Label.field` resolve (MPW typed-DS semantics).  The fields are
         already in .symbols as ``RECORDNAME.field`` (offsets); Label.field lands
-        in the current segment so it relocates as a normal same-segment ref."""
+        in the current segment so it relocates as a normal same-segment ref
+        (kind='label', the default).  A NESTED field inside another template
+        (`Ctl.Rect.field`) is a plain offset, not a relocatable address, so its
+        caller passes kind='equ' instead."""
         prefix = self._fold(rec) + '.'
         for sname, sval in list(self.symbols.items()):
             if isinstance(sval, int) and sname.startswith(prefix):
                 self.define_label(label + '.' + sname[len(prefix):],
-                                  base + sval, kind='label')
+                                  base + sval, kind=kind)
 
     def _ds_size(self, u, operand):
         w = self._width(u)

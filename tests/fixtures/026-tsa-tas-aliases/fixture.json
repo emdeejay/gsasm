@@ -1,0 +1,4 @@
+{
+  "note": "TSA/TAS are 65816 alias mnemonics for TSC/TCS",
+  "commit": "R8 (promoted from a work/rezloadcheck.py harness-local shim)"
+}

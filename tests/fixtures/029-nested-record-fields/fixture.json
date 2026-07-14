@@ -1,0 +1,4 @@
+{
+  "note": "nested RECORD templates qualify fields to arbitrary depth (Ctl.Rect.y2 style)",
+  "commit": "R8 (nested-record field-expansion bug fixed in asm.py)"
+}
