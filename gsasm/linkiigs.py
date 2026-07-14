@@ -522,6 +522,23 @@ def link(objects: list[tuple[bytes, Any | None]],
         if opts.get('super'):
             from . import expressload as _exl        # lazy: avoids import cycle
             relocs = _exl._scan_relocs(placed)
+            # _scan_relocs keys its (size=2, shift=16) bank-byte class by the
+            # RAW type 27 (expressload.py's _SUPER_TYPE table). That raw value
+            # is only correct for an ExpressLoad'd Tool/FST/driver, whose main
+            # code segment is always OMF SEGNUM 2 (SUPER types 26+ encode
+            # "INTERSEG to segment (type-25)", so type = 25 + 2 = 27; see
+            # expressload.py's `corrected_type = 25 + tgt_segnum`).  This
+            # merge=True path instead emits a single PLAIN load-file segment
+            # numbered 1 (the `_make_segment(..., 1, ...)` call a few lines
+            # below), so every bank-byte reloc here targets that same segment
+            # 1 and must be re-typed to 25 + 1 = 26 -- confirmed against the
+            # golden LinkIIgs -x corpus (work/rezloadcheck.py's Launcher.Load
+            # carries SUPER type 26, never 27, for its (2,16) class). Leaving
+            # the raw 27 in a single-segment file makes the GS/OS System
+            # Loader read it as an INTERSEG reference to a segment 2 that
+            # does not exist there, and it dies with error $1101.
+            if 27 in relocs:
+                relocs[26] = relocs.pop(27)
             tail = b''.join(_exl.emit_super(t, relocs[t]) for t in sorted(relocs))
         return _link._make_segment(out_name, out_load, out_org, out_kind, 1,
                                    merged, tail_recs=tail)

@@ -225,7 +225,9 @@ def encode(mnem, operand, longa, longi, evaluate, pc, reloc=None):
         # `pea #^X` / `#>X` / `#<X` push the bank / high / low part of X (2-byte
         # immediate), same byte-extraction the generic immediate path applies —
         # PEA previously dropped it, so `pea #^Loader_Entry` evaluated `^X` as a
-        # bitwise op (-> $ffff) instead of X>>16.
+        # bitwise op (-> $ffff) instead of X>>16. Same double-'#' quirk as the
+        # generic immediate case below applies here too (`pea #^#N` bakes
+        # $FFFF; see that block's comment — unverified against the corpus).
         if inner[:1] in '<>^':
             shift = {'<': 0, '>': 8, '^': 16}[inner[0]]
             return _emit(tab['abs'], _unpfx(inner[1:].strip()), 2, 'byte',
@@ -243,6 +245,32 @@ def encode(mnem, operand, longa, longi, evaluate, pc, reloc=None):
         w = _immwidth(m, longa, longi)
         # < > ^ select the low / high / bank part; the operand still occupies the
         # full immediate width (e.g. 2 bytes under LONGA ON), low part = the byte.
+        #
+        # DIALECT QUIRK, UNVERIFIED AGAINST THE ORACLE (task #15 investigation,
+        # 2026-07): a DOUBLE immediate marker over a numeric literal --
+        # `#^#0`/`#^#N` (as opposed to the ordinary `#^Label`/`#^0`) -- only
+        # strips the OUTER '#' here (`expr[1:]` below); the leftover inner '#'
+        # makes `expr.tokenize` raise Unresolved (see gsasm/expr.py's "unknown
+        # char" case), so the fixup never resolves and asm.py's
+        # apply_fixups/relink fallback bakes all-FF bytes: `pea #^#0` assembles
+        # to PEA $FFFF, while `pea #^0` (single marker) correctly assembles to
+        # PEA $0000. This surfaced via system-settings-gs's `PushLong` macro
+        # (`pea #^&val`) called as `PushLong #N` -- the caller's own '#' landed
+        # right where the macro's already nests one.
+        #   A 97K-line sweep of this repo's byte-exact-validated MPW corpus
+        # (ref/GSOS_6/IIGS.601.SRC + work/romsrc) found ZERO literal `#^#` (or
+        # `#<#`/`#>#`) occurrences -- real AsmIIgs sources never exercise this
+        # shape, so there is no captured .lst to confirm what real MPW AsmIIgs
+        # does with it. Indirect (non-conclusive) evidence points the same
+        # way real assemblers usually go with an ambiguous nested marker: at
+        # least two independent MPW macro libraries in the corpus
+        # (A.U.G/Finder/all.macros and GS.OS/FSTs/DOS3.3/my.all.macros, the
+        # `add4`/`add8` 32/64-bit-add macros) explicitly test whether a
+        # caller's own argument already starts with '#' and, if so, SLICE IT
+        # OFF (`&a1[2:255]`) before re-prefixing with their own `#^`/`#<` --
+        # i.e. real MPW macro authors engineered around ever emitting a literal
+        # double marker, rather than relying on the assembler to tolerate one.
+        # Do not change this fallback behavior without golden .lst evidence.
         if expr[:1] in '<>^':
             shift = {'<': 0, '>': 8, '^': 16}[expr[0]]
             return _emit(tab['imm'], expr[1:].strip(), w, 'byte', evaluate, pc, shift)
