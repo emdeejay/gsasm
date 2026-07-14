@@ -224,11 +224,8 @@ REZ_BUILDERS = {
 # SOURCE_BUILDERS branch in check() below. Lazy import for the same reason
 # as _build_sysresources_rsrc()/_build_prodos() above (easymountcheck ->
 # rezcheck -> `import diskcheck as dc` would otherwise be a module-load-time
-# cycle). NOT byte-exact (see easymountcheck.py's module docstring for the
-# two precisely diagnosed residuals, both in core asm/expressload files
-# outside this packet's edit scope); build_and_overlay() already tolerates
-# and reports a non-exact build without corrupting the image, so it is
-# still wired rather than left as an implicit SUBSTITUTE.
+# cycle). Byte-exact as of R11 (see easymountcheck.py's module docstring
+# for the two now-fixed asm.py/expressload.py root-cause bugs).
 def _build_easymount_data():
     import easymountcheck
     return easymountcheck.build_easymount_data_fork()

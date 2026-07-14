@@ -1669,7 +1669,27 @@ class Asm:
         finally:
             self.localstack.pop()
             self.macro_at.pop()
-            self.local_ctx, self.last_global = saved_ctx, saved_lg
+            self.local_ctx = saved_ctx
+            # A macro body that re-emits its own call-site label as a bare
+            # label-only line (the MPW `&lab NAME`/`&lab PROCNAME` idiom: the
+            # WHOLE point of that convention is to define `&lab` as a real,
+            # @-scope-resetting global label, identically to writing it
+            # directly with no macro) must let that definition persist as
+            # the enclosing @-label scope for code AFTER the call returns --
+            # otherwise two NAME-declared routines back-to-back (e.g.
+            # EasyMount.aii's `GetStandardFile name` / `KillStandardFile
+            # name`, or `GetStatus name` / `TestUserVolume name`) both fall
+            # back to whatever REAL (non-macro) label preceded them, and
+            # their same-named @-labels (`@done`, `@retry`/`@loop`/...)
+            # collide into one bogus shared scope. Restrict the exception to
+            # exactly this case -- last_global now equals the call-site's OWN
+            # label -- so a macro that defines some OTHER, unrelated internal
+            # label as private bookkeeping still has that label's effect on
+            # @-scope undone as before.
+            lbl = line.label
+            if not (lbl and not lbl.startswith('@')
+                    and self.last_global == self._fold(lbl)):
+                self.last_global = saved_lg
 
     # ----------------------------------------------------------------
     # Directive / instruction dispatch (line already &-substituted)

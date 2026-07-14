@@ -1,0 +1,4 @@
+{
+  "note": "NAME/PROCNAME macro-defined routine label must persist as the @-label scope for subsequent code, not get reverted by expand_macro's local_ctx sandbox restore (EasyMount.aii GetStandardFile/KillStandardFile @done collision)",
+  "commit": "R11 (@-label macro-scoping bug fixed in asm.py: Asm.expand_macro)"
+}

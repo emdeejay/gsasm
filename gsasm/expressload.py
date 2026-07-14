@@ -294,20 +294,29 @@ def _scan_relocs(
 
 def _scan_standalone_relocs(
         placed: list[tuple[str, list, int, dict, Any]],
-) -> list[tuple[int, int, int]]:
+) -> list[tuple[int, int, int, list, int]]:
     """Relocations MPW ExpressLoad emits as individual cRELOC/RELOC records
     rather than folding into a SUPER record.
 
-    A shifted relocation whose ``(size, shift)`` has NO SUPER encoding must be
-    standalone: the >>8 high byte (size 2), and the 1-byte >>16 bank byte
-    (``lda #^label`` under ``longa off`` — SUPER type 27 is size 2 only; a
-    1-byte patch field also cannot hold the target offset in-image, which is
-    why MPW emits the explicit-relOffset record).  Returns a sorted list of
-    ``(offset, size, shift, ops)`` (offset = merged-segment-relative byte
-    offset; shift = positive right shift; ops = the OMF expression op-list).
+    A relocation whose ``(size, shift)`` has NO SUPER encoding must be
+    standalone: the >>8 high byte (size 2), the 1-byte >>16 bank byte
+    (``lda #^label`` under ``longa off`` — SUPER type 27 is size 2 only), AND
+    a plain UNSHIFTED 1-byte field (``lda #label`` under ``longa off`` — e.g.
+    DES.aii's `lda #s1`/`lda #>s1` low/high-byte pointer-table pair, EasyMount
+    data-fork residual: only the shifted `#>s1` half used to qualify here
+    since `_SUPER_TYPE` has no size-1 entry at ANY shift, so the shift==0 half
+    was silently dropped from the reloc dictionary entirely instead of also
+    being flagged). A 1-byte patch field can never hold a 16/24-bit target
+    offset in-image regardless of shift, which is why MPW emits the explicit-
+    relOffset record for all three shapes.  Returns a sorted list of
+    ``(offset, size, shift, ops, seg_i)`` (offset = merged-segment-relative
+    byte offset; shift = positive right shift; ops = the OMF expression
+    op-list; seg_i = index into ``placed`` of the owning segment, so the
+    caller can evaluate ``ops`` against that segment's own object-local
+    symbol table).
     """
-    out: list[tuple[int, int, int, list]] = []
-    for _segname, recs, seg_base, _hdr, _asm in placed:
+    out: list[tuple[int, int, int, list, int]] = []
+    for seg_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
         body_off = 0
         for _, nm, d in recs:
             if nm == 'END':
@@ -319,20 +328,20 @@ def _scan_standalone_relocs(
                 ops = d[1]
                 if _has_sym_ref(ops):
                     shift = _get_shift(ops)
-                    if shift and (size, shift) not in _SUPER_TYPE:
-                        out.append((seg_base + body_off, size, shift, ops))
+                    if (size, shift) not in _SUPER_TYPE:
+                        out.append((seg_base + body_off, size, shift, ops, seg_i))
                 body_off += size
             elif nm == 'RELEXPR':
                 body_off += d[0]
             elif nm == 'DS':
                 body_off += d
-    out.sort()
+    out.sort(key=lambda r: r[0])
     return out
 
 
 def _scan_case_b(
         placed: list[tuple[str, list, int, dict, Any]],
-        sym: dict,
+        body_syms: list[dict],
 ) -> list[tuple[int, int, int, int]]:
     """Relocations whose *unshifted* target carries addend bits >= bit 24 —
     e.g. a ModalDialog filterProc/hook pointer written in source as
@@ -362,9 +371,21 @@ def _scan_case_b(
     Returns a sorted list of ``(offset, size, shift, flagged_value)`` —
     offset = merged-segment-relative byte offset; flagged_value = the full
     32-bit relOffset to emit (unmasked).
+
+    ``body_syms`` is a list aligned with ``placed`` — ``body_syms[seg_i]`` is
+    the symbol table that segment's own body was resolved against (the global
+    table merged with that segment's *owning object*'s local/private symbols,
+    e.g. another PROC segment's SEGNAME in the SAME object — a multi-object
+    link keeps segment names object-private, see ``linkiigs._build_symtab``),
+    NOT a single shared global table: a cross-segment-same-object reference
+    (e.g. DES.aii's own `DES` code segment addressing its own `DESDATA` data
+    segment) needs its owning object's private segment-name bindings to
+    resolve to the correct FINAL PLACED address, not just whatever a later
+    link-wide table happens to expose.
     """
     out: list[tuple[int, int, int, int]] = []
-    for _segname, recs, seg_base, _hdr, _asm in placed:
+    for seg_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
+        local_sym = body_syms[seg_i]
         body_off = 0
         for _, nm, d in recs:
             if nm == 'END':
@@ -384,8 +405,8 @@ def _scan_case_b(
                                 and ops[-3][0] == 'lit'):
                             ops_wo = ops[:-3] + ['end']
                         site = seg_base + body_off
-                        sym['__LOC__'] = site
-                        val = _link._eval(ops_wo, sym) & 0xFFFFFFFF
+                        local_sym['__LOC__'] = site
+                        val = _link._eval(ops_wo, local_sym) & 0xFFFFFFFF
                         if val > 0xFFFFFF:
                             out.append((site, size, shift, val))
                 body_off += size
@@ -854,12 +875,22 @@ def expressload(
     # Pass 3 / Pass 4: resolve each segment's body
     # ------------------------------------------------------------------
     # Defer #^/>>16 high-word shifts to SUPER type-27 relocs (consistent with linkiigs).
+    # body_syms[placed_i] is kept alongside bodies[placed_i] (the SAME table
+    # each segment's own body was resolved against) so the reloc-dictionary
+    # scan below can re-evaluate an expression exactly as the body builder
+    # did -- a multi-object link keeps segment names object-PRIVATE (see
+    # linkiigs._build_symtab), so a cross-segment-same-object reference (e.g.
+    # DES.aii's own `DES` code segment addressing its own `DESDATA` segment)
+    # only resolves to its correct FINAL PLACED address through this table,
+    # not the plain multi-object-shared `sym`.
     bodies: list[bytes] = []
+    body_syms: list[dict] = []
     for placed_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
         recs2, _srels = _linkiigs._defer_shifts(recs)
         oi = placed_obj_idx[placed_i]
         local_sym = sym if not obj_globals[oi] else {**sym, **obj_globals[oi]}
         bodies.append(_link._build_body(recs2, local_sym, seg_base))
+        body_syms.append(local_sym)
 
     # ------------------------------------------------------------------
     # Pass 5: group placed segments into output load segments
@@ -891,23 +922,26 @@ def expressload(
         #            ride a SUPER page list; relOffset is the FULL 32-bit
         #            flagged value (see _scan_case_b).
         combined: list[tuple[int, int, int, int]] = []
-        for offset, size, shift, ops in _scan_standalone_relocs(placed):
+        for offset, size, shift, ops, seg_i in _scan_standalone_relocs(placed):
             if size >= 2:
                 rel_off = int.from_bytes(merged_body[offset:offset + size],
                                          'little')
             else:
                 # a 1-byte field can't hold the target offset — evaluate the
                 # expression without its tail shift (same strip as
-                # _defer_shifts) against the placed symbol table
+                # _defer_shifts) against the OWNING segment's own object-
+                # local symbol table (body_syms[seg_i] — same table its body
+                # was resolved against; NOT the multi-object-shared `sym`,
+                # which omits object-private segment names).
                 ops_wo = ops
                 if (len(ops) >= 4 and ops[-1] == 'end'
                         and ops[-2] == ('op', 7)
                         and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
                     ops_wo = ops[:-3] + ['end']
-                rel_off = _link._eval(ops_wo, sym) & 0xFFFFFF
+                rel_off = _link._eval(ops_wo, body_syms[seg_i]) & 0xFFFFFF
             combined.append((offset, size, shift, rel_off))
 
-        case_b = _scan_case_b(placed, sym)
+        case_b = _scan_case_b(placed, body_syms)
         combined.extend(case_b)
         combined.sort(key=lambda r: r[0])
 

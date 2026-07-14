@@ -27,61 +27,91 @@ fork (`EasyMount.rii`).
     No new resource TYPES, no read/Convert statements (EasyMount.rii has
     none), no synthesized rResName (no resource header supplies a "name").
 
-    DATA FORK: NOT byte-exact -- 9214 built vs 9221 golden bytes, two
-    precisely diagnosed residuals, BOTH inside gsasm/asm.py + gsasm/
-    expressload.py/linkiigs.py (core assembler/linker files this packet's
-    brief explicitly forbids editing -- "another concurrent task owns core
-    asm/link/expressload files"). Reported here, not fixed:
+    DATA FORK (2026-07-15, R11): byte-exact, 9221/9221.  Two precisely
+    diagnosed residuals -- one in gsasm/asm.py, one in gsasm/expressload.py
+    -- fixed at their root cause (both were mis-SCOPING bugs, not the
+    "nearest-def tie-break" / "wrong reloc value" symptoms they first
+    looked like):
 
-      (a) ONE wrong byte in the 8223-byte code image (offset 0x688, a
-          `beq @done` branch operand inside EasyMount.aii's single
-          'EASYMOUNT' segment). `@done` is defined TWICE in the SAME
-          `_symkey`-scope ("SFTOOLNUMBER", i.e. no intervening non-`@`
-          label) -- offsets 1666 and 1708 -- and the reference at 1671
-          sits BETWEEN them. Golden wants the FARTHER-FORWARD def (offset
-          1708, branch +0x23); gsasm's `Asm.resolve()` nearest-by-distance
-          policy (asm.py ~line 601) picks the CLOSER backward one (branch
-          -7 = 0xf9). This looks fixable by "prefer nearest-forward, else
-          nearest-backward" -- EXCEPT that same-file evidence contradicts
-          it: `L2@RETRY`/`L2@LOOP` (offsets [5804,5921]/[5847,5963], same
-          single-segment scope) are only correct under the EXISTING
-          nearest-by-distance policy; forcing forward-preference for
-          `@done` flips two THEN-wrong bytes there instead (verified by a
-          scratch monkeypatch of Asm.resolve during this investigation,
-          not kept). So this is a genuine, non-trivial `@`-label
-          disambiguation gap -- not a one-line promotable fix -- left for
-          whoever next touches asm.py's @-label scoping.
-      (b) A 7-byte-shorter ExpressLoad relocation dictionary for the
-          'main' segment (846 golden reloc-dict bytes vs 839 built).
-          Golden carries two standalone cRELOC records for a `lda #s1` /
-          `lda #>s1` pair (DES.aii's own `s1` S-box table label, DES.aii
-          source line 99) at patch offsets 8207/8215 in the merged code
-          image, both relOffset=6529; the built dictionary has only ONE
-          (offset 8215, relOffset=336). 6529 - 336 == 6193 == exactly
-          EasyMount.aii's own linked segment length -- i.e. the
-          relocation target was computed relative to DES.aii's OWN
-          `DESDATA` segment instead of the final merged 'main' segment's
-          base, and the sibling `lda #s1` site was dropped from the
-          dictionary entirely (presumably folded into an evaluated
-          constant instead of flagged as needing relocation). This is a
-          multi-segment-per-object placement/reloc-dictionary computation
-          bug living in gsasm/expressload.py's `_scan_reloc_dictionary`-
-          equivalent machinery (this file's own local copy, mirroring
-          work/rezloadcheck.py's `_scan_reloc_dictionary`, does NOT
-          reproduce it -- DES.aii's cross-segment DESDATA<-DES reference
-          is a case this harness's local linking helper does not need to
-          special-case because it delegates straight to
-          gsasm.expressload.expressload(), so the bug is core, not
-          harness-local).
+      (a) `Asm.expand_macro()`'s @-label scope restore, not
+          `Asm.resolve()`'s nearest-by-distance tie-break, was the actual
+          bug. `@done` was defined TWICE under the SAME `_symkey` scope
+          key ("SFTOOLNUMBER@DONE", offsets 1666 and 1708) because
+          `GetStandardFile`/`KillStandardFile` are declared via the MPW
+          `&lab NAME` macro idiom (`NAME`'s whole body is just `&lab` --
+          a bare label-only line that re-emits the call-site label to
+          define it as a REAL, @-scope-resetting global, exactly as if
+          written directly with no macro at all). Since `NAME` has a
+          `label_var`, `dispatch()` never calls `define_label` at the
+          call site itself -- the label is defined INSIDE the macro body
+          -- and `expand_macro()` unconditionally restored
+          `self.last_global` to its pre-call value once the body
+          finished (a guard meant to sandbox a macro's PRIVATE
+          `local_ctx` @-labels), silently discarding that definition's
+          effect on @-scope. Two NAME-declared routines back-to-back
+          sharing an @-label name then fell back to whichever REAL
+          (non-macro) label preceded them BOTH -- exactly reproduced by
+          `GetStatus`/`TestUserVolume`'s `@retry`/`@loop`/`@match`/
+          `@exit` colliding into a bogus "L2@..." scope the same way
+          (offsets [5804,5921] etc.), confirming this is a general rule,
+          not an ad hoc `@done`-only fix. Fix (asm.py, `expand_macro`):
+          after the macro body runs, keep `last_global` as the body left
+          it when it now equals the call site's OWN (non-`@`) label --
+          i.e. only skip the restore in exactly that case -- else
+          restore as before (protecting a macro's other, genuinely
+          private internal labels; verified this moves NO other
+          @-label's resolved value across the full bytecheck/
+          kernelcheck/fstcheck/drivercheck/toolcheck corpus). With scope
+          keys correctly disambiguated, every @-label in
+          EasyMount.aii/DES.aii ends up with exactly ONE definition per
+          key -- `Asm.resolve()`'s nearest-by-distance tie-break
+          (asm.py ~line 601) is untouched and never even exercised for
+          these cases. Fixture: tests/fixtures/030-name-macro-at-label-scope/.
+      (b) `expressload.py`'s single-segment standalone-reloc scan
+          (`_scan_standalone_relocs`/`_scan_case_b`) evaluated
+          expressions against the plain multi-object-shared `sym` table
+          instead of the per-object-merged table `_link._build_body`
+          actually resolves each segment's body against.
+          `linkiigs._build_symtab` deliberately keeps segment names
+          object-PRIVATE in a multi-object link (a segment named
+          `SHUTDOWN` in one object must not shadow another object's
+          EXPORT of the same name) -- visible only via
+          `obj_globals[obj_idx]`. DES.aii's own `DES` code segment
+          addresses its own `DESDATA` data segment (the `lda #s1` /
+          `lda #>s1` S-box table pointer pair, DES.aii source line 99)
+          via exactly that object-private binding
+          (`sym83('DESDATA') + lit(336)`), but the reloc scan evaluated
+          it against bare `sym`, where `DESDATA` isn't a key -- 0 instead
+          of DESDATA's real placed base 6193 (EasyMount.aii's own linked
+          segment length, prepended before it) -- 6193 bytes short,
+          matching the originally observed relOffset delta exactly.
+          Separately, the `#s1` (low byte, shift=0) half of the pair was
+          dropped from the dictionary entirely: the standalone-scan
+          condition required a truthy `shift`, but a 1-byte field can't
+          ride ANY SUPER page list regardless of shift (`_SUPER_TYPE` has
+          no size-1 entry at all), so it needs a standalone record
+          either way, same as the already-handled size-1/shift=16 and
+          size-2/shift=8 cases. Fix: `expressload()` now keeps
+          `body_syms[placed_i]` (the exact table each segment's body was
+          resolved against) alongside `bodies[placed_i]`;
+          `_scan_standalone_relocs`/`_scan_case_b` are evaluated
+          per-segment against that table, and the standalone condition
+          drops the `shift and` guard. The multi-segment
+          (`multiseg=True`) ExpressLoad output path has NO analogous fix
+          -- it never scans for standalone case-A/B records at all (a
+          separate, larger gap; docs/TODO.md section 1).
+          `work/toolsetup_probe.py`'s Tool.Setup output is byte-identical
+          before and after this fix (confirmed) -- its residual is a
+          different wall (reloc-record ENCODING: SUPER vs standalone
+          cINTERSEG/cRELOC, not a placement-base error).
 
-    Given both residuals sit in files this packet may not edit, the data
-    fork is reported PRECISELY (not silently substituted): still wired
-    into work/diskcheck.py's SOURCE_BUILDERS (the existing
-    build_and_overlay() contract already tolerates and reports a
-    non-byte-exact build without corrupting the disk image -- see e.g.
-    Tool015/Tool016/Tool018's ~JumpTable gaps in diskbuilders/
-    expressload_files.py), so it counts honestly in the inventory instead
-    of silently defaulting to SUBSTITUTE.
+    Both fixes verified against the full gate (work/gate.py, at/above
+    baseline with a NEW rez_easymount_data_bytes_exact: 9221 metric),
+    tests/run_fixtures.py (30/30, including the new fixture above), and
+    the rez/kernel/fst/driver/tool suites unchanged. Wired into
+    work/diskcheck.py's SOURCE_BUILDERS (now producing a byte-exact
+    overlay, not merely a tolerated non-exact build) -- disk_logical_exact
+    improved 18->19/30 in the gate baseline as a result.
 
 Inputs, none committed (Apple material, `ref/`/`work/rincludes/` gitignored):
   - `ref/GSOS_6/IIGS.601.SRC/A.U.G/Finder/EasyMount/{EasyMount.rii,
@@ -181,9 +211,8 @@ def build_easymount_data_fork() -> bytes:
     """Assemble+link+ExpressLoad EasyMount's data fork per EasyMount.make's
     recipe. Single (default) 'main' output segment -- the makefile has no
     `-lseg` directive, matching e.g. windmgr/printmgr's single-segment
-    builders in diskbuilders/expressload_files.py. NOT byte-exact (see
-    module docstring for the two precisely diagnosed residuals, both in
-    core asm/expressload files this packet may not edit) -- returns
+    builders in diskbuilders/expressload_files.py. Byte-exact as of R11
+    (see module docstring for the two now-fixed root-cause bugs) -- returns
     whatever gsasm actually produces; callers compare against golden."""
     objects = []
     for name, defines in ASM_TARGETS:

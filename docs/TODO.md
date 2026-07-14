@@ -63,6 +63,18 @@ Two follow-up leads from the implementation:
 - **The multi-segment ExpressLoad path (`multiseg=True`) never emits ANY
   standalone reloc records** (case A or B) — this is why TS2/TS3/Tool.Setup
   didn't move. Separate, larger gap; needs its own careful pass.
+  (2026-07-15, R11: fixed the SAME class of placement-base bug in the
+  **single-segment** path's standalone-reloc scan instead — EasyMount's
+  `_scan_standalone_relocs`/`_scan_case_b` were evaluating expressions
+  against the plain multi-object `sym` table instead of each segment's own
+  `body_syms[placed_i]` — see `docs/design/rez.md`'s EasyMount section and
+  `work/easymountcheck.py`'s docstring. Confirmed this does NOT touch
+  `multiseg=True` at all: `work/toolsetup_probe.py`'s Tool.Setup output is
+  byte-identical before/after, and its residual is a different wall
+  anyway — reloc-record *encoding* (SUPER vs standalone cINTERSEG/cRELOC),
+  not a placement-base error. The multiseg gap above still needs its own
+  pass to port case-A/B scanning into the per-group loop with correct
+  group-relative addressing.)
 
 ## 2. `~JumpTable` segments (Tool015/016/018)
 

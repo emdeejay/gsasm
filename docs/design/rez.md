@@ -87,21 +87,22 @@ files + `Finder.rez.equ`). The Pascal CDEVs (Printer, RAM, Slots, Time) and
 ControlPanel NDA can never be fully byte-exact — their embedded code resources
 are Pascal-compiled — so they stay SUBSTITUTE, like their data forks.
 
-**EasyMount (2026-07-14, `work/easymountcheck.py`): resource fork byte-exact;
-data fork precise-residual.** EasyMount is the first dual-fork target (a real
-65816 data fork, not an empty one like Sys.Resources) and the first to prove
-the Rez pipeline generalizes: every resource type `EasyMount.rii` uses
-(rVersion, rComment, rIcon, rControlList, rControlTemplate incl. the
-previously-unexercised `RadioControl` switch case, rPString,
-rTextForLETextBox2, rWindParam1) was already golden-verified by the
-Sys.Resources corpus — no new types, no `read`/Convert, no synthesized
-rResName. Two small, evidence-backed `gsasm/rez/gen.py` additions closed the
-gap to byte-exact (2500/2500 bytes, 25/25 resources): the `\$HH` string
-escape (a hex-byte escape distinct from `\0xHH`, needed by the Cancel/Connect
-`KeyEquiv` char pairs) and generalizing the TypedField "partial-fill omits
-the rest of the field list" rule to nested ArrayField/SwitchField/GroupField
-(needed by `iconButtonControl`'s unnamed `KeyEquiv` array, supplied only 7 of
-8 values). The data fork (`EasyMount.aii`+`DES.aii`, assembled with
+**EasyMount (2026-07-14 resource fork; 2026-07-15 data fork — `work/
+easymountcheck.py`): BOTH forks byte-exact.** EasyMount is the first
+dual-fork target (a real 65816 data fork, not an empty one like
+Sys.Resources) and the first to prove the Rez pipeline generalizes: every
+resource type `EasyMount.rii` uses (rVersion, rComment, rIcon,
+rControlList, rControlTemplate incl. the previously-unexercised
+`RadioControl` switch case, rPString, rTextForLETextBox2, rWindParam1) was
+already golden-verified by the Sys.Resources corpus — no new types, no
+`read`/Convert, no synthesized rResName. Two small, evidence-backed
+`gsasm/rez/gen.py` additions closed the gap to byte-exact (2500/2500 bytes,
+25/25 resources): the `\$HH` string escape (a hex-byte escape distinct from
+`\0xHH`, needed by the Cancel/Connect `KeyEquiv` char pairs) and
+generalizing the TypedField "partial-fill omits the rest of the field
+list" rule to nested ArrayField/SwitchField/GroupField (needed by
+`iconButtonControl`'s unnamed `KeyEquiv` array, supplied only 7 of 8
+values). The data fork (`EasyMount.aii`+`DES.aii`, assembled with
 `-d DebugSymbols=0` and ExpressLoad'd — its own bytes confirm a
 `~ExpressLoad` directory segment despite the makefile's `linkiigs -t $B6`
 carrying no explicit `-x`/ExpressLoad flag, same as every other
@@ -111,36 +112,76 @@ absent from the `ref/GSOS_6/IIGS.601.SRC` archive snapshot entirely — like
 TypesIIGS.r, recovered from `ref/gsrom3/system500.hfv`
 (`MPW-GM:MPW:Interfaces:AIIGSIncludes:`, an HFS volume) via `hfsutils`
 (`hmount`/`hcopy`/`humount`) into `work/rincludes/AIIGSIncludes/`
-(gitignored). With those, both sources assemble cleanly (0 errors), but the
-linked/ExpressLoad'd result is 9214 built vs 9221 golden bytes — two
-precisely diagnosed residuals, BOTH inside files this packet may not edit
-(`gsasm/asm.py`, `gsasm/expressload.py`/`linkiigs.py` — owned by the
-concurrent ExpressLoad/toolcheck packet): (a) one wrong branch-offset byte
-from `@done` being defined twice in the same `_symkey` scope with no
-enclosing non-`@` label between them (`EasyMount.aii`'s whole body is one
-`EASYMOUNT` segment) — `Asm.resolve()`'s nearest-by-distance tie-break picks
-the nearer backward def where golden needs the farther forward one, but a
-scratch monkeypatch trying "prefer forward" broke two OTHER same-file cases
-(`L2@RETRY`/`L2@LOOP`) that only work under the existing nearest policy, so
-this is a genuine `@`-label disambiguation gap, not a one-line fix; (b) a
-7-byte-short ExpressLoad relocation dictionary — a `lda #s1`/`lda #>s1` pair
-(DES.aii's own S-box table label) resolves 6193 bytes (exactly
-EasyMount.aii's own linked length) short of its correct target, and its
-sibling site is dropped from the dictionary entirely, consistent with a
-cross-segment (DES.aii's `DES` code segment referencing its own `DESDATA`
-segment) placement-base bug in the reloc-dictionary scan. `work/
-diskcheck.py` wires both of EasyMount's forks anyway (REZ_BUILDERS for the
-now-exact resource fork; a new REZ-owned SOURCE_BUILDERS branch for the
-data fork, additive and independent of the existing BUILD-owner branch) —
-the existing `build_and_overlay()` contract already tolerates and reports a
-non-exact build without corrupting the image or the physical byte-match
-(stays 100%), so EasyMount counts honestly in the inventory (+1 wireable
-attempt, +1 logical-exact, +2500 built-bytes from the resource fork; the
-data fork's 9214 bytes are correctly NOT counted/overlaid) instead of
-silently defaulting to SUBSTITUTE. A `rez_easymount_bytes_exact` (or
-similar per-fork) gate metric is a natural follow-on once both forks close;
-not registered here since `work/gate.py`/`gate_baseline.json` are the
-concurrent packet's files.
+(gitignored). With those, both sources assemble cleanly (0 errors), and
+(R11, 2026-07-15) the linked/ExpressLoad'd result is now byte-exact
+(9221/9221) — two precisely diagnosed residuals, both in core asm/link
+files, fixed at their root cause:
+
+  (a) **`Asm.expand_macro()`'s @-label scope, not `Asm.resolve()`'s
+  tie-break.** The wrong branch-operand byte was never a nearest-vs-farther
+  distance question: `@done` was defined TWICE under the SAME `_symkey`
+  scope key (`SFTOOLNUMBER@DONE`) because `GetStandardFile`/
+  `KillStandardFile` are declared with the MPW `&lab NAME` macro idiom (the
+  `NAME` macro's body is just `&lab` — a bare label-only line that
+  re-emits the call-site label to define it as a real, @-scope-resetting
+  global). Since `NAME` has a `label_var`, `dispatch()` never calls
+  `define_label` at the call site itself — the label is defined INSIDE the
+  macro body — and `expand_macro()` unconditionally restored
+  `self.last_global` to its pre-call value when the body finished (a
+  guard meant to sandbox a macro's PRIVATE `local_ctx` @-labels), silently
+  discarding that definition's effect on @-scope. Two NAME-declared
+  routines back-to-back sharing an @-label name (`@done`; also
+  `GetStatus`/`TestUserVolume`'s `@retry`/`@loop`/`@match`/`@exit`, which
+  collided into a bogus `L2@...` scope the same way) then fall back to
+  whatever REAL, non-macro label preceded them both. The fix: after a
+  macro body runs, keep `last_global` as the body left it when it now
+  equals the call site's own (non-`@`) label — i.e. only skip the restore
+  in exactly the case where the body defined that same label as a real
+  global — else restore as before (protecting a macro's other, genuinely
+  private internal labels). With scope keys correctly disambiguated this
+  way, every `@`-label in EasyMount.aii/DES.aii ends up with exactly ONE
+  definition per key — `Asm.resolve()`'s nearest-by-distance tie-break
+  policy is untouched and never even exercised for these cases. Fixture:
+  `tests/fixtures/030-name-macro-at-label-scope/`.
+
+  (b) **`expressload.py`'s single-segment reloc-dictionary scan evaluated
+  standalone-record expressions against the plain multi-object-shared
+  `sym` table, not the per-object-merged table `_build_body` actually
+  resolves bodies against.** `linkiigs._build_symtab` deliberately keeps
+  segment names object-PRIVATE in a multi-object link (a segment named
+  `SHUTDOWN` in one object must not shadow another object's EXPORT of the
+  same name) — visible only via `obj_globals[obj_idx]`. DES.aii's own
+  `DES` code segment addresses its own `DESDATA` data segment (the `lda
+  #s1`/`lda #>s1` S-box-table-pointer pair) via exactly that
+  object-private binding, but `_scan_standalone_relocs`/`_scan_case_b`
+  evaluated their expressions against bare `sym`, where `DESDATA` isn't a
+  key — evaluating to 0 instead of DESDATA's real placed base (6193, which
+  is exactly EasyMount.aii's own linked segment length prepended before
+  it), 6193 bytes short of the correct address. Separately, the `#s1` (low
+  byte, shift=0) half of the pair was dropped from the dictionary
+  entirely: the standalone-scan condition required a truthy `shift`, but a
+  1-byte field can't ride ANY SUPER page list (`_SUPER_TYPE` has no size-1
+  entry at any shift) regardless of whether it's shifted, so it needs a
+  standalone record either way. Fix: `expressload()` now keeps
+  `body_syms[placed_i]` (the exact table each segment's body was resolved
+  against) alongside `bodies[placed_i]`, and `_scan_standalone_relocs`/
+  `_scan_case_b` are evaluated per-segment against that table; the
+  standalone condition drops the `shift and` guard (any `(size, shift)`
+  absent from `_SUPER_TYPE` needs a standalone record, matching the
+  existing size-1/shift=16 and size-2/shift=8 cases already handled this
+  way). The **multi-segment** (`multiseg=True`) ExpressLoad output path
+  has no analogous fix — it never scans for standalone case-A/B records at
+  all (a separate, larger gap; see `docs/TODO.md` section 1, and
+  `work/toolsetup_probe.py` — TS2/TS3/Tool.Setup's residuals are a
+  different reloc-record-ENCODING wall, unrelated to this placement-base
+  bug, and were unaffected by this fix).
+
+`work/diskcheck.py` wires both of EasyMount's forks (REZ_BUILDERS for the
+resource fork; a REZ-owned SOURCE_BUILDERS branch for the now-exact data
+fork) — `disk_logical_exact` improved 18→19/30 in the gate baseline as a
+result. Gate metric `rez_easymount_data_bytes_exact: 9221` (alongside the
+existing `rez_easymount_rsrc_bytes_exact: 2500`) is registered in
+`work/gate.py`/`gate_baseline.json`.
 
 ## Work packets
 

@@ -1,0 +1,5 @@
+SEGMENT 1: 'DEMO'
+  LOADNAME='main' LENGTH=23 KIND=$4000 ORG=0 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=84
+  +0003b CONST     len=23   a9 01 00 f0 03 a9 02 00 60 a9 03 00 f0 08 ea ea ea ea ea ea ea ea 60
+  +00053 END
+TOTAL 84 bytes, 1 segment(s)

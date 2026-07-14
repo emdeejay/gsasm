@@ -60,16 +60,17 @@ CHECKS = [
     ('rezbuildcheck', ['rezbuildcheck.py'], [
         ('rez_sysresources_bytes_exact',
          r'REZ_SYSRESOURCES_BYTES_EXACT\s+(\d+)', 'count')]),
-    # R10: EasyMount resource fork (the data fork is deliberately NOT gated
-    # yet — it has two diagnosed residuals awaiting core asm/expressload
-    # fixes; see work/easymountcheck.py's docstring. The regex anchors on
-    # the PASS line, so a resource-fork regression makes the parse fail
-    # loudly rather than shrinking a number. easymountcheck's nonzero exit
-    # (from the known data-fork FAIL) is irrelevant here: run_check parses
-    # output, it does not consult exit status.
+    # R10/R11: EasyMount, both forks byte-exact (R11 closed the data fork's
+    # two diagnosed residuals: asm.py's @-label macro-scoping bug and
+    # expressload.py's per-object reloc-dictionary symbol table -- see
+    # work/easymountcheck.py's docstring). Each regex anchors on its own PASS
+    # line, so a regression on EITHER fork makes the parse fail loudly rather
+    # than shrinking a number.
     ('easymountcheck', ['easymountcheck.py'], [
         ('rez_easymount_rsrc_bytes_exact',
-         r'PASS EasyMount resource fork: built=(\d+)B', 'count')]),
+         r'PASS EasyMount resource fork: built=(\d+)B', 'count'),
+        ('rez_easymount_data_bytes_exact',
+         r'PASS EasyMount data fork: built=(\d+)B', 'count')]),
 ]
 
 FULL_CHECKS = [
