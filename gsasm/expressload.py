@@ -253,6 +253,8 @@ def _has_sym_ref(ops: list) -> bool:
     return any(isinstance(op, tuple) and op[0].startswith('sym') for op in ops)
 
 
+
+
 def _scan_relocs(
         placed: list[tuple[str, list, int, dict, Any]],
 ) -> dict[int, list[int]]:
@@ -319,6 +321,73 @@ def _scan_standalone_relocs(
                     shift = _get_shift(ops)
                     if shift and (size, shift) not in _SUPER_TYPE:
                         out.append((seg_base + body_off, size, shift, ops))
+                body_off += size
+            elif nm == 'RELEXPR':
+                body_off += d[0]
+            elif nm == 'DS':
+                body_off += d
+    out.sort()
+    return out
+
+
+def _scan_case_b(
+        placed: list[tuple[str, list, int, dict, Any]],
+        sym: dict,
+) -> list[tuple[int, int, int, int]]:
+    """Relocations whose *unshifted* target carries addend bits >= bit 24 —
+    e.g. a ModalDialog filterProc/hook pointer written in source as
+    ``#Label+$80000000`` or ``#Label+$C0000000`` (bit 31 / bit 30 conventions).
+
+    Such a target cannot ride in a SUPER page list: a page-list patch only
+    ever restores a clean segment-relative offset (<= 24 bits), never an
+    out-of-range flag OR'd on top.  MPW's ExpressLoad converter recognises
+    this and emits a standalone RELOC (0xE2) instead, whose relOffset is the
+    FULL, un-shifted 32-bit expression value (flag bits included) — even for
+    the paired high-word (``shift=16``, e.g. ``lda #^(Label+$80000000)``) half
+    of a far-pointer PEA pair, which stores the SAME full value as its
+    low-word (``shift=0``) partner, not the value shifted right 16.
+
+    Confirmed against the golden corpus (work/reloc_survey.py, docs/TODO.md
+    section 1): all 9 flagged case-B records are ``(size, shift)`` in
+    ``{(2, 0), (2, 16)}`` — SUPER types 0 and 27, the far-pointer PEA-pair /
+    bank-byte filter-hook idiom.  Restricting to those two (size, shift) pairs
+    (rather than every ``(size, shift)`` in ``_SUPER_TYPE``, which also
+    includes the 3/4-byte ``dc.l routine-1`` dispatch-table entries) matters:
+    the dispatch idiom's "-1" is OMF-encoded as ``ADD lit=0xFFFFFFFF``
+    (two's-complement), and if the referenced routine symbol is unresolved for
+    an unrelated reason (a unresolved-symbol linkage bug, e.g. Tool023/Tool027's
+    known symbol-scoping residuals) that evaluates to 0xFFFFFFFF too — an
+    accident that must not be mistaken for a deliberate flagged addend.
+
+    Returns a sorted list of ``(offset, size, shift, flagged_value)`` —
+    offset = merged-segment-relative byte offset; flagged_value = the full
+    32-bit relOffset to emit (unmasked).
+    """
+    out: list[tuple[int, int, int, int]] = []
+    for _segname, recs, seg_base, _hdr, _asm in placed:
+        body_off = 0
+        for _, nm, d in recs:
+            if nm == 'END':
+                break
+            if nm in ('CONST', 'LCONST'):
+                body_off += len(d)
+            elif nm in ('LEXPR', 'BEXPR', 'EXPR'):
+                size = d[0]
+                ops = d[1]
+                if _has_sym_ref(ops):
+                    shift = _get_shift(ops)
+                    if _SUPER_TYPE.get((size, shift)) in (0, 27):
+                        ops_wo = ops
+                        if (shift and len(ops) >= 4 and ops[-1] == 'end'
+                                and ops[-2] == ('op', 7)
+                                and isinstance(ops[-3], tuple)
+                                and ops[-3][0] == 'lit'):
+                            ops_wo = ops[:-3] + ['end']
+                        site = seg_base + body_off
+                        sym['__LOC__'] = site
+                        val = _link._eval(ops_wo, sym) & 0xFFFFFFFF
+                        if val > 0xFFFFFF:
+                            out.append((site, size, shift, val))
                 body_off += size
             elif nm == 'RELEXPR':
                 body_off += d[0]
@@ -806,11 +875,22 @@ def expressload(
         # ---- Single-segment output (original behavior) ----
         merged_body = _linkiigs._merge_bodies(placed, bodies)
 
-        # Standalone cRELOC/RELOC records (e.g. >>8 high-byte relocs, which have
-        # no SUPER type) come BEFORE the SUPER records, matching MPW ExpressLoad.
-        # Their relOffset is the target's segment-relative offset, which the
-        # deferred-shift pass already stored as the placeholder in merged_body.
-        standalone = bytearray()
+        # Standalone cRELOC/RELOC records come BEFORE the SUPER records,
+        # matching MPW ExpressLoad, sorted together by patch offset (verified:
+        # the golden corpus's standalone records are always in ascending-
+        # offset order regardless of case A/B — work/reloc_survey.py).
+        #
+        # Two cases collapse into one combined, offset-sorted list:
+        #   case A — a shifted relocation whose (size, shift) has NO SUPER
+        #            encoding at all (e.g. the >>8 high-byte cRELOC); its
+        #            relOffset is the plain segment-relative target.
+        #   case B — a relocation whose (size, shift) WOULD be SUPER-covered,
+        #            but whose target expression carries addend bits >= 24
+        #            (out of segment-address range, e.g. a ModalDialog
+        #            filterProc `#Label+$80000000` convention) and so cannot
+        #            ride a SUPER page list; relOffset is the FULL 32-bit
+        #            flagged value (see _scan_case_b).
+        combined: list[tuple[int, int, int, int]] = []
         for offset, size, shift, ops in _scan_standalone_relocs(placed):
             if size >= 2:
                 rel_off = int.from_bytes(merged_body[offset:offset + size],
@@ -825,13 +905,30 @@ def expressload(
                         and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
                     ops_wo = ops[:-3] + ['end']
                 rel_off = _link._eval(ops_wo, sym) & 0xFFFFFF
+            combined.append((offset, size, shift, rel_off))
+
+        case_b = _scan_case_b(placed, sym)
+        combined.extend(case_b)
+        combined.sort(key=lambda r: r[0])
+
+        standalone = bytearray()
+        for offset, size, shift, rel_off in combined:
             if offset < 0x10000 and rel_off < 0x10000:
                 standalone += emit_creloc(size, shift, offset, rel_off)
             else:
                 standalone += emit_reloc(size, shift, offset, rel_off)
 
-        # Scan relocs over ALL placed segments.
+        # Scan relocs over ALL placed segments, excluding any site case-B
+        # already claimed as standalone (it cannot ALSO ride a SUPER page
+        # list — that is the whole point of the flag).
         relocs_by_type = _scan_relocs(placed)
+        case_b_offsets = {r[0] for r in case_b}
+        if case_b_offsets:
+            for stype in list(relocs_by_type):
+                relocs_by_type[stype] = [o for o in relocs_by_type[stype]
+                                         if o not in case_b_offsets]
+                if not relocs_by_type[stype]:
+                    del relocs_by_type[stype]
         super_records = bytearray()
         for stype in sorted(relocs_by_type):
             super_records += emit_super(stype, relocs_by_type[stype])

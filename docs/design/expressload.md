@@ -1,7 +1,10 @@
 # Design: ExpressLoad relinker (M4)
 
-**Status: implemented** (`gsasm/expressload.py`), with one documented limit —
-the case-B relocation encoding analysed at the end of this doc.
+**Status: implemented** (`gsasm/expressload.py`). The case-B relocation
+encoding discussed at the end of this doc was believed to be an
+unreproducible closed-toolchain quirk; that conclusion was **overturned in
+R9** (2026-07) — it is the source expression's own addend, and the rule is
+now implemented for the single-segment ExpressLoad path (`_scan_case_b`).
 **Replaces:** MPW `ExpressLoad`. **Unlocks:** byte-exact `System/Tools/ToolNNN`
 (M1) and the GS/OS `Loader2.0`. Read `README.md` first.
 
@@ -80,12 +83,85 @@ bytes as decoded above (inverse of the walker).
 - Some tools are single-segment (`main` only); multi-segment tools (bigger managers)
   will exercise INTERSEG SUPER types — handle single-segment first, then generalize.
 
-## Why the case-B relocation encoding is not reproducible
+## Case-B relocation encoding — CONFIRMED and implemented (R9)
+
+**Superseded finding.** This section originally concluded the case-B
+standalone-RELOC flag was "internal LinkIIgs state" absent from the archive
+and out of scope to reproduce (see "Original (superseded) analysis" below for
+that reasoning, kept for the record). A source sweep (`docs/TODO.md` section
+1) overturned it: **the flag is the source expression's own addend**, not
+opaque linker state, and the rule is now implemented in
+`gsasm/expressload.py::_scan_case_b`.
+
+**The rule.** A relocation whose target expression carries addend bits >= 24
+(out of segment-address range — e.g. the ModalDialog filterProc/hook-pointer
+conventions `#Label+$80000000` / `#Label+$C0000000`, bit 31 / bit 30) cannot
+be represented in a SUPER page list: a page-list patch only ever restores a
+clean, <=24-bit segment-relative offset, never an out-of-range flag OR'd on
+top. MPW's ExpressLoad converter recognises this and emits a standalone RELOC
+(0xE2) instead, whose `relOffset` is the FULL, un-shifted 32-bit expression
+value (flag bits included) — for BOTH halves of a far-pointer PEA pair (the
+high-word `pea #^(Label+$80000000)` at shift=16 stores the SAME flagged value
+as its low-word `pea #Label+$80000000` partner at shift=0, not the value
+shifted right 16), and for an unpaired single shift-16 record (Tool027's `lda
+#^(Label+$80000000)` style, no matching low-word half). All 9 golden flagged
+case-B records map to exactly this source-level pattern — see `docs/TODO.md`'s
+table for the source line of each.
+
+**What the rule does NOT catch (and must not).** `_scan_case_b` restricts
+itself to `(size, shift)` in `{(2, 0), (2, 16)}` — SUPER types 0 and 27, the
+only two the golden corpus ever shows flagged (`work/reloc_survey.py`
+hypothesis test 2). It deliberately excludes the ubiquitous `dc.l routine-1`
+dispatch-table idiom (`(size, shift) = (4, 0)`, SUPER type 1): that idiom's
+"-1" is OMF-encoded as `ADD lit=0xFFFFFFFF` (two's-complement), and if the
+referenced routine symbol is unresolved for an unrelated reason its evaluated
+target ALSO lands at 0xFFFFFFFF — a large 32-bit value with no relation to a
+deliberate flagged addend. An earlier draft of this fix gated only on the
+*evaluated* value exceeding 24 bits and produced exactly this false positive
+against Tool023/Tool027's (independently known, pre-existing) unresolved-
+symbol residual; restricting to the two confirmed `(size, shift)` pairs closes
+that hole without needing to special-case the literal's shape.
+
+**Where the flag was previously lost.** The plain-load-file path (LinkIIgs
+`-x`, no ExpressLoad — `work/rezloadcheck.py`'s Launcher.Load) already carried
+the flagged addend through to its own standalone RELOC correctly (R6). The
+ExpressLoad path lost it because `_scan_relocs` classified every relocation by
+`(size, shift)` alone, with no magnitude check: a flagged far-pointer pair has
+exactly the same `(size, shift)` as an ordinary `lda #Label` / `lda #^Label`
+pair, so it was silently folded into the type-0 / type-27 SUPER groups instead
+of staying standalone.
+
+**Measured effect (`work/reloc_diag.py`, `work/gate.py --full`
+`disk_logical_exact`):**
+
+| Tool | Before | After | Notes |
+|---|---|---|---|
+| Tool014 (WindMgr) | 29,998/30,018 B (−20 B, reloc-dict only) | **30,018/30,018 — byte-exact** | sole residual was the far-pointer pair |
+| Tool027 (FontMgr) | 13,009/13,019 B (−10 B reloc dict + 2 code-image bytes) | 13,017/13,019 (2 bytes) | reloc dict now exact; remaining 2 bytes are a pre-existing, unrelated code-image residual (`work/diskbuilders/expressload_files.py`) |
+| Tool023 (StdFile) | 16,970/17,012 B (missing 4 standalone RELOCs) | 17,010/17,012 | one pair now correct (`0x80002a29`); the other pair's *value* is wrong (`0xC0000000` instead of `0xC00022ec`) because `GETFILTER` resolves unresolved in gsasm's merged symbol table — a pre-existing, unrelated linkiigs scoping bug this packet did not fix, present before this rule as one of the tool's documented "4 code-image diffs" |
+
+`disk_logical_exact` (the full on-disk-file byte-exact count, `work/gate.py
+--full`) improved from 16/28 to 17/28 — Tool014 is the one file that flips
+fully exact.
+
+**What remains out of scope.** TS2/TS3 (`work/diskbuilders/toolsets.py`) and
+the combined Tool.Setup harness (`work/toolsetup_probe.py`) build through
+`expressload(..., opts={'multiseg': True})`. That path has never emitted ANY
+standalone reloc record (case A or case B) — it only ever produces SUPER
+groups — a separate, pre-existing gap from the one this packet closes (which
+is scoped to the single-segment `expressload()` path, `_scan_case_b`'s only
+caller). TS3's golden case-B record (`docs/TODO.md`'s table, `WindMgr/
+NewCalls.asm:6465` again, reassembled into `Patch3/ts3.makeout`) is therefore
+still SUPER-ized in gsasm's output, and TS2/TS3/Tool.Setup remain non-byte-
+exact for that reason plus the separately-documented symbol-scoping residual
+(`toolsets.py`'s module docstring). Extending standalone-reloc support
+(case A and case B both) to the multi-segment path is future work.
+
+### Original (superseded) analysis
 
 An empirical survey (`work/reloc_survey.py`) plus a read of the archived
-converter-side source settled whether the case-B standalone-RELOC flag can be
-derived from the input. It cannot; it is a closed-toolchain quirk, and
-reproducing it is out of scope.
+converter-side source *appeared* to settle whether the case-B standalone-RELOC
+flag could be derived from the input, concluding it could not.
 
 Survey — every standalone RELOC/cRELOC in the 6 `len<EOF` gold files (Tool014/023/
 027/034, TS2/TS3): **30 records, a perfect partition:**
@@ -100,17 +176,19 @@ Survey — every standalone RELOC/cRELOC in the 6 `len<EOF` gold files (Tool014/
   0x80 vs 0xc0 has **no structural predictor** in the corpus (both appear in Tool023
   for different targets at identical (size,shift)).
 
-Why not derivable (dispositive): the ExpressLoad **converter** source — the
-tool that GENERATES these records — is **absent from the GS.OS 6.0.1 archive.** Only
-the runtime loader is present (`Loader/ExpressLoad*`, `ProcReloc.DataBankChanged`,
-`Relocation.a`), and it adds relOff **unmasked**, so it cannot even reveal the flag's
-meaning. The generator was part of MPW `LinkIIgs`; the full `IIGS.601.SRC.tar.txt`
-listing contains no LinkIIgs / converter / "compress" source. The FLAG is internal
-LinkIIgs state copied verbatim into the output — nothing in-tree computes it.
+Why "not derivable" seemed dispositive at the time: the ExpressLoad
+**converter** source — the tool that GENERATES these records — is **absent
+from the GS.OS 6.0.1 archive.** Only the runtime loader is present
+(`Loader/ExpressLoad*`, `ProcReloc.DataBankChanged`, `Relocation.a`), and it
+adds relOff **unmasked**, so it cannot even reveal the flag's meaning. The
+generator was part of MPW `LinkIIgs`; the full `IIGS.601.SRC.tar.txt` listing
+contains no LinkIIgs / converter / "compress" source.
 
-Consequence: gsasm's reloc for these sites carries the clean offset (e.g. 0x5225),
-never the flagged 0x80005225, and cannot choose 0x80 vs 0xc0. SUPER-izing (type-27 +
-type-0) is byte-different but functionally identical; the residual is exactly the
-record-format delta (e.g. Tool023 −42B = 4×11B RELOC − 2B SUPER/pair). Reproducing
-it would be per-tool magic-number bespokery, which this project does not do.
-The conclusion can be re-verified anytime with `work/reloc_survey.py`.
+**What this analysis missed:** it never asked whether 0x80/0xc0 correlated
+with the *source*, only with the converter's *output* structure. R6's
+Launcher.Load finding (`#VersionFilter+$80000000`) — and then a source sweep
+matching all 9 golden records to literal addends at their exact source lines
+— showed the FLAG was written by the *programmer*, in the `.asm` file, not
+computed by the converter at all. The converter's source being absent turned
+out to be irrelevant: there was nothing to reverse-engineer, because the
+"internal state" was actually visible input all along.

@@ -21,8 +21,9 @@ Close but not exact:
 
 - **GS.OS** — 38,711 of 38,805 bytes (99.76%). The 94-byte residual is a
   proven external floor; see below.
-- **Toolbox toolsets** — 102,588 of 103,138 bytes (99.5%) across 13
-  `ToolNNN` files (`work/toolcheck.py`).
+- **Toolbox toolsets** — 118,524 of 119,080 bytes (99.5%) across 14
+  `ToolNNN` files (`work/toolcheck.py`; Tool023/StdFile added in R9 — its
+  sources assemble cleanly, see `docs/design/expressload.md`).
 - **Object-file encoding** — 40 of 61 ROM objects are byte-identical OMF;
   all 61 are *link-identical* (`work/linkcheck.py`): linking gsasm's object
   and Apple's original produces the same load image, so the remaining
@@ -40,15 +41,24 @@ anywhere in `IIGS.601.SRC` defines or exports them — Apple's build resolved
 them from something outside this archive. A byte-exact GS.OS is therefore
 not derivable from these sources, regardless of toolchain fidelity.
 
-**ExpressLoad relocation encoding ("case B") is not a function of the
-input.** For several shipping tools (Tool014/023/027, TS2/TS3, Tool.Setup)
-the ExpressLoad converter left some relocations as standalone
-cRELOC/cINTERSEG records where it compressed others into SUPER records. The
-choice does not correlate with anything in the input load file; the
-converter source in the archive is a different revision that always
-compresses. Tool.Setup illustrates the bound: both its code segments
-reproduce length- and byte-exact, and only ~300 bytes of relocation-record
-encoding differ. See `docs/design/expressload.md`.
+**ExpressLoad relocation encoding ("case B") — CLOSED for the single-segment
+path (R9).** Previously classed as "not a function of the input"; overturned
+by a source sweep (`docs/TODO.md`): the case-B standalone-RELOC flag is the
+source expression's own out-of-range addend (e.g. `#Label+$80000000` /
+`#Label+$C0000000`, the ModalDialog filterProc/hook-pointer convention, bit
+31/30), not opaque LinkIIgs state, and the rule (`gsasm/expressload.py::
+_scan_case_b`) is now implemented for the single-segment ExpressLoad path.
+Measured effect (`work/gate.py --full`'s `disk_logical_exact`, 16/28 ->
+17/28): **Tool014 (WindMgr) is now fully byte-exact** (its sole residual was
+this flag); Tool027 (FontMgr)'s relocation dictionary is now exact, leaving
+only 2 bytes of a separate, pre-existing code-image residual; Tool023
+(StdFile) improved but is not byte-exact — one of its two flagged pairs
+carries a wrong *value* because of an unrelated, pre-existing linkiigs
+symbol-scoping bug (`GETFILTER` resolves unresolved), not a gap in this rule.
+TS2/TS3/Tool.Setup build through a separate multi-segment ExpressLoad path
+that has never emitted any standalone reloc record (case A or case B) — a
+different, still-open gap — so they remain non-byte-exact. See
+`docs/design/expressload.md`.
 
 **SCSIHD.Driver: the golden binary does not match the archived source.**
 The archived `SCSI.Drivers` source assembles byte-exact for the other three

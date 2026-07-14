@@ -82,6 +82,14 @@ TOOLMAP = {
     '020': ('LineEdit',   ['le.asm', 'common.asm', 'LineEditProc.asm']),
     '021': ('DialogMgr',  ['dialog.asm']),
     '022': ('Scrap',      ['scrap.asm', 'common.asm']),
+    # StdFile: single-segment, no -lseg in makefile (matches
+    # diskbuilders/expressload_files.py::_build_tool023's link order). Sources
+    # assemble cleanly; code image is 4 bytes off gold (an unrelated
+    # linkiigs symbol-scoping residual — GETFILTER resolves unresolved in the
+    # merged symbol table, see docs/design/expressload.md) so it is not
+    # byte-exact, but it belongs in the corpus percentage like every other
+    # mapped tool.
+    '023': ('StdFile',    ['sfmain.asm', 'sf.asm']),
     '027': ('FontMgr',    ['fm.asm', 'common.asm', 'scale.asm']),
     '028': ('ListMgr',    ['ListMgr.asm']),
 }
