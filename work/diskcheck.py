@@ -93,7 +93,7 @@ MANIFEST = {
 
 class DiskFile:
     __slots__ = ('path', 'type', 'aux', 'has_rsrc', 'data_eof', 'rsrc_eof',
-                 'data_blocks', 'owner')
+                 'data_blocks', 'rsrc_blocks', 'owner')
 
     def __init__(self, path, entry, vol):
         self.path = path
@@ -102,7 +102,12 @@ class DiskFile:
         self.has_rsrc = (entry.storage_type == ST_EXTENDED)
         st, key, self.data_eof = vol._resolve_fork(entry, 'data')
         self.data_blocks = vol._blocks_for(st, key, self.data_eof)   # 0 = sparse
-        self.rsrc_eof = vol._resolve_fork(entry, 'rsrc')[2] if self.has_rsrc else 0
+        if self.has_rsrc:
+            rst, rkey, self.rsrc_eof = vol._resolve_fork(entry, 'rsrc')
+            self.rsrc_blocks = vol._blocks_for(rst, rkey, self.rsrc_eof)
+        else:
+            self.rsrc_eof = 0
+            self.rsrc_blocks = []
         self.owner = owner_for(path)
 
     @property
@@ -150,6 +155,23 @@ def overlay(vol, f, content):
         vol._write_block(blk, chunk)
 
 
+def overlay_rsrc(vol, f, content):
+    """The RESOURCE-fork analogue of `overlay()` (M7 flip): a REZ-owned file
+    like Sys.Resources has an EMPTY data fork, so a byte-exact build has to
+    land in its resource fork's own original blocks instead. Same
+    byte-cleanliness contract as `overlay()`, just against `f.rsrc_blocks`/
+    `f.rsrc_eof` in place of `f.data_blocks`/`f.data_eof`."""
+    if len(content) != f.rsrc_eof:
+        raise ValueError(f'{f.path}: build {len(content)}B != rsrc-fork EOF {f.rsrc_eof}')
+    for i, blk in enumerate(f.rsrc_blocks):
+        chunk = content[i * 512:(i + 1) * 512]
+        if blk == 0:                                   # sparse (unallocated)
+            if any(chunk):
+                raise ValueError(f'{f.path}: nonzero data in sparse rsrc block {i}')
+            continue
+        vol._write_block(blk, chunk)
+
+
 # path -> callable() -> the FULL on-disk file bytes (ExpressLoad'd OMF / MakeBin
 # output), NOT the de-ExpressLoad'd code image the *check.py harnesses compare.
 # Wired as each file's full-file build path is confirmed and passes the contract.
@@ -171,6 +193,50 @@ except Exception:                           # missing/partial package is non-fat
     pass
 
 
+# path -> callable() -> the FULL RESOURCE-FORK bytes (M7). A REZ-owned file's
+# DATA fork is typically empty (e.g. Sys.Resources: 0-byte data fork, the
+# whole shipping file is its 24,337-byte resource fork), so these builders
+# are wired separately from SOURCE_BUILDERS and overlaid via overlay_rsrc()
+# below rather than overlay(). Lazy import (like _build_prodos() above):
+# work/rezbuildcheck.py -> work/rezcheck.py -> `import diskcheck as dc` would
+# otherwise be a module-level import cycle; deferring the import to call
+# time (inside check(), well after this module has finished executing its
+# own top level) sidesteps it exactly like _build_prodos()'s lazy
+# `import probootcheck` already does.
+def _build_sysresources_rsrc():
+    import rezbuildcheck                    # M7: Rez pipeline, see docs/design/rez.md
+    return rezbuildcheck.build_sysresources_fork()
+
+
+def _build_easymount_rsrc():
+    import easymountcheck                   # M7 follow-on: EasyMount (see docs/design/rez.md)
+    return easymountcheck.build_easymount_rsrc_fork()
+
+
+REZ_BUILDERS = {
+    f'{V}/System/System.Setup/Sys.Resources': _build_sysresources_rsrc,
+    f'{V}/System/System.Setup/EasyMount': _build_easymount_rsrc,
+}
+
+
+# EasyMount is dual-fork: ALSO has a real (non-empty) data fork, wired
+# separately here as a SOURCE_BUILDERS entry -- see the new REZ-owned
+# SOURCE_BUILDERS branch in check() below. Lazy import for the same reason
+# as _build_sysresources_rsrc()/_build_prodos() above (easymountcheck ->
+# rezcheck -> `import diskcheck as dc` would otherwise be a module-load-time
+# cycle). NOT byte-exact (see easymountcheck.py's module docstring for the
+# two precisely diagnosed residuals, both in core asm/expressload files
+# outside this packet's edit scope); build_and_overlay() already tolerates
+# and reports a non-exact build without corrupting the image, so it is
+# still wired rather than left as an implicit SUBSTITUTE.
+def _build_easymount_data():
+    import easymountcheck
+    return easymountcheck.build_easymount_data_fork()
+
+
+SOURCE_BUILDERS[f'{V}/System/System.Setup/EasyMount'] = _build_easymount_data
+
+
 def build_and_overlay(vol, f):
     """The Phase-2 builder contract for one manifest BUILD file. Returns
     (built_ok, note)."""
@@ -188,6 +254,23 @@ def build_and_overlay(vol, f):
         return False, f'logical differs at {_first_diff(content, original)}'
     overlay(vol, f, content)                            # only a byte-exact build
     return True, 'logical-exact'
+
+
+def build_and_overlay_rsrc(vol, f):
+    """The REZ-category analogue of `build_and_overlay()`: builds and
+    overlays a RESOURCE fork instead of a data fork (see `REZ_BUILDERS`).
+    Same contract otherwise: only a byte-exact build is overlaid."""
+    try:
+        content = REZ_BUILDERS[f.path]()
+    except Exception as e:                             # noqa: BLE001
+        return False, f'rez builder raised {type(e).__name__}: {e}'
+    if len(content) != f.rsrc_eof:
+        return False, f'len {len(content)} != rsrc EOF {f.rsrc_eof}'
+    original = vol.read_file(f.path, fork='rsrc')       # logical compare (pre-overlay)
+    if content != original:
+        return False, f'logical (rsrc) differs at {_first_diff(content, original)}'
+    overlay_rsrc(vol, f, content)                       # only a byte-exact build
+    return True, 'logical-exact (rsrc)'
 
 
 def _first_diff(a, b):
@@ -221,18 +304,44 @@ def check(disk_path=SYSTEM_DISK, verbose=False, min_built=0):
                 built_bytes += f.data_eof
             else:
                 notes.append(f'    {f.path}: {note}')
+        if f.owner == REZ and f.path in REZ_BUILDERS:
+            ok, note = build_and_overlay_rsrc(vol, f)
+            built_ok += 1
+            if ok:                                       # source-built AND byte-exact
+                built_logical += 1
+                built_bytes += f.rsrc_eof
+            else:
+                notes.append(f'    {f.path}: {note}')
+        # A dual-fork REZ file (e.g. EasyMount: resource fork via Rez AND a
+        # real 65816 data fork) can ALSO have a data-fork SOURCE_BUILDERS
+        # entry -- independent of (not `elif`) the rsrc branch above, so
+        # both forks of the same file are attempted. Additive: no BUILD- or
+        # REZ-owned file loses coverage; this only adds a third case no
+        # prior file could hit (a REZ file's path was never also a
+        # SOURCE_BUILDERS key before).
+        if f.owner == REZ and f.path in SOURCE_BUILDERS:
+            ok, note = build_and_overlay(vol, f)
+            built_ok += 1
+            if ok:
+                built_logical += 1
+                built_bytes += f.data_eof
+            else:
+                notes.append(f'    {f.path}: {note}')
 
     recon = bytes(buf)
     n = min(len(recon), len(orig))
     match = sum(1 for i in range(n) if recon[i] == orig[i])
 
+    n_wireable = (own[BUILD]
+                  + sum(1 for f in files if f.owner == REZ and f.path in REZ_BUILDERS)
+                  + sum(1 for f in files if f.owner == REZ and f.path in SOURCE_BUILDERS))
     print(f"{os.path.basename(disk_path)}: {vol.name}  {vol.total_blocks} blocks")
     print(f"  files: {len(files)}  |  build:{own[BUILD]} rez:{own[REZ]} "
           f"substitute:{own[SUBSTITUTE]} oos:{own[OOS]}")
     print(f"  logical bytes:  data-fork {data_total}  resource-fork {rsrc_total}")
     print(f"  source-buildable (BUILD data-fork): {build_data} of {data_total} "
           f"({100*build_data//data_total}%)")
-    print(f"  builders wired: {built_ok}/{own[BUILD]}  "
+    print(f"  builders wired: {built_ok}/{n_wireable}  "
           f"logical-exact: {built_logical}/{built_ok}  "
           f"built-bytes covered: {built_bytes}")
     print(f"  PHYSICAL image byte-match: {match}/{n} ({100*match//n}%)")
@@ -241,7 +350,7 @@ def check(disk_path=SYSTEM_DISK, verbose=False, min_built=0):
         print("\n".join(notes))
     if verbose:
         for f in sorted(files, key=lambda x: (x.owner, x.path)):
-            w = ' [built]' if f.path in SOURCE_BUILDERS else ''
+            w = ' [built]' if (f.path in SOURCE_BUILDERS or f.path in REZ_BUILDERS) else ''
             print(f"    {f.owner:10} ${f.type:02X} d={f.data_eof:>7} "
                   f"r={f.rsrc_eof:>6} {'+rsrc' if f.has_rsrc else '     '} "
                   f"sp={len(f.sparse_idx)} {f.path}{w}")
@@ -268,7 +377,17 @@ def selftest(disk_path=SYSTEM_DISK):
     ok = bytes(buf) == orig
     print(f"  overlay {n} BUILD files with original content: "
           f"{'byte-identical  OK' if ok else 'DIFFERS (overlay not clean!)'}")
-    return ok
+
+    nr = 0
+    for f in files:
+        if f.owner != REZ or not f.has_rsrc:
+            continue
+        overlay_rsrc(vol, f, vol.read_file(f.path, fork='rsrc'))  # must stay identical
+        nr += 1
+    ok_rsrc = bytes(buf) == orig
+    print(f"  overlay_rsrc {nr} REZ files with original resource-fork content: "
+          f"{'byte-identical  OK' if ok_rsrc else 'DIFFERS (overlay_rsrc not clean!)'}")
+    return ok and ok_rsrc
 
 
 def main():

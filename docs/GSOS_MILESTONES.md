@@ -44,7 +44,7 @@ individual tool designs assume (OMF primer, golden-binary layout, gotchas).
 | M4 | ExpressLoad relinker | `gsasm/expressload.py` | ✅ **done** — byte-exact vs Tool022/021/028; one documented encoding limit (case B) |
 | M5 | `System/FSTs/*`, `System/Drivers/*` | gsasm + M2 (+M3) | ✅ **done** — all 7 buildable FSTs byte-exact; 11/12 drivers byte-exact (SCSIHD golden is a later source revision) |
 | M6 | `GS.OS`, `Start.GS.OS`, `P8`, `prodos`, `ERROR.MSG` | gsasm + M2 + M3 + M4 | ✅ **at the proven floor** — prodos/Start.GS.OS/Error.Msg/Loader byte-exact; GS.OS 99.76% (94-byte external floor); P8 out of scope |
-| M7 | Finder, Installer, asm CDEVs/NDAs (resource forks) | gsasm + M2 + **Rez** | ⬜ stretch: `design/rez.md` |
+| M7 | Finder, Installer, asm CDEVs/NDAs (resource forks) | gsasm + M2 + **Rez** | 🟡 first target done: `design/rez.md` |
 | — | Pascal/C desktop (Ctl-Panel CDEVs, GSCalc, ADU, Teach, Logon) | PascalIIgs / C | ❌ out of scope |
 
 ## Per-milestone detail
@@ -100,9 +100,21 @@ these sources — the floor is proven, not assumed. P8 needs the OverlayIIgs
 driver-overlay build plus include files not in the GS/OS tree, and is
 documented out of scope.
 
-### M7 — Rez + asm desktop ⬜ (stretch)
+### M7 — Rez + asm desktop 🟡 first target done (Sys.Resources byte-exact)
 Finder, Installer, and the asm-only CDEVs/NDAs assemble with gsasm but need a
-**Rez** pass to build the resource fork of the shipping file.
+**Rez** pass to build the resource fork of the shipping file. A clean-room
+Rez compiler (`gsasm/rez/{lexer,parser,gen,convert,emit}.py`) plus a `gsrez`
+CLI now reproduce the first (and done-gate) target, `Sys.Resources`
+(24,337-byte resource fork; 143 resources across 17 types; local `type`
+declarations, `$$Word()` expressions, `read`+`Convert`, arrays, switch
+templates), byte-exact from the archived `.r`/`.aii` sources —
+`work/rezbuildcheck.py`, gated via `gate.py`'s `rez_sysresources_bytes_exact`
+metric. `work/diskcheck.py` builds and overlays Sys.Resources' resource fork
+into the reconstructed System Disk image the same way it already does BUILD
+files' data forks. EasyMount, the General CDEV, and Finder (the 52 KB prize)
+remain as follow-on targets — mostly more breadth over the same `type`-
+template grammar, plus Finder's multi-file include structure; the Pascal
+CDEVs/NDA stay out of scope (their code resources are Pascal-compiled).
 Design: `design/rez.md`.
 
 ### Out of scope

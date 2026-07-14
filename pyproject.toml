@@ -28,6 +28,7 @@ classifiers = [
 [project.scripts]
 gsasm = "gsasm.__main__:asm_main"
 gslink = "gsasm.__main__:link_main"
+gsrez = "gsasm.__main__:rez_main"
 
 [project.urls]
 Homepage = "https://github.com/emdeejay/gsasm"

@@ -10,6 +10,7 @@ __pycache__/
 # extracted Apple ROM source and includes (must be supplied separately)
 work/romsrc/
 work/includes/
+work/rincludes/
 work/txt/
 
 # linker working directory (generated artifacts)

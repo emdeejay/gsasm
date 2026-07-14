@@ -25,7 +25,10 @@ Public interface:
              order    (ignored — callers pass objects already in link order)
              kind     (int, default 0x0000) KIND field for merged output segment
              org      (int|None, default 0) base address for first segment
-             loadname (bytes, default b'main') LOADNAME for merged output
+             loadname (bytes, default: first placed segment's own LOADNAME)
+                      LOADNAME override for merged output
+             segname  (bytes, default: first placed segment's own SEGNAME)
+                      SEGNAME override for merged output
              merge    (bool, default True) merged vs segmented output
              extern   ({str: int}) pre-seeded externals (override unresolved names)
 
@@ -433,7 +436,17 @@ def link(objects: list[tuple[bytes, Any | None]],
         linker so cross-segment data refs resolve correctly.
     opts
         Linker options dict.  Keys: ``kind`` (int), ``org`` (int|None),
-        ``loadname`` (bytes), ``merge`` (bool), ``extern`` ({str: int}).
+        ``loadname`` (bytes), ``segname`` (bytes), ``merge`` (bool),
+        ``extern`` ({str: int}).
+
+        ``segname``/``loadname`` (merge=True only) override the output
+        segment's SEGNAME/LOADNAME fields, which otherwise default to the
+        FIRST placed segment's own header fields (unchanged pre-existing
+        behavior when neither is given).  MPW LinkIIgs's own convention for
+        a merged single-object load file is SEGNAME='main'/LOADNAME=all-zero
+        unless an explicit ``-lseg <name>`` names the output segment — a
+        caller building a Rez `read`-able load file passes that name
+        explicitly rather than relying on the first PROC's own segment name.
 
     Returns
     -------
@@ -452,7 +465,6 @@ def link(objects: list[tuple[bytes, Any | None]],
     defer_shifts: bool = bool(opts.get('defer_shifts', True))
     base_org: int = opts.get('org') or 0
     kind: int = opts.get('kind', 0)
-    loadname: bytes = opts.get('loadname', b'main')
     extern: dict = opts.get('extern') or {}
 
     # ------------------------------------------------------------------
@@ -498,8 +510,8 @@ def link(objects: list[tuple[bytes, Any | None]],
         # Single merged output segment: concatenate all bodies.
         # Use the first input segment's metadata for the output header.
         first_hdr = placed[0][3]
-        out_name = first_hdr['SEGNAME']
-        out_load = first_hdr['LOADNAME']
+        out_name = opts['segname'] if opts.get('segname') is not None else first_hdr['SEGNAME']
+        out_load = opts['loadname'] if opts.get('loadname') is not None else first_hdr['LOADNAME']
         out_org = placed[0][2]
         out_kind = kind if opts.get('kind') is not None else first_hdr['KIND']
         merged = _merge_bodies(placed, bodies)

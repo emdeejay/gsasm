@@ -1,6 +1,6 @@
 {
   "disk_logical_exact": [
-    15,
+    18,
     12
   ],
   "driver_bytes": [
@@ -31,8 +31,16 @@
     62714,
     745
   ],
+  "rez_easymount_rsrc_bytes_exact": [
+    2500,
+    0
+  ],
+  "rez_sysresources_bytes_exact": [
+    24337,
+    0
+  ],
   "tool_bytes": [
-    102588,
-    550
+    118524,
+    556
   ]
 }
