@@ -1,10 +1,10 @@
 # gsasm
 
 A clean-room Python reimplementation of the **MPW IIgs cross-development
-toolchain** — the `AsmIIgs` assembler, `LinkIIgs` linker, the
-`MakeBinIIgs`/`OverlayIIgs`/`catenate` packagers, and the `ExpressLoad`
-relinker — validated byte-for-byte against the Apple IIgs ROM 03 and the
-GS/OS System 6.0.1 shipping binaries.
+toolchain** — the `AsmIIgs` assembler, `LinkIIgs` linker, the `RezIIgs`
+resource compiler, the `MakeBinIIgs`/`OverlayIIgs`/`catenate` packagers, and
+the `ExpressLoad` relinker — validated byte-for-byte against the Apple IIgs
+ROM 03 and the GS/OS System 6.0.1 shipping binaries.
 
 Apple built the IIgs ROM and GS/OS on a 68k Mac under MPW Shell. Running that
 chain today means SheepShaver → a Mac OS 7 image → MPW → the GS cross-tools.
@@ -19,8 +19,12 @@ binaries:
 - **ROM 03** — all 262,144 bytes
 - **All 7 buildable FSTs** (ProDOS, HFS, Char, High Sierra, DOS 3.3, Pascal,
   MS-DOS) and **11 of 12 device drivers**
-- **`prodos`, `Start.GS.OS`, `Error.Msg`, the GS/OS Loader**, and 15 of the
-  27 System 6.0.1 files the disk harness rebuilds
+- **`prodos`, `Start.GS.OS`, `Error.Msg`, the GS/OS Loader**, `Tool014`
+  (Window Manager), and 19 of the 30 System 6.0.1 files the disk harness
+  rebuilds
+- **Resource forks** (`gsrez`): `Sys.Resources` (24,337 bytes, 143 resources
+  including embedded code resources) and `EasyMount` — the latter byte-exact
+  across **both** forks, code and resources, from source to shipping file
 - **Instruction encoding: 100%** — every instruction in the ~97,000-line
   corpus encodes to the same bytes as the original listings
 - **61/61 ROM objects link-identical** — for every module, linking `gsasm`'s
@@ -93,6 +97,24 @@ gslink MyTool.obj -o MyTool.load
 For multi-object linking — libraries, segment naming/placement, the
 `LinkIIgs -apw` recipe used by the GS/OS build scripts — use
 `gsasm/linkiigs.py`; for ROM bank layout see `work/linkrom.py`.
+
+### gsrez — resource compiler
+
+```
+gsrez <source.r> [-I <incdir>]... [-o <out>] [-t <filetype>] [-c <creator>]
+      [--read-dir <dir>]... [--meta KEY=VAL]...
+```
+
+Compiles a Rez source file (the MPW IIgs `RezIIgs` dialect: `type` templates,
+`resource` bodies, `read` statements, the C-style preprocessor) into an Apple
+IIgs resource fork, written as a raw fork image. `TypesIIGS.r`-style include
+files are searched through `-I` directories; `read` files (e.g. linked code
+resources) through `--read-dir`. `--meta` sets fork-header fields (creation
+timestamp etc.) for byte-exact reproduction work.
+
+```sh
+gsrez sys.resources.r -I ./rincludes --read-dir ./build -o SYS.RESOURCES -t "F9  "
+```
 
 ## Python API
 
