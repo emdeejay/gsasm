@@ -1,0 +1,44 @@
+# Publish gsasm to PyPI via Trusted Publisher (OIDC) on version tags.
+# Requires the repo to be registered as a Trusted Publisher on pypi.org
+# (project: gsasm, owner: emdeejay, repo: gsasm, workflow: publish.yml).
+name: publish
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fixture suite
+        run: python3 tests/run_fixtures.py
+      - name: Corpus-free test suites
+        run: |
+          set -e
+          for t in tests/test_*.py; do
+            echo "== $t"
+            python3 "$t"
+          done
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: |
+          python3 -m pip install build
+          python3 -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
