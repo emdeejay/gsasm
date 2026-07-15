@@ -399,6 +399,14 @@ def _emit(opcode, expr, nbytes, kind, evaluate, pc, shift=0):
         vv = (val >> shift) & ((1 << (8 * nbytes)) - 1)
         out += bytes((vv >> (8 * i)) & 0xFF for i in range(nbytes))
         return bytes(out), None
+    # NOTE: 'rel8'/'rel16' never reach here in practice -- `val` above is only
+    # computed for kind in ('val', 'byte'), so a branch/BRL/PER always falls
+    # into the val-is-None arm and comes back as a Fixup. That's deliberate:
+    # apply_fixups/relink resolve the target with the local-label/@-label
+    # scope set up for that specific reference (self._rseg/self._rlg/
+    # self._ref_loc), which isn't available from here. The -128..127 /
+    # -32768..32767 displacement range check therefore lives there too (see
+    # Asm._branch_range_err in asm.py), not in this dead branch.
     if kind == 'rel8':
         rel = (val - (pc + 2)) & 0xFF
         out.append(rel)

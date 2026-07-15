@@ -1250,8 +1250,12 @@ class Asm:
             # also capture the enclosing global (for a macro body that references
             # a @-label defined in the calling routine)
             self.segs[-1].items.append(('code', ln, barr, atscope, self.last_global))
+            # capture this instruction's file:line now (while _cur_file/_cur_line
+            # are accurate) so a later apply_fixups/relink range error can still
+            # report the real source location instead of wherever assembly ended.
+            floc = (self._cur_file, self._cur_line)
             for off, fx in fixups:
-                self.fixups.append((barr, off, fx, seg, atscope, self.last_global))
+                self.fixups.append((barr, off, fx, seg, atscope, self.last_global, floc))
         self.loc += len(barr)
 
     def reserve(self, n):
@@ -1265,8 +1269,19 @@ class Asm:
             self.segs[-1].items.append(('ds', n, None))
         self.loc += n
 
+    def _branch_range_err(self, ffile, fline, fx, rel, kind):
+        """Report an out-of-range branch displacement through the normal
+        file:line error channel (self._err), even though this runs long after
+        _cur_file/_cur_line have moved on to wherever assembly finished."""
+        lo, hi = (-128, 127) if kind == 'rel8' else (-32768, 32767)
+        save_f, save_l = self._cur_file, self._cur_line
+        self._cur_file, self._cur_line = ffile, fline
+        self._err(f"branch out of range: {fx.expr} is {rel:+d} bytes from *, "
+                  f"must be {lo}..{hi}")
+        self._cur_file, self._cur_line = save_f, save_l
+
     def apply_fixups(self):
-        for barr, off, fx, seg, lg, lg2 in self.fixups:
+        for barr, off, fx, seg, lg, lg2, floc in self.fixups:
             self._rseg = seg          # resolve local labels in the fixup's segment
             self._rlg = lg            # ...and @-labels in the fixup's @-scope
             self._rlg2 = lg2          # ...enclosing scope (macro @-ref fallback)
@@ -1280,9 +1295,14 @@ class Asm:
                 barr[off:off+fx.nbytes] = bytes((vv >> (8 * i)) & 0xFF
                                                 for i in range(fx.nbytes))
             elif fx.kind == 'rel8':
-                barr[off] = (v - (fx.pc + 2)) & 0xFF
+                rel = v - (fx.pc + 2)
+                if not (-128 <= rel <= 127):
+                    self._branch_range_err(*floc, fx, rel, 'rel8')
+                barr[off] = rel & 0xFF
             elif fx.kind == 'rel16':
-                rel = (v - (fx.pc + 3)) & 0xFFFF
+                rel = v - (fx.pc + 3)
+                if not (-32768 <= rel <= 32767):
+                    self._branch_range_err(*floc, fx, rel, 'rel16')
                 barr[off:off+2] = bytes([rel & 0xFF, (rel >> 8) & 0xFF])
             else:
                 vv = v & ((1 << (8 * fx.nbytes)) - 1)
@@ -1300,7 +1320,7 @@ class Asm:
         the assembly-time apply_fixups). `*` and branch math use the final pc."""
         self.link_bases = seg_bases
         self.extern = extern
-        for barr, off, fx, seg, lg, lg2 in self.fixups:
+        for barr, off, fx, seg, lg, lg2, floc in self.fixups:
             self._rseg = seg
             self._rlg = lg
             self._rlg2 = lg2
@@ -1315,9 +1335,14 @@ class Asm:
                 barr[off:off+fx.nbytes] = bytes((vv >> (8 * i)) & 0xFF
                                                 for i in range(fx.nbytes))
             elif fx.kind == 'rel8':
-                barr[off] = (v - (final_pc + 2)) & 0xFF
+                rel = v - (final_pc + 2)
+                if not (-128 <= rel <= 127):
+                    self._branch_range_err(*floc, fx, rel, 'rel8')
+                barr[off] = rel & 0xFF
             elif fx.kind == 'rel16':
-                rel = (v - (final_pc + 3)) & 0xFFFF
+                rel = v - (final_pc + 3)
+                if not (-32768 <= rel <= 32767):
+                    self._branch_range_err(*floc, fx, rel, 'rel16')
                 barr[off:off+2] = bytes([rel & 0xFF, (rel >> 8) & 0xFF])
             else:
                 vv = v & ((1 << (8 * fx.nbytes)) - 1)
