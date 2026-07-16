@@ -37,6 +37,11 @@ similarly settled causes (a source-revision skew, a converter whose output
 isn't a function of its input, missing sources). The full accounting, with
 evidence for each limit, is in [docs/RESULTS.md](docs/RESULTS.md).
 
+Byte-exact reproduction also makes the shipping binaries *subtractable*. For a
+worked example — recovering a lost community bug fix from a modified `HFS.FST`
+with no source, by subtracting the original gsasm rebuilds — see
+[docs/notes/hfs-fst-6.0.4-carry-bug.md](docs/notes/hfs-fst-6.0.4-carry-bug.md).
+
 ## Install
 
 ```sh
