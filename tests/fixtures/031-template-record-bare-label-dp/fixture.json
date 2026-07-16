@@ -1,0 +1,4 @@
+{
+  "note": "storage-less (bare) TEMPLATE-record labels are constant field offsets -> a memory operand sizes direct-page (86 a4), not absolute (8e a4 00); DATA records keep relocatable positional labels",
+  "commit": "template-record bare-label typing: symtype 'equ' not 'label' (define_label); fixes AppleShare dp aliases + GS.OS init-header residual"
+}
