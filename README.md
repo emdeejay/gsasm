@@ -30,12 +30,13 @@ binaries:
 - **61/61 ROM objects link-identical** — for every module, linking `gsasm`'s
   object or Apple's original produces the same load image
 
-`GS.OS` itself reaches 38,711 of 38,805 bytes (99.76%); the residual 94 bytes
-reference symbols that exist nowhere in the source archive, so a byte-exact
-build is provably out of reach from these sources. The other shortfalls have
-similarly settled causes (a source-revision skew, a converter whose output
-isn't a function of its input, missing sources). The full accounting, with
-evidence for each limit, is in [docs/RESULTS.md](docs/RESULTS.md).
+`GS.OS` reaches 38,757 of 38,805 bytes (99.88%). A prior "94-byte external
+floor" was a misdiagnosis: the bank-$E1 vectors it blamed (`E1_MSG_ADDRESS`,
+`E1_VOLNAME`, …) are in fact `EXPORT`ed `DS` globals in `GQuit.src`, resolved
+by the whole-OS link — seeding them closed 46 of the 94 bytes. The remaining
+48 are three unrelated, settled classes (bank-0 interior placement, init
+header lengths, an `scm_main` cross-ref). The full accounting, with evidence
+for each limit, is in [docs/RESULTS.md](docs/RESULTS.md).
 
 Byte-exact reproduction also makes the shipping binaries *subtractable*. For a
 worked example — recovering a lost community bug fix from a modified `HFS.FST`

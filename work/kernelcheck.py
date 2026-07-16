@@ -65,11 +65,21 @@ SCM segment layout:
   harness re-adds it.  (gsasm DOES evaluate the ORGs, `,skip`/`,noskip` included.)
 
 Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
-  1. GS.OS (SCM): 94 bytes short.  The dominant class is references to bank-$E1
-     vectors (E1_MSG_ADDRESS, E1_VOLNAME, E1_GET_REF_INFO, ...) that are defined
-     in NO file in IIGS.601.SRC — genuine externals outside the archive, so the
-     residual is not closable from these sources.  Two minor classes remain
-     (init1/init3 header DC.W length, b00segr interior refs), moot given that.
+  1. GS.OS (SCM): 48 bytes short.  The former dominant class — SCM/Init1 refs to
+     the bank-$E1 vectors E1_MSG_ADDRESS, E1_VOLNAME, E1_CURRENT_ID,
+     E1_APP_FILENAME, ... — is now CLOSED (46 bytes recovered).  Those symbols are
+     NOT externals: they are EXPORTed DS.B/DC allocations in GQuit.src's seg_e1
+     block (ORG'd at e1_obj_pstn=$E1D200, so gsasm bakes them at their real
+     $E1D6xx addresses, e.g. E1_MSG_ADDRESS=$E1D6F3).  Apple's linkOS resolves them
+     because it links every kernel object in ONE global pass; kernelcheck now
+     mirrors that by seeding GQuit's placed exports into the SCM link's extern.
+     The 48-byte residual is three unrelated placement/length classes, none of them
+     e1_* externals: b00segr/be0segr bank-0 interior refs (~21B: a dispatcher label
+     gsasm places 0-based, e.g. $0019 vs golden $AC2E), init1/init3/init4 header
+     DC.W segment-length words + length-derived immediates (~18B), and a handful of
+     scm_main cross-refs gsasm resolves 0-based where golden lands them in bank 0
+     (~9B: golden $B9D6/$B70A/$255C).  (E1_GET_REF_INFO / EQ_MSG_ADDRESS are IMPORTed
+     by SCM but never referenced, so they emit no bytes and are not in the residual.)
   2. Loader.bin is excluded from this harness's GS.OS comparison; the Loader is
      built and verified byte-exact separately (work/loader_placed.py, 16590/16590).
   3. P8: only PROCONE is compared (golden P8 is 4 PROCs + driver overlays laid
@@ -556,6 +566,29 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         except Exception:
             pass
 
+    # GQuit (scm.bin.8..11) DEFINES the bank-$E1 global layout — e1_msg_address,
+    # e1_volname, e1_current_id, e1_app_filename, e1_quit_flags, ... — as EXPORTed
+    # DS.B/DC allocations in its seg_e1 segment (ORG'd at e1_obj_pstn = $E1D200, so
+    # each label's assembled value is already its absolute placed address).  SCM
+    # (scm_main/system_svc), Init1 and the bank-0 code IMPORT these; Apple's linkOS
+    # resolves every kernel object in ONE global link, so a scm_main `lda
+    # >e1_msg_address` binds to GQuit's export ($E1D6F3) even though GQuit lands in
+    # the sibling Start.GS.OS file.  kernelcheck's per-group links can't see that
+    # cross-file definition, so seed GQuit's exported symbols at their placed
+    # addresses.  setdefault: a real in-group placement wins; only the GQuit-defined
+    # externals are filled.  (This closes the dominant former GS.OS residual — the
+    # e1_* refs are NOT genuine externals, they are EXPORTed globals in GQuit.src.)
+    gquit_obj = gquit_asm = None
+    try:
+        gquit_obj, gquit_asm = _assemble(f'{GS}/OS/GQuit/GQuit.src',
+                                         sysdate=BUILD_SYSDATE)
+        for _n in gquit_asm.exports:
+            _v = gquit_asm.symbols.get(_n)
+            if isinstance(_v, int):
+                gextern.setdefault(_n, _v)
+    except Exception as exc:
+        print(f'  WARN: GQuit export seeding failed: {exc}', file=sys.stderr)
+
     # Each tuple: (output_name, header_group, content_group, end_group)
     scm_bin_recipes = [
         ('scm.bin',   'start_seg0', 'oscall_seg',  'end_seg0'),
@@ -639,8 +672,9 @@ def _build_scm_segments() -> dict[str, bytes] | None:
         # `verDate` macro (`dc.b '&SysDate'`); the shipping build stamped
         # '06-May-93'.  Without it the banner is 9 bytes short, drifting every
         # subsequent GLDR_STRINGS label (mem_size_err/alloc_err/...).
-        gquit_obj, gquit_asm = _assemble(f'{GS}/OS/GQuit/GQuit.src',
-                                         sysdate=BUILD_SYSDATE)
+        if gquit_obj is None:            # not already assembled for export seeding
+            gquit_obj, gquit_asm = _assemble(f'{GS}/OS/GQuit/GQuit.src',
+                                             sysdate=BUILD_SYSDATE)
         gq_segs = _parse_obj_segs(gquit_obj)
         gq_groups = _lnk.group_load_segments(gq_segs)
         # linkOS resolves symbols across ALL GQuit segments at once; kernelcheck
@@ -966,11 +1000,14 @@ def main() -> int:
 
     print()
     print('Known residuals (prodos / Start.GS.OS / Error.Msg are byte-exact):')
-    print('  1. GS.OS (SCM): 94 bytes short.  Dominant class: references to bank-$E1')
-    print('     vectors (E1_MSG_ADDRESS, E1_VOLNAME, ...) defined in no file in')
-    print('     IIGS.601.SRC — externals outside the archive; not closable from')
-    print('     these sources.  Minor classes (init1/init3 header length, b00segr')
-    print('     interiors) are moot given that floor.')
+    print('  1. GS.OS (SCM): 48 bytes short.  The former dominant class — refs to')
+    print('     the bank-$E1 vectors (E1_MSG_ADDRESS=$E1D6F3, E1_VOLNAME, ...) — is')
+    print('     CLOSED (46B recovered): they are EXPORTed DS globals in GQuit.src')
+    print('     seg_e1, resolved by seeding GQuit\'s placed exports into SCM\'s link')
+    print('     (mirroring linkOS\'s single global pass), NOT externals.  The 48B')
+    print('     residual is 3 unrelated classes: b00segr/be0segr bank-0 interior')
+    print('     refs (~21B), init1/3/4 header DC.W length words (~18B), and a few')
+    print('     scm_main bank-0 cross-refs gsasm resolves 0-based (~9B).')
     print('  2. Loader.bin is excluded from the GS.OS comparison here; the Loader')
     print('     is built byte-exact separately (work/loader_placed.py, 16590/16590).')
     print('  3. P8: only PROCONE compared (golden P8 = 4 PROCs + OverlayIIgs driver')
