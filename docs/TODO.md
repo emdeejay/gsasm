@@ -96,3 +96,13 @@ driver-overlay build recipe is a separate, still-open problem.
 `MPW-GM/MPW/Interfaces/TypesIIGS.r` (extracted → `work/rincludes/`), plus
 `RezIIGS`, `DeRezIIGS`, `ResEqualIIGS` binaries for capturing oracle outputs
 on ambiguous corners of the Rez language. See `docs/design/rez.md`.
+
+## 5. Clean-room, distributable `TypesIIGS.r` (batteries-included gsrez)
+
+Apple's `TypesIIGS.r` is copyright/gitignored, so `gsrez` today can't ship a
+usable resource-type library. A clean-room re-implementation — provably correct
+because `gsrez` + our file must rebuild the golden Sys.Resources / EasyMount
+forks byte-exact (Apple's file off the path) — turns `gsrez` into a
+batteries-included IIgs resource toolkit. Proven-core (~17 golden-exercised
+types) first, reference-only tail flagged. Full plan:
+`docs/design/typesiigs-cleanroom.md`.
