@@ -73,13 +73,30 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
      $E1D6xx addresses, e.g. E1_MSG_ADDRESS=$E1D6F3).  Apple's linkOS resolves them
      because it links every kernel object in ONE global pass; kernelcheck now
      mirrors that by seeding GQuit's placed exports into the SCM link's extern.
-     The 48-byte residual is three unrelated placement/length classes, none of them
-     e1_* externals: b00segr/be0segr bank-0 interior refs (~21B: a dispatcher label
-     gsasm places 0-based, e.g. $0019 vs golden $AC2E), init1/init3/init4 header
-     DC.W segment-length words + length-derived immediates (~18B), and a handful of
-     scm_main cross-refs gsasm resolves 0-based where golden lands them in bank 0
-     (~9B: golden $B9D6/$B70A/$255C).  (E1_GET_REF_INFO / EQ_MSG_ADDRESS are IMPORTed
-     by SCM but never referenced, so they emit no bytes and are not in the residual.)
+     The 48-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
+     every residual byte is a baked constant emitted at ASSEMBLY time (no relocation
+     record for the linker/extern to override) or an ambiguous duplicate symbol the
+     link binds to a valid-but-wrong instance.  Seeding placed exports — the fix that
+     recovered the 46 e1_* bytes — closes NONE of them; they are gsasm assembler/
+     linker correctness bugs, characterized precisely:
+       * b00segr ~20B: `a_reg` is DEFINED TWICE in bank0.dispatcher.src — an EXPORTed
+         `DS.B` label in dsptch_vars (placed $AC2E) and again as `a_reg equ dir_reg+2`
+         inside lc_dispatcher.  gsasm bakes the 10 `>a_reg`/`|a_reg` refs as absolute
+         `$0019` (the label's 0-based offset) with no reloc; linkOS relocates them to
+         `$AC2E`.  Verified NOT seedable (A_REG already sits in the content extern).
+       * be0segr 1B: a live `BANK_E0_SEGR+$A86` LEXPR whose placed low byte is off by
+         2 ($86 vs $88) — a placement/size discrepancy, not a missing symbol.
+       * init ~18B: the header `DC.W init_N_end-init_N_start` for Init1/Init3 folds to
+         a bogus literal ($4E00/$3000 = `0 - init_N_start`) because gsasm leaves
+         init_N_end UNRESOLVED (0): the header `Import Init_1_end`/`Init_3_end` (cap I)
+         is not case-unified with the lowercase `init_N_end` PROC that defines it —
+         Init2/Init4 import lowercase and resolve fine.  The rest are length-derived
+         `ldx #dp_size` immediates ($48 vs $4E) from `record`/template field offsets.
+       * scm_main ~9B: baked bank-0 constants — a self-modified jump vector at $B9D6
+         (3 refs, baked $00BB), an immediate $255C (baked $005C), and a duplicate
+         local label `MORE` the link binds to the wrong instance ($F99B vs $B70A).
+     (E1_GET_REF_INFO / EQ_MSG_ADDRESS are IMPORTed by SCM but never referenced, so
+     they emit no bytes and are not in the residual.)
   2. Loader.bin is excluded from this harness's GS.OS comparison; the Loader is
      built and verified byte-exact separately (work/loader_placed.py, 16590/16590).
   3. P8: only PROCONE is compared (golden P8 is 4 PROCs + driver overlays laid
@@ -1005,9 +1022,15 @@ def main() -> int:
     print('     CLOSED (46B recovered): they are EXPORTed DS globals in GQuit.src')
     print('     seg_e1, resolved by seeding GQuit\'s placed exports into SCM\'s link')
     print('     (mirroring linkOS\'s single global pass), NOT externals.  The 48B')
-    print('     residual is 3 unrelated classes: b00segr/be0segr bank-0 interior')
-    print('     refs (~21B), init1/3/4 header DC.W length words (~18B), and a few')
-    print('     scm_main bank-0 cross-refs gsasm resolves 0-based (~9B).')
+    print('     residual is NOT more of that disease: every byte is a baked constant')
+    print('     (no reloc to seed) or an ambiguous duplicate symbol.  b00segr ~20B:')
+    print('     `a_reg` defined twice (DS.B label $AC2E + `equ dir_reg+2`), baked')
+    print('     $0019.  init ~18B: header DC.W folds to 0-start ($4E00/$3000) because')
+    print('     `Import Init_1_end`/`Init_3_end` (cap I) is not case-unified with the')
+    print('     lowercase init_N_end PROC; + template-derived immediates.  scm_main')
+    print('     ~9B: baked $B9D6 vector, $255C immediate, mis-scoped `MORE` ($F99B')
+    print('     vs $B70A).  be0segr 1B: BANK_E0_SEGR+$A86 placed off by 2.  These are')
+    print('     gsasm assembler/linker bugs, not unseeded cross-references.')
     print('  2. Loader.bin is excluded from the GS.OS comparison here; the Loader')
     print('     is built byte-exact separately (work/loader_placed.py, 16590/16590).')
     print('  3. P8: only PROCONE compared (golden P8 = 4 PROCs + OverlayIIgs driver')

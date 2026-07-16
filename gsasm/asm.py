@@ -992,7 +992,16 @@ class Asm:
                 if (owns or self._record_data
                         or (redefinable and u in self.setvars)):
                     self.symbols[u] = value
-                    self.symtype[u] = kind
+                    # In a TEMPLATE record (offsets only, no bytes emitted) a bare
+                    # positional label is a constant field offset — exactly like a
+                    # DS/EQU field, NOT a relocatable code label.  Type it 'equ' so
+                    # operand sizing can pick direct-page when the offset < $100
+                    # (AppleShare dp aliases math_temp/quotient/divisor: gold
+                    # `stx math_temp` = 86 a8, not 8e a8 00; same class as the GS.OS
+                    # init-header case).  DATA records keep 'label' (their positional
+                    # labels address emitted bytes and relocate).
+                    self.symtype[u] = ('equ' if (not self._record_data
+                                                 and kind == 'label') else kind)
                     if redefinable and (owns or u in self.setvars):
                         self.setvars.add(u)
                     if owns and not self._record_data and not redefinable:

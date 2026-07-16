@@ -29,7 +29,10 @@ Source → shipping-name map (from GS.OS/MakeFiles/make.*.fst):
   Pascal.FST — FSTs/Pascal/pascal.fst.aii       (-D DEBUGSYMBOLS=0)
   DOS3.3.FST — FSTs/DOS3.3/DOS3.3.FST          (-D DEBUGSYMBOLS=0)
   MSDos.FST  — FSTs/MSDos/MSDos.aii + Calls + Subs + Data  (lib ordering)
-  (AppleShare.FST sources absent — skipped)
+  AppleShare.FST — FSTs/AppleShare/Src/*.aii (24 modules + JudgeName; source IS
+                   present, contra earlier notes).  Built informationally by
+                   _build_appleshare(); not yet byte-exact, so excluded from the
+                   CORPUS tally (see that function and RESULTS.md).
 
 Packaging: all FSTs are ExpressLoad'd (KIND 0x8001 leading segment).
 
@@ -44,9 +47,10 @@ Known residuals:
     many segments; multi-segment link produces 17239 vs 10068 golden bytes).
     Root cause: same multi-object sizing-drift class.
 """
-import sys, os
+import sys, os, re, tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from gsasm import asm, omf, linkiigs
+from gsasm.asm import read_text
 from gsasm.expressload import de_express
 
 SRC  = 'ref/GSOS_6/IIGS.601.SRC'
@@ -100,8 +104,66 @@ FSTMAP = {
         {},
         'lib',
     ),
-    # AppleShare.FST: sources absent in this source tree — skipped
+    # AppleShare.FST is built separately (see _build_appleshare): its 24 modules
+    # share equates through the MPW symbol-dump mechanism (load/dump), which needs
+    # source rewriting the generic link_fst path does not do.  It is NOT yet
+    # byte-exact, so it is reported as an informational build below rather than
+    # folded into the byte-exact CORPUS tally.
 }
+
+# --- AppleShare.FST -----------------------------------------------------------
+# The AppleShare FST source tree IS present (24 .aii modules + Equates.aii +
+# MakeFile + JudgeName.aii under FSTs/AppleShare/Src).  Two source-tree quirks:
+#   * Modules share equates via MPW dump/load: Equates.aii ends with
+#     `dump ':obj:equates.dump'` and every other module opens with
+#     `load 'equates.dump'`.  gsasm has no binary dump/load, so we assemble
+#     Equates.aii inline: strip its trailing `dump`/`end` and rewrite each
+#     module's `load` line into an `include` of the cleaned copy.
+#   * DebugCode defaults to 0 (release build), passed as a -d define so the
+#     `&getenv('MSDDebugFlag')` shell probe in Equates.aii is skipped.
+#   * JudgeName.aii is a genuine `proc export` module that the MakeFile `objects`
+#     list omits, yet the shipping FST includes it (its handler sits at $3cb1 in
+#     the golden image, right before the Data segment) — so it is linked in after
+#     SendPacket.
+APPLESHARE_DIR = GSOS + '/FSTs/AppleShare/Src'
+APPLESHARE_ORDER = [
+    'Header', 'Volume', 'GetDevnum', 'Create', 'Destroy', 'ClearBackup',
+    'GetInfo', 'SetInfo', 'ChangePath', 'Open', 'Close', 'VolMod', 'Flush',
+    'Mark', 'EOF', 'read', 'Write', 'GetDir', 'Specific', 'Time', 'Subs',
+    'FindPath', 'SendPacket', 'JudgeName', 'Data']
+_LOAD_RE = re.compile(r"^(\s*)load\s+'equates\.dump'\s*$", re.I)
+
+
+def _build_appleshare():
+    """Assemble+link AppleShare.FST; return (code_image, golden) or (None, None)."""
+    g = golden('AppleShare.FST')
+    if g is None:
+        return None, None
+    src = APPLESHARE_DIR
+    files = {f.lower(): f for f in os.listdir(src) if f.endswith('.aii')}
+    import shutil
+    tmp = tempfile.mkdtemp(prefix='asfst_')
+    try:
+        eq = [l for l in read_text(os.path.join(src, files['equates.aii'])).split('\n')
+              if not l.strip().lower().startswith('dump')
+              and l.strip().lower() != 'end']
+        with open(os.path.join(tmp, 'equates_clean.aii'), 'w') as f:
+            f.write('\n'.join(eq))
+        incs = [src, tmp] + INCS
+        objs = []
+        for base in APPLESHARE_ORDER:
+            text = read_text(os.path.join(src, files[base.lower() + '.aii'])).split('\n')
+            out = [(_LOAD_RE.match(l).group(1) + "include 'equates_clean.aii'"
+                    if _LOAD_RE.match(l) else l) for l in text]
+            p = os.path.join(tmp, base + '.aii')
+            with open(p, 'w') as f:
+                f.write('\n'.join(out))
+            a = asm.assemble(p, incs, defines={'DebugCode': 0})
+            objs.append((omf.emit(a), a))
+        result = linkiigs.link(objs, opts={'merge': True})
+        return _extract_img(result), g
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _extract_img(result: bytes) -> bytes:
@@ -206,6 +268,22 @@ def check(name: str, verbose: bool = False):
 def main():
     if len(sys.argv) > 1:
         name = sys.argv[1]
+        if name.lower().startswith('appleshare'):
+            mine, g = _build_appleshare()
+            if mine is None:
+                print('AppleShare.FST: no golden binary (run cadius extraction)')
+                return
+            n = min(len(mine), len(g))
+            m = sum(1 for i in range(n) if mine[i] == g[i])
+            print(f'AppleShare.FST: gsasm={len(mine)} gold={len(g)} '
+                  f'match {m}/{n} ({100 * m // n if n else 0}%)')
+            diffs = [(i, mine[i], g[i]) for i in range(n) if mine[i] != g[i]]
+            if diffs:
+                pos, a, b = diffs[0]
+                print(f'  first diff @ {pos:#06x}: gsasm={a:02x} gold={b:02x}')
+            else:
+                print('  BYTE-EXACT')
+            return
         # Allow bare name like "Pro" or full "Pro.FST"
         if name not in FSTMAP:
             name = name + '.FST'
@@ -232,8 +310,25 @@ def main():
     if tot_n:
         print(f'CORPUS raw code-image match: {tot_m}/{tot_n} ({100 * tot_m // tot_n}%)')
     print()
+
+    # AppleShare.FST — informational only (NOT byte-exact; excluded from CORPUS).
+    try:
+        mine, g = _build_appleshare()
+    except Exception as e:
+        mine, g = None, None
+        print(f'AppleShare.FST: build error: {type(e).__name__}: {e}')
+    if mine is not None:
+        n = min(len(mine), len(g))
+        m = sum(1 for i in range(n) if mine[i] == g[i])
+        print(f'AppleShare.FST (informational, not byte-exact, excluded from CORPUS):')
+        print(f'  built {len(mine)} bytes vs golden {len(g)}; '
+              f'positional match {m}/{n} ({100 * m // n if n else 0}%)')
+        print('  Residual gap: `partial_len` etc.— tdata-template fields accessed'
+              ' via WITH mydata size direct-page instead of the data-segment'
+              ' absolute address (the dp-alias sizing case is now fixed).')
+
+    print()
     print('Packaging note: all FSTs are ExpressLoad\'d (KIND 0x8001 leading segment).')
-    print('AppleShare.FST: sources absent in this source tree — skipped.')
 
 
 if __name__ == '__main__':
