@@ -2159,9 +2159,12 @@ class Asm:
             return
 
         # listing / diagnostics: ignore (define a label if present)
+        # DATACHK/CODECHK are AsmIIgs assembler-check toggles (On/Off) that emit
+        # no bytes and do not shift the DS/DC layout — treat as no-ops.
         if u in ('TITLE', 'PRINT', 'LIST', 'PAGE', 'PAGESIZE', 'EJECT', 'SPACE',
                  'NOGEN', 'GEN', 'MACHINE', 'WRITELN', 'ERR', 'ERRIF',
-                 'NEEDS', 'BLANKS', 'LONGTABLE', 'KEEP', 'NOTE', 'WHILE', 'MEXIT'):
+                 'NEEDS', 'BLANKS', 'LONGTABLE', 'KEEP', 'NOTE', 'WHILE', 'MEXIT',
+                 'DATACHK', 'CODECHK'):
             self._lbl(ln); return
 
         # instruction?  (_MNEM_SYNONYM translates a plain-synonym spelling to

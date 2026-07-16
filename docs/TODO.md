@@ -9,10 +9,11 @@ stands. But the tool binaries reopen the two **toolchain-quirk** limits to
 tool, capture outputs, derive the rule. Same differential method as the
 `.lst`/`.obj` fixtures.
 
-None of this affects the missing-source limits: the bank-$E1 symbols
-(`E1_MSG_ADDRESS` etc.) appear nowhere in either `.hfv` (checked by raw
-`strings` grep), so the GS.OS 94-byte floor, SCSIHD revision skew, Tool019
-skew, and AppleShare.FST remain closed.
+None of this affects the missing-source limits: SCSIHD revision skew, Tool019
+skew, and AppleShare.FST remain closed. (The GS.OS "94-byte external floor"
+was NOT such a limit — the bank-$E1 vectors it blamed are `EXPORT`ed `DS`
+globals in `GQuit.src`, resolved by the whole-OS link; closed 94 → 48, see
+RESULTS.md.)
 
 ## 1. ExpressLoad "case B" flags (~550 B across Tool014/023/027, TS2/TS3, Tool.Setup)
 

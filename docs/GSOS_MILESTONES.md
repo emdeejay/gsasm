@@ -43,7 +43,7 @@ individual tool designs assume (OMF primer, golden-binary layout, gotchas).
 | M3 | MakeBin/Overlay/catenate | `gsasm/makebin.py` | ✅ **done** — `prodos` byte-exact (`work/probootcheck.py`) |
 | M4 | ExpressLoad relinker | `gsasm/expressload.py` | ✅ **done** — byte-exact vs Tool022/021/028; one documented encoding limit (case B) |
 | M5 | `System/FSTs/*`, `System/Drivers/*` | gsasm + M2 (+M3) | ✅ **done** — all 7 buildable FSTs byte-exact; 11/12 drivers byte-exact (SCSIHD golden is a later source revision) |
-| M6 | `GS.OS`, `Start.GS.OS`, `P8`, `prodos`, `ERROR.MSG` | gsasm + M2 + M3 + M4 | ✅ **at the proven floor** — prodos/Start.GS.OS/Error.Msg/Loader byte-exact; GS.OS 99.76% (94-byte external floor); P8 out of scope |
+| M6 | `GS.OS`, `Start.GS.OS`, `P8`, `prodos`, `ERROR.MSG` | gsasm + M2 + M3 + M4 | ✅ prodos/Start.GS.OS/Error.Msg/Loader byte-exact; GS.OS 99.88% (48-byte residual, three unrelated classes; the old "94-byte external floor" was a misdiagnosis — see RESULTS.md); P8 out of scope |
 | M7 | Finder, Installer, asm CDEVs/NDAs (resource forks) | gsasm + M2 + **Rez** | 🟡 first target done: `design/rez.md` |
 | — | Pascal/C desktop (Ctl-Panel CDEVs, GSCalc, ADU, Teach, Logon) | PascalIIgs / C | ❌ out of scope |
 
@@ -94,9 +94,11 @@ later source revision than the archived one (RESULTS.md has the evidence).
 `work/kernelcheck.py`, following the tree's own `linkOS` recipe: link the OS
 objects, split into `scm.bin.N` segments, catenate segments into `GS.OS` and
 `Start.GS.OS`. `prodos`, `Start.GS.OS`, `Error.Msg` and the Loader are
-byte-exact. `GS.OS` stops 94 bytes short: those bytes reference bank-$E1
-vectors defined nowhere in the source archive, so the gap is unclosable from
-these sources — the floor is proven, not assumed. P8 needs the OverlayIIgs
+byte-exact. `GS.OS` reaches 99.88% (48 bytes short). An earlier "94-byte
+external floor" was overturned: the bank-$E1 vectors blamed for it are
+`EXPORT`ed `DS` globals in `GQuit.src`, resolved by the whole-OS link (see
+RESULTS.md); the 48-byte residual is three unrelated settled classes. P8
+needs the OverlayIIgs
 driver-overlay build plus include files not in the GS/OS tree, and is
 documented out of scope.
 

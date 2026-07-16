@@ -19,8 +19,10 @@ committed regression baseline (`work/gate.py`; `work/gate_baseline.json`).
 
 Close but not exact:
 
-- **GS.OS** — 38,711 of 38,805 bytes (99.76%). The 94-byte residual is a
-  proven external floor; see below.
+- **GS.OS** — 38,757 of 38,805 bytes (99.88%). The former 94-byte "external
+  floor" was half wrong: 46 of those bytes were the bank-$E1 vectors, which
+  are *defined* in `GQuit.src` and are now resolved; see below. The remaining
+  48 bytes are three unrelated placement/length classes.
 - **Toolbox toolsets** — 118,524 of 119,080 bytes (99.5%) across 14
   `ToolNNN` files (`work/toolcheck.py`; Tool023/StdFile added in R9 — its
   sources assemble cleanly, see `docs/design/expressload.md`).
@@ -34,12 +36,30 @@ Close but not exact:
 Each of these was settled by evidence, not fatigue. They bound what any
 toolchain could reproduce from this source archive.
 
-**GS.OS: 94 bytes reference symbols absent from the archive.** The dominant
-residual class is cross-bank references to `E1_MSG_ADDRESS`, `E1_VOLNAME`,
-`E1_GET_REF_INFO`, `E1_CURRENT_ID` and similar bank-$E1 vectors. No file
-anywhere in `IIGS.601.SRC` defines or exports them — Apple's build resolved
-them from something outside this archive. A byte-exact GS.OS is therefore
-not derivable from these sources, regardless of toolchain fidelity.
+**GS.OS: the bank-$E1 "external floor" — OVERTURNED (94 → 48 bytes).** The
+old claim held that the dominant residual was cross-bank references to
+`E1_MSG_ADDRESS`, `E1_VOLNAME`, `E1_CURRENT_ID`, `E1_APP_FILENAME` and similar
+bank-$E1 vectors that "no file in `IIGS.601.SRC` defines." That is false. They
+are `EXPORT`ed `DS.B`/`DC` allocations in `GQuit.src`'s `seg_e1` segment
+(`GQuit.src` lines ~10490–10620), ORG'd at `e1_obj_pstn` = `$E1D200`, so gsasm
+bakes each at its real address (e.g. `E1_MSG_ADDRESS` = `$E1D6F3`,
+`E1_CURRENT_ID` = `$E1D679`). The earlier sweep missed them because it searched
+for `EQU`-style defs, not `EXPORT`ed DS-in-segment globals. Apple's `linkOS`
+resolves the SCM→GQuit reference because it links every kernel object in one
+global pass; `GQuit` merely lands in the sibling `Start.GS.OS` output file.
+`work/kernelcheck.py` now mirrors that by seeding `GQuit`'s placed exports into
+the SCM link's extern table, recovering **46 bytes** (`38,711 → 38,757`).
+(`E1_GET_REF_INFO` and `EQ_MSG_ADDRESS` are `Import`ed by SCM but never
+referenced, so they emit no bytes and were never part of the residual.)
+
+The remaining **48 bytes** are three unrelated classes, none of them bank-$E1
+externals: (a) ~21 bytes of `b00segr`/`be0segr` bank-0 interior references where
+gsasm places a dispatcher label 0-based (e.g. `$0019` vs golden `$AC2E`);
+(b) ~18 bytes of `init1`/`init3`/`init4` header `DC.W` segment-length words and
+length-derived immediates; (c) ~9 bytes of `scm_main` cross-references gsasm
+resolves 0-based where the golden build lands them in bank 0
+(`$B9D6`/`$B70A`/`$255C`). These are placement/length discrepancies in gsasm's
+per-group linking, not missing source.
 
 **ExpressLoad relocation encoding ("case B") — CLOSED for the single-segment
 path (R9).** Previously classed as "not a function of the input"; overturned
