@@ -433,6 +433,14 @@ class Asm:
         self.emit_enabled = True      # False inside RECORD (offsets only)
         self.fixups = []              # (bytearray, offset, Fixup) to patch later
         self.record_stack = []        # saved (loc, emit, name) per RECORD..ENDR
+        self._rec_hi_stack = []       # per-RECORD location-counter high-water:
+                                      #   [extreme_loc] so a bare ORG (no operand)
+                                      #   can reset loc to the max (incrementing) /
+                                      #   min (decrementing) offset reached across
+                                      #   the record's variant ORG overlays (MPW Asm
+                                      #   Ref p.102: "ORG with no operand sets the
+                                      #   location counter to the maximum ... value
+                                      #   assigned to the module up to this point")
         self.cur_record = None        # current RECORD name (for qualified fields)
         self._record_dec = False      # current RECORD allocates fields downward
         self._record_data = False     # current RECORD is a DATA segment (its
@@ -1922,6 +1930,7 @@ class Asm:
                                           base, ln.label, is_import))
                 self.emit_enabled = False
                 self.loc = base
+                self._rec_hi_stack.append(base)    # location-counter high-water
                 self._record_dec = dec             # fields allocate downward
                 self._record_data = False
                 if ln.label:
@@ -1947,6 +1956,7 @@ class Asm:
                 self.cur_record = ln.label
                 self._record_data = True
                 self.loc = 0                       # new segment starts at 0
+                self._rec_hi_stack.append(0)       # location-counter high-water
                 name = self._fold(ln.label or '')
                 # `Name Record EXPORT` publicly exports the record label (same
                 # semantics as `Name PROC EXPORT`): cross-object by-name refs
@@ -2017,6 +2027,8 @@ class Asm:
             if ln.label:
                 self.define_label(ln.label, self.loc,
                                   kind='label' if data_rec else 'equ')
+            if self._rec_hi_stack:
+                self._rec_hi_stack.pop()
             if self.record_stack:
                 entry = self.record_stack.pop()
                 final_rec_loc = self.loc          # position at end of record body
@@ -2097,17 +2109,34 @@ class Asm:
             return
         if u == 'ORG':
             if not (ln.operand or '').strip():
-                # bare ORG: resume at the segment's high-water mark (ends a
-                # backward-ORG overlay).  In a plain relocatable segment the
-                # high water IS the emitted length; absolute/temporg segments
-                # keep the historical no-op (their loc is not item-indexed).
-                cur = self.segs[-1]
-                if not cur.absolute and cur.temporg is None:
-                    self.loc = max(self.loc, cur.length())
+                # bare ORG: reset the location counter to the extreme (max for an
+                # incrementing template, min for a decrementing one) value reached
+                # so far — MPW Asm Ref p.102.  Inside a RECORD template this is the
+                # high-water across the record's variant ORG overlays (a union: the
+                # record size must span its largest arm, e.g. GS.OS my_direct_page's
+                # graphics vs. text dialog overlays -> my_dp_size = 80, not 74).
+                if self._rec_hi_stack:
+                    hi = self._rec_hi_stack[-1]
+                    self.loc = min(hi, self.loc) if self._record_dec \
+                        else max(hi, self.loc)
+                    self._rec_hi_stack[-1] = self.loc
+                else:
+                    # In a code/data segment the high water IS the emitted length
+                    # (ends a backward-ORG overlay); absolute/temporg segments keep
+                    # the historical no-op (their loc is not item-indexed).
+                    cur = self.segs[-1]
+                    if not cur.absolute and cur.temporg is None:
+                        self.loc = max(self.loc, cur.length())
                 self._lbl(ln)
                 return
             v = self.evaluate(ln.operand)
             if v is not None:
+                # capture the pre-reset high-water so a later bare ORG (union
+                # size) sees this variant arm's full extent before loc rewinds
+                if self._rec_hi_stack:
+                    self._rec_hi_stack[-1] = (
+                        min(self._rec_hi_stack[-1], self.loc) if self._record_dec
+                        else max(self._rec_hi_stack[-1], self.loc))
                 self.loc = v
             self._lbl(ln)
             return

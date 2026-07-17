@@ -1,0 +1,4 @@
+{
+  "note": "bare ORG (no operand) resets a record's location counter to the MAX offset reached \u2014 variant-record/union sizing, MPW Asm Ref p.102 (GS.OS my_direct_page graphics/text overlays)",
+  "commit": "0256b1b"
+}
