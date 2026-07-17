@@ -19,12 +19,12 @@ committed regression baseline (`work/gate.py`; `work/gate_baseline.json`).
 
 Close but not exact:
 
-- **GS.OS** — 38,757 of 38,805 bytes (99.88%). The former 94-byte "external
+- **GS.OS** — 38,765 of 38,805 bytes (99.90%). The former 94-byte "external
   floor" was half wrong: 46 of those bytes were the bank-$E1 vectors, which
   are *defined* in `GQuit.src` and are now resolved; see below. The remaining
-  48 bytes are four gsasm assembler/linker bugs (a duplicate `a_reg`, a
-  case-folded `Import init_N_end`, baked bank-0 constants, a mis-scoped `MORE`) —
-  baked constants that export-seeding cannot touch; see below.
+  40 bytes are gsasm assembler/linker bugs (a duplicate `a_reg`, baked bank-0
+  constants, a mis-scoped `MORE`, template-offset immediates) — baked constants
+  that export-seeding cannot touch; see below.
 - **Toolbox toolsets** — 118,524 of 119,080 bytes (99.5%) across 14
   `ToolNNN` files (`work/toolcheck.py`; Tool023/StdFile added in R9 — its
   sources assemble cleanly, see `docs/design/expressload.md`).
@@ -38,7 +38,7 @@ Close but not exact:
 Each of these was settled by evidence, not fatigue. They bound what any
 toolchain could reproduce from this source archive.
 
-**GS.OS: the bank-$E1 "external floor" — OVERTURNED (94 → 48 bytes).** The
+**GS.OS: the bank-$E1 "external floor" — OVERTURNED (94 → 40 bytes).** The
 old claim held that the dominant residual was cross-bank references to
 `E1_MSG_ADDRESS`, `E1_VOLNAME`, `E1_CURRENT_ID`, `E1_APP_FILENAME` and similar
 bank-$E1 vectors that "no file in `IIGS.601.SRC` defines." That is false. They
@@ -54,7 +54,7 @@ the SCM link's extern table, recovering **46 bytes** (`38,711 → 38,757`).
 (`E1_GET_REF_INFO` and `EQ_MSG_ADDRESS` are `Import`ed by SCM but never
 referenced, so they emit no bytes and were never part of the residual.)
 
-The remaining **48 bytes** are *not* more of the same disease. The export-seeding
+The remaining **40 bytes** are *not* more of the same disease. The export-seeding
 that recovered the 46 bank-$E1 bytes closes **none** of them, because every
 residual byte is a **baked constant** — emitted at assembly time with no
 relocation record for the linker/extern to override — or an **ambiguous duplicate
@@ -67,14 +67,20 @@ assembler/linker correctness bugs, precisely:
   the ten `>a_reg`/`|a_reg` references as absolute `$0019` (the label's 0-based
   offset) with *no relocation*, where `linkOS` relocates them to `$AC2E`. Verified
   not seedable: `A_REG` is already in the content extern and the bytes never move.
-- **`init` ~18 bytes — a case-folding bug plus template-offset sizing.** The header
-  `DC.W init_N_end-init_N_start` for `Init1`/`Init3` folds to a bogus literal
-  (`$4E00`/`$3000` = `0 − init_N_start`) because gsasm leaves `init_N_end`
-  *unresolved* (`0`): the header's `Import Init_1_end`/`Init_3_end` (capital `I`) is
-  not case-unified with the lowercase `init_N_end` `PROC` that defines it —
-  `Init2`/`Init4` import lowercase and resolve correctly. The rest are
+- **`init` ~14 bytes — template-offset sizing (the DC.W header is now CLOSED).**
+  The header `DC.W init_N_end-init_N_start` for `Init1`/`Init3` HAD folded to a
+  bogus literal (`$4E00`/`$3000`) because gsasm baked `init_N_end(=0) −
+  init_N_start` at assembly time. `init_N_end` is a relocatable end-bracket `PROC`
+  that follows the `std_buffer`/`text_screen` data `RECORD` (which resets the
+  location counter to 0), so its assembly-time value was 0-based, while
+  `init_N_start` is an `ORG`'d (absolute) pad `PROC` — the real segment length is a
+  *link-time* constant. Fixed by having `omf._diff_reloc` emit the difference
+  expression for a MIXED absolute/relocatable cross-segment pair (bail only when
+  *both* segments are `ORG`'d); recovers 4 bytes, fixture 035. (The earlier
+  "capital-`I` `Import` not case-unified" diagnosis was wrong — `sym_kind` already
+  unifies a local definition over an `Import`.) The ~14 bytes that remain are
   length-derived `ldx #dp_size` immediates (`$48` vs `$4E`) computed from
-  `record`/template field offsets.
+  `record`/template field offsets — a separate class.
 - **`scm_main` ~9 bytes — baked bank-0 constants + a mis-scoped label.** A
   self-modified jump vector at `$B9D6` (three refs, baked `$00BB`), an immediate
   `$255C` (baked `$005C`), and a duplicate local label `MORE` the link resolves to
@@ -82,10 +88,9 @@ assembler/linker correctness bugs, precisely:
 - **`be0segr` 1 byte** — a live `BANK_E0_SEGR+$A86` reference whose placed low byte
   is off by 2 (`$86` vs `$88`), a placement/size discrepancy.
 
-The correct fixes for all four live in the *assembler* (duplicate-symbol handling,
-case-insensitive `Import`/definition unification, `record`/template field typing)
-and the *linker* (local-label scoping), not in the kernel-link seeding — so the
-seeding ceiling is genuinely 48 bytes short here.
+The correct fixes for the rest live in the *assembler* (duplicate-symbol handling,
+`record`/template field typing) and the *linker* (local-label scoping), not in the
+kernel-link seeding — so the seeding ceiling is genuinely 40 bytes short here.
 
 **ExpressLoad relocation encoding ("case B") — CLOSED for the single-segment
 path (R9).** Previously classed as "not a function of the input"; overturned

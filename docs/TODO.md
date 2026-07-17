@@ -115,12 +115,21 @@ The audit (see `docs/RESULTS.md` and the case study
 `docs/notes/proven-ceiling-audit.md`) falsified four documented limits and
 overturned the "at the proven ceiling" framing. Remaining follow-ups:
 
-- **GS.OS residual 44 bytes** — now known to be gsasm assembler/linker bugs,
-  not an external floor: a duplicate-symbol case (`a_reg` defined twice,
-  baked 0-based), a case-fold miss (`Import Init_1_end` vs `init_1_end`
-  `PROC`), baked bank-0 constants, and a `WITH`-instance binding gap. Each is
-  a real fix in `asm.py`/`linkiigs.py` — the most oracle-constrained files —
-  so gate-verify hard.
+- **GS.OS residual 40 bytes** (was 44) — gsasm assembler/linker bugs, not an
+  external floor. **CLOSED 2026-07-17: the init-header `DC.W init_N_end-
+  init_N_start` (4 B, Init1/Init3).** It was NOT a case-fold miss (that
+  diagnosis was wrong — `sym_kind` already unifies a local def over an
+  `Import`). The real cause: `init_N_end` is a relocatable end-bracket PROC
+  that follows a data `RECORD` (which resets the location counter to 0), so
+  gsasm baked `init_N_end(=0) - init_N_start` as an assembly-time literal,
+  while `init_N_start` is an ORG'd absolute pad PROC — the segment length is a
+  LINK-time constant. Fixed in `omf._diff_reloc`: a MIXED absolute/relocatable
+  cross-segment difference is not final, so the ORG guard now bails only when
+  BOTH segments are ORG'd (`or` → `and`); fixture 035. Remaining 40:
+  a duplicate-symbol case (`a_reg` defined twice, baked 0-based), baked bank-0
+  constants, a mis-scoped `MORE`, ~14 B template-offset immediates, and a
+  `WITH`-instance binding gap. Each is a real fix in `asm.py`/`linkiigs.py` —
+  the most oracle-constrained files — so gate-verify hard.
 - **AppleShare.FST → byte-exact** — MOSTLY DONE (2026-07-17): 30% → 99.9%
   positional (17812/17825) and **size is now byte-exact** (17825/17825), via
   three gsasm fixes + one harness fix, all with the whole golden gate at

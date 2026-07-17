@@ -1,0 +1,4 @@
+{
+  "note": "mixed ORG'd/relocatable cross-segment label difference -> link-time diff EXPRESSION, not a baked literal (GS/OS Init-manager DC.W init_N_end-init_N_start header idiom)",
+  "commit": "9a092c0"
+}

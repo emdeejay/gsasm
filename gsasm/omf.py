@@ -304,8 +304,19 @@ def _diff_reloc(asm, text):
     bake to the assembly-time value (both labels segment-relative), which is wrong
     once the linker places the segments apart (e.g. `DC.W getfstname-jump_table`).
 
+    A difference is final ONLY when BOTH segments are ORG'd (both absolute).  A
+    MIXED case — one label in an ORG'd (absolute) segment, the other in a
+    relocatable one — is NOT final: the relocatable side moves at link, so it must
+    still emit the expression.  This is the GS/OS Init-manager header idiom
+    `DC.W init_N_end-init_N_start`, where init_N_start is an ORG'd pad PROC
+    (absolute) and init_N_end is a relocatable end-bracket PROC that follows a data
+    segment (so its assembly-time value is 0-based and the baked literal is wrong);
+    the linker computes the real segment length.  locops already emits each side as
+    SEGNAME+offset, and an ORG'd segment resolves to its ORG, so the same emission
+    is correct for the absolute side too.
+
     Classifier over linear_decompose: 2 terms with coefficients +1/-1, both
-    symseg-known labels, in different non-ORG'd segments, both defined."""
+    symseg-known labels, in different segments (not both ORG'd), both defined."""
     dec = linear_decompose(asm, text)
     if dec is None:
         return None
@@ -329,8 +340,8 @@ def _diff_reloc(asm, text):
         return None
     if sa == sb:                                   # same segment: literal is final
         return None
-    if (asm.segs[sa].org or 0) or (asm.segs[sb].org or 0):
-        return None                                # ORG'd (absolute) diff is final
+    if (asm.segs[sa].org or 0) and (asm.segs[sb].org or 0):
+        return None                                # BOTH ORG'd (absolute) diff is final
     av, bv = asm.resolve(A), asm.resolve(B)
     if av is None or bv is None:                   # both must be defined
         return None
