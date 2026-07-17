@@ -186,8 +186,18 @@ def parse_line(raw):
     if up in _MULTI_TOKEN_OPS:
         operand = rest2
     else:
+        # The numeric-addend continuation (BLANKS-ON `lda addr +2`) is scoped to
+        # a real 65816 MEMORY-operand mnemonic — NOT branches (their relative
+        # target's unmarked comment may be a bare `+n`) and NOT directives like
+        # DS/DCB (whose operand is a COUNT: `ds.b 2 +2` must reserve 2, not 4).
+        # DS and non-mnemonic directives aren't in m65816.MNEMONICS, so they are
+        # excluded automatically; branches are excluded explicitly.
+        mem_instr = (up in m65816.MNEMONICS
+                     and up not in m65816.BRANCH8
+                     and up not in m65816.BRANCH16)
         operand = first_field(rest2, expr_cont=(up in _EXPR_CONT_OPS
-                                                or up.startswith('DC')))
+                                                or up.startswith('DC')),
+                              num_cont=mem_instr)
     return Line(label, op, operand, raw, comment)
 
 
@@ -203,11 +213,13 @@ _MULTI_TOKEN_OPS = {'IF', 'ELSEIF', 'WHILE', 'AIF', 'PROC', 'ERRIF', 'DO',
 # re-add DS here when that lands.
 _EXPR_CONT_OPS = {'EQU', 'GEQU', '=', 'SET'}
 
-# A whitespace-separated tail that is ENTIRELY `[+-] <number>` terms (decimal or
-# $hex), e.g. `+2`, `- $10`, `+4-2`.  Used by first_field to fold a bare numeric
-# addend into a memory-operand instruction across BLANKS (MPW BLANKS ON).  A prose
-# comment never matches (it contains a symbol/word), so this is comment-safe.
-_NUM_ADDEND_TAIL = re.compile(r'^([+\-]\s*(?:\$[0-9A-Fa-f]+|[0-9]+))+$')
+# A tail that is ENTIRELY `[+-] <number>` terms — number = $hex, %binary, or
+# decimal — with optional blanks around each sign/term: e.g. `+2`, `- $10`,
+# `+4-2`, `+2 -1`, `+ 2 - 1`.  Used by first_field to fold a bare numeric addend
+# into a memory-operand instruction across blanks (MPW BLANKS ON).  A prose comment
+# always contains a non-numeric token, so it never matches — this is comment-safe.
+_NUM_ADDEND_TAIL = re.compile(
+    r'^([+\-]\s*(?:\$[0-9A-Fa-f]+|%[01]+|[0-9]+)\s*)+$')
 
 # Mnemonic spellings AsmIIgs accepts as plain synonyms of a real 65816
 # instruction (distinct from m65816.ALIAS, which covers 65816-level
@@ -215,7 +227,7 @@ _NUM_ADDEND_TAIL = re.compile(r'^([+\-]\s*(?:\$[0-9A-Fa-f]+|[0-9]+))+$')
 _MNEM_SYNONYM = {'TSA': 'TSC', 'TAS': 'TCS'}
 
 
-def first_field(s, expr_cont=False):
+def first_field(s, expr_cont=False, num_cont=False):
     """Leading operand token: stops at the first whitespace that is at paren/
     bracket depth 0 and outside a quoted string. Whitespace ADJACENT to a comma
     is part of a comma-separated list (e.g. `DC.W Flag, 0`), not a comment
@@ -266,8 +278,9 @@ def first_field(s, expr_cont=False):
             if ((expr_cont or s.lstrip(' \t')[:1] == '#')
                     and _expr_tail(s[j:])):
                 return s.rstrip()
-            # A MEMORY-operand instruction continues its operand across whitespace
-            # for a PURE NUMERIC addend only (`lda |temp_load_addr +2` -> +2, GS.OS
+            # A MEMORY-operand instruction (`num_cont`, set by the caller ONLY for a
+            # non-branch 65816 mnemonic) continues its operand across whitespace for
+            # a PURE NUMERIC addend only (`lda |temp_load_addr +2` -> +2, GS.OS
             # Device.Dispatcher).  MPW's BLANKS ON (the preset) lets blanks sit in
             # the operand field and requires a ';' for the comment; the whole gated
             # corpus otherwise reads as BLANKS OFF, so the continuation is scoped as
@@ -275,8 +288,10 @@ def first_field(s, expr_cont=False):
             # `[+-] <number>` term(s) and nothing else.  Prose comments never match
             # (`-yes.`, `* decorative`, `+2 bytes over` all contain non-numeric
             # tokens), so this cannot swallow an unmarked comment the way a general
-            # _expr_tail continuation would.
-            if _NUM_ADDEND_TAIL.match(s[j:].rstrip()):
+            # _expr_tail continuation would.  Branches and count directives (DS/DCB)
+            # are excluded by the caller: their trailing `+n` may be a comment or a
+            # count, not an address addend.
+            if num_cont and _NUM_ADDEND_TAIL.match(s[j:].rstrip()):
                 return s.rstrip()
             return s[:i]
         i += 1
