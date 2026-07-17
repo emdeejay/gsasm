@@ -65,7 +65,7 @@ SCM segment layout:
   harness re-adds it.  (gsasm DOES evaluate the ORGs, `,skip`/`,noskip` included.)
 
 Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
-  1. GS.OS (SCM): 14 bytes short.  The former dominant class — SCM/Init1 refs to
+  1. GS.OS (SCM): 12 bytes short.  The former dominant class — SCM/Init1 refs to
      the bank-$E1 vectors E1_MSG_ADDRESS, E1_VOLNAME, E1_CURRENT_ID,
      E1_APP_FILENAME, ... — is now CLOSED (46 bytes recovered).  Those symbols are
      NOT externals: they are EXPORTed DS.B/DC allocations in GQuit.src's seg_e1
@@ -73,7 +73,7 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
      $E1D6xx addresses, e.g. E1_MSG_ADDRESS=$E1D6F3).  Apple's linkOS resolves them
      because it links every kernel object in ONE global pass; kernelcheck now
      mirrors that by seeding GQuit's placed exports into the SCM link's extern.
-     The 14-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
+     The 12-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
      every residual byte is a baked constant emitted at ASSEMBLY time (no relocation
      record for the linker/extern to override) or an ambiguous duplicate symbol the
      link binds to a valid-but-wrong instance.  Seeding placed exports — the fix that
@@ -99,11 +99,16 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
          BOTH segments are ORG'd (fixture 035).  (The earlier "cap-I Import not
          case-unified" diagnosis was wrong — sym_kind already unifies local-def over
          import.)
-     The remaining 14B, characterized precisely (work/kernelcheck.py --diff):
-       * init template/dp-size immediates ~10B (scm.bin.13/14/16 = init.1/2/4):
-         `ldx #dp_size`-style immediates computed from `record`/template field
-         offsets (e.g. init.1 $48 vs golden $4E) — baked from the wrong template
-         size; a separate `record`/template-typing class.
+     The remaining 12B, characterized precisely (work/kernelcheck.py --diff):
+       * init template immediates ~8B (scm.bin.14/16 = init.2/4): `ldx #...`-style
+         immediates computed from `record`/template field offsets that gsasm sizes
+         wrong (init.2 mine $201c vs golden $00d2; init.4 baked $00 vs golden $0e/
+         $0c/$0e/$10) — a `record`/template-typing class, still to root-cause.
+         (init.1's `ldx #my_dp_size-2` = 2B is now CLOSED: bare `ORG` with no
+         operand resets a template's location counter to the MAX offset across its
+         variant ORG overlays — MPW Asm Ref p.102 union sizing — so
+         my_direct_page's graphics-vs-text overlay gives my_dp_size=$50 not $4A;
+         asm.py `_rec_hi_stack`, fixture 037.)
        * scm_main 3B (scm.bin.3): an immediate $255C baked $005C, and a duplicate
          local label `MORE` the link binds to the wrong instance ($F99B vs $B70A).
        * be0segr 1B (scm.bin.7): a live `BANK_E0_SEGR+$A86` LEXPR whose placed low

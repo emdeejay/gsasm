@@ -115,8 +115,8 @@ The audit (see `docs/RESULTS.md` and the case study
 `docs/notes/proven-ceiling-audit.md`) falsified four documented limits and
 overturned the "at the proven ceiling" framing. Remaining follow-ups:
 
-- **GS.OS residual 14 bytes** (was 44) — gsasm assembler/linker bugs, not an
-  external floor. TWO classes CLOSED 2026-07-17:
+- **GS.OS residual 12 bytes** (was 44) — gsasm assembler/linker bugs, not an
+  external floor. THREE classes CLOSED 2026-07-17:
     1. **init-header `DC.W init_N_end-init_N_start` (4 B, Init1/Init3).** NOT a
        case-fold miss (that diagnosis was wrong — `sym_kind` already unifies a
        local def over an `Import`). Real cause: `init_N_end` is a relocatable
@@ -134,11 +134,18 @@ overturned the "at the proven ceiling" framing. Remaining follow-ups:
        `asm.py::define_label`: a proc-interior EQU reusing an EXPORT/ENTRY/IMPORT
        name stays module-local (seg_equ), never clobbers the global (MPW Asm Ref:
        module-interior labels are local unless exported); fixture 036.
-  Remaining 14: (a) ~10 B init template/dp-size immediates (`ldx #dp_size` from
-  wrong `record`/template field offsets, init.1/2/4) — a `record`-typing bug;
-  (b) 3 B scm_main (immediate $255C baked $005C + a mis-scoped duplicate `MORE`,
-  $F99B vs $B70A); (c) 1 B be0segr (`BANK_E0_SEGR+$A86` placed off by 2). Each a
-  real fix in `asm.py`/`linkiigs.py` — oracle-constrained, gate-verify hard.
+    3. **init.1 `ldx #my_dp_size-2` (2 B) — bare-ORG union sizing.** A bare `ORG`
+       (no operand) resets a template's location counter to the MAX offset across
+       its variant `ORG` overlays (MPW Asm Ref p.102: "ORG with no operand sets
+       the location counter to the maximum ... value assigned ... up to this
+       point"). my_direct_page overlays a graphics dialog arm over a text arm; the
+       record size must span the larger (my_dp_size=$50, not $4A). gsasm sized the
+       last arm. Fix: `asm.py` `_rec_hi_stack` tracks the high-water; fixture 037.
+  Remaining 12: (a) ~8 B init.2/4 template immediates (init.2 mine $201c vs golden
+  $00d2; init.4 baked $00 vs $0e) — a `record`/template-typing bug, still to
+  root-cause; (b) 3 B scm_main (immediate $255C baked $005C + a mis-scoped
+  duplicate `MORE`, $F99B vs $B70A); (c) 1 B be0segr (`BANK_E0_SEGR+$A86` placed
+  off by 2). Each a real fix in `asm.py`/`linkiigs.py` — gate-verify hard.
 - **AppleShare.FST → byte-exact** — MOSTLY DONE (2026-07-17): 30% → 99.9%
   positional (17812/17825) and **size is now byte-exact** (17825/17825), via
   three gsasm fixes + one harness fix, all with the whole golden gate at
