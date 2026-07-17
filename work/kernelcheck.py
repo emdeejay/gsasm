@@ -65,7 +65,7 @@ SCM segment layout:
   harness re-adds it.  (gsasm DOES evaluate the ORGs, `,skip`/`,noskip` included.)
 
 Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
-  1. GS.OS (SCM): 8 bytes short.  The former dominant class — SCM/Init1 refs to
+  1. GS.OS (SCM): 4 bytes short.  The former dominant class — SCM/Init1 refs to
      the bank-$E1 vectors E1_MSG_ADDRESS, E1_VOLNAME, E1_CURRENT_ID,
      E1_APP_FILENAME, ... — is now CLOSED (46 bytes recovered).  Those symbols are
      NOT externals: they are EXPORTed DS.B/DC allocations in GQuit.src's seg_e1
@@ -73,7 +73,7 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
      $E1D6xx addresses, e.g. E1_MSG_ADDRESS=$E1D6F3).  Apple's linkOS resolves them
      because it links every kernel object in ONE global pass; kernelcheck now
      mirrors that by seeding GQuit's placed exports into the SCM link's extern.
-     The 8-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
+     The 4-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
      every residual byte is a baked constant emitted at ASSEMBLY time (no relocation
      record for the linker/extern to override) or an ambiguous duplicate symbol the
      link binds to a valid-but-wrong instance.  Seeding placed exports — the fix that
@@ -108,11 +108,16 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
        * init.2 `pea '“'`/`pea '”'` (4B): a character constant's value is the source
          Mac Roman BYTE ($D2/$D3), not the Unicode code point ($201C/$201D) that
          `ord` yields after mac_roman decode (gsasm/expr.py; fixture 038).
-     The remaining 8B, characterized precisely (work/kernelcheck.py --diff):
-       * init.4 field-offset immediates 4B (scm.bin.16): `ldy #s_flags`/`#id`/
-         `adc #entry_size` bake $00 where golden has $0e/$0c/$10 — record field
-         names resolving to 0 instead of their template offsets; a `record`/`WITH`
-         field-scoping class, still to root-cause.
+     A third sub-class (init.4) was a HARNESS gap, now CLOSED:
+       * init.4 field-offset immediates (4B): `ldy #s_flags`/`#id`/`adc #entry_size`
+         — S_FLAGS/ID/ENTRY_SIZE are absolute EQU constants EXPORTed by SCM.src
+         (`id equ sys_entry+4`, ...) and IMPORTed by Init4.  gsasm correctly emits
+         them as by-name externals (LEXPR sym83:S_FLAGS); they baked 0 because
+         link_placed returns only PLACED positional symbols, so kernelcheck's SCM
+         extern lacked the constants.  Seeding SCM's exported constants into gextern
+         (mirroring linkOS's single global link, as for the e1_* / GQuit case)
+         resolves them.  NOT a gsasm bug — a harness seeding gap.
+     The remaining 4B, characterized precisely (work/kernelcheck.py --diff):
        * scm_main 3B (scm.bin.3): an immediate $255C baked $005C, and a duplicate
          local label `MORE` the link binds to the wrong instance ($F99B vs $B70A).
        * be0segr 1B (scm.bin.7): a live `BANK_E0_SEGR+$A86` LEXPR whose placed low
@@ -567,6 +572,17 @@ def _build_scm_segments() -> dict[str, bytes] | None:
     # referencing content links; each group still forces its OWN symbols last so a
     # shared label name can't be shadowed by a sibling group's copy.
     gextern: dict[str, int] = dict(scm_placed) if scm_placed else {}
+    # SCM also EXPORTs absolute EQU constants that other kernel objects IMPORT —
+    # e.g. the FST-table field offsets `id`/`s_flags`/`entry_size` (`id equ
+    # sys_entry+4`, ...) that Init4 imports for `ldy #s_flags` etc.  link_placed
+    # returns only PLACED positional symbols, so these constants are absent and the
+    # init link bakes 0.  linkOS resolves the imports against SCM's exports in its
+    # single global pass; seed SCM's exported constants to mirror that (setdefault
+    # keeps any placed value that already won above).
+    for _k in getattr(scm_asm, 'exports', ()):
+        _v = scm_asm.symbols.get(_k)
+        if isinstance(_v, int):
+            gextern.setdefault(_k, _v)
     # cache self-places (ORG-flowed): its own assembled symtab is already placed.
     try:
         for _k, _v in _full_symtab(_assemble(f'{GS}/OS/CacheManager/Cache.Src')[1]).items():
@@ -1039,20 +1055,15 @@ def main() -> int:
 
     print()
     print('Known residuals (prodos / Start.GS.OS / Error.Msg are byte-exact):')
-    print('  1. GS.OS (SCM): 48 bytes short.  The former dominant class — refs to')
-    print('     the bank-$E1 vectors (E1_MSG_ADDRESS=$E1D6F3, E1_VOLNAME, ...) — is')
-    print('     CLOSED (46B recovered): they are EXPORTed DS globals in GQuit.src')
-    print('     seg_e1, resolved by seeding GQuit\'s placed exports into SCM\'s link')
-    print('     (mirroring linkOS\'s single global pass), NOT externals.  The 48B')
-    print('     residual is NOT more of that disease: every byte is a baked constant')
-    print('     (no reloc to seed) or an ambiguous duplicate symbol.  b00segr ~20B:')
-    print('     `a_reg` defined twice (DS.B label $AC2E + `equ dir_reg+2`), baked')
-    print('     $0019.  init ~18B: header DC.W folds to 0-start ($4E00/$3000) because')
-    print('     `Import Init_1_end`/`Init_3_end` (cap I) is not case-unified with the')
-    print('     lowercase init_N_end PROC; + template-derived immediates.  scm_main')
-    print('     ~9B: baked $B9D6 vector, $255C immediate, mis-scoped `MORE` ($F99B')
-    print('     vs $B70A).  be0segr 1B: BANK_E0_SEGR+$A86 placed off by 2.  These are')
-    print('     gsasm assembler/linker bugs, not unseeded cross-references.')
+    print('  1. GS.OS (SCM): 4 bytes short.  The former dominant class — refs to')
+    print('     the bank-$E1 vectors (E1_MSG_ADDRESS=$E1D6F3, ...) — is CLOSED (46B),')
+    print('     as are five more classes (see the module docstring): a_reg dup-symbol')
+    print('     (~26B), the init DC.W header (4B), init.1 my_dp_size union-size (2B),')
+    print('     init.2 curly-quote char literals (4B), and init.4 SCM-export seeding')
+    print('     (4B).  The remaining 4B are baked constants no seed can touch:')
+    print('     scm_main 3B (immediate $255C baked $005C; a mis-scoped duplicate')
+    print('     `MORE` bound $F99B vs golden $B70A) + be0segr 1B (BANK_E0_SEGR+$A86')
+    print('     placed off by 2).  gsasm assembler/linker bugs, not unseeded refs.')
     print('  2. Loader.bin is excluded from the GS.OS comparison here; the Loader')
     print('     is built byte-exact separately (work/loader_placed.py, 16590/16590).')
     print('  3. P8: only PROCONE compared (golden P8 = 4 PROCs + OverlayIIgs driver')

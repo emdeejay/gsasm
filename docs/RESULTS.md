@@ -19,10 +19,10 @@ committed regression baseline (`work/gate.py`; `work/gate_baseline.json`).
 
 Close but not exact:
 
-- **GS.OS** — 38,797 of 38,805 bytes (99.98%). The former 94-byte "external
+- **GS.OS** — 38,801 of 38,805 bytes (99.99%). The former 94-byte "external
   floor" was half wrong: 46 of those bytes were the bank-$E1 vectors, which
   are *defined* in `GQuit.src` and are now resolved; see below. The remaining
-  8 bytes are gsasm assembler/linker bugs (template-offset immediates, a
+  4 bytes are gsasm assembler/linker bugs (template-offset immediates, a
   mis-scoped `MORE`, an off-by-2 placement) — baked constants that
   export-seeding cannot touch; see below.
 - **Toolbox toolsets** — 118,524 of 119,080 bytes (99.5%) across 14
@@ -38,7 +38,7 @@ Close but not exact:
 Each of these was settled by evidence, not fatigue. They bound what any
 toolchain could reproduce from this source archive.
 
-**GS.OS: the bank-$E1 "external floor" — OVERTURNED (94 → 8 bytes).** The
+**GS.OS: the bank-$E1 "external floor" — OVERTURNED (94 → 4 bytes).** The
 old claim held that the dominant residual was cross-bank references to
 `E1_MSG_ADDRESS`, `E1_VOLNAME`, `E1_CURRENT_ID`, `E1_APP_FILENAME` and similar
 bank-$E1 vectors that "no file in `IIGS.601.SRC` defines." That is false. They
@@ -54,7 +54,7 @@ the SCM link's extern table, recovering **46 bytes** (`38,711 → 38,757`).
 (`E1_GET_REF_INFO` and `EQ_MSG_ADDRESS` are `Import`ed by SCM but never
 referenced, so they emit no bytes and were never part of the residual.)
 
-The remaining **8 bytes** are *not* more of the same disease. The export-seeding
+The remaining **4 bytes** are *not* more of the same disease. The export-seeding
 that recovered the 46 bank-$E1 bytes closes **none** of them, because every
 residual byte is a **baked constant** — emitted at assembly time with no
 relocation record for the linker/extern to override — or an **ambiguous duplicate
@@ -95,21 +95,29 @@ Two more init sub-classes are now **CLOSED**:
   source **Mac Roman byte** (`$D2`/`$D3`), not the Unicode code point (`$201C`/`$201D`)
   that `ord` yields after mac_roman decode; `gsasm/expr.py`, fixture 038.
 
-The remaining **8 bytes** are three smaller classes:
+One more sub-class (`init.4`) was a **harness** gap, now **CLOSED**:
 
-- **`init.4` field-offset immediates ~4 bytes** — `ldy #s_flags`/`#id`/
-  `adc #entry_size` bake `$00` where golden has `$0e`/`$0c`/`$10`; record field
-  names resolving to 0 instead of their template offsets — a `record`/`WITH`
-  field-scoping bug, still to root-cause.
+- **`init.4` field-offset immediates (4 bytes)** — `ldy #s_flags`/`#id`/
+  `adc #entry_size`. `S_FLAGS`/`ID`/`ENTRY_SIZE` are absolute `EQU` constants
+  `EXPORT`ed by `SCM.src` (`id equ sys_entry+4`, …) and `IMPORT`ed by `Init4`.
+  gsasm *correctly* emits them as by-name externals (`LEXPR sym83:S_FLAGS`); they
+  baked 0 because `link_placed` returns only *placed positional* symbols, so
+  `work/kernelcheck.py`'s SCM extern lacked the constants. Seeding SCM's exported
+  constants into `gextern` — mirroring `linkOS`'s single global link, exactly as
+  for the e1_*/GQuit case — resolves them. Not a gsasm bug; a harness seeding gap.
+
+The remaining **4 bytes** are two small classes:
+
 - **`scm_main` 3 bytes** — an immediate `$255C` (baked `$005C`), and a duplicate
   local label `MORE` the link resolves to the wrong instance (`$F99B` vs golden
   `$B70A`).
 - **`be0segr` 1 byte** — a live `BANK_E0_SEGR+$A86` reference whose placed low byte
   is off by 2 (`$86` vs `$88`), a placement/size discrepancy.
 
-The correct fixes for the rest live in the *assembler* (`record`/template field
-typing) and the *linker* (local-label scoping), not in the kernel-link seeding —
-so the seeding ceiling is genuinely 8 bytes short here.
+The correct fixes for the last 4 bytes live in the *assembler* (the `$255C`
+immediate) and the *linker* (`MORE` local-label scoping, `be0segr` placement),
+not in the kernel-link seeding — so the seeding ceiling is genuinely 4 bytes
+short here.
 
 **ExpressLoad relocation encoding ("case B") — CLOSED for the single-segment
 path (R9).** Previously classed as "not a function of the input"; overturned
