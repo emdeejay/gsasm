@@ -116,9 +116,14 @@ def _defer_shifts(recs, abs_syms=frozenset()):
                 count = lit if lit < 0x80000000 else lit - 0x100000000
                 syms = [o[1] for o in ops[:-3] if isinstance(o, tuple)
                         and isinstance(o[0], str) and o[0].startswith('sym')]
-                # a shift over ONLY constant (GEQU) symbols is not placement-
-                # dependent: resolve it here instead of deferring a load reloc.
-                const_only = bool(syms) and all(s in abs_syms for s in syms)
+                # a shift over ONLY constant (GEQU) symbols -- or over no symbols
+                # at all (a pure-literal expression like `(A-B)>>16` where A,B are
+                # same-segment labels whose difference already resolved to a
+                # constant) -- is not placement-dependent: resolve it here instead
+                # of deferring a spurious load reloc that would bake the un-shifted
+                # low word (e.g. PrintMgr's `pushlong #LocalPathEnd-LocalPathname`,
+                # 31>>16, which must be 0, not 0x1F).
+                const_only = all(s in abs_syms for s in syms)
                 if count < 0 and not const_only:    # right shift -> defer to load
                     out.append((at, nm, (size, ops[:-3] + ['end'])))
                     relocs.append((pos, size, count))

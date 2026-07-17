@@ -90,6 +90,13 @@ TOOLMAP = {
     # byte-exact, but it belongs in the corpus percentage like every other
     # mapped tool.
     '023': ('StdFile',    ['sfmain.asm', 'sf.asm']),
+    # PrintMgr: two-object flat link per PrintMgr/makefile
+    # (linkiigs printmgr.asm.obj dialogdata.asm.obj -t TOL -o Tool019).
+    # Builds BYTE-EXACT (5080/5080) against the de-ExpressLoad'd gold once the
+    # pure-literal high-word shift is resolved at link time (linkiigs
+    # _defer_shifts). The archived source in IIGS.601.SRC IS the shipping
+    # revision -- there is no source/binary disagreement.
+    '019': ('PrintMgr',   ['printmgr.asm', 'dialogdata.asm']),
     '027': ('FontMgr',    ['fm.asm', 'common.asm', 'scale.asm']),
     '028': ('ListMgr',    ['ListMgr.asm']),
 }
