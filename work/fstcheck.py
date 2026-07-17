@@ -328,12 +328,14 @@ def main():
         print(f'AppleShare.FST (informational, not byte-exact, excluded from CORPUS):')
         print(f'  built {len(mine)} bytes vs golden {len(g)}; '
               f'positional match {m}/{n} ({100 * m // n if n else 0}%)')
-        print('  Residual gap: 13 value-bytes remain (size is byte-exact). Five '
-              'small classes: whitespace-in-operand (`ora src_ptr +2`), field-'
-              'difference addr (`my_f_info-tOpt.f_info`), an ambiguous `next` '
-              'branch target, a multi-term addr expr (`user_path+2-us_start+'
-              'us_end`), and `month_adjust,X` table addressing. '
-              'See work/appleshare_diag.py.')
+        print('  Residual gap: 12 value-bytes remain (size is byte-exact). Two '
+              'classes: (1) multi-term field arithmetic — `my_f_info-tOpt.f_info` '
+              'and `user_path+2-us_start+us_end` (an absolute WITH/import field '
+              'minus a template offset does not compose through +/-); (2) the '
+              '`month_adjust` duplicate label (a module-level `dc.w` table vs an '
+              'in-proc redefinition, cross-proc refs bind the wrong one). '
+              'The `ora src_ptr +2` whitespace class is now CLOSED (asm.py '
+              'numeric-addend fold, fixture 041). See work/appleshare_diag.py.')
 
     print()
     print('Packaging note: all FSTs are ExpressLoad\'d (KIND 0x8001 leading segment).')

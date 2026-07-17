@@ -202,17 +202,18 @@ overturned the "at the proven ceiling" framing. Remaining follow-ups:
        but `read_text` reads mac_roman, corrupting the `≈` one's-complement byte
        (0xC5) so `and #≈buffer_valid` mis-assembled. NOT a gsasm bug — write
        mac_roman. (Fixed 7 bytes.)
-  Remaining: **13 value-bytes** (size exact), root-caused (2026-07-17) to THREE
-  deep, oracle-constrained classes — each risks the 100%-byte-exact corpus for
-  bytes in a non-corpus FST, so left for dedicated, gate-guarded work:
+  Remaining: **12 value-bytes** (size exact) in TWO deep, oracle-constrained
+  classes (B and C below). Class A CLOSED 2026-07-17. Each remaining class risks
+  the 100%-byte-exact GATED corpus for bytes in a NON-gated FST, so left for
+  dedicated, gate-guarded work — poor ROI to grind speculatively.
 
-    A. **Operand-whitespace continuation** [1 B] — `ora src_ptr +2`: MPW folds
-       the `+2` across the blank; gsasm stops at `src_ptr`. `first_field`/
-       `_EXPR_CONT_OPS` already continue for data/equate directives and `#`
-       immediates (guarded by `_expr_tail`), but NOT memory-operand
-       instructions. UNSAFE to widen: `_expr_tail` accepts prose tails like
-       `-yes.`, `-more.stuff`, `* decorative` (real instruction comments), so
-       enabling it for instructions would swallow comments as operands.
+    A. **Operand-whitespace continuation** [was 1 B] — `ora src_ptr +2` — CLOSED.
+       The GS.OS `lda |temp_load_addr +2` fix (asm.py `first_field`
+       `_NUM_ADDEND_TAIL`, MPW BLANKS ON, fixture 041) folds a pure numeric addend
+       across whitespace for a memory operand and closed this too (17812→17813).
+       The old "UNSAFE to widen" note was right about `_expr_tail` swallowing prose
+       (`-yes.`), which is exactly why the fix is scoped to a pure-numeric tail,
+       not the general `_expr_tail`.
 
     B. **Multi-term mixed absolute/offset field arithmetic** [6 B] —
        `lda my_f_info-tOpt.f_info,y` and `sta user_path+2-us_start+us_end,y`:
