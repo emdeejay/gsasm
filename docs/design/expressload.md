@@ -157,6 +157,34 @@ exact for that reason plus the separately-documented symbol-scoping residual
 (`toolsets.py`'s module docstring). Extending standalone-reloc support
 (case A and case B both) to the multi-segment path is future work.
 
+**Scope re-check (2026-07-18).** The gated `tool_bytes` residual (554 B) is
+dominated by **Tool016 ControlMgr (451 B)**, and closing it is NOT the same job
+as the multi-seg standalone-reloc port above. Two findings from characterizing
+it:
+- `work/toolcheck.py::_check_multiseg` compares gsasm's **linked** LCONST image
+  (`_lconst_image` of `linkiigs.link(...)`) against the gold **ExpressLoad**
+  segment image (`_gold_segment`). Those differ at every load-time reloc site by
+  construction (ExpressLoad zeroes the reference; the linker bakes it), so the
+  comparison basis itself would need rework before an ExpressLoad-side fix could
+  register as byte-exact.
+- More decisively, gold `Tool016/main` carries only **4 reloc records** yet
+  diverges in 451 bytes — so most divergences are **baked-value differences, not
+  reloc form**. gsasm computes different addresses than gold (e.g. `0x1017`
+  `LDX #$30C9` vs gold `#$0000`; `#$0036/$0000` vs `#$080a` in Tool023 at
+  `0x0b43`). ControlMgr is link-order / object-set sensitive (see the makefile
+  note in `toolcheck.py`'s TOOLMAP: "DummyDrag defines WindDragRect, ControlMgr's
+  first divergence"). So Tool016 is a **link-order/value** frontier, not a
+  mechanical reloc port — larger and murkier than "extend the scanner."
+- `Tool023`'s 6-byte residual is likewise multi-part: the characterized
+  `GetFilter` case-B value bug (`0xC0000000` vs `0xC00022ec`, resolves-unresolved
+  in the merged symtab) is only one site; `0x0b43` is a separate cross-segment
+  resolution diff.
+
+Net: the clean single-segment case-B rule is done; the remaining `tool_bytes`
+residual is genuine deep work (comparison-harness rework + linker link-order /
+cross-seg resolution), not a quick scanner port. Left for a dedicated,
+well-scoped session.
+
 ### Original (superseded) analysis
 
 An empirical survey (`work/reloc_survey.py`) plus a read of the archived
