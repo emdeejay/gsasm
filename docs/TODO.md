@@ -85,6 +85,33 @@ source" — and the generating linker is in the image. Controlled link
 experiments could reverse the jump-table generation algorithm and close all
 three tools.
 
+**Now the sole remaining lever for Tool016 (2026-07-18).** Tool016's 451-byte
+"residual" was fully root-caused to a segmentation/harness artifact —
+`work/tool016_diag.py` proves gsasm assembles ControlMgr byte-exact per segment
+(StatText 1174/1174, Pics 358/358, main 12488/12489). Once toolcheck compares it
+the way it is actually segmented (per-segment, like MenuMgr), the entire tool
+comes down to **one byte** plus the `~JumpTable` gsasm can't emit. That one byte
+(`main` `0x1022`) is itself a `~JumpTable`-routed reference, so `~JumpTable`
+generation is now the *only* thing between gsasm and a full byte-exact Tool016.
+
+Concrete structure learned from Tool016's gold `~JumpTable` (26 bytes, OMF
+KIND 0x02):
+```
+00 00 00 00 00 00 00 00  00 01 00 05 00 00 00 00  00 22 00 00 00 00 00 00  00 00
+```
+- References to a **static** segment (StatText, KIND 0) are direct `cINTERSEG`s
+  in `main` (no jump-table entry).
+- References to a **dynamic** segment (Pics, KIND 0x8000, on-demand) are routed
+  through a `~JumpTable` entry instead; `main`'s far-pointer to `PicProc` targets
+  `~JumpTable+0x12` (`cINTERSEG` to segment 4, relOff 0x12), not Pics directly.
+  The `22` byte at jumptable offset 0x11 is a `JSL` opcode (the load-and-dispatch
+  thunk the Loader patches). So the generation rule to reverse is: **one entry
+  per referenced dynamic-segment routine**, entry layout ≈ `{userID(2)=0,
+  fileNum/segNum, segOffset, JSL loader-thunk}`; confirm the exact field order and
+  size against the image's `LinkIIGS` / the GS/OS Loader `~JumpTable` walker
+  before shipping. Deriving this closes Tool015/016/018 *and* enables rebuilding a
+  full multi-segment ExpressLoad Tool016 for a real byte-for-byte acceptance test.
+
 ## 3. P8 include files
 
 P8 was scoped out partly for "include files not in the GS/OS tree". The image
