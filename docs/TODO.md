@@ -115,8 +115,8 @@ The audit (see `docs/RESULTS.md` and the case study
 `docs/notes/proven-ceiling-audit.md`) falsified four documented limits and
 overturned the "at the proven ceiling" framing. Remaining follow-ups:
 
-- **GS.OS residual 4 bytes** (was 44) — gsasm assembler/linker bugs, not an
-  external floor. FIVE classes CLOSED 2026-07-17:
+- **GS.OS residual 2 bytes** (was 44) — gsasm assembler/linker bugs, not an
+  external floor. SIX classes CLOSED 2026-07-17:
     1. **init-header `DC.W init_N_end-init_N_start` (4 B, Init1/Init3).** NOT a
        case-fold miss (that diagnosis was wrong — `sym_kind` already unifies a
        local def over an `Import`). Real cause: `init_N_end` is a relocatable
@@ -153,9 +153,19 @@ overturned the "at the proven ceiling" framing. Remaining follow-ups:
        the constants. Fix: seed SCM's exported constants into `gextern`
        (`work/kernelcheck.py`), mirroring linkOS's single global link (e1_*/GQuit
        pattern). No fixture (harness change, no gsasm behaviour change).
-  Remaining 4: (a) 3 B scm_main (immediate $255C baked $005C + a mis-scoped
-  duplicate `MORE`, $F99B vs $B70A); (b) 1 B be0segr (`BANK_E0_SEGR+$A86` placed
-  off by 2). Real fixes in `asm.py`/`linkiigs.py` — gate-verify hard.
+    6. **scm_main `MORE` duplicate (2 B) — plain label must not clobber an ENTRY.**
+       `more` is declared `entry` in copy_ext_string ($B70A) and reused as a plain
+       copy-loop label in 4 other PROCs; gsasm's last-wins let the final plain def
+       ($F99B) clobber the global, so `allocvcr`'s cross-module `jsr more` bound
+       the wrong instance. Fix: a plain label reusing an ENTRY name in another
+       segment stays module-local, keeps the entry's global binding
+       (`asm.py::define_label`; fixture 039). Scoped to ENTRY — EXPORT keeps
+       last-wins (AppleDisk3.5 `export DATAMARKS`, which regressed 2 B until
+       narrowed).
+  Remaining 2: (a) 1 B scm_main (an immediate whose high byte bakes $00 vs golden
+  $25 — value $255C vs $005C; a high-byte immediate the link should resolve); (b)
+  1 B be0segr (`BANK_E0_SEGR+$A86` placed off by 2). Real fixes in
+  `asm.py`/`linkiigs.py` — gate-verify hard.
 - **AppleShare.FST → byte-exact** — MOSTLY DONE (2026-07-17): 30% → 99.9%
   positional (17812/17825) and **size is now byte-exact** (17825/17825), via
   three gsasm fixes + one harness fix, all with the whole golden gate at

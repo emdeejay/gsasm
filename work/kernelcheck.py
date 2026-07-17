@@ -65,7 +65,7 @@ SCM segment layout:
   harness re-adds it.  (gsasm DOES evaluate the ORGs, `,skip`/`,noskip` included.)
 
 Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
-  1. GS.OS (SCM): 4 bytes short.  The former dominant class — SCM/Init1 refs to
+  1. GS.OS (SCM): 2 bytes short.  The former dominant class — SCM/Init1 refs to
      the bank-$E1 vectors E1_MSG_ADDRESS, E1_VOLNAME, E1_CURRENT_ID,
      E1_APP_FILENAME, ... — is now CLOSED (46 bytes recovered).  Those symbols are
      NOT externals: they are EXPORTed DS.B/DC allocations in GQuit.src's seg_e1
@@ -73,7 +73,7 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
      $E1D6xx addresses, e.g. E1_MSG_ADDRESS=$E1D6F3).  Apple's linkOS resolves them
      because it links every kernel object in ONE global pass; kernelcheck now
      mirrors that by seeding GQuit's placed exports into the SCM link's extern.
-     The 4-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
+     The 2-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
      every residual byte is a baked constant emitted at ASSEMBLY time (no relocation
      record for the linker/extern to override) or an ambiguous duplicate symbol the
      link binds to a valid-but-wrong instance.  Seeding placed exports — the fix that
@@ -117,9 +117,19 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
          extern lacked the constants.  Seeding SCM's exported constants into gextern
          (mirroring linkOS's single global link, as for the e1_* / GQuit case)
          resolves them.  NOT a gsasm bug — a harness seeding gap.
-     The remaining 4B, characterized precisely (work/kernelcheck.py --diff):
-       * scm_main 3B (scm.bin.3): an immediate $255C baked $005C, and a duplicate
-         local label `MORE` the link binds to the wrong instance ($F99B vs $B70A).
+     A fourth SCM class (the `more` ENTRY) is now CLOSED:
+       * scm_main `MORE` duplicate (2B): `more` is declared `entry` in
+         copy_ext_string ($B70A) and reused as a plain copy-loop label in
+         get_prefix/get_name/end_session/swapout.  gsasm's last-wins let the final
+         plain def ($F99B) clobber the global, so `allocvcr`'s cross-module
+         `jsr more` bound the wrong instance.  Fix: a plain label reusing an ENTRY
+         name in another segment stays module-local and does not clobber the ENTRY's
+         global binding (asm.py define_label; fixture 039).  Scoped to ENTRY (not
+         EXPORT — AppleDisk3.5 `export DATAMARKS` keeps last-wins).
+     The remaining 2B, characterized precisely (work/kernelcheck.py --diff):
+       * scm_main 1B (scm.bin.3 +0x1aca): an immediate whose high byte bakes $00
+         where golden has $25 (value $255C vs $005C) — a high-byte immediate the
+         link should resolve, still to root-cause.
        * be0segr 1B (scm.bin.7): a live `BANK_E0_SEGR+$A86` LEXPR whose placed low
          byte is off by 2 ($86 vs $88) — a placement/size discrepancy.
      (E1_GET_REF_INFO / EQ_MSG_ADDRESS are IMPORTed by SCM but never referenced, so
@@ -1055,13 +1065,13 @@ def main() -> int:
 
     print()
     print('Known residuals (prodos / Start.GS.OS / Error.Msg are byte-exact):')
-    print('  1. GS.OS (SCM): 4 bytes short.  The former dominant class — refs to')
+    print('  1. GS.OS (SCM): 2 bytes short.  The former dominant class — refs to')
     print('     the bank-$E1 vectors (E1_MSG_ADDRESS=$E1D6F3, ...) — is CLOSED (46B),')
     print('     as are five more classes (see the module docstring): a_reg dup-symbol')
     print('     (~26B), the init DC.W header (4B), init.1 my_dp_size union-size (2B),')
     print('     init.2 curly-quote char literals (4B), and init.4 SCM-export seeding')
     print('     (4B).  The remaining 4B are baked constants no seed can touch:')
-    print('     scm_main 3B (immediate $255C baked $005C; a mis-scoped duplicate')
+    print('     scm_main 1B (immediate $255C baked $005C) + be0segr 1B')
     print('     `MORE` bound $F99B vs golden $B70A) + be0segr 1B (BANK_E0_SEGR+$A86')
     print('     placed off by 2).  gsasm assembler/linker bugs, not unseeded refs.')
     print('  2. Loader.bin is excluded from the GS.OS comparison here; the Loader')
