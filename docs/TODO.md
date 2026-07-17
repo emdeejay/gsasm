@@ -9,11 +9,12 @@ stands. But the tool binaries reopen the two **toolchain-quirk** limits to
 tool, capture outputs, derive the rule. Same differential method as the
 `.lst`/`.obj` fixtures.
 
-None of this affects the missing-source limits: SCSIHD revision skew, Tool019
-skew, and AppleShare.FST remain closed. (The GS.OS "94-byte external floor"
-was NOT such a limit — the bank-$E1 vectors it blamed are `EXPORT`ed `DS`
-globals in `GQuit.src`, resolved by the whole-OS link; closed 94 → 48, see
-RESULTS.md.)
+**Update (2026-07-17 audit — see §6):** most of the "missing-source /
+external" limits turned out to be under-verified negative claims. GS.OS
+(94→44), AppleShare.FST ("no source" → full source builds ~89%), and Tool019
+("source disagrees" → byte-exact after a linker fix) were all falsified. Only
+**SCSIHD** remains genuinely evidence-backed. Re-verify any "absent/external"
+claim against all three source trees before trusting it.
 
 ## 1. ExpressLoad "case B" flags (~550 B across Tool014/023/027, TS2/TS3, Tool.Setup)
 
@@ -107,3 +108,39 @@ forks byte-exact (Apple's file off the path) — turns `gsrez` into a
 batteries-included IIgs resource toolkit. Proven-core (~17 golden-exercised
 types) first, reference-only tail flagged. Full plan:
 `docs/design/typesiigs-cleanroom.md`.
+
+## 6. "Proven ceiling" audit follow-ups (2026-07-17)
+
+The audit (see `docs/RESULTS.md` and the case study
+`docs/notes/proven-ceiling-audit.md`) falsified four documented limits and
+overturned the "at the proven ceiling" framing. Remaining follow-ups:
+
+- **GS.OS residual 44 bytes** — now known to be gsasm assembler/linker bugs,
+  not an external floor: a duplicate-symbol case (`a_reg` defined twice,
+  baked 0-based), a case-fold miss (`Import Init_1_end` vs `init_1_end`
+  `PROC`), baked bank-0 constants, and a `WITH`-instance binding gap. Each is
+  a real fix in `asm.py`/`linkiigs.py` — the most oracle-constrained files —
+  so gate-verify hard.
+- **AppleShare.FST ~89% → byte-exact** — one remaining class: `tdata`-template
+  fields accessed via `WITH dp,mydata` bind to the bare template offset (DP)
+  instead of the `mydata` data-segment instance (absolute). Needs real
+  `WITH`-instance resolution (same root as a GS.OS residual class). The
+  MakeFile also omits `JudgeName.aii` (fstcheck's build adds it).
+- **Linker pure-literal-shift fix (Tool019)** — guarded by Tool019 in the
+  gated corpus, but NOT by a corpus-free test (a synthetic attempt was
+  vacuous — `dc.w` folds the constant before the deferral path). A CI-visible
+  repro needs the exact defer-triggering construct (a `pushlong`/`#` immediate
+  over a same-segment label difference that the assembler emits as a deferred
+  `EXPR`, not the folded `dc.w` form).
+- **SCSIHD.Driver** — the one genuinely evidence-backed limit (shared
+  `SCSI.Drivers` source builds its 3 siblings byte-exact; only `type=0`
+  diverges, code inserted throughout). Worth a `de_express` + block-align diff
+  vs golden someday to characterize the revision delta precisely (à la the
+  HFS.FST 6.0.4 analysis) rather than leave it asserted.
+- **~JumpTable (§2) / P8 (§3)** — reachable via the image's MPW `LinkIIgs`
+  (generates the jump tables) and `AIncludes` (P8's includes); still to do.
+
+Audit lesson: the byte-match discipline was sound; the *negative* claims
+("absent/external/unclosable") were the weak spot — always re-verify against
+ALL THREE source trees (`IIGS.601.SRC`, `ROM Source Code`, `system500.hfv`)
+and for `EXPORT`ed `DS`/`DC` globals, not just `equ`.
