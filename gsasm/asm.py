@@ -350,12 +350,15 @@ class Segment:
 
 
 class Macro:
-    def __init__(self, name, label_var, suffix_var, params, body):
+    def __init__(self, name, label_var, suffix_var, params, body, param_defaults=None):
         self.name = name              # upper-case base name
         self.label_var = label_var    # &name that receives the call's label
         self.suffix_var = suffix_var  # &name receiving the ".X" suffix, or None
         self.params = params          # list of &param names (without &)
         self.body = body              # list of raw body lines
+        # {param_name_lower: default_text} for `&param=default` keyword params
+        # (MPW Asm Ref: an omitted argument takes the declared default)
+        self.param_defaults = param_defaults or {}
 
 
 # --------------------------------------------------------------------------
@@ -1663,12 +1666,24 @@ class Asm:
             base, suf = opname.split('.', 1)
             suffix_var = suf[1:]
         params = []
+        param_defaults = {}
         if pl.operand:
             for tok in _split_commas(pl.operand):
                 tok = tok.strip()
                 if tok.startswith('&'):
-                    params.append(tok[1:])
-        self.macros[base.upper()] = Macro(base.upper(), label_var, suffix_var, params, body)
+                    tok = tok[1:]
+                    # `&param=default`: a keyword parameter with a default value
+                    # (AppleShare `ftype` macro's `&creator=$FFFFFFFF`).  Split the
+                    # default off the name so `&param` in the body binds correctly.
+                    if '=' in tok:
+                        nm, dflt = tok.split('=', 1)
+                        nm = nm.strip()
+                        params.append(nm)
+                        param_defaults[nm.lower()] = dflt.strip()
+                    else:
+                        params.append(tok)
+        self.macros[base.upper()] = Macro(base.upper(), label_var, suffix_var,
+                                          params, body, param_defaults)
 
     def find_macro(self, op):
         u = op.upper()
@@ -1702,7 +1717,11 @@ class Asm:
             scope[0][macro.suffix_var.lower()] = suffix or ''
         argvals = _split_commas(line.operand) if line.operand else []
         for k, pname in enumerate(macro.params):
-            scope[0][pname.lower()] = argvals[k].strip() if k < len(argvals) else ''
+            arg = argvals[k].strip() if k < len(argvals) else ''
+            # an omitted (or empty) argument takes the `&param=default` value
+            if arg == '':
+                arg = macro.param_defaults.get(pname.lower(), '')
+            scope[0][pname.lower()] = arg
         # give the expansion its own @-local-label scope context
         self.macro_uid += 1
         saved_ctx, saved_lg = self.local_ctx, self.last_global
@@ -1875,19 +1894,31 @@ class Asm:
                     if 'decrement' in modl or 'increment' in modl:
                         dec = 'decrement' in modl
                         op = base_txt.strip()
-                base = self.evaluate(op) or 0
+                # `Name RECORD IMPORT`: Name is an EXTERNAL data instance (defined
+                # and exported elsewhere — AppleShare's SPWrite/SPCommand are
+                # `record import` in Flush/Write and `record export` in Data, and
+                # `import SPWrite:tSPWrite` in yet other modules: three spellings of
+                # the same external).  Its fields are laid out inline as offsets, but
+                # a `Name.field` ref is the external Name+offset (ABSOLUTE), not a
+                # direct-page template offset — so Name is an import and ENDR binds
+                # each field to (Name, offset) via equ_alias (like a typed IMPORT).
+                is_import = (_op_first == 'IMPORT')
+                base = 0 if is_import else (self.evaluate(op) or 0)
                 # Store base + label so ENDR can set the record name to
                 # sizeof(record) — MPW AsmIIgs makes a template record's label
                 # equal its total size (so `DS RecordType` allocates that many bytes).
                 self.record_stack.append((self.loc, self.emit_enabled,
                                           self.cur_record, False, self._record_dec,
-                                          base, ln.label))
+                                          base, ln.label, is_import))
                 self.emit_enabled = False
                 self.loc = base
                 self._record_dec = dec             # fields allocate downward
                 self._record_data = False
                 if ln.label:
-                    self.define_label(ln.label, base, kind='equ')
+                    if is_import:
+                        self.imports.add(self._fold(ln.label))
+                    else:
+                        self.define_label(ln.label, base, kind='equ')
                 self.cur_record = ln.label
             else:
                 # Data-segment RECORD (no operand, or ENTRY/EXPORT operand):
@@ -1992,6 +2023,18 @@ class Asm:
                     saved_base, saved_label = entry[5], entry[6]
                     if saved_label:
                         self.record_sizes[self._fold(saved_label)] = final_rec_loc - saved_base
+                    # `Name RECORD IMPORT`: bind each inline field to the external
+                    # Name+offset so `Name.field` sizes/relocates absolute (gold
+                    # `sta SPWrite.WrtBufLen` = 8d 3b 45 = SPWrite+$0f, not the
+                    # direct-page template offset 85 0f).
+                    if len(entry) >= 8 and entry[7] and saved_label:
+                        recname = self._fold(saved_label)
+                        prefix = recname + '.'
+                        for q in list(self.record_ds_fields):
+                            if q.startswith(prefix):
+                                off = self.symbols.get(q)
+                                if isinstance(off, int):
+                                    self.equ_alias.setdefault(q, (recname, off))
             if data_rec:
                 # finalize: trailing content goes to a fresh segment (next PROC
                 # reuses it if still empty/unnamed)

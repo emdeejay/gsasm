@@ -1,0 +1,4 @@
+{
+  "note": "`Name RECORD IMPORT` makes Name an external instance; Name.field is Name+offset absolute (8d 0f 00 + reloc against SPWrite), not a direct-page template offset (85 0f). AppleShare SPWrite/SPCommand param blocks.",
+  "commit": "RECORD IMPORT: register the record as an import and bind its inline fields to Name+offset via equ_alias"
+}

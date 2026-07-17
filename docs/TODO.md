@@ -121,21 +121,40 @@ overturned the "at the proven ceiling" framing. Remaining follow-ups:
   `PROC`), baked bank-0 constants, and a `WITH`-instance binding gap. Each is
   a real fix in `asm.py`/`linkiigs.py` — the most oracle-constrained files —
   so gate-verify hard.
-- **AppleShare.FST → byte-exact** — PARTIAL (2026-07-17): the bare-label
-  typed-import `WITH` case is fixed. `tdata`-template *bare* labels (no `ds`,
-  e.g. `partial_len`, an alias of the following field) were never registered as
-  record fields, so a typed-import `WITH mydata` bound only the `ds` fields; the
-  bare ones fell back to the direct-page template offset (`lda partial_len` ->
-  `a5 04` instead of golden `ad 04 00` = mydata+off). Fixed in
-  `asm.py::define_label` (register positional template labels — DS OR bare — as
-  fields); guarded by fixture `032-template-bare-label-typed-with`; whole golden
-  gate stays at baseline. AppleShare moved 30%→40% positional, 17792→17802 B
-  (33→23 B short). Remaining ~23 B: a *further* WITH/aliasing class (surfaces as
-  +3/+7 address ripple from a handful of leftover undersizings) — likely the
-  `WITH dp,mydata` dp-vs-instance PRECEDENCE case (a field present in BOTH `dp`
-  and the typed `mydata`: which base wins?), the deeper "real WITH-instance
-  resolution" root shared with the GS.OS residual. Still to characterize field
-  by field. The MakeFile also omits `JudgeName.aii` (fstcheck's build adds it).
+- **AppleShare.FST → byte-exact** — MOSTLY DONE (2026-07-17): 30% → 99.9%
+  positional (17812/17825) and **size is now byte-exact** (17825/17825), via
+  three gsasm fixes + one harness fix, all with the whole golden gate at
+  baseline and corpus-free fixtures:
+    1. Bare-label template fields (`asm.py::define_label`): a bare label with no
+       `ds` (e.g. `partial_len`) wasn't registered as a record field, so a
+       typed-import `WITH mydata` left it at the DP template offset (`a5 04`)
+       instead of absolute `mydata+off` (`ad 04 00`). Fixture 032.
+    2. `RECORD IMPORT` (`asm.py` RECORD/ENDR): AppleShare's SPWrite/SPCommand
+       param blocks are declared `record import` (external instance, fields
+       inline). gsasm treated them as base-0 templates, so `sta SPWrite.WrtBufLen`
+       sized DP (`85 0f`) instead of absolute `SPWrite+$0f` (`8d 0f 00` + reloc).
+       Now registers the record as an import and binds fields via equ_alias.
+       Fixture 033. (This was the big one: 40% → 99%.)
+    3. Macro `&param=default` keyword params (`asm.py` `_define_macro`/
+       `expand_macro`): the `=$FFFFFFFF` default was folded into the param NAME,
+       so `ftype`'s `&creator` bound to empty and `dc.l &hfs,&creator` dropped a
+       long — the FILETYPES table came out 16 B short. Fixture 034.
+    4. Harness encoding (`work/fstcheck.py::_build_appleshare`, and
+       `work/appleshare_diag.py`): the rewritten temp modules were written UTF-8
+       but `read_text` reads mac_roman, corrupting the `≈` one's-complement byte
+       (0xC5) so `and #≈buffer_valid` mis-assembled. NOT a gsasm bug — write
+       mac_roman. (Fixed 7 bytes.)
+  Remaining: **13 value-bytes** (size exact), five small classes —
+  (a) whitespace inside an operand expression (`ora src_ptr +2` → gsasm stops at
+  `src_ptr`, MPW keeps `+2`); (b) field-difference address (`my_f_info -
+  tOpt.f_info` mixing an absolute mydata field with a template offset);
+  (c) an ambiguous `next` branch resolving to the wrong same-named label;
+  (d) a multi-term address expr `sta user_path+2-us_start+us_end,y`;
+  (e) `month_adjust,X` table addressing. Each is its own dig; see
+  `work/appleshare_diag.py`. The MakeFile also omits `JudgeName.aii` (fstcheck
+  adds it). NOTE: class (a)/(b)/(d) touch operand-expression parsing and the
+  WITH absolute-vs-offset choice — verify against the whole gate, these are the
+  oracle-constrained paths.
 - **Linker pure-literal-shift fix (Tool019)** — guarded by Tool019 in the
   gated corpus, but NOT by a corpus-free test (a synthetic attempt was
   vacuous — `dc.w` folds the constant before the deferral path). A CI-visible
