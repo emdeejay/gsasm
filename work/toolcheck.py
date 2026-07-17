@@ -39,7 +39,8 @@ Known remaining residuals (per-module levers, not a shared blocker):
     routes through the jump table, so it stays one unresolved byte per such ref;
   * Tool023 (StdFile) 6 B — a real value residual (GetFilter case-B resolves
     unresolved in the merged symtab + a cross-seg diff at 0x0b43);
-  * Tool020 (LineEdit) 95 B — not yet characterized.
+  * Tool020 (LineEdit) 3 B — one INTERSEG JML unresolved in the per-segment link
+    (same class as Tool016's byte; needs the full multi-segment link).
 These (except ~JumpTable) live in the OMF emitter, which the byte-exact ROM build
 depends on, so any fix must be re-validated with work/buildrom.py + objcheck +
 linkcheck.
@@ -107,7 +108,16 @@ TOOLMAP = {
         {'gold_name': 'StatText', 'srcs': ['StatTextProc.asm']},
         {'gold_name': 'Pics',     'srcs': ['PicProc.asm']},
     ]}),
-    '020': ('LineEdit',   ['le.asm', 'common.asm', 'LineEditProc.asm']),
+    # LineEdit is two real load segments (TheTool KIND 0 + TheProc KIND 0x4000),
+    # like ControlMgr — flat-linking made TheProc's relocs look off by TheTool's
+    # size. Per segment gsasm is byte-exact (TheProc 1401/1401) bar 3 bytes in
+    # TheTool: a single INTERSEG JML (SUPER type 2) to the other segment, which is
+    # unresolved when TheTool is linked alone — the same inter-segment gap as
+    # Tool016's one byte (needs the full multi-segment link to resolve).
+    '020': ('LineEdit',   {'segments': [
+        {'gold_name': 'TheTool', 'srcs': ['le.asm', 'common.asm']},
+        {'gold_name': 'TheProc', 'srcs': ['LineEditProc.asm']},
+    ]}),
     '021': ('DialogMgr',  ['dialog.asm']),
     '022': ('Scrap',      ['scrap.asm', 'common.asm']),
     # StdFile: single-segment, no -lseg in makefile (matches
