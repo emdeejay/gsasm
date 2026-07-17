@@ -266,7 +266,20 @@ def _mul_reloc_expr(asm, text, segname):
         return None
     L = reloc[0]
     Lval = (asm.resolve(L) or 0) & 0xFFFFFF
-    if not _in_org_seg(asm, Lval):
+    # Two cases for the SEGNAME the multiply rides on:
+    #  (a) L is in the CURRENT ORG'd segment -> segname + (Lval - seg_org).
+    #  (b) L is a relocatable label in ANOTHER (non-ORG) segment -> its OWN
+    #      SEGNAME + offset.  (b) covers a shifted CROSS-segment label plus a
+    #      constant, e.g. GS.OS SCM `lda #((common_int_ent<<8)+$5c)`, which packs
+    #      the entry's low byte as the high byte of a JML operand — a link-time
+    #      value.  Without it the expression bakes the assembly-time literal ($5c).
+    lseg = asm.symseg.get(asm._symkey(L))
+    if _in_org_seg(asm, Lval):
+        target_seg, seg_org = segname, (asm.segs[asm._rseg].org or 0)
+    elif (asm.sym_kind(L) == 'label' and lseg is not None
+          and lseg < len(asm.segs) and not (asm.segs[lseg].org or 0)):
+        target_seg, seg_org = asm._fold(asm.segs[lseg].name or ''), 0
+    else:
         return None
     # Coefficient via finite difference (same as original)
     def _res(n, bump=0):
@@ -279,10 +292,9 @@ def _mul_reloc_expr(asm, text, segname):
     if N <= 1:                                   # +1 handled by _linear_reloc
         return None
     K = V - N * Lval
-    seg_org = asm.segs[asm._rseg].org or 0
     rel = Lval - seg_org
     ops = bytearray()
-    ops += bytes([0x83]) + _omfstr(segname)
+    ops += bytes([0x83]) + _omfstr(target_seg)
     if rel:
         ops += bytes([0x81]) + _num(rel & 0xFFFFFFFF) + bytes([0x01])
     ops += bytes([0x81]) + _num(N & 0xFFFFFFFF) + bytes([0x03])

@@ -115,8 +115,8 @@ The audit (see `docs/RESULTS.md` and the case study
 `docs/notes/proven-ceiling-audit.md`) falsified four documented limits and
 overturned the "at the proven ceiling" framing. Remaining follow-ups:
 
-- **GS.OS residual 2 bytes** (was 44) — gsasm assembler/linker bugs, not an
-  external floor. SIX classes CLOSED 2026-07-17:
+- **GS.OS residual 1 byte** (was 44) — gsasm assembler/linker bugs, not an
+  external floor. SEVEN classes CLOSED 2026-07-17:
     1. **init-header `DC.W init_N_end-init_N_start` (4 B, Init1/Init3).** NOT a
        case-fold miss (that diagnosis was wrong — `sym_kind` already unifies a
        local def over an `Import`). Real cause: `init_N_end` is a relocatable
@@ -162,10 +162,14 @@ overturned the "at the proven ceiling" framing. Remaining follow-ups:
        (`asm.py::define_label`; fixture 039). Scoped to ENTRY — EXPORT keeps
        last-wins (AppleDisk3.5 `export DATAMARKS`, which regressed 2 B until
        narrowed).
-  Remaining 2: (a) 1 B scm_main (an immediate whose high byte bakes $00 vs golden
-  $25 — value $255C vs $005C; a high-byte immediate the link should resolve); (b)
-  1 B be0segr (`BANK_E0_SEGR+$A86` placed off by 2). Real fixes in
-  `asm.py`/`linkiigs.py` — gate-verify hard.
+    7. **scm_main `lda #((common_int_ent<<8)+$5c)` (1 B) — shifted cross-seg label
+       + const.** Packs the ENTRY's placed low byte ($25) as a JML operand's high
+       byte — a link-time value. A bare `label<<8` already relocated, but the
+       shifted CROSS-segment label plus a constant baked $005C. Fix: extend
+       `omf._mul_reloc_expr` to emit `SEGNAME*N+K` for a relocatable label in
+       another segment (not just an in-ORG-seg one); fixture 040.
+  Remaining 1: `be0segr` 1 B (`BANK_E0_SEGR+$A86` placed off by 2 — $86 vs $88).
+  A linker placement/size discrepancy — the genuine last-byte floor for now.
 - **AppleShare.FST → byte-exact** — MOSTLY DONE (2026-07-17): 30% → 99.9%
   positional (17812/17825) and **size is now byte-exact** (17825/17825), via
   three gsasm fixes + one harness fix, all with the whole golden gate at

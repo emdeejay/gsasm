@@ -65,7 +65,7 @@ SCM segment layout:
   harness re-adds it.  (gsasm DOES evaluate the ORGs, `,skip`/`,noskip` included.)
 
 Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
-  1. GS.OS (SCM): 2 bytes short.  The former dominant class — SCM/Init1 refs to
+  1. GS.OS (SCM): 1 byte short.  The former dominant class — SCM/Init1 refs to
      the bank-$E1 vectors E1_MSG_ADDRESS, E1_VOLNAME, E1_CURRENT_ID,
      E1_APP_FILENAME, ... — is now CLOSED (46 bytes recovered).  Those symbols are
      NOT externals: they are EXPORTed DS.B/DC allocations in GQuit.src's seg_e1
@@ -73,7 +73,7 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
      $E1D6xx addresses, e.g. E1_MSG_ADDRESS=$E1D6F3).  Apple's linkOS resolves them
      because it links every kernel object in ONE global pass; kernelcheck now
      mirrors that by seeding GQuit's placed exports into the SCM link's extern.
-     The 2-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
+     The 1-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
      every residual byte is a baked constant emitted at ASSEMBLY time (no relocation
      record for the linker/extern to override) or an ambiguous duplicate symbol the
      link binds to a valid-but-wrong instance.  Seeding placed exports — the fix that
@@ -126,10 +126,14 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
          name in another segment stays module-local and does not clobber the ENTRY's
          global binding (asm.py define_label; fixture 039).  Scoped to ENTRY (not
          EXPORT — AppleDisk3.5 `export DATAMARKS` keeps last-wins).
-     The remaining 2B, characterized precisely (work/kernelcheck.py --diff):
-       * scm_main 1B (scm.bin.3 +0x1aca): an immediate whose high byte bakes $00
-         where golden has $25 (value $255C vs $005C) — a high-byte immediate the
-         link should resolve, still to root-cause.
+     A fifth SCM class (scm_main `common_int_ent`) is now CLOSED:
+       * scm_main `lda #((common_int_ent<<8)+$5c)` (1B): packs the ENTRY's placed
+         low byte ($25) as the high byte of a JML operand — a LINK-time value.  A
+         bare `label<<8` already relocated, but the shifted CROSS-segment label
+         PLUS a constant fell through to a baked $005C.  Fix: omf._mul_reloc_expr
+         now emits `SEGNAME(common_int_ent)*256 + $5c` for a relocatable label in
+         another segment, not just an in-ORG-segment one (fixture 040).
+     The remaining 1B, characterized precisely (work/kernelcheck.py --diff):
        * be0segr 1B (scm.bin.7): a live `BANK_E0_SEGR+$A86` LEXPR whose placed low
          byte is off by 2 ($86 vs $88) — a placement/size discrepancy.
      (E1_GET_REF_INFO / EQ_MSG_ADDRESS are IMPORTed by SCM but never referenced, so
@@ -1065,13 +1069,13 @@ def main() -> int:
 
     print()
     print('Known residuals (prodos / Start.GS.OS / Error.Msg are byte-exact):')
-    print('  1. GS.OS (SCM): 2 bytes short.  The former dominant class — refs to')
+    print('  1. GS.OS (SCM): 1 byte short.  The former dominant class — refs to')
     print('     the bank-$E1 vectors (E1_MSG_ADDRESS=$E1D6F3, ...) — is CLOSED (46B),')
     print('     as are five more classes (see the module docstring): a_reg dup-symbol')
     print('     (~26B), the init DC.W header (4B), init.1 my_dp_size union-size (2B),')
     print('     init.2 curly-quote char literals (4B), and init.4 SCM-export seeding')
     print('     (4B).  The remaining 4B are baked constants no seed can touch:')
-    print('     scm_main 1B (immediate $255C baked $005C) + be0segr 1B')
+    print('     be0segr 1B')
     print('     `MORE` bound $F99B vs golden $B70A) + be0segr 1B (BANK_E0_SEGR+$A86')
     print('     placed off by 2).  gsasm assembler/linker bugs, not unseeded refs.')
     print('  2. Loader.bin is excluded from the GS.OS comparison here; the Loader')
