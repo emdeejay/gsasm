@@ -196,7 +196,11 @@ byte-exact *per segment* (`work/tool016_diag.py`: StatText 1174/1174, Pics
 358/358, main 12488/12489); its former 451-byte "residual" was a flat-link
 segmentation artifact, and toolcheck now compares it segment-by-segment (like
 Tool015). The sole remaining byte is a `~JumpTable`-routed far-pointer into the
-dynamic `Pics` segment, i.e. the same missing-`~JumpTable` gap (TODO §2). Tool019 (PrintMgr) builds byte-exact
+dynamic `Pics` segment, i.e. the same missing-`~JumpTable` gap (TODO §2). That
+gap's *format* is now fully decoded from the in-tree Loader source
+(`work/jumptable_probe.py` reproduces all three golden `~JumpTable`s byte-exact,
+and derives Tool016's from scratch); only the linker-side generation (segment +
+reference scan) remains to close Tool015/016/018. Tool019 (PrintMgr) builds byte-exact
 (5080/5080) from `IIGS.601.SRC/GSToolbox/PrintMgr` (printmgr.asm + dialogdata.asm,
 the two-object link its makefile specifies): the archived source IS the shipping
 revision. The one byte that used to diverge was a gsasm linker defect, not a

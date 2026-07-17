@@ -94,23 +94,40 @@ comes down to **one byte** plus the `~JumpTable` gsasm can't emit. That one byte
 (`main` `0x1022`) is itself a `~JumpTable`-routed reference, so `~JumpTable`
 generation is now the *only* thing between gsasm and a full byte-exact Tool016.
 
-Concrete structure learned from Tool016's gold `~JumpTable` (26 bytes, OMF
-KIND 0x02):
-```
-00 00 00 00 00 00 00 00  00 01 00 05 00 00 00 00  00 22 00 00 00 00 00 00  00 00
-```
-- References to a **static** segment (StatText, KIND 0) are direct `cINTERSEG`s
-  in `main` (no jump-table entry).
-- References to a **dynamic** segment (Pics, KIND 0x8000, on-demand) are routed
-  through a `~JumpTable` entry instead; `main`'s far-pointer to `PicProc` targets
-  `~JumpTable+0x12` (`cINTERSEG` to segment 4, relOff 0x12), not Pics directly.
-  The `22` byte at jumptable offset 0x11 is a `JSL` opcode (the load-and-dispatch
-  thunk the Loader patches). So the generation rule to reverse is: **one entry
-  per referenced dynamic-segment routine**, entry layout ≈ `{userID(2)=0,
-  fileNum/segNum, segOffset, JSL loader-thunk}`; confirm the exact field order and
-  size against the image's `LinkIIGS` / the GS/OS Loader `~JumpTable` walker
-  before shipping. Deriving this closes Tool015/016/018 *and* enables rebuilding a
-  full multi-segment ExpressLoad Tool016 for a real byte-for-byte acceptance test.
+**Format FULLY DECODED (2026-07-18) — no emulator needed.** The `~JumpTable`
+layout is completely specified by the GS/OS Loader source already in the tree
+(`GS.OS/Loader/Jump.a` + `Loader.Equates`), and a codec built from it reproduces
+**all three** golden `~JumpTable`s (Tool015/016/018) byte-exact —
+`work/jumptable_probe.py` (`JUMPTABLE_FORMAT 4 ok / 0 bad`). Tool016's is even
+derived from scratch (its one dynamic segment is Pics = seg 5, referenced at
+offset 0) → BYTE-EXACT.
+
+    OMF segment KIND = 0x02 (Jump_Segment)
+    header  : 8 bytes 0x00                    (Loader.Equates seg_jmp_start = 8)
+    entries : 14 bytes each (jmp_entry_size):
+                UserID  (2) = 0x0000          patched to real UserID at load
+                FileNum (2) = 1               this load file
+                SegNum  (2) = target dynamic segment number (1-based, file order)
+                Offset  (4) = routine offset within that segment
+                JSL     (4) = 22 00 00 00     $22=JSL, addr patched to JumpLoad
+    trailer : 4 bytes 0x00
+    total = 8 + 14*N + 4
+
+- A far pointer to a routine in a **dynamic** segment (KIND & 0x8000) relocates to
+  `~JumpTable + (8 + entry_index*14 + 10)` — the entry's JSL, which traps to the
+  Loader's `JumpLoad` (loads the segment on demand, overwrites the JSL with `$5C`
+  + resolved address, falls through). Tool016 main's cINTERSEG to `~JumpTable+0x12`
+  (=8+0*14+10) is exactly this. **Static**-segment references stay direct
+  (c)INTERSEGs — no jump-table entry.
+
+**Remaining work** = the *linker* side: (1) segment gsasm's merged objects into
+the gold load segments (main/StatText/Pics …) with KINDs, (2) scan inter-segment
+references, emit one entry per referenced dynamic-segment routine (order for
+multi-entry tools like Tool018 must come from the reference scan — single-entry
+015/016 are trivial), (3) rewrite those references to the jump-table JSL, (4) emit
+the KIND-2 segment via the proven codec. That closes Tool015/016/018 and enables a
+*full* multi-segment ExpressLoad Tool016 for a real byte-for-byte acceptance test
+(vs the current per-segment code-image comparison).
 
 ## 3. P8 include files
 
