@@ -96,9 +96,13 @@ def bless(fixdir):
 
 
 def run_gate():
+    # --skip-fixtures: gate.py runs THIS suite as its own hard gate; calling it
+    # from the bless interlock (before the new fixture's bytes exist) would
+    # deadlock, and we run the suite ourselves right after.
     print('bless interlock: running work/gate.py (requires golden refs) ...')
-    r = subprocess.run([sys.executable, os.path.join(REPO, 'work', 'gate.py')],
-                       cwd=REPO)
+    r = subprocess.run(
+        [sys.executable, os.path.join(REPO, 'work', 'gate.py'), '--skip-fixtures'],
+        cwd=REPO)
     return r.returncode == 0
 
 

@@ -79,6 +79,28 @@ FULL_CHECKS = [
 ]
 
 
+def run_fixture_suite():
+    """Run the corpus-free fixture suite (tests/run_fixtures.py) as a HARD gate.
+
+    The golden-corpus checks below are BLIND to any construct the ROM sources
+    don't happen to contain — a change can broaden the assembler's behavior on
+    unseen inputs and still leave every corpus byte identical (see
+    docs/ADVERSARIAL_REVIEW_2026-07-17.md: a numeric-addend fold that silently
+    widened `ds.b`/branch parsing passed the byte gate).  The fixtures are the
+    guard for that blind spot, so the gate must enforce them, not just the corpus.
+    Returns (ok, summary_line).  Needs no golden material."""
+    rf = os.path.join(ROOT, 'tests', 'run_fixtures.py')
+    proc = subprocess.run([sys.executable, rf], cwd=ROOT,
+                          capture_output=True, text=True)
+    out = proc.stdout + proc.stderr
+    m = re.search(r'(\d+)/(\d+) fixtures pass', out)
+    summary = m.group(0) if m else (out.strip().splitlines() or ['(no output)'])[-1]
+    if proc.returncode != 0:
+        fails = [ln.strip() for ln in out.splitlines() if ln.strip().startswith('FAIL')]
+        summary += ''.join('\n    ' + f for f in fails)
+    return proc.returncode == 0, summary
+
+
 def run_check(name, argv, specs):
     """Run one check; return {metric: (good, bad)} or raise on parse failure."""
     proc = subprocess.run([sys.executable, os.path.join(ROOT, 'work', *argv)],
@@ -104,7 +126,21 @@ def run_check(name, argv, specs):
 def main():
     update = '--update' in sys.argv
     full = '--full' in sys.argv or update
+    # --skip-fixtures: the run_fixtures --bless interlock calls gate.py to confirm
+    # the CORPUS is green BEFORE it mints a new/changed fixture's expected bytes;
+    # running the (not-yet-blessed) fixture suite there would deadlock, and the
+    # bless step runs the suite itself anyway.
+    skip_fixtures = '--skip-fixtures' in sys.argv
     checks = CHECKS + (FULL_CHECKS if full else [])
+
+    if not skip_fixtures:
+        print('running corpus-free fixtures ...', flush=True)
+        fx_ok, fx_summary = run_fixture_suite()
+        print(f'  {fx_summary}')
+        if not fx_ok:
+            print('\nFAIL: corpus-free fixture suite regressed '
+                  '(a behavior changed on inputs the corpus does not exercise).')
+            return 1
 
     baseline = {}
     if os.path.exists(BASELINE):
