@@ -65,7 +65,7 @@ SCM segment layout:
   harness re-adds it.  (gsasm DOES evaluate the ORGs, `,skip`/`,noskip` included.)
 
 Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
-  1. GS.OS (SCM): 44 bytes short.  The former dominant class — SCM/Init1 refs to
+  1. GS.OS (SCM): 14 bytes short.  The former dominant class — SCM/Init1 refs to
      the bank-$E1 vectors E1_MSG_ADDRESS, E1_VOLNAME, E1_CURRENT_ID,
      E1_APP_FILENAME, ... — is now CLOSED (46 bytes recovered).  Those symbols are
      NOT externals: they are EXPORTed DS.B/DC allocations in GQuit.src's seg_e1
@@ -73,36 +73,41 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
      $E1D6xx addresses, e.g. E1_MSG_ADDRESS=$E1D6F3).  Apple's linkOS resolves them
      because it links every kernel object in ONE global pass; kernelcheck now
      mirrors that by seeding GQuit's placed exports into the SCM link's extern.
-     The 44-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
+     The 14-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
      every residual byte is a baked constant emitted at ASSEMBLY time (no relocation
      record for the linker/extern to override) or an ambiguous duplicate symbol the
      link binds to a valid-but-wrong instance.  Seeding placed exports — the fix that
      recovered the 46 e1_* bytes — closes NONE of them; they are gsasm assembler/
-     linker correctness bugs, characterized precisely:
-       * b00segr ~20B: `a_reg` is DEFINED TWICE in bank0.dispatcher.src — an EXPORTed
-         `DS.B` label in dsptch_vars (placed $AC2E) and again as `a_reg equ dir_reg+2`
-         inside lc_dispatcher.  gsasm bakes the 10 `>a_reg`/`|a_reg` refs as absolute
-         `$0019` (the label's 0-based offset) with no reloc; linkOS relocates them to
-         `$AC2E`.  Verified NOT seedable (A_REG already sits in the content extern).
-       * be0segr 1B: a live `BANK_E0_SEGR+$A86` LEXPR whose placed low byte is off by
-         2 ($86 vs $88) — a placement/size discrepancy, not a missing symbol.
-       * init: the header `DC.W init_N_end-init_N_start` for Init1/Init3 is now
-         CLOSED (4 bytes recovered, 2 each).  It HAD folded to a bogus literal
-         ($4E00/$3000) because gsasm baked `init_N_end(=0) - init_N_start` at
-         assembly time: init_N_end is a relocatable end-bracket PROC that follows
-         the `std_buffer`/`text_screen` data RECORD (which resets the location
-         counter to 0), so its assembly-time value was 0-based while init_N_start
-         is an ORG'd (absolute) pad PROC.  The real segment length is a LINK-time
-         constant.  (The earlier "cap-I Import not case-unified" note was wrong —
-         sym_kind already unifies local-def-over-import; the true blocker was
-         omf._diff_reloc bailing on ANY ORG'd operand.  A MIXED absolute/relocatable
-         cross-segment difference is not final, so the guard now bails only when
-         BOTH segments are ORG'd; fixture 035.)  The ~14B init residual that
-         remains are length-derived `ldx #dp_size` immediates ($48 vs $4E) from
-         `record`/template field offsets — a separate class.
-       * scm_main ~9B: baked bank-0 constants — a self-modified jump vector at $B9D6
-         (3 refs, baked $00BB), an immediate $255C (baked $005C), and a duplicate
+     linker correctness bugs.  Two whole classes are now CLOSED:
+       * b00segr (a_reg, ~20B) — CLOSED.  `a_reg` is DEFINED TWICE in
+         bank0.dispatcher.src: an EXPORTed `DS.B` label in dsptch_vars (placed $AC2E)
+         and a module-local `a_reg equ dir_reg+2` inside lc_dispatcher.  gsasm let the
+         proc-local EQU clobber the global symbol, so the `dispatcher` seg's 10
+         `>a_reg`/`|a_reg` refs baked the equate value ($0019) instead of relocating
+         to the export.  Fix: a proc-interior EQU that reuses an EXPORT/ENTRY (or
+         IMPORT) name stays module-local (seg_equ), never clobbers the global — per
+         the MPW Asm Ref, "labels defined inside a code module are local to that
+         module" unless exported (asm.py define_label; fixture 036).  This also
+         recovered the scm_main self-modified `$B9D6` jump vector (same duplicate
+         class), so the a_reg fix cleared ~26B total.
+       * init header `DC.W init_N_end-init_N_start` (Init1/Init3, 4B) — CLOSED.  It
+         HAD folded to a bogus literal ($4E00/$3000): init_N_end is a relocatable
+         end-bracket PROC after the `std_buffer` data RECORD (which resets loc to 0),
+         so gsasm baked `init_N_end(=0) - init_N_start` (an ORG'd absolute pad PROC).
+         The segment length is a LINK-time constant.  Fix: omf._diff_reloc emits the
+         difference for a MIXED absolute/relocatable cross-seg pair, bailing only when
+         BOTH segments are ORG'd (fixture 035).  (The earlier "cap-I Import not
+         case-unified" diagnosis was wrong — sym_kind already unifies local-def over
+         import.)
+     The remaining 14B, characterized precisely (work/kernelcheck.py --diff):
+       * init template/dp-size immediates ~10B (scm.bin.13/14/16 = init.1/2/4):
+         `ldx #dp_size`-style immediates computed from `record`/template field
+         offsets (e.g. init.1 $48 vs golden $4E) — baked from the wrong template
+         size; a separate `record`/template-typing class.
+       * scm_main 3B (scm.bin.3): an immediate $255C baked $005C, and a duplicate
          local label `MORE` the link binds to the wrong instance ($F99B vs $B70A).
+       * be0segr 1B (scm.bin.7): a live `BANK_E0_SEGR+$A86` LEXPR whose placed low
+         byte is off by 2 ($86 vs $88) — a placement/size discrepancy.
      (E1_GET_REF_INFO / EQ_MSG_ADDRESS are IMPORTed by SCM but never referenced, so
      they emit no bytes and are not in the residual.)
   2. Loader.bin is excluded from this harness's GS.OS comparison; the Loader is

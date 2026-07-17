@@ -1,0 +1,4 @@
+{
+  "note": "a proc-interior EQU reusing an EXPORTed (or ENTRY/IMPORT) label name stays module-local (seg_equ) and must not clobber the global \u2014 MPW module-local scoping; GS.OS bank0.dispatcher a_reg idiom",
+  "commit": "b87ef98"
+}
