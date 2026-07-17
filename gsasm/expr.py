@@ -59,8 +59,17 @@ def tokenize(s, msb=False):
                         j += 1
                     else:
                         break                            # closing quote
+                # A character constant's value is the source BYTE, not the Unicode
+                # code point.  gsasm reads sources as Mac Roman, so a high char like
+                # '“' decodes to U+201C — `ord` would give 0x201C, but the assembler
+                # must use the Mac Roman byte 0xD2 (GS.OS Init2 `pea '“'` pushes
+                # $00D2).  Re-encode to recover the byte (identity for ASCII).
+                try:
+                    cb = s[j].encode('mac_roman')[0]
+                except (UnicodeEncodeError, IndexError):
+                    cb = ord(s[j]) & 0xFF
                 # MSB ON sets the high bit of each character (screen/hi-ASCII)
-                val = (val << 8) | (ord(s[j]) | (0x80 if msb else 0)); j += 1
+                val = (val << 8) | (cb | (0x80 if msb else 0)); j += 1
             j += 1  # closing quote
             toks.append(('num', val)); i = j; continue
         if c.isdigit():

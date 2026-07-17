@@ -19,10 +19,10 @@ committed regression baseline (`work/gate.py`; `work/gate_baseline.json`).
 
 Close but not exact:
 
-- **GS.OS** — 38,793 of 38,805 bytes (99.97%). The former 94-byte "external
+- **GS.OS** — 38,797 of 38,805 bytes (99.98%). The former 94-byte "external
   floor" was half wrong: 46 of those bytes were the bank-$E1 vectors, which
   are *defined* in `GQuit.src` and are now resolved; see below. The remaining
-  12 bytes are gsasm assembler/linker bugs (template-offset immediates, a
+  8 bytes are gsasm assembler/linker bugs (template-offset immediates, a
   mis-scoped `MORE`, an off-by-2 placement) — baked constants that
   export-seeding cannot touch; see below.
 - **Toolbox toolsets** — 118,524 of 119,080 bytes (99.5%) across 14
@@ -38,7 +38,7 @@ Close but not exact:
 Each of these was settled by evidence, not fatigue. They bound what any
 toolchain could reproduce from this source archive.
 
-**GS.OS: the bank-$E1 "external floor" — OVERTURNED (94 → 12 bytes).** The
+**GS.OS: the bank-$E1 "external floor" — OVERTURNED (94 → 8 bytes).** The
 old claim held that the dominant residual was cross-bank references to
 `E1_MSG_ADDRESS`, `E1_VOLNAME`, `E1_CURRENT_ID`, `E1_APP_FILENAME` and similar
 bank-$E1 vectors that "no file in `IIGS.601.SRC` defines." That is false. They
@@ -54,7 +54,7 @@ the SCM link's extern table, recovering **46 bytes** (`38,711 → 38,757`).
 (`E1_GET_REF_INFO` and `EQ_MSG_ADDRESS` are `Import`ed by SCM but never
 referenced, so they emit no bytes and were never part of the residual.)
 
-The remaining **12 bytes** are *not* more of the same disease. The export-seeding
+The remaining **8 bytes** are *not* more of the same disease. The export-seeding
 that recovered the 46 bank-$E1 bytes closes **none** of them, because every
 residual byte is a **baked constant** — emitted at assembly time with no
 relocation record for the linker/extern to override — or an **ambiguous duplicate
@@ -85,16 +85,22 @@ assembler/linker correctness bugs. Two whole classes are now **CLOSED**:
   case-unified" diagnosis was wrong — `sym_kind` already unifies a local definition
   over an `Import`.)
 
-The remaining **12 bytes** are three smaller classes:
+Two more init sub-classes are now **CLOSED**:
 
-- **`init` template immediates ~8 bytes** (`init.2`/`init.4`) — `ldx #…`-style
-  immediates computed from `record`/template field offsets that gsasm sizes
-  wrong (`init.2` `$201c` vs golden `$00d2`; `init.4` baked `$00` vs `$0e`), still
-  to root-cause. (`init.1`'s `ldx #my_dp_size-2` is now **CLOSED**: a bare `ORG`
-  with no operand resets a template's location counter to the *maximum* offset
-  across its variant `ORG` overlays — MPW Asm Ref p.102 union sizing — so
-  `my_direct_page`'s graphics-vs-text overlay yields `my_dp_size = $50`, not
-  `$4A`; `asm.py` `_rec_hi_stack`, fixture 037.)
+- **`init.1` `ldx #my_dp_size-2` (2 bytes)** — a bare `ORG` with no operand resets a
+  template's location counter to the *maximum* offset across its variant `ORG`
+  overlays (MPW Asm Ref p.102 union sizing), so `my_direct_page`'s graphics-vs-text
+  overlay yields `my_dp_size = $50`, not `$4A`; `asm.py` `_rec_hi_stack`, fixture 037.
+- **`init.2` `pea '“'`/`pea '”'` (4 bytes)** — a character constant's value is the
+  source **Mac Roman byte** (`$D2`/`$D3`), not the Unicode code point (`$201C`/`$201D`)
+  that `ord` yields after mac_roman decode; `gsasm/expr.py`, fixture 038.
+
+The remaining **8 bytes** are three smaller classes:
+
+- **`init.4` field-offset immediates ~4 bytes** — `ldy #s_flags`/`#id`/
+  `adc #entry_size` bake `$00` where golden has `$0e`/`$0c`/`$10`; record field
+  names resolving to 0 instead of their template offsets — a `record`/`WITH`
+  field-scoping bug, still to root-cause.
 - **`scm_main` 3 bytes** — an immediate `$255C` (baked `$005C`), and a duplicate
   local label `MORE` the link resolves to the wrong instance (`$F99B` vs golden
   `$B70A`).
@@ -103,7 +109,7 @@ The remaining **12 bytes** are three smaller classes:
 
 The correct fixes for the rest live in the *assembler* (`record`/template field
 typing) and the *linker* (local-label scoping), not in the kernel-link seeding —
-so the seeding ceiling is genuinely 12 bytes short here.
+so the seeding ceiling is genuinely 8 bytes short here.
 
 **ExpressLoad relocation encoding ("case B") — CLOSED for the single-segment
 path (R9).** Previously classed as "not a function of the input"; overturned

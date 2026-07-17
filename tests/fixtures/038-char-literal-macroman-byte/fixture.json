@@ -1,0 +1,4 @@
+{
+  "note": "a character constant in an expression uses the source Mac Roman byte, not the Unicode code point (curly quote '\u201c' -> $D2, not $201C); GS.OS Init2 `pea '\u201c'`",
+  "commit": "f504a29"
+}
