@@ -1,0 +1,4 @@
+{
+  "note": "MPW macro keyword parameter with a default (&creator=$FFFFFFFF): an omitted arg takes the default, a supplied arg overrides. Before the fix the default text was folded into the param name so &creator bound to empty and dc.l dropped a long. AppleShare Data.aii ftype table.",
+  "commit": "macro &param=default: split the default off the parameter name; substitute it for an omitted/empty argument"
+}

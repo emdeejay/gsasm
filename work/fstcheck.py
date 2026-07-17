@@ -147,7 +147,12 @@ def _build_appleshare():
         eq = [l for l in read_text(os.path.join(src, files['equates.aii'])).split('\n')
               if not l.strip().lower().startswith('dump')
               and l.strip().lower() != 'end']
-        with open(os.path.join(tmp, 'equates_clean.aii'), 'w') as f:
+        # Write mac_roman: read_text() decodes source as mac_roman, so the
+        # rewritten temp copies must round-trip that encoding — else the MPW
+        # one's-complement operator `≈` (mac_roman 0xC5) corrupts to UTF-8 and
+        # `and #≈flag` mis-assembles (a harness bug, not a gsasm bug).
+        with open(os.path.join(tmp, 'equates_clean.aii'), 'w',
+                  encoding='mac_roman') as f:
             f.write('\n'.join(eq))
         incs = [src, tmp] + INCS
         objs = []
@@ -156,7 +161,7 @@ def _build_appleshare():
             out = [(_LOAD_RE.match(l).group(1) + "include 'equates_clean.aii'"
                     if _LOAD_RE.match(l) else l) for l in text]
             p = os.path.join(tmp, base + '.aii')
-            with open(p, 'w') as f:
+            with open(p, 'w', encoding='mac_roman') as f:
                 f.write('\n'.join(out))
             a = asm.assemble(p, incs, defines={'DebugCode': 0})
             objs.append((omf.emit(a), a))
@@ -323,10 +328,12 @@ def main():
         print(f'AppleShare.FST (informational, not byte-exact, excluded from CORPUS):')
         print(f'  built {len(mine)} bytes vs golden {len(g)}; '
               f'positional match {m}/{n} ({100 * m // n if n else 0}%)')
-        print('  Residual gap: ~23 B of sizing drift remain (bare-label typed-'
-              'import WITH fields like `partial_len` now bind absolute — fixed; '
-              'the leftover undersizings surface as +3/+7 address ripple, a '
-              'further WITH/aliasing class still to be characterized).')
+        print('  Residual gap: 13 value-bytes remain (size is byte-exact). Five '
+              'small classes: whitespace-in-operand (`ora src_ptr +2`), field-'
+              'difference addr (`my_f_info-tOpt.f_info`), an ambiguous `next` '
+              'branch target, a multi-term addr expr (`user_path+2-us_start+'
+              'us_end`), and `month_adjust,X` table addressing. '
+              'See work/appleshare_diag.py.')
 
     print()
     print('Packaging note: all FSTs are ExpressLoad\'d (KIND 0x8001 leading segment).')
