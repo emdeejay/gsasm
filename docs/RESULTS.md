@@ -19,12 +19,12 @@ committed regression baseline (`work/gate.py`; `work/gate_baseline.json`).
 
 Close but not exact:
 
-- **GS.OS** — 38,801 of 38,805 bytes (99.99%). The former 94-byte "external
+- **GS.OS** — 38,803 of 38,805 bytes (99.99%). The former 94-byte "external
   floor" was half wrong: 46 of those bytes were the bank-$E1 vectors, which
   are *defined* in `GQuit.src` and are now resolved; see below. The remaining
-  4 bytes are gsasm assembler/linker bugs (template-offset immediates, a
-  mis-scoped `MORE`, an off-by-2 placement) — baked constants that
-  export-seeding cannot touch; see below.
+  2 bytes are gsasm assembler/linker bugs (a high-byte immediate and an
+  off-by-2 placement) — baked constants that export-seeding cannot touch; see
+  below.
 - **Toolbox toolsets** — 118,524 of 119,080 bytes (99.5%) across 14
   `ToolNNN` files (`work/toolcheck.py`; Tool023/StdFile added in R9 — its
   sources assemble cleanly, see `docs/design/expressload.md`).
@@ -38,7 +38,7 @@ Close but not exact:
 Each of these was settled by evidence, not fatigue. They bound what any
 toolchain could reproduce from this source archive.
 
-**GS.OS: the bank-$E1 "external floor" — OVERTURNED (94 → 4 bytes).** The
+**GS.OS: the bank-$E1 "external floor" — OVERTURNED (94 → 2 bytes).** The
 old claim held that the dominant residual was cross-bank references to
 `E1_MSG_ADDRESS`, `E1_VOLNAME`, `E1_CURRENT_ID`, `E1_APP_FILENAME` and similar
 bank-$E1 vectors that "no file in `IIGS.601.SRC` defines." That is false. They
@@ -54,7 +54,7 @@ the SCM link's extern table, recovering **46 bytes** (`38,711 → 38,757`).
 (`E1_GET_REF_INFO` and `EQ_MSG_ADDRESS` are `Import`ed by SCM but never
 referenced, so they emit no bytes and were never part of the residual.)
 
-The remaining **4 bytes** are *not* more of the same disease. The export-seeding
+The remaining **2 bytes** are *not* more of the same disease. The export-seeding
 that recovered the 46 bank-$E1 bytes closes **none** of them, because every
 residual byte is a **baked constant** — emitted at assembly time with no
 relocation record for the linker/extern to override — or an **ambiguous duplicate
@@ -106,18 +106,27 @@ One more sub-class (`init.4`) was a **harness** gap, now **CLOSED**:
   constants into `gextern` — mirroring `linkOS`'s single global link, exactly as
   for the e1_*/GQuit case — resolves them. Not a gsasm bug; a harness seeding gap.
 
-The remaining **4 bytes** are two small classes:
+One more SCM class (the `more` **ENTRY**) is now **CLOSED**:
 
-- **`scm_main` 3 bytes** — an immediate `$255C` (baked `$005C`), and a duplicate
-  local label `MORE` the link resolves to the wrong instance (`$F99B` vs golden
-  `$B70A`).
+- **`scm_main` `MORE` (2 bytes)** — `more` is declared `entry` in `copy_ext_string`
+  (`$B70A`) and reused as a plain copy-loop label in `get_prefix`/`get_name`/
+  `end_session`/`swapout`. gsasm's last-wins let the final plain def (`$F99B`)
+  clobber the global, so `allocvcr`'s cross-module `jsr more` bound the wrong
+  instance. Per the MPW rule (interior labels local unless `EXPORT`/`ENTRY`), a
+  plain label reusing an `ENTRY` name in another segment stays module-local and
+  does not clobber the entry's global binding (`asm.py` `define_label`; fixture
+  039). Scoped to `ENTRY` — `EXPORT` keeps last-wins (AppleDisk3.5 `export
+  DATAMARKS` vs a local copy).
+
+The remaining **2 bytes** are two isolated cases:
+
+- **`scm_main` 1 byte** — an immediate whose high byte bakes `$00` where golden has
+  `$25` (value `$255C` vs `$005C`); a high-byte immediate the link should resolve.
 - **`be0segr` 1 byte** — a live `BANK_E0_SEGR+$A86` reference whose placed low byte
   is off by 2 (`$86` vs `$88`), a placement/size discrepancy.
 
-The correct fixes for the last 4 bytes live in the *assembler* (the `$255C`
-immediate) and the *linker* (`MORE` local-label scoping, `be0segr` placement),
-not in the kernel-link seeding — so the seeding ceiling is genuinely 4 bytes
-short here.
+The last 2 bytes live in the *assembler*/*linker*, not the kernel-link seeding —
+so the seeding ceiling is genuinely 2 bytes short here.
 
 **ExpressLoad relocation encoding ("case B") — CLOSED for the single-segment
 path (R9).** Previously classed as "not a function of the input"; overturned

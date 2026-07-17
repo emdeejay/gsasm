@@ -1,0 +1,4 @@
+{
+  "note": "a plain module-local label must not clobber a same-named ENTRY; a cross-module ref reaches the ENTRY, a local ref binds locally (GS.OS SCM `entry more`). EXPORT keeps last-wins.",
+  "commit": "5835b50"
+}

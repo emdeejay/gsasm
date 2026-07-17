@@ -1074,13 +1074,45 @@ class Asm:
                               and not getattr(self.segs[seg], 'is_data', False)
                               and u not in self.entries
                               and u not in self.exports)
-                if not keep_prior:
+                # A plain label that reuses an ENTRY/EXPORT name but sits in a
+                # DIFFERENT segment than the one that DECLARED the entry/export is a
+                # MODULE-LOCAL label (MPW: interior labels are local to their module
+                # unless themselves EXPORT/ENTRY).  It must not clobber the global
+                # entry's binding — a cross-module reference resolves to the ENTRY —
+                # but it stays reachable WITHIN its own segment (a local ref binds to
+                # it).  GS.OS SCM declares `entry more` in copy_ext_string; the copy
+                # loops in get_prefix/get_name/end_session/swapout each reuse a plain
+                # `more`, and `allocvcr`'s cross-module `jsr more` must reach the
+                # ENTRY (golden $B70A), not the last plain redefinition ($F99B).
+                # Scoped to ENTRY (not EXPORT) whose current global binding is still
+                # the segment that DECLARED it.  An ENTRY names a single global entry
+                # point that cross-module references resolve to; a same-named plain
+                # label elsewhere is that module's own local.  EXPORT is left alone:
+                # a re-EXPORTed/redefined data label follows the existing last-wins /
+                # data-record masking rules (AppleDisk3.5 `export DATAMARKS` in
+                # DRIVER_DATA vs a local copy in READ1TO1 must NOT defer here).
+                cur_name = (self._fold(self.segs[seg].name or '')
+                            if seg < len(self.segs) else '')
+                ent_home = self.entry_seg.get(u)
+                prior_name = (self._fold(self.segs[prior].name or '')
+                              if prior is not None and prior < len(self.segs)
+                              else None)
+                foreign_entry_dup = (
+                    kind == 'label' and prior is not None and prior != seg
+                    and self.symtype.get(u) == 'label'
+                    and u in self.entries and u not in self.exports
+                    and ent_home is not None and ent_home != cur_name
+                    and ent_home == prior_name)
+                if not keep_prior and not foreign_entry_dup:
                     self.symbols[u] = value
                     self.symtype[u] = kind
                 self.defcount[u] = self.defcount.get(u, 0) + 1
                 self.labels.append((name, value))
                 if kind == 'label' and not keep_prior:
-                    self.symseg[u] = seg                  # defining segment index
+                    if not foreign_entry_dup:
+                        self.symseg[u] = seg              # defining segment index
+                    # module-local reachability: register in the defining segment
+                    # even when the global binding stays with the ENTRY's home seg
                     self.seg_local.setdefault(seg, {})[u] = value
                     # A no-operand DATA RECORD (`Name Record` with no operand, or
                     # ENTRY/EXPORT) emits a named data segment; its interior labels
