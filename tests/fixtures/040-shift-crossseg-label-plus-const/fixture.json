@@ -1,0 +1,4 @@
+{
+  "note": "an immediate shifting a CROSS-segment relocatable label plus a constant, `#((label<<8)+$5c)`, emits a link-time SEGNAME*N+K expression, not a baked literal (GS.OS SCM common_int_ent JML packing)",
+  "commit": "9206780"
+}

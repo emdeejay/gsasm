@@ -19,12 +19,11 @@ committed regression baseline (`work/gate.py`; `work/gate_baseline.json`).
 
 Close but not exact:
 
-- **GS.OS** — 38,803 of 38,805 bytes (99.99%). The former 94-byte "external
+- **GS.OS** — 38,804 of 38,805 bytes (99.997%). The former 94-byte "external
   floor" was half wrong: 46 of those bytes were the bank-$E1 vectors, which
   are *defined* in `GQuit.src` and are now resolved; see below. The remaining
-  2 bytes are gsasm assembler/linker bugs (a high-byte immediate and an
-  off-by-2 placement) — baked constants that export-seeding cannot touch; see
-  below.
+  **1 byte** is a single linker placement discrepancy (`be0segr` off by 2) —
+  export-seeding cannot touch it; see below.
 - **Toolbox toolsets** — 118,524 of 119,080 bytes (99.5%) across 14
   `ToolNNN` files (`work/toolcheck.py`; Tool023/StdFile added in R9 — its
   sources assemble cleanly, see `docs/design/expressload.md`).
@@ -38,7 +37,7 @@ Close but not exact:
 Each of these was settled by evidence, not fatigue. They bound what any
 toolchain could reproduce from this source archive.
 
-**GS.OS: the bank-$E1 "external floor" — OVERTURNED (94 → 2 bytes).** The
+**GS.OS: the bank-$E1 "external floor" — OVERTURNED (94 → 1 byte).** The
 old claim held that the dominant residual was cross-bank references to
 `E1_MSG_ADDRESS`, `E1_VOLNAME`, `E1_CURRENT_ID`, `E1_APP_FILENAME` and similar
 bank-$E1 vectors that "no file in `IIGS.601.SRC` defines." That is false. They
@@ -54,8 +53,8 @@ the SCM link's extern table, recovering **46 bytes** (`38,711 → 38,757`).
 (`E1_GET_REF_INFO` and `EQ_MSG_ADDRESS` are `Import`ed by SCM but never
 referenced, so they emit no bytes and were never part of the residual.)
 
-The remaining **2 bytes** are *not* more of the same disease. The export-seeding
-that recovered the 46 bank-$E1 bytes closes **none** of them, because every
+The remaining **1 byte** is *not* more of the same disease. The export-seeding
+that recovered the 46 bank-$E1 bytes closes **none** of it, because every
 residual byte is a **baked constant** — emitted at assembly time with no
 relocation record for the linker/extern to override — or an **ambiguous duplicate
 symbol** the link binds to a valid-but-wrong instance. They are gsasm
@@ -118,15 +117,23 @@ One more SCM class (the `more` **ENTRY**) is now **CLOSED**:
   039). Scoped to `ENTRY` — `EXPORT` keeps last-wins (AppleDisk3.5 `export
   DATAMARKS` vs a local copy).
 
-The remaining **2 bytes** are two isolated cases:
+One more SCM class (`scm_main` `common_int_ent`) is now **CLOSED**:
 
-- **`scm_main` 1 byte** — an immediate whose high byte bakes `$00` where golden has
-  `$25` (value `$255C` vs `$005C`); a high-byte immediate the link should resolve.
+- **`scm_main` `lda #((common_int_ent<<8)+$5c)` (1 byte)** — packs the `ENTRY`'s
+  placed low byte (`$25`) as the high byte of a JML operand — a link-time value. A
+  bare `label<<8` already relocated, but the shifted *cross-segment* label plus a
+  constant fell through to a baked `$005C`. Fixed by extending
+  `omf._mul_reloc_expr` to emit `SEGNAME(common_int_ent)*256 + $5c` for a
+  relocatable label in another segment, not only an in-`ORG`-segment one; fixture
+  040.
+
+The remaining **1 byte** is a single case:
+
 - **`be0segr` 1 byte** — a live `BANK_E0_SEGR+$A86` reference whose placed low byte
-  is off by 2 (`$86` vs `$88`), a placement/size discrepancy.
+  is off by 2 (`$86` vs `$88`), a placement/size discrepancy in the linker.
 
-The last 2 bytes live in the *assembler*/*linker*, not the kernel-link seeding —
-so the seeding ceiling is genuinely 2 bytes short here.
+That last byte lives in the *linker*, not the kernel-link seeding — so the
+seeding ceiling is genuinely 1 byte short here.
 
 **ExpressLoad relocation encoding ("case B") — CLOSED for the single-segment
 path (R9).** Previously classed as "not a function of the input"; overturned
