@@ -121,11 +121,21 @@ overturned the "at the proven ceiling" framing. Remaining follow-ups:
   `PROC`), baked bank-0 constants, and a `WITH`-instance binding gap. Each is
   a real fix in `asm.py`/`linkiigs.py` — the most oracle-constrained files —
   so gate-verify hard.
-- **AppleShare.FST ~89% → byte-exact** — one remaining class: `tdata`-template
-  fields accessed via `WITH dp,mydata` bind to the bare template offset (DP)
-  instead of the `mydata` data-segment instance (absolute). Needs real
-  `WITH`-instance resolution (same root as a GS.OS residual class). The
-  MakeFile also omits `JudgeName.aii` (fstcheck's build adds it).
+- **AppleShare.FST → byte-exact** — PARTIAL (2026-07-17): the bare-label
+  typed-import `WITH` case is fixed. `tdata`-template *bare* labels (no `ds`,
+  e.g. `partial_len`, an alias of the following field) were never registered as
+  record fields, so a typed-import `WITH mydata` bound only the `ds` fields; the
+  bare ones fell back to the direct-page template offset (`lda partial_len` ->
+  `a5 04` instead of golden `ad 04 00` = mydata+off). Fixed in
+  `asm.py::define_label` (register positional template labels — DS OR bare — as
+  fields); guarded by fixture `032-template-bare-label-typed-with`; whole golden
+  gate stays at baseline. AppleShare moved 30%→40% positional, 17792→17802 B
+  (33→23 B short). Remaining ~23 B: a *further* WITH/aliasing class (surfaces as
+  +3/+7 address ripple from a handful of leftover undersizings) — likely the
+  `WITH dp,mydata` dp-vs-instance PRECEDENCE case (a field present in BOTH `dp`
+  and the typed `mydata`: which base wins?), the deeper "real WITH-instance
+  resolution" root shared with the GS.OS residual. Still to characterize field
+  by field. The MakeFile also omits `JudgeName.aii` (fstcheck's build adds it).
 - **Linker pure-literal-shift fix (Tool019)** — guarded by Tool019 in the
   gated corpus, but NOT by a corpus-free test (a synthetic attempt was
   vacuous — `dc.w` folds the constant before the deferral path). A CI-visible
