@@ -1,0 +1,4 @@
+{
+  "note": "a bare (storage-less) TEMPLATE-record label under a TYPED-IMPORT WITH binds to inst+offset (absolute external, ad 04 00 = mydata+4), like a DS field; before the fix only DS fields were registered so bare fields fell back to the direct-page offset (a5 04). An interior EQU constant stays a constant (a9 00 80). Complement of 031.",
+  "commit": "register positional template labels (DS or bare) as record fields so typed-import WITH binds bare-label fields absolute; fixes AppleShare partial_len etc."
+}

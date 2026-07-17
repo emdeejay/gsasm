@@ -973,6 +973,18 @@ class Asm:
                 q = self._fold(self.cur_record + '.' + name)
                 self.symbols[q] = value
                 self.symtype[q] = 'equ'
+                # A POSITIONAL field of a TEMPLATE record — a DS-allocated field
+                # OR a bare label aliasing the following field (e.g. AppleShare
+                # `partial_len`, an unsized label at `newline_mask`'s offset) — is
+                # an instance-relative offset.  Register it so a typed IMPORT's
+                # WITH binds it to inst+offset (absolute external), exactly like a
+                # DS field; without this a bare-label field falls back to the raw
+                # direct-page template offset (`lda partial_len` -> a5 xx instead
+                # of the golden ad xx xx = mydata+off).  An interior EQU *constant*
+                # (kind != 'label') is NOT a field and must stay a constant.
+                if (kind == 'label' and not self._record_data
+                        and not self.emit_enabled):
+                    self.record_ds_fields.add(q)
                 # The bare name: a DATA record keeps the historical global
                 # last-wins (the qualified field is ADDITIVE); a TEMPLATE
                 # record's def leaves an already-claimed bare name alone

@@ -323,9 +323,10 @@ def main():
         print(f'AppleShare.FST (informational, not byte-exact, excluded from CORPUS):')
         print(f'  built {len(mine)} bytes vs golden {len(g)}; '
               f'positional match {m}/{n} ({100 * m // n if n else 0}%)')
-        print('  Residual gap: `partial_len` etc.— tdata-template fields accessed'
-              ' via WITH mydata size direct-page instead of the data-segment'
-              ' absolute address (the dp-alias sizing case is now fixed).')
+        print('  Residual gap: ~23 B of sizing drift remain (bare-label typed-'
+              'import WITH fields like `partial_len` now bind absolute — fixed; '
+              'the leftover undersizings surface as +3/+7 address ripple, a '
+              'further WITH/aliasing class still to be characterized).')
 
     print()
     print('Packaging note: all FSTs are ExpressLoad\'d (KIND 0x8001 leading segment).')
