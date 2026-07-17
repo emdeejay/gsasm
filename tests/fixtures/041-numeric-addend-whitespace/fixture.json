@@ -1,0 +1,4 @@
+{
+  "note": "a memory-operand instruction folds a pure numeric addend across whitespace (`lda base +2` -> base+2, MPW BLANKS ON), but a prose comment without ';' still terminates the operand (GS.OS Device.Dispatcher temp_load_addr+2)",
+  "commit": "b5592f2"
+}
