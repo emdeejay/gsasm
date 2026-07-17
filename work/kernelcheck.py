@@ -65,7 +65,7 @@ SCM segment layout:
   harness re-adds it.  (gsasm DOES evaluate the ORGs, `,skip`/`,noskip` included.)
 
 Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
-  1. GS.OS (SCM): 48 bytes short.  The former dominant class — SCM/Init1 refs to
+  1. GS.OS (SCM): 44 bytes short.  The former dominant class — SCM/Init1 refs to
      the bank-$E1 vectors E1_MSG_ADDRESS, E1_VOLNAME, E1_CURRENT_ID,
      E1_APP_FILENAME, ... — is now CLOSED (46 bytes recovered).  Those symbols are
      NOT externals: they are EXPORTed DS.B/DC allocations in GQuit.src's seg_e1
@@ -73,7 +73,7 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
      $E1D6xx addresses, e.g. E1_MSG_ADDRESS=$E1D6F3).  Apple's linkOS resolves them
      because it links every kernel object in ONE global pass; kernelcheck now
      mirrors that by seeding GQuit's placed exports into the SCM link's extern.
-     The 48-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
+     The 44-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
      every residual byte is a baked constant emitted at ASSEMBLY time (no relocation
      record for the linker/extern to override) or an ambiguous duplicate symbol the
      link binds to a valid-but-wrong instance.  Seeding placed exports — the fix that
@@ -86,12 +86,20 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
          `$AC2E`.  Verified NOT seedable (A_REG already sits in the content extern).
        * be0segr 1B: a live `BANK_E0_SEGR+$A86` LEXPR whose placed low byte is off by
          2 ($86 vs $88) — a placement/size discrepancy, not a missing symbol.
-       * init ~18B: the header `DC.W init_N_end-init_N_start` for Init1/Init3 folds to
-         a bogus literal ($4E00/$3000 = `0 - init_N_start`) because gsasm leaves
-         init_N_end UNRESOLVED (0): the header `Import Init_1_end`/`Init_3_end` (cap I)
-         is not case-unified with the lowercase `init_N_end` PROC that defines it —
-         Init2/Init4 import lowercase and resolve fine.  The rest are length-derived
-         `ldx #dp_size` immediates ($48 vs $4E) from `record`/template field offsets.
+       * init: the header `DC.W init_N_end-init_N_start` for Init1/Init3 is now
+         CLOSED (4 bytes recovered, 2 each).  It HAD folded to a bogus literal
+         ($4E00/$3000) because gsasm baked `init_N_end(=0) - init_N_start` at
+         assembly time: init_N_end is a relocatable end-bracket PROC that follows
+         the `std_buffer`/`text_screen` data RECORD (which resets the location
+         counter to 0), so its assembly-time value was 0-based while init_N_start
+         is an ORG'd (absolute) pad PROC.  The real segment length is a LINK-time
+         constant.  (The earlier "cap-I Import not case-unified" note was wrong —
+         sym_kind already unifies local-def-over-import; the true blocker was
+         omf._diff_reloc bailing on ANY ORG'd operand.  A MIXED absolute/relocatable
+         cross-segment difference is not final, so the guard now bails only when
+         BOTH segments are ORG'd; fixture 035.)  The ~14B init residual that
+         remains are length-derived `ldx #dp_size` immediates ($48 vs $4E) from
+         `record`/template field offsets — a separate class.
        * scm_main ~9B: baked bank-0 constants — a self-modified jump vector at $B9D6
          (3 refs, baked $00BB), an immediate $255C (baked $005C), and a duplicate
          local label `MORE` the link binds to the wrong instance ($F99B vs $B70A).
