@@ -1033,8 +1033,18 @@ class Asm:
             # EQU is a per-segment local value (recorded in seg_equ for local refs).
             # Scoping to an existing 'label' spares pure-EQU imports like Max_call
             # (no code label -> the EQU is canonical and overwrites as before).
+            # The prior label must be a cross-module GLOBAL (IMPORT, EXPORT, or
+            # ENTRY): per the MPW Asm Ref, "labels defined inside a code module are
+            # local to that module" unless EXPORT/ENTRY, so a proc-interior EQU is
+            # module-local and cannot be the global binding for a name another
+            # segment references by name (GS.OS bank0.dispatcher: `a_reg` is an
+            # EXPORTed `ds.b` in dsptch_vars that the `dispatcher` seg references
+            # `>a_reg`/`|a_reg`, while lc_dispatcher has its own local
+            # `a_reg equ dir_reg+2` — the equate must not clobber the export).
             if (kind == 'equ' and self.in_proc and not name.startswith('@')
-                    and self.symtype.get(u) == 'label' and u in self.imports):
+                    and self.symtype.get(u) == 'label'
+                    and (u in self.imports or u in self.exports
+                         or u in self.entries)):
                 self.seg_equ.setdefault(len(self.segs) - 1, {})[u] = value
                 self.defcount[u] = self.defcount.get(u, 0) + 1
                 self.labels.append((name, value))
