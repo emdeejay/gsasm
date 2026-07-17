@@ -64,21 +64,16 @@ SCM segment layout:
   proc is zero-filled by MakeBin but not by our concatenating _code_image, so the
   harness re-adds it.  (gsasm DOES evaluate the ORGs, `,skip`/`,noskip` included.)
 
-Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
-  1. GS.OS (SCM): 1 byte short.  The former dominant class — SCM/Init1 refs to
-     the bank-$E1 vectors E1_MSG_ADDRESS, E1_VOLNAME, E1_CURRENT_ID,
-     E1_APP_FILENAME, ... — is now CLOSED (46 bytes recovered).  Those symbols are
-     NOT externals: they are EXPORTed DS.B/DC allocations in GQuit.src's seg_e1
-     block (ORG'd at e1_obj_pstn=$E1D200, so gsasm bakes them at their real
-     $E1D6xx addresses, e.g. E1_MSG_ADDRESS=$E1D6F3).  Apple's linkOS resolves them
-     because it links every kernel object in ONE global pass; kernelcheck now
-     mirrors that by seeding GQuit's placed exports into the SCM link's extern.
-     The 1-byte residual is NOT more of the e1_* disease (unseeded cross-refs):
-     every residual byte is a baked constant emitted at ASSEMBLY time (no relocation
-     record for the linker/extern to override) or an ambiguous duplicate symbol the
-     link binds to a valid-but-wrong instance.  Seeding placed exports — the fix that
-     recovered the 46 e1_* bytes — closes NONE of them; they are gsasm assembler/
-     linker correctness bugs.  Two whole classes are now CLOSED:
+GS.OS (SCM) is now BYTE-EXACT (38805/38805), as are prodos / Start.GS.OS /
+Error.Msg.  The former "94-byte external floor" fell in stages (94 -> 44 -> 0):
+  0. bank-$E1 vectors (46B): E1_MSG_ADDRESS/E1_VOLNAME/E1_CURRENT_ID/... are NOT
+     externals — they are EXPORTed DS.B/DC allocations in GQuit.src's seg_e1 block
+     (ORG'd at e1_obj_pstn=$E1D200 -> real $E1D6xx addresses).  linkOS resolves the
+     SCM->GQuit refs in ONE global pass; kernelcheck mirrors that by seeding GQuit's
+     placed exports into the SCM link's extern.
+  The remaining 44 bytes were gsasm assembler/linker bugs (and one harness gap),
+  each root-caused against the MPW 3.0 Assembler Reference and closed with a
+  corpus-free fixture:
        * b00segr (a_reg, ~20B) — CLOSED.  `a_reg` is DEFINED TWICE in
          bank0.dispatcher.src: an EXPORTed `DS.B` label in dsptch_vars (placed $AC2E)
          and a module-local `a_reg equ dir_reg+2` inside lc_dispatcher.  gsasm let the
@@ -133,9 +128,15 @@ Known residuals (current; prodos / Start.GS.OS / Error.Msg are byte-exact):
          PLUS a constant fell through to a baked $005C.  Fix: omf._mul_reloc_expr
          now emits `SEGNAME(common_int_ent)*256 + $5c` for a relocatable label in
          another segment, not just an in-ORG-segment one (fixture 040).
-     The remaining 1B, characterized precisely (work/kernelcheck.py --diff):
-       * be0segr 1B (scm.bin.7): a live `BANK_E0_SEGR+$A86` LEXPR whose placed low
-         byte is off by 2 ($86 vs $88) — a placement/size discrepancy.
+     A sixth SCM class (be0segr `temp_load_addr +2`) — the LAST byte — is CLOSED:
+       * be0segr `lda |temp_load_addr +2` (1B, Device.Dispatcher): reads the SECOND
+         word of a SIB pointer.  gsasm dropped the ` +2` (whitespace before it), so
+         both `lda temp_load_addr` and `lda temp_load_addr +2` read the same word.
+         MPW's BLANKS ON (the preset) lets blanks sit in the operand field and
+         requires `;` for the comment; the corpus otherwise reads as BLANKS OFF, so
+         gsasm now folds a PURE NUMERIC addend (`[+-] <number>`) across whitespace
+         for a memory operand — narrow enough to leave unmarked prose comments
+         (`-yes.`, `* text`) as comments (asm.py first_field; fixture 041).
      (E1_GET_REF_INFO / EQ_MSG_ADDRESS are IMPORTed by SCM but never referenced, so
      they emit no bytes and are not in the residual.)
   2. Loader.bin is excluded from this harness's GS.OS comparison; the Loader is
@@ -1068,16 +1069,15 @@ def main() -> int:
         print(f'  {"TOTAL":<22} {total_m:>6}/{total_n:<6} {tot_pct:>5}%')
 
     print()
-    print('Known residuals (prodos / Start.GS.OS / Error.Msg are byte-exact):')
-    print('  1. GS.OS (SCM): 1 byte short.  The former dominant class — refs to')
-    print('     the bank-$E1 vectors (E1_MSG_ADDRESS=$E1D6F3, ...) — is CLOSED (46B),')
-    print('     as are five more classes (see the module docstring): a_reg dup-symbol')
-    print('     (~26B), the init DC.W header (4B), init.1 my_dp_size union-size (2B),')
-    print('     init.2 curly-quote char literals (4B), and init.4 SCM-export seeding')
-    print('     (4B).  The remaining 4B are baked constants no seed can touch:')
-    print('     be0segr 1B')
-    print('     `MORE` bound $F99B vs golden $B70A) + be0segr 1B (BANK_E0_SEGR+$A86')
-    print('     placed off by 2).  gsasm assembler/linker bugs, not unseeded refs.')
+    print('Notes (prodos / Start.GS.OS / Error.Msg / GS.OS SCM are byte-exact):')
+    print('  1. GS.OS (SCM) is BYTE-EXACT.  The former "94-byte external floor" fell')
+    print('     94 -> 44 -> 0: 46B were the bank-$E1 vectors (EXPORTed GQuit seg_e1')
+    print('     globals, resolved by seeding placed exports), and the remaining 44B')
+    print('     were seven gsasm assembler/linker classes (a_reg dup-symbol ~26B, the')
+    print('     init DC.W header 4B, my_dp_size union-size 2B, curly-quote char')
+    print('     literals 4B, SCM-export seeding 4B, the `more` ENTRY 2B, the')
+    print('     common_int_ent shift-reloc 1B, and the temp_load_addr +2 numeric')
+    print('     addend 1B) — each root-caused vs the MPW Asm Ref, fixtures 035-041.')
     print('  2. Loader.bin is excluded from the GS.OS comparison here; the Loader')
     print('     is built byte-exact separately (work/loader_placed.py, 16590/16590).')
     print('  3. P8: only PROCONE compared (golden P8 = 4 PROCs + OverlayIIgs driver')

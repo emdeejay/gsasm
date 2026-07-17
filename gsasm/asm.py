@@ -203,6 +203,12 @@ _MULTI_TOKEN_OPS = {'IF', 'ELSEIF', 'WHILE', 'AIF', 'PROC', 'ERRIF', 'DO',
 # re-add DS here when that lands.
 _EXPR_CONT_OPS = {'EQU', 'GEQU', '=', 'SET'}
 
+# A whitespace-separated tail that is ENTIRELY `[+-] <number>` terms (decimal or
+# $hex), e.g. `+2`, `- $10`, `+4-2`.  Used by first_field to fold a bare numeric
+# addend into a memory-operand instruction across BLANKS (MPW BLANKS ON).  A prose
+# comment never matches (it contains a symbol/word), so this is comment-safe.
+_NUM_ADDEND_TAIL = re.compile(r'^([+\-]\s*(?:\$[0-9A-Fa-f]+|[0-9]+))+$')
+
 # Mnemonic spellings AsmIIgs accepts as plain synonyms of a real 65816
 # instruction (distinct from m65816.ALIAS, which covers 65816-level
 # addressing/encoding aliases): TSA/TAS for TSC/TCS (Thermodial.aii:802,805).
@@ -259,6 +265,18 @@ def first_field(s, expr_cont=False):
             # `adc #2  and add offset...` cuts at `#2`, `bne x -yes.` cuts.
             if ((expr_cont or s.lstrip(' \t')[:1] == '#')
                     and _expr_tail(s[j:])):
+                return s.rstrip()
+            # A MEMORY-operand instruction continues its operand across whitespace
+            # for a PURE NUMERIC addend only (`lda |temp_load_addr +2` -> +2, GS.OS
+            # Device.Dispatcher).  MPW's BLANKS ON (the preset) lets blanks sit in
+            # the operand field and requires a ';' for the comment; the whole gated
+            # corpus otherwise reads as BLANKS OFF, so the continuation is scoped as
+            # tightly as possible to stay byte-neutral: the entire tail must be
+            # `[+-] <number>` term(s) and nothing else.  Prose comments never match
+            # (`-yes.`, `* decorative`, `+2 bytes over` all contain non-numeric
+            # tokens), so this cannot swallow an unmarked comment the way a general
+            # _expr_tail continuation would.
+            if _NUM_ADDEND_TAIL.match(s[j:].rstrip()):
                 return s.rstrip()
             return s[:i]
         i += 1

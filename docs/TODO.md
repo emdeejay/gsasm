@@ -115,8 +115,9 @@ The audit (see `docs/RESULTS.md` and the case study
 `docs/notes/proven-ceiling-audit.md`) falsified four documented limits and
 overturned the "at the proven ceiling" framing. Remaining follow-ups:
 
-- **GS.OS residual 1 byte** (was 44) — gsasm assembler/linker bugs, not an
-  external floor. SEVEN classes CLOSED 2026-07-17:
+- **GS.OS — BYTE-EXACT (38805/38805).** The "94-byte external floor" is fully
+  gone (94 → 44 → 0). SEVEN classes CLOSED 2026-07-17, each root-caused vs the
+  MPW 3.0 Assembler Reference with a corpus-free fixture (035–041):
     1. **init-header `DC.W init_N_end-init_N_start` (4 B, Init1/Init3).** NOT a
        case-fold miss (that diagnosis was wrong — `sym_kind` already unifies a
        local def over an `Import`). Real cause: `init_N_end` is a relocatable
@@ -168,8 +169,16 @@ overturned the "at the proven ceiling" framing. Remaining follow-ups:
        shifted CROSS-segment label plus a constant baked $005C. Fix: extend
        `omf._mul_reloc_expr` to emit `SEGNAME*N+K` for a relocatable label in
        another segment (not just an in-ORG-seg one); fixture 040.
-  Remaining 1: `be0segr` 1 B (`BANK_E0_SEGR+$A86` placed off by 2 — $86 vs $88).
-  A linker placement/size discrepancy — the genuine last-byte floor for now.
+    8. **be0segr `lda |temp_load_addr +2` (1 B) — numeric addend across whitespace.**
+       The Device.Dispatcher SIB-copy reads the SECOND pointer word; gsasm dropped
+       the ` +2` and read the same word twice. Per the MPW `BLANKS` rule (BLANKS ON,
+       the preset: blanks may sit in the operand field, `;` required for the
+       comment), a PURE NUMERIC addend (`[+-] <number>`) now folds across whitespace
+       into a memory operand — narrow enough that prose comments (`-yes.`, `* text`)
+       still terminate the operand. Fix: `asm.py::first_field` `_NUM_ADDEND_TAIL`;
+       fixture 041. (Same class as AppleShare Class A operand-whitespace
+       continuation — the AppleShare `+2` cases should now close too; re-check.)
+  GS.OS is now byte-exact; nothing left in this residual.
 - **AppleShare.FST → byte-exact** — MOSTLY DONE (2026-07-17): 30% → 99.9%
   positional (17812/17825) and **size is now byte-exact** (17825/17825), via
   three gsasm fixes + one harness fix, all with the whole golden gate at

@@ -14,16 +14,12 @@ committed regression baseline (`work/gate.py`; `work/gate_baseline.json`).
 | `prodos` (boot loader) | 1,668 bytes | `work/kernelcheck.py` |
 | `Start.GS.OS` | 13,169 bytes | `work/kernelcheck.py` |
 | `Error.Msg` | 5,407 bytes | `work/kernelcheck.py` |
+| GS.OS kernel (SCM portion) | 38,805 bytes | `work/kernelcheck.py` |
 | GS/OS Loader | 16,590 bytes | `work/loader_placed.py` |
 | 15 of the 27 System 6.0.1 shipping files the disk harness rebuilds | — | `work/diskcheck.py` |
 
 Close but not exact:
 
-- **GS.OS** — 38,804 of 38,805 bytes (99.997%). The former 94-byte "external
-  floor" was half wrong: 46 of those bytes were the bank-$E1 vectors, which
-  are *defined* in `GQuit.src` and are now resolved; see below. The remaining
-  **1 byte** is a single linker placement discrepancy (`be0segr` off by 2) —
-  export-seeding cannot touch it; see below.
 - **Toolbox toolsets** — 118,524 of 119,080 bytes (99.5%) across 14
   `ToolNNN` files (`work/toolcheck.py`; Tool023/StdFile added in R9 — its
   sources assemble cleanly, see `docs/design/expressload.md`).
@@ -37,8 +33,10 @@ Close but not exact:
 Each of these was settled by evidence, not fatigue. They bound what any
 toolchain could reproduce from this source archive.
 
-**GS.OS: the bank-$E1 "external floor" — OVERTURNED (94 → 1 byte).** The
-old claim held that the dominant residual was cross-bank references to
+**GS.OS: the bank-$E1 "external floor" — OVERTURNED, now BYTE-EXACT (94 → 0).**
+The GS.OS SCM kernel now reproduces byte-for-byte (38,805/38,805); with the
+separately-built Loader (16,590 B, also byte-exact) the whole GS.OS is exact.
+The old claim held that the dominant residual was cross-bank references to
 `E1_MSG_ADDRESS`, `E1_VOLNAME`, `E1_CURRENT_ID`, `E1_APP_FILENAME` and similar
 bank-$E1 vectors that "no file in `IIGS.601.SRC` defines." That is false. They
 are `EXPORT`ed `DS.B`/`DC` allocations in `GQuit.src`'s `seg_e1` segment
@@ -53,12 +51,10 @@ the SCM link's extern table, recovering **46 bytes** (`38,711 → 38,757`).
 (`E1_GET_REF_INFO` and `EQ_MSG_ADDRESS` are `Import`ed by SCM but never
 referenced, so they emit no bytes and were never part of the residual.)
 
-The remaining **1 byte** is *not* more of the same disease. The export-seeding
-that recovered the 46 bank-$E1 bytes closes **none** of it, because every
-residual byte is a **baked constant** — emitted at assembly time with no
-relocation record for the linker/extern to override — or an **ambiguous duplicate
-symbol** the link binds to a valid-but-wrong instance. They are gsasm
-assembler/linker correctness bugs. Two whole classes are now **CLOSED**:
+The other **44 bytes** were *not* more of the same disease — export-seeding closed
+**none** of them. Each was a distinct gsasm assembler/linker correctness bug (plus
+one harness gap), root-caused against the MPW 3.0 Assembler Reference and closed
+with a corpus-free fixture (035–041). The seven classes:
 
 - **`b00segr` — a duplicate-symbol bug (~20 bytes, plus a scm_main vector: ~26
   recovered) — CLOSED.** `a_reg` is defined *twice* in `bank0.dispatcher.src`: an
@@ -127,13 +123,20 @@ One more SCM class (`scm_main` `common_int_ent`) is now **CLOSED**:
   relocatable label in another segment, not only an in-`ORG`-segment one; fixture
   040.
 
-The remaining **1 byte** is a single case:
+The last byte (`be0segr`) is now **CLOSED** too:
 
-- **`be0segr` 1 byte** — a live `BANK_E0_SEGR+$A86` reference whose placed low byte
-  is off by 2 (`$86` vs `$88`), a placement/size discrepancy in the linker.
+- **`be0segr` `lda |temp_load_addr +2` (1 byte)** — the Device.Dispatcher SIB-copy
+  loop reads the *second* word of a pointer. gsasm dropped the ` +2` (whitespace
+  before it) and read the same word twice. Per the MPW `BLANKS` directive rule
+  (with `BLANKS ON`, the preset, blanks may sit in the operand field and a `;` is
+  required for the comment), a **pure numeric addend** (`[+-] <number>`) now folds
+  across whitespace into a memory operand — scoped tightly enough that unmarked
+  prose comments (`-yes.`, `* text`) still terminate the operand (`asm.py`
+  `first_field`; fixture 041).
 
-That last byte lives in the *linker*, not the kernel-link seeding — so the
-seeding ceiling is genuinely 1 byte short here.
+So GS.OS is byte-exact; the "94-byte external floor" is fully gone. The lesson
+holds: the discipline was always sound, and every "unclosable" byte turned out to
+be a namable, fixable bug once read against the reference manual.
 
 **ExpressLoad relocation encoding ("case B") — CLOSED for the single-segment
 path (R9).** Previously classed as "not a function of the input"; overturned
