@@ -144,17 +144,40 @@ overturned the "at the proven ceiling" framing. Remaining follow-ups:
        but `read_text` reads mac_roman, corrupting the `≈` one's-complement byte
        (0xC5) so `and #≈buffer_valid` mis-assembled. NOT a gsasm bug — write
        mac_roman. (Fixed 7 bytes.)
-  Remaining: **13 value-bytes** (size exact), five small classes —
-  (a) whitespace inside an operand expression (`ora src_ptr +2` → gsasm stops at
-  `src_ptr`, MPW keeps `+2`); (b) field-difference address (`my_f_info -
-  tOpt.f_info` mixing an absolute mydata field with a template offset);
-  (c) an ambiguous `next` branch resolving to the wrong same-named label;
-  (d) a multi-term address expr `sta user_path+2-us_start+us_end,y`;
-  (e) `month_adjust,X` table addressing. Each is its own dig; see
-  `work/appleshare_diag.py`. The MakeFile also omits `JudgeName.aii` (fstcheck
-  adds it). NOTE: class (a)/(b)/(d) touch operand-expression parsing and the
-  WITH absolute-vs-offset choice — verify against the whole gate, these are the
-  oracle-constrained paths.
+  Remaining: **13 value-bytes** (size exact), root-caused (2026-07-17) to THREE
+  deep, oracle-constrained classes — each risks the 100%-byte-exact corpus for
+  bytes in a non-corpus FST, so left for dedicated, gate-guarded work:
+
+    A. **Operand-whitespace continuation** [1 B] — `ora src_ptr +2`: MPW folds
+       the `+2` across the blank; gsasm stops at `src_ptr`. `first_field`/
+       `_EXPR_CONT_OPS` already continue for data/equate directives and `#`
+       immediates (guarded by `_expr_tail`), but NOT memory-operand
+       instructions. UNSAFE to widen: `_expr_tail` accepts prose tails like
+       `-yes.`, `-more.stuff`, `* decorative` (real instruction comments), so
+       enabling it for instructions would swallow comments as operands.
+
+    B. **Multi-term mixed absolute/offset field arithmetic** [6 B] —
+       `lda my_f_info-tOpt.f_info,y` and `sta user_path+2-us_start+us_end,y`:
+       expressions mixing an absolute WITH/import field (equ_alias → external)
+       with a plain template offset. The equ_alias absolute binding doesn't
+       compose through a multi-term +/- expression, so the value comes out
+       direct-page-ish (gsasm 0x0060/0x0126 vs gold 0x3eb5/0x27d2).
+
+    C. **Duplicate-label scoping** [6 B] — `month_adjust` and `next` are each
+       defined twice (module-header + in-proc). Two OPPOSITE symptoms of the
+       oracle-tuned `keep_prior`/`seg_local` logic in `define_label`
+       (asm.py ~1050): `month_adjust` def#1 sits in the unnamed module-header
+       segment (`is_data=False`), so `keep_prior` does NOT fire and the in-proc
+       def#2 clobbers the global (cross-proc refs get the wrong table);
+       `next` def#1 IS in a data segment so `keep_prior` fires — but that
+       suppresses registering def#2 in `seg_local`, so the proc-local ref can't
+       reach its nearby def. THIS IS THE SAME CLASS AS the GS.OS `a_reg`-twice
+       residual (first §6 bullet) — a careful fix here could help both, but the
+       `keep_prior` logic is tuned against specific golden cases (Pascal.FST
+       `temp`), so it needs the whole gate as a guard, not a quick grind.
+
+  See `work/appleshare_diag.py` (maps any divergence to source). The MakeFile
+  also omits `JudgeName.aii` (fstcheck adds it).
 - **Linker pure-literal-shift fix (Tool019)** — guarded by Tool019 in the
   gated corpus, but NOT by a corpus-free test (a synthetic attempt was
   vacuous — `dc.w` folds the constant before the deferral path). A CI-visible
