@@ -157,33 +157,55 @@ exact for that reason plus the separately-documented symbol-scoping residual
 (`toolsets.py`'s module docstring). Extending standalone-reloc support
 (case A and case B both) to the multi-segment path is future work.
 
-**Scope re-check (2026-07-18).** The gated `tool_bytes` residual (554 B) is
-dominated by **Tool016 ControlMgr (451 B)**, and closing it is NOT the same job
-as the multi-seg standalone-reloc port above. Two findings from characterizing
-it:
-- `work/toolcheck.py::_check_multiseg` compares gsasm's **linked** LCONST image
-  (`_lconst_image` of `linkiigs.link(...)`) against the gold **ExpressLoad**
-  segment image (`_gold_segment`). Those differ at every load-time reloc site by
-  construction (ExpressLoad zeroes the reference; the linker bakes it), so the
-  comparison basis itself would need rework before an ExpressLoad-side fix could
-  register as byte-exact.
-- More decisively, gold `Tool016/main` carries only **4 reloc records** yet
-  diverges in 451 bytes — so most divergences are **baked-value differences, not
-  reloc form**. gsasm computes different addresses than gold (e.g. `0x1017`
-  `LDX #$30C9` vs gold `#$0000`; `#$0036/$0000` vs `#$080a` in Tool023 at
-  `0x0b43`). ControlMgr is link-order / object-set sensitive (see the makefile
-  note in `toolcheck.py`'s TOOLMAP: "DummyDrag defines WindDragRect, ControlMgr's
-  first divergence"). So Tool016 is a **link-order/value** frontier, not a
-  mechanical reloc port — larger and murkier than "extend the scanner."
-- `Tool023`'s 6-byte residual is likewise multi-part: the characterized
-  `GetFilter` case-B value bug (`0xC0000000` vs `0xC00022ec`, resolves-unresolved
-  in the merged symtab) is only one site; `0x0b43` is a separate cross-segment
-  resolution diff.
+**Scope re-check (2026-07-18) — Tool016 root-caused, and the earlier framing
+was WRONG.** The `tool_bytes` residual was 554 B, dominated by **Tool016
+ControlMgr (451 B)**. An earlier draft of this note called Tool016 a
+"link-order/value frontier" where "gsasm computes different addresses than gold
+(e.g. `0x1017 LDX #$30C9` vs gold `#$0000`)." That was a mis-diagnosis. A full
+byte-by-byte decomposition (`work/tool016_diag.py`) proves **every one of the 451
+bytes is a segmentation / harness artifact — not a single value error**. gsasm
+assembles ControlMgr *byte-exact per segment*.
 
-Net: the clean single-segment case-B rule is done; the remaining `tool_bytes`
-residual is genuine deep work (comparison-harness rework + linker link-order /
-cross-seg resolution), not a quick scanner port. Left for a dedicated,
-well-scoped session.
+ControlMgr ships as a **four-segment** ExpressLoad load file, not one flat blob:
+`main` (KIND 0) + `StatText` (KIND 0) + `~JumpTable` (KIND 2, linker-generated) +
+`Pics` (KIND 0x8000, **dynamic**). The old toolcheck entry flat-linked all 8
+objects into one segment and compared against `de_express(gold)` = the four
+segments concatenated. On that basis the 451 diffs decompose, with **zero
+unclassified residue**, into three mechanical causes:
+- **8 B** — 2 `cINTERSEG` far-pointers in `main` to the StatText/Pics segments;
+  gold defers them to load time, gsasm's flat merge bakes the merged-image offset.
+- **~154 B** — every StatText/Pics intra-segment word reloc is off by *exactly*
+  its segment's base in the merged image (`0x30c9` / `0x355f`), because gsasm
+  concatenates while gold keeps them separate (each relocated from its own base 0).
+  The `0x1017 LDX #$30C9` the old note cited as a "wrong address" is precisely
+  this: `0x30C9` **is** StatText's base — gsasm is right, the comparison was wrong.
+- **~289 B** — the 26-byte `~JumpTable` gsasm doesn't generate (linker output,
+  `docs/TODO.md` §2), plus the 26-byte alignment shift it imposes on all of `Pics`.
+
+**Fix (landed): compare Tool016 the way it is actually segmented** — the same
+per-segment methodology `_check_multiseg` already uses for MenuMgr (Tool015).
+Result: `StatText` **1174/1174 byte-exact**, `Pics` **358/358 byte-exact**, `main`
+**12488/12489**. The one `main` byte (`0x1022`) is a far-pointer operand into the
+**dynamic** `Pics` segment, which gold routes through `~JumpTable+0x12` (a
+`cINTERSEG` to segment 4); resolving it requires the `~JumpTable` gsasm doesn't
+generate — the **same TODO §2 gap**, now precisely located. `tool_bytes` bad:
+**554 → 104** (Tool016's share **451 → 1**), all honest.
+
+The `_check_multiseg` "differs at every load-time reloc site by construction"
+worry in the earlier draft was overcautious: intra-segment word relocs are stored
+segment-relative in gold and gsasm-at-base-0 reproduces them exactly (hence the
+two byte-exact segments); only genuine inter-segment references (which go through
+`~JumpTable`) stay unresolved — and there is exactly one such byte.
+
+- `Tool023`'s 6-byte residual is **separate and unchanged**: the characterized
+  `GetFilter` case-B value bug (`0xC0000000` vs `0xC00022ec`, resolves-unresolved
+  in the merged symtab) plus a cross-segment resolution diff at `0x0b43`. Not
+  touched here; still real value work.
+
+Net: Tool016 is **not** a value frontier — gsasm's ControlMgr is correct. The one
+genuine remaining lever for it is `~JumpTable` generation (TODO §2), which would
+also close Tool015/Tool018 and let a *full* multi-segment ExpressLoad Tool016 be
+rebuilt and compared byte-for-byte (the real acceptance test).
 
 ### Original (superseded) analysis
 
