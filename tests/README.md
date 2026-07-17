@@ -12,6 +12,17 @@ python3 tests/run_fixtures.py 014 024    # check fixtures matching a substring
 python3 tests/run_fixtures.py --bless    # regenerate expected outputs
 ```
 
+**`work/gate.py` runs this suite as a hard gate** (before the corpus checks, and
+needs no `ref/`): a fixture regression fails the gate outright. This closes a
+real blind spot — the golden-corpus checks are byte-diffs against the ROM
+sources, so a change can broaden the assembler on a construct the corpus doesn't
+contain (a `+n` after a branch or `ds.b`, say) and still leave every corpus byte
+identical. The fixtures guard those unseen shapes, so the gate must enforce them.
+(The `--bless` interlock invokes `gate.py --skip-fixtures` to avoid a deadlock
+while a not-yet-blessed fixture has no expected bytes.) Fixtures should assert
+**both** the intended behavior and its boundaries — e.g. `041` proves `lda a +2`
+folds *and* that a branch, a `ds.b` count, and a prose comment do not.
+
 ## Where the expected bytes come from (and why that's legitimate)
 
 The inputs are original code written for this suite — no Apple source. The
