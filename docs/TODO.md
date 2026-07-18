@@ -140,6 +140,69 @@ the KIND-2 segment via the proven codec. That closes Tool015/016/018 and enables
 *full* multi-segment ExpressLoad Tool016 for a real byte-for-byte acceptance test
 (vs the current per-segment code-image comparison).
 
+**DONE (2026-07-18) — Tool015/016/020 byte-exact; the corpus's final 6 bytes are
+CLOSED (toolcheck `tool_bytes` 124154/124160 → 124160/124160).** The linker-side
+generation landed in `gsasm/expressload.py` (`encode_jumptable` / `jt_jsl_offset`,
+ported from `work/jumptable_probe.py`), a one-line opt in `gsasm/linkiigs.py`
+(`abs_extra`, see below), and the jump-table-aware multi-segment link in
+`work/toolcheck.py` (`_link_jt_tool` / `_check_jt_tool`; TOOLMAP `'jt_segments'`).
+Mechanics, all validated against gold:
+  - **File segment numbering.** Non-dynamic segments first (source order), then
+    ~JumpTable (only when a dynamic segment exists), then dynamic segments — the
+    exact gold layout (015 MainTool/~JumpTable/PopUpProc; 016
+    main/StatText/~JumpTable/Pics).
+  - **Entry allocation & order.** Scan every load segment's references in body
+    (= code-offset) order; a reference into a DYNAMIC (KIND & 0x8000) segment
+    claims one 14-byte thunk per distinct (target_segnum, routine_offset),
+    first-seen. VERIFIED that MPW LinkIIgs allocates in code-scan order: Tool018's
+    12 golden entries are first-referenced in MAINPart at ascending code offsets
+    (indices 0..11 in order), and `_link_jt_tool` reproduces all 12 `(seg, off)`
+    byte-exact — the multi-entry ordering the task flagged as the risk is
+    **derived, not guessed**.
+  - **Reference rewrite / encoding.** Each cross-segment far pointer is seeded as
+    an extern whose value is the target OFFSET only (the thunk's JSL offset
+    `jt_jsl_offset(idx)` for dynamic targets, the routine's own offset for
+    STATIC / KIND-0x4000 targets); the field's bank byte (size>=3) is then set to
+    the target's file segnum (~JumpTable's for dynamic, the segment's own for
+    static) — the cINTERSEG `[off_lo, off_hi, segnum]` convention. The extern
+    names are passed as `abs_extra` so any shift on the reference resolves at
+    link time (gold encodes these as cINTERSEG-with-shift storing the *shifted*
+    placeholder, e.g. ControlMgr main's `LDX #(PICPROC>>8)` at 0x101f stores
+    0x12>>8 = 0), while genuine intra-segment `lda #^label` bank refs still defer
+    to a SUPER type-27. A symbol the referencing segment defines itself is never
+    externed (it stays intra-segment — the `CTLDATATOAX` collision: a main label
+    also EXPORTed by Pics).
+  - **~JumpTable gated.** `_check_jt_tool` builds the KIND-2 segment via
+    `encode_jumptable` and compares it byte-for-byte to gold (a mismatch raises,
+    so JT correctness is gated even though the ~JumpTable bytes are not in the
+    per-segment `tool_bytes` denominator — that stays exactly the gold-shipped
+    non-JT segments = 124160). Tool020 has NO dynamic segment (TheProc is KIND
+    0x4000, not 0x8000): its far pointer is a direct cINTERSEG, no jump table.
+
+**Tool018 (QDAux) — NOT mapped: jump-table generation WORKS, but two non-JT
+blockers remain.** `_link_jt_tool` derives Tool018's 12-entry ~JumpTable
+byte-exact (ordering proven above) and links CopyBits/Pictures/PixelMap2Rgn
+byte-exact. The two residuals are OUTSIDE jump-table scope:
+  1. **MAINPart (10 B) — the copybits.asm `SEG` section split.** The QDAux
+     MakeFile links `copybits.asm.obj(@MAINPart)` into MAINPart and
+     `copybits.asm.obj(@CopyBits)` into CopyBits — one object feeding two load
+     segments (gsasm captures the sections as LOADNAMEs). MAINPart's references to
+     ISTDPIXELS (the @MAINPart section) and to COPYBITS/STRETCHBITS/
+     FORCECOPYBITLOAD (the @CopyBits section) need those segment names published
+     into the per-segment symbol table; the quick prototype filtered the object
+     by LOADNAME with `asm=None`, which drops segment-name symbols. The correct
+     fix is a `seg_order`-selected per-LOADNAME placement that keeps the full asm
+     (so `_build_symtab` pass (b) publishes each placed segment's name at its
+     placed base) — a harness extension, not a jump-table gap.
+  2. **SeedFill (1 B, offset 0xae3) — an independent assembler-level byte.** No
+     EXPR record covers it; it is an isolated byte in seedfill.asm's STANDALONE
+     assembled image (gsasm 0x1c vs gold 0x02), unrelated to jump tables /
+     inter-segment linking. This pre-existing gsasm↔gold assembly discrepancy
+     would have to be root-caused separately before Tool018 could be gated
+     byte-exact.
+Because mapping a not-byte-exact tool would REGRESS the gate (`tool_bytes` bad
+0 → >0), Tool018 is left unmapped pending those two fixes.
+
 ## 3. P8 include files
 
 P8 was scoped out partly for "include files not in the GS/OS tree". The image

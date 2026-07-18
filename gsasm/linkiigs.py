@@ -494,9 +494,21 @@ def link(objects: list[tuple[bytes, Any | None]],
     # ------------------------------------------------------------------
     # GEQU (link-time constant) symbol names across all objects — a right shift
     # over only these resolves at link time, never defers a load reloc.
+    #
+    # ``abs_extra`` (upper-cased names) lets a caller mark additional symbols as
+    # shift-resolve-now.  The multi-segment ExpressLoad tool build uses it for
+    # the INTER-segment reference externs it seeds: a cross-segment far-pointer
+    # is emitted by MPW LinkIIgs as a cINTERSEG record whose STORED placeholder
+    # is the *shifted* segment-relative offset (e.g. ControlMgr `main`'s
+    # `LDX #(PICPROC>>8)` at 0x101f stores 0x12>>8 = 0, gold cINTERSEG shift -8
+    # to ~JumpTable+0x12), NOT the un-shifted low word a SUPER type-27 intra-
+    # segment bank reloc would defer.  So the cross-segment target offset must be
+    # treated as a link-time constant for the shift, while genuine intra-segment
+    # `lda #^label` bank refs still defer (they stay byte-exact only when deferred).
     abs_syms = frozenset(
         d['label'] for _sn, recs, _b, _h, _a in placed for _at, nm, d in recs
-        if nm == 'GEQU' and isinstance(d, dict))
+        if nm == 'GEQU' and isinstance(d, dict)) | frozenset(
+        s.upper() for s in (opts.get('abs_extra') or ()))
 
     bodies: list[bytes] = []
     for placed_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
