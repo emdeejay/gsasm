@@ -79,6 +79,35 @@ FULL_CHECKS = [
 ]
 
 
+def run_unit_tests():
+    """Run the standalone unit tests (tests/test_*.py) as a HARD gate.
+
+    These assert BEHAVIORS the byte corpus and the expected-bytes fixture suite
+    cannot capture — e.g. that do_include RAISES on an unresolvable include
+    (test_include_not_found.py) and that an out-of-range branch is an ERROR
+    (test_branch_range.py).  Without this, a regression reverting do_include to
+    "append to a.errors and continue" would still pass the corpus + fixtures (the
+    exact SCSIHD-class silent-drop this milestone closed).  pytest is not assumed
+    present: each test file has a __main__ runner that exits non-zero on failure,
+    so the returncode IS the gate.  Returns (ok, summary_line)."""
+    import glob
+    ok, lines = True, []
+    for tf in sorted(glob.glob(os.path.join(ROOT, 'tests', 'test_*.py'))):
+        proc = subprocess.run([sys.executable, tf], cwd=ROOT,
+                              capture_output=True, text=True)
+        out = proc.stdout + proc.stderr
+        m = re.search(r'(\d+)/(\d+) passed', out)
+        tag = m.group(0) if m else (
+            out.strip().splitlines()[-1] if out.strip() else '(no output)')
+        lines.append(f'{os.path.basename(tf)}: {tag}')
+        if proc.returncode != 0:
+            ok = False
+            fails = [ln.strip() for ln in out.splitlines()
+                     if ln.strip().startswith('FAIL')]
+            lines[-1] += ''.join('\n      ' + f for f in fails)
+    return ok, '\n  '.join(lines)
+
+
 def run_fixture_suite():
     """Run the corpus-free fixture suite (tests/run_fixtures.py) as a HARD gate.
 
@@ -140,6 +169,13 @@ def main():
         if not fx_ok:
             print('\nFAIL: corpus-free fixture suite regressed '
                   '(a behavior changed on inputs the corpus does not exercise).')
+            return 1
+
+        print('running unit tests ...', flush=True)
+        ut_ok, ut_summary = run_unit_tests()
+        print(f'  {ut_summary}')
+        if not ut_ok:
+            print('\nFAIL: a standalone unit test regressed.')
             return 1
 
     baseline = {}

@@ -1,0 +1,1 @@
+{ "note": "ORG 0 is absolute (org==0, not None): a grouped-reloc expression over its labels must emit an absolute literal, not relocate. Guards omf._reloc_target_key is-None fix (adversarial-review F1)." }
