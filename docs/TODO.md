@@ -59,9 +59,20 @@ byte-exact; Tool027 reloc dictionary exact (2-byte pre-existing code-image
 residual remains); Tool023 wired into toolcheck (one flagged pair exact).
 Two follow-up leads from the implementation:
 
-- **Tool023 `GETFILTER` resolves unresolved** in gsasm's link of StdFile —
-  its flagged pair emits relOffset 0xC0000000 instead of golden 0xC00022ec.
-  Looks like a linkiigs symbol-scoping bug, independent of the case-B rule.
+- **Tool023 residual — CLOSED (2026-07-18).** StdFile is now byte-exact
+  (15942/15942). The residual was NOT `GETFILTER` (that PROC places correctly
+  at 0x22ec); it was a `DevName` name collision. `DevName` is BOTH a
+  `PopUpGlobals` data-record field (custompopup.aii, a relocatable data-segment
+  label) AND a `GetThePrefix` PROC-local `devName equ ParBlock+02` (sf.asm:6973).
+  Two coupled `asm.py` bugs: (1) the PROC-local EQU overwrote the GLOBAL
+  `DevName` symbol (label→equ), so a `ldx #DevName` in the popup code stopped
+  relocating (baked field offset 0x36 instead of POPUPGLOBALS+0x36); (2)
+  `resolve()` consulted the (stale, never-ENDWITH'd) `with PopUpGlobals` field
+  namespace BEFORE the PROC-local EQU, so `sta DevName` in GetThePrefix used the
+  field offset 0x36 instead of the equate 0xb8. Fix: `keep_prior` extended to
+  `kind=='equ'` (a proc-interior EQU never clobbers a data-record label); and
+  `resolve()` lets an explicit local def shadow a WITH field. Guard:
+  `tests/fixtures/042-proc-equ-vs-with-record-field`.
 - **The multi-segment ExpressLoad path (`multiseg=True`) never emits ANY
   standalone reloc records** (case A or B) — this is why TS2/TS3/Tool.Setup
   didn't move. Separate, larger gap; needs its own careful pass.

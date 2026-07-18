@@ -197,10 +197,15 @@ segment-relative in gold and gsasm-at-base-0 reproduces them exactly (hence the
 two byte-exact segments); only genuine inter-segment references (which go through
 `~JumpTable`) stay unresolved — and there is exactly one such byte.
 
-- `Tool023`'s 6-byte residual is **separate and unchanged**: the characterized
-  `GetFilter` case-B value bug (`0xC0000000` vs `0xC00022ec`, resolves-unresolved
-  in the merged symtab) plus a cross-segment resolution diff at `0x0b43`. Not
-  touched here; still real value work.
+- `Tool023`'s 6-byte residual is **CLOSED (2026-07-18)** — and its cause was NOT
+  `GetFilter` (that PROC places correctly at `0x22ec`) nor the case-B rule. It was
+  a `DevName` symbol collision in the assembler: the name is BOTH a `PopUpGlobals`
+  data-record field and a `GetThePrefix` PROC-local `equ`. The local `equ` was
+  (a) clobbering the global data-record label — so `ldx #DevName` in the popup
+  code stopped relocating (the `0x0b43` cluster) — and (b) being shadowed by a
+  stale `with PopUpGlobals` in `resolve()` (the `0x3392` cluster). Both fixed in
+  `gsasm/asm.py`; StdFile is byte-exact. See `docs/TODO.md` §1 and
+  `tests/fixtures/042-proc-equ-vs-with-record-field`.
 
 Net: Tool016 is **not** a value frontier — gsasm's ControlMgr is correct. The one
 genuine remaining lever for it is `~JumpTable` generation (TODO §2), which would

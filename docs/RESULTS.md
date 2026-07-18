@@ -149,9 +149,11 @@ Measured effect (`work/gate.py --full`'s `disk_logical_exact`, 16/28 ->
 17/28): **Tool014 (WindMgr) is now fully byte-exact** (its sole residual was
 this flag); Tool027 (FontMgr)'s relocation dictionary is now exact, leaving
 only 2 bytes of a separate, pre-existing code-image residual; Tool023
-(StdFile) improved but is not byte-exact — one of its two flagged pairs
-carries a wrong *value* because of an unrelated, pre-existing linkiigs
-symbol-scoping bug (`GETFILTER` resolves unresolved), not a gap in this rule.
+(StdFile) is now **fully byte-exact** (2026-07-18) once a separate,
+pre-existing assembler bug — a `DevName` symbol collision, NOT `GETFILTER` as
+first suspected — was fixed (a PROC-local `equ` clobbering a same-named
+data-record field, plus a stale `with` shadowing that local `equ`; see
+`docs/TODO.md` §1 and `tests/fixtures/042`), not a gap in this rule.
 TS2/TS3/Tool.Setup build through a separate multi-segment ExpressLoad path
 that has never emitted any standalone reloc record (case A or case B) — a
 different, still-open gap — so they remain non-byte-exact. See
