@@ -268,8 +268,11 @@ def _reloc_target_key(asm, ident):
         if base in asm.imports and asm.resolve(base) is None:
             return ('import', base)
         bs = asm.symseg.get(base)
+        # `org is None` — NOT truthiness: a segment with an explicit `ORG 0`
+        # is absolute (org == 0), and `0 or temporg` is falsy, which would
+        # wrongly classify it as relocatable.  Matches needs_reloc/_equ_alias_of.
         if bs is not None and bs < len(asm.segs) \
-                and not (asm.segs[bs].org or asm.segs[bs].temporg):
+                and asm.segs[bs].org is None and asm.segs[bs].temporg is None:
             return ('seg', bs)
         return None
     if u in asm.imports and asm.resolve(u) is None:
@@ -279,7 +282,7 @@ def _reloc_target_key(asm, ident):
     if asm.sym_kind(ident) == 'label':
         s = asm.symseg.get(u)
         if s is not None and s < len(asm.segs) \
-                and not (asm.segs[s].org or asm.segs[s].temporg):
+                and asm.segs[s].org is None and asm.segs[s].temporg is None:
             return ('seg', s)
     return None
 

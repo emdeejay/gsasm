@@ -1151,16 +1151,21 @@ class Asm:
                 # GLOBALS field even INSIDE P_CREATE_DATE, which defines its
                 # own `temp dc.w 0` (the local's bytes emit; its name is
                 # inert).  So the masked label is kept out of seg_local too.
-                # A PROC-interior EQU is likewise module-local (MPW: interior
+                # A PROC-INTERIOR EQU is likewise module-local (MPW: interior
                 # symbols are local unless EXPORT/ENTRY) and must NOT clobber
                 # the global DATA-RECORD label either — it only shadows the name
                 # WITHIN its own PROC (recorded in seg_equ below).  StdFile's
                 # GetThePrefix defines `devName equ ParBlock+02`; the file-wide
                 # binding must stay the PopUpGlobals record field `DevName` so a
                 # `ldx #DevName` in the popup code still relocates against it.
+                # The EQU masking is scoped to `self.in_proc`: a TOP-LEVEL equate
+                # colliding with a data-record field is NOT module-local, so it
+                # updates the global normally (it is not swallowed into `labels`).
                 seg = len(self.segs) - 1
                 prior = self.symseg.get(u)
-                keep_prior = (kind in ('label', 'equ') and prior is not None
+                keep_prior = ((kind == 'label'
+                               or (kind == 'equ' and self.in_proc))
+                              and prior is not None
                               and prior != seg
                               and self.symtype.get(u) == 'label'
                               and prior < len(self.segs)

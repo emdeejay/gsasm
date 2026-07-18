@@ -1,0 +1,1 @@
+{ "note": "A top-level EQU colliding with a data-record field updates the global normally (data-record keep_prior masking is PROC-interior only). Guards asm.py keep_prior in_proc scoping (adversarial-review F2)." }
