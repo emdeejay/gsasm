@@ -30,9 +30,10 @@ Source → shipping-name map (from GS.OS/MakeFiles/make.*.fst):
   DOS3.3.FST — FSTs/DOS3.3/DOS3.3.FST          (-D DEBUGSYMBOLS=0)
   MSDos.FST  — FSTs/MSDos/MSDos.aii + Calls + Subs + Data  (lib ordering)
   AppleShare.FST — FSTs/AppleShare/Src/*.aii (24 modules + JudgeName; source IS
-                   present, contra earlier notes).  Built informationally by
-                   _build_appleshare(); not yet byte-exact, so excluded from the
-                   CORPUS tally (see that function and RESULTS.md).
+                   present, contra earlier notes).  Built by _build_appleshare()
+                   and BYTE-EXACT (17825/17825); FOLDED INTO the CORPUS tally
+                   (the gate fst_bytes metric guards it).  See that function and
+                   RESULTS.md.
 
 Packaging: all FSTs are ExpressLoad'd (KIND 0x8001 leading segment).
 
@@ -106,9 +107,8 @@ FSTMAP = {
     ),
     # AppleShare.FST is built separately (see _build_appleshare): its 24 modules
     # share equates through the MPW symbol-dump mechanism (load/dump), which needs
-    # source rewriting the generic link_fst path does not do.  It is NOT yet
-    # byte-exact, so it is reported as an informational build below rather than
-    # folded into the byte-exact CORPUS tally.
+    # source rewriting the generic link_fst path does not do.  It is BYTE-EXACT and
+    # folded into the CORPUS tally by main() (not via this FSTMAP-driven loop).
 }
 
 # --- AppleShare.FST -----------------------------------------------------------
@@ -311,32 +311,33 @@ def main():
         tot_m += m
         tot_n += n
         print(f'{name:<15} {subdir:<25} {pct:>6}%  {lg:>8}/{lo:<8}  ({m}/{n} bytes)  {pkg}')
-    print()
-    if tot_n:
-        print(f'CORPUS raw code-image match: {tot_m}/{tot_n} ({100 * tot_m // tot_n}%)')
-    print()
-
-    # AppleShare.FST — informational only (NOT byte-exact; excluded from CORPUS).
+    # AppleShare.FST — BYTE-EXACT since 2026-07-18 (the last WITH-scoped assembler-
+    # dialect gaps closed: omf._grouped_linear_reloc for multi-term field arithmetic
+    # `my_f_info-tOpt.f_info` / `user_path+2-us_start+us_end`, fixture 044; asm.py
+    # prior_modscope for the `month_adjust` module-vs-in-proc duplicate; and the
+    # WITH-scoped seg_local gating that stops the subcmds record label `next` from
+    # masking get_user_path's proc-local branch target — see RESULTS.md).  It is
+    # built by _build_appleshare() (its 24 modules share equates via MPW load/dump,
+    # which the generic link_fst/FSTMAP path does not do) but is now FOLDED INTO the
+    # byte-exact CORPUS tally like every other FST, so the gate fst_bytes metric
+    # guards it against regression.
     try:
         mine, g = _build_appleshare()
     except Exception as e:
         mine, g = None, None
-        print(f'AppleShare.FST: build error: {type(e).__name__}: {e}')
+        print(f'AppleShare.FST  build error: {type(e).__name__}: {e}')
     if mine is not None:
         n = min(len(mine), len(g))
         m = sum(1 for i in range(n) if mine[i] == g[i])
-        print(f'AppleShare.FST (informational, not byte-exact, excluded from CORPUS):')
-        print(f'  built {len(mine)} bytes vs golden {len(g)}; '
-              f'positional match {m}/{n} ({100 * m // n if n else 0}%)')
-        print('  Residual gap: 12 value-bytes remain (size is byte-exact). Two '
-              'classes: (1) multi-term field arithmetic — `my_f_info-tOpt.f_info` '
-              'and `user_path+2-us_start+us_end` (an absolute WITH/import field '
-              'minus a template offset does not compose through +/-); (2) the '
-              '`month_adjust` duplicate label (a module-level `dc.w` table vs an '
-              'in-proc redefinition, cross-proc refs bind the wrong one). '
-              'The `ora src_ptr +2` whitespace class is now CLOSED (asm.py '
-              'numeric-addend fold, fixture 041). See work/appleshare_diag.py.')
+        pct = 100 * m // n if n else 0
+        tot_m += m
+        tot_n += n
+        print(f'{"AppleShare.FST":<15} {"FSTs/AppleShare":<25} {pct:>6}%  '
+              f'{len(mine):>8}/{len(g):<8}  ({m}/{n} bytes)  ExpressLoad')
 
+    print()
+    if tot_n:
+        print(f'CORPUS raw code-image match: {tot_m}/{tot_n} ({100 * tot_m // tot_n}%)')
     print()
     print('Packaging note: all FSTs are ExpressLoad\'d (KIND 0x8001 leading segment).')
 

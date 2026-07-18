@@ -1,0 +1,4 @@
+{
+  "note": "a WITH-instance record field in a MULTI-TERM arithmetic operand (`my_f_info-tOpt.f_info`) relocates against the imported instance (MYDATA + net addend $5E) instead of baking the direct-page template offset as a bare literal. AppleShare send_option `lda my_f_info-tOpt.f_info,y` (gold MYDATA+$60). Complement of 032 (single field).",
+  "commit": "omf._grouped_linear_reloc: a multi-term operand collapsing to one reloc (net coeff +1) emits the reloc even when the reloc term is an equ_alias'd WITH-instance/import field; template-offset terms fold into the constant addend"
+}

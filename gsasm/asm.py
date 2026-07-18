@@ -1174,13 +1174,33 @@ class Asm:
                     and u in self.entries and u not in self.exports
                     and ent_home is not None and ent_home != cur_name
                     and ent_home == prior_name)
-                if not keep_prior and not foreign_entry_dup:
+                # A plain label defined INSIDE a PROC that duplicates a name already
+                # bound at MODULE SCOPE (an anonymous, name=None segment — code/data
+                # before or between PROCs) is MODULE-LOCAL to that PROC (MPW: interior
+                # labels are local unless EXPORT/ENTRY).  It must not clobber the
+                # module-scope global binding — a reference from ANOTHER proc resolves
+                # to the module-scope label — but it stays reachable WITHIN its own
+                # segment (seg_local, checked before symbols in resolve()).  AppleShare
+                # Time.aii defines a module-level `month_adjust dc.w 0,1,-1,...` table
+                # (linked $2A89) AND a second `month_adjust dc.w 1,4,4,...` inside
+                # dow_convert ($2FA8); the sbc/lda in time_afp_tool / time_tool_afp
+                # must reach the FIRST (module) table, the adc inside dow_convert its
+                # own local.  Complement of the data-record keep_prior and the ENTRY
+                # foreign_entry_dup rules — same MPW interior-locality principle.
+                prior_modscope = (
+                    kind == 'label' and self.in_proc and not name.startswith('@')
+                    and prior is not None and prior != seg
+                    and self.symtype.get(u) == 'label'
+                    and prior < len(self.segs)
+                    and self.segs[prior].name is None
+                    and u not in self.entries and u not in self.exports)
+                if not keep_prior and not foreign_entry_dup and not prior_modscope:
                     self.symbols[u] = value
                     self.symtype[u] = kind
                 self.defcount[u] = self.defcount.get(u, 0) + 1
                 self.labels.append((name, value))
                 if kind == 'label' and not keep_prior:
-                    if not foreign_entry_dup:
+                    if not foreign_entry_dup and not prior_modscope:
                         self.symseg[u] = seg              # defining segment index
                     # module-local reachability: register in the defining segment
                     # even when the global binding stays with the ENTRY's home seg
@@ -1201,6 +1221,24 @@ class Asm:
                             self.symbols[q] = value
                             self.symtype[q] = 'label'
                             self.symseg[q] = seg
+                # A keep_prior masked proc label stays out of the GLOBAL binding
+                # (the data-record label is canonical), BUT it must remain reachable
+                # WITHIN its own segment UNLESS the masking record is in the active
+                # WITH scope.  Pascal.FST's P_CREATE_DATE has `with GLOBALS` active,
+                # so bare `temp` there is the GLOBALS field (via resolve()'s with_stack
+                # check) and the proc-local `temp dc.w 0` must NOT be in seg_local
+                # (else local_here would shadow the field).  AppleShare's get_user_path
+                # is `with dp,mydata` (NOT `with subcmds`), so the subcmds record label
+                # `next` is out of scope and the branch `bne next` must reach the
+                # PROC-LOCAL `next` — which requires seg_local registration.  The
+                # discriminator is exactly whether the masking record name is WITH-active.
+                elif kind == 'label' and keep_prior and not name.startswith('@'):
+                    prior_recname = self._fold(self.segs[prior].name or '')
+                    prior_in_with = any(
+                        prior_recname == self._fold(r)
+                        for recs in self.with_stack for r in recs)
+                    if not prior_in_with:
+                        self.seg_local.setdefault(seg, {})[u] = value
                 # an EQU/SET inside a module (PROC) is local to that module — record
                 # it so a reference within the module resolves to it (as a literal),
                 # shadowing any same-named code label defined in another PROC
