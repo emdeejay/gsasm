@@ -182,11 +182,13 @@ Mechanics, all validated against gold:
     externed (it stays intra-segment — the `CTLDATATOAX` collision: a main label
     also EXPORTed by Pics).
   - **~JumpTable gated.** `_check_jt_tool` builds the KIND-2 segment via
-    `encode_jumptable` and compares it byte-for-byte to gold (a mismatch raises,
-    so JT correctness is gated even though the ~JumpTable bytes are not in the
-    per-segment `tool_bytes` denominator — that stays exactly the gold-shipped
-    non-JT segments = 124160). Tool020 has NO dynamic segment (TheProc is KIND
-    0x4000, not 0x8000): its far pointer is a direct cINTERSEG, no jump table.
+    `encode_jumptable` and compares it byte-for-byte to gold; a mismatch — OR a
+    missing gold `~JumpTable` when gsasm generated entries — returns an error
+    result (res=None), which `main()` drops from the corpus good-count so the gate
+    FAILS. JT correctness is therefore gated even though the ~JumpTable bytes are
+    not in the per-segment `tool_bytes` denominator — that stays exactly the gold-
+    shipped non-JT segments = 124160. Tool020 has NO dynamic segment (TheProc is
+    KIND 0x4000, not 0x8000): its far pointer is a direct cINTERSEG, no jump table.
 
 **Tool018 (QDAux) — NOT mapped: jump-table generation WORKS, but two non-JT
 blockers remain.** `_link_jt_tool` derives Tool018's 12-entry ~JumpTable

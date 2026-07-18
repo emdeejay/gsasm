@@ -429,8 +429,10 @@ def _check_jt_tool(tool, subdir, segs, verbose=False):
     """Check a jump-table multi-segment tool: each real load segment's code image
     is compared per-segment against gold (exactly the segments gold ships, so the
     corpus denominator is unchanged), and the GENERATED ~JumpTable is verified
-    byte-for-byte against gold as a hard gate (a mismatch raises, surfacing as a
-    check error)."""
+    byte-for-byte against gold as a hard gate: on a mismatch (or a missing gold
+    ~JumpTable) the check returns an error result (res=None), which main() drops
+    from the corpus good-count so the gate FAILS — the JT is genuinely gated even
+    though the failure is a returned error tuple, not a raised exception."""
     raw = _open_gold(tool)
     if raw is None:
         return tool, subdir, None, "no golden binary"
@@ -440,11 +442,19 @@ def _check_jt_tool(tool, subdir, segs, verbose=False):
     except Exception as e:
         return tool, subdir, None, f"{type(e).__name__}: {e}"
 
-    # Gate the generated ~JumpTable byte-for-byte against gold (if this tool has one).
+    # Gate the generated ~JumpTable byte-for-byte against gold.  A tool that
+    # produces jump-table entries MUST have a matching '~JumpTable' segment in the
+    # gold file; if the exact-name lookup misses (a rename / extraction issue), do
+    # NOT silently skip the gate — fail loudly, else a bypassed check could read
+    # 100%.
     if jt_entries:
         gold_jt = _gold_segment(raw, '~JumpTable')
+        if gold_jt is None:
+            return tool, subdir, None, (
+                "gold '~JumpTable' segment not found, but gsasm generated "
+                f"{len(jt_entries)} entr{'y' if len(jt_entries) == 1 else 'ies'}")
         mine_jt = encode_jumptable(jt_entries)
-        if gold_jt is not None and mine_jt != gold_jt:
+        if mine_jt != gold_jt:
             return tool, subdir, None, (
                 f"~JumpTable mismatch: gsasm {mine_jt.hex()} vs gold {gold_jt.hex()}")
 
