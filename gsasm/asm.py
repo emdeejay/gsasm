@@ -1877,8 +1877,20 @@ class Asm:
             # a call-site `@x _Macro` defines @x in the caller, where the caller's
             # own `bcc @x` can reach it — not in the expansion's private scope.
             if (line.label or '').startswith('@'):
-                at_map[line.label.upper()] = (self.local_ctx or self.last_global,
-                                              self.last_global)
+                lu = line.label.upper()
+                # If this @-label is ITSELF a LABEL param threaded down from an
+                # enclosing macro (e.g. QDAux MoveLong's body `&lab moveword ...`
+                # forwarding &lab=@NoCarry1 into the nested moveword), it must keep
+                # the scope captured at the ORIGINAL call site, NOT re-derive it
+                # from this nested expansion's local_ctx (which is the enclosing
+                # macro's own 'M<uid>' context).  MPW: an @-label passed as a macro
+                # parameter retains the scope it had when the OUTERMOST macro was
+                # called — otherwise the definition keys under 'M170@NoCarry1' while
+                # the caller's own `bcc @NoCarry1` keys under 'DownLine@NoCarry1'
+                # and can't reach it (seedfill.asm DownLine, off 0xae3).
+                inherited = self.macro_at[-1].get(lu) if self.macro_at else None
+                at_map[lu] = inherited or (self.local_ctx or self.last_global,
+                                           self.last_global)
         if macro.suffix_var:
             scope[0][macro.suffix_var.lower()] = suffix or ''
         argvals = _split_commas(line.operand) if line.operand else []

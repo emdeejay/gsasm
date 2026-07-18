@@ -1,0 +1,3 @@
+{
+  "note": "A @-local label passed as a macro LABEL param and forwarded into a NESTED macro must keep the scope of the outermost call site, not re-key under the enclosing macro's private 'M<uid>' expansion context. Guards asm.py expand_macro at_map inheritance (self.macro_at[-1].get(lu)). Root-caused from QDAux/seedfill.asm DownLine `@NoCarry1 MoveLong ...` (MoveLong forwards &lab into moveword), off 0xae3: gsasm 0x1c vs gold 0x02. Without the fix the backward `bcc @skip` bakes 0xfd instead of 0x01."
+}
