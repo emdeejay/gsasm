@@ -979,10 +979,34 @@ class Asm:
             if p:
                 return p
 
-        # lead == 0 (or relative miss): current dir first, then search paths
+        # '/' is a LEGAL character in an HFS filename (MPW uses ':' as the path
+        # separator, never '/'), but _find_ci treats '/' as a path separator and
+        # such names extract to disk with '/' rewritten to '_'.  So add a fallback
+        # that rewrites '/'->'_' WITHIN each path component (preserving the real
+        # ':'-derived separators): the SCSI driver's `INCLUDE 'SCSI Get Vol/Disk'`
+        # lands as the file `SCSI Get Vol_Disk`, and without this the include is
+        # silently not found (do_include only appends to a.errors), dropping the
+        # ~1850 bytes it pulls in — the SCSIHD.Driver residual.
+        rel_us = '/'.join(c.replace('/', '_') for c in comps) if comps else name
+        leaf_us = leaf.replace('/', '_')
+
+        if lead >= 1 and curdir and rel_us != rel:
+            base = curdir
+            for _ in range(lead - 1):
+                base = os.path.dirname(base)
+            p = _find_ci(base, rel_us)
+            if p:
+                return p
+
+        # lead == 0 (or relative miss): current dir first, then search paths.
+        # Try the literal candidates first, then the '/'->'_' HFS-filename variants.
+        cands = [rel, leaf]
+        for c in (rel_us, leaf_us):
+            if c not in cands:
+                cands.append(c)
         search = ([curdir] if curdir else []) + list(self.include_paths)
         for base in search:
-            for cand in (rel, leaf):
+            for cand in cands:
                 p = _find_ci(base, cand)
                 if p:
                     return p

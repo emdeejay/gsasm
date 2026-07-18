@@ -159,13 +159,21 @@ that has never emitted any standalone reloc record (case A or case B) — a
 different, still-open gap — so they remain non-byte-exact. See
 `docs/design/expressload.md`.
 
-**SCSIHD.Driver: the golden binary does not match the archived source.**
-The archived `SCSI.Drivers` source assembles byte-exact for the other three
-SCSI drivers, and for SCSIHD it matches no device-type configuration
-(the four possible builds yield 13,842/13,442/17,257/8,354 bytes vs the
-shipping 15,690). Only a 211-byte prefix and 37-byte suffix agree; command
-tables show code inserted throughout. The shipping driver was built from a
-later source revision that is not in the archive.
+**SCSIHD.Driver — CLOSED (2026-07-18): byte-exact (15,690/15,690).** This was
+NOT a source/binary disagreement; it was a gsasm include-path bug — the same
+"under-verified negative" pattern as GS.OS and AppleShare. Two shared SCSI
+filter sources pull in extra routines via `INCLUDE 'SCSI Get Vol/Disk'` /
+`INCLUDE 'SCSI Set Vol/Disk'`, guarded by `IF scsi_dtype = direct_acc` — so ONLY
+SCSIHD (the hard-disk device type) reaches them, which is exactly why the three
+sibling drivers were byte-exact and only SCSIHD diverged. `/` is a legal HFS
+filename character (MPW's path separator is `:`), so on archive extraction the
+file became `SCSI Get Vol_Disk`; gsasm's `_find_ci` split the spec on `/`, never
+found the `_` file, and `do_include` only appended to `a.errors` and continued —
+silently dropping ~1,850 bytes of Get/Set-Volume-Parms code (the "code inserted
+throughout, 211-byte prefix agrees" characterization). Fix: `resolve_include`
+retries the spec with `/`→`_` per path component. All four SCSI drivers now
+byte-exact; the driver corpus is 100% (94,948/94,948). Regression guard:
+`tests/fixtures/043-include-slash-in-hfs-filename`.
 
 **AppleShare.FST — source IS present; builds to ~85%, not byte-exact (was
 wrongly recorded as "no source").** The full source tree is in the archive:

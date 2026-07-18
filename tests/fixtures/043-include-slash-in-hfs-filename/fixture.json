@@ -1,0 +1,3 @@
+{
+  "note": "'/' is a legal HFS filename char (MPW path separator is ':'); such names extract to disk with '/'->'_'. resolve_include retries '/'->'_' per component so INCLUDE 'Get Vol/Disk' resolves to the file 'Get Vol_Disk'. Guards the SCSIHD.Driver silent-include-drop fix (asm.py resolve_include)."
+}

@@ -12,9 +12,18 @@ tool, capture outputs, derive the rule. Same differential method as the
 **Update (2026-07-17 audit — see §6):** most of the "missing-source /
 external" limits turned out to be under-verified negative claims. GS.OS
 (94→44), AppleShare.FST ("no source" → full source builds ~89%), and Tool019
-("source disagrees" → byte-exact after a linker fix) were all falsified. Only
-**SCSIHD** remains genuinely evidence-backed. Re-verify any "absent/external"
-claim against all three source trees before trusting it.
+("source disagrees" → byte-exact after a linker fix) were all falsified.
+
+**Update (2026-07-18): SCSIHD ALSO falsified — it too was a gsasm bug, not an
+absent source.** The "later source revision" claim was wrong: `INCLUDE
+'SCSI Get Vol/Disk'` (legal HFS `/`, on disk as `SCSI Get Vol_Disk`) was
+silently dropped by the include resolver, losing ~1,850 bytes reached only under
+the `direct_acc` device type. Fixed (`asm.py resolve_include` `/`→`_` fallback);
+SCSIHD byte-exact, driver corpus 100%. **No "absent/external" limit now survives
+first-hand re-verification** — treat every remaining such claim as an unproven
+gsasm bug until re-checked. (Related lesson: `assemble`/`link_driver` ignore
+`a.errors`, which is how the drop went unnoticed — making "include not found"
+fatal is worth doing so this class can't recur.)
 
 ## 1. ExpressLoad "case B" flags (~550 B across Tool014/023/027, TS2/TS3, Tool.Setup)
 
