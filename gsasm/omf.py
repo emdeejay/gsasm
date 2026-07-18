@@ -246,6 +246,108 @@ def _linear_reloc(asm, text):
     return (L, K)
 
 
+def _reloc_target_key(asm, ident):
+    """Relocation-GROUP key for one identifier, or None if it is a constant.
+    Two identifiers share a key iff they relocate against the same base, so a
+    linear combination that nets coefficient +1 on a single key is a single
+    relocation:
+      * a plain relocatable label keys on its home segment -- SAME-SEGMENT labels
+        share a key, so `us_end-us_start` (a same-seg constant length) cancels and
+        leaves the leftover `user_path+2` as one SEGNAME+offset reference;
+      * an equ_alias'd WITH-instance/import field keys on its alias BASE -- an
+        import (`my_f_info` -> MYDATA) or the base label's segment -- so
+        `my_f_info-tOpt.f_info` relocates against MYDATA (tOpt.f_info is a pure
+        template-offset constant, alias-less);
+      * a declared-but-undefined import / implicit external keys on its own name.
+    ORG'd / temporg segment labels are absolute literals (like needs_reloc treats
+    them) and return None."""
+    u = asm._symkey(ident)
+    alias = getattr(asm, 'equ_alias', {}).get(u)
+    if alias is not None:
+        base = asm._symkey(alias[0])
+        if base in asm.imports and asm.resolve(base) is None:
+            return ('import', base)
+        bs = asm.symseg.get(base)
+        if bs is not None and bs < len(asm.segs) \
+                and not (asm.segs[bs].org or asm.segs[bs].temporg):
+            return ('seg', bs)
+        return None
+    if u in asm.imports and asm.resolve(u) is None:
+        return ('import', u)
+    if _undef_external(asm, ident):
+        return ('ext', u)
+    if asm.sym_kind(ident) == 'label':
+        s = asm.symseg.get(u)
+        if s is not None and s < len(asm.segs) \
+                and not (asm.segs[s].org or asm.segs[s].temporg):
+            return ('seg', s)
+    return None
+
+
+def _grouped_linear_reloc(asm, text):
+    """Generalise _linear_reloc to a multi-term expression whose relocatable
+    terms COLLAPSE to a single relocation with net coefficient +1.  _linear_reloc
+    misses two AppleShare `WITH`-scoped idioms:
+      (a) an equ_alias'd field minus a template offset -- `my_f_info-tOpt.f_info`
+          -- because linear_decompose counts only label/import/undef terms, not
+          equ-kind alias fields, so the field folds into K and the reloc is lost
+          (gsasm bakes the direct-page offset $60 where gold links MYDATA+$60);
+      (b) three SAME-SEGMENT labels that net to +1 -- `user_path+2-us_start+us_end`
+          -- which linear_decompose keeps as three separate terms (len != 1).
+    Returns (representative_name, addend) so _expr_for's existing equ_alias/label
+    emit path relocates it (the representative is a +1 term of the single group;
+    its own equ_alias, if any, is re-applied downstream), else None.  Scoped to a
+    SINGLE relocation target with net coeff exactly +1 -- a pure same-seg
+    difference (net 0) or a cross-target difference (>1 group) is left to
+    _diff_reloc / literal baking, unchanged."""
+    idents = list(dict.fromkeys(
+        re.findall(r'(?<![0-9A-Fa-f$])[A-Za-z_~@?.][\w~@?.$]*', text)))
+    V = _expr.try_eval(text, asm.resolve, asm.loc)
+    if V is None:
+        return None
+    if _expr.try_eval(text, asm.resolve, asm.loc + 0x100) != V:
+        return None                       # a PC (`*`) term -> not a plain reloc
+    # A declared IMPORT / implicit external that this classifier would fold into
+    # the constant (its key is None because it also has a LOCAL ORG'd value) must
+    # instead be emitted BY NAME as a difference — leave it to _diff_reloc /
+    # _extern_diff_expr.  Fixture 035 `my_end-my_start`: my_start is an ORG'd pad
+    # PROC that is ALSO IMPORTed, so the linker resolves both sides by name.
+    for ident in idents:
+        if _reloc_target_key(asm, ident) is None and (
+                asm._symkey(ident) in asm.imports or _undef_external(asm, ident)):
+            return None
+    groups = {}                           # target key -> net coefficient
+    coeffs = {}                           # ident -> coefficient
+    for ident in idents:
+        key = _reloc_target_key(asm, ident)
+        if key is None:
+            continue
+        val = asm.resolve(ident)
+        val = 0 if val is None else val
+
+        def bumped(n, _i=ident, _v=val):
+            return _v + 0x100 if asm._fold(n) == asm._fold(_i) else asm.resolve(n)
+        V2 = _expr.try_eval(text, bumped, asm.loc)
+        if V2 is None:
+            return None
+        c = (V2 - V) // 0x100
+        if c:
+            coeffs[ident] = c
+            groups[key] = groups.get(key, 0) + c
+    if len(groups) != 1:
+        return None
+    (key, net), = groups.items()
+    if net != 1:
+        return None
+    repr_name = next((i for i, c in coeffs.items()
+                      if c == 1 and _reloc_target_key(asm, i) == key), None)
+    if repr_name is None:
+        return None
+    rv = asm.resolve(repr_name)
+    rv = 0 if rv is None else rv
+    return (repr_name, V - rv)
+
+
 def _mul_reloc_expr(asm, text, segname):
     """Try to decompose `text` as (SEGNAME + rel) * N + K for a single label in
     the current ORG segment with coefficient N != 0,1. Returns expression ops
@@ -517,6 +619,12 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
                          16 if '$' in extra else 10)
     else:
         dec = _linear_reloc(asm, text)        # one reloc label + constant
+        if dec is None:
+            # a multi-term expression that collapses to ONE reloc, net coeff +1:
+            # an equ_alias'd WITH-instance field minus a template offset, or
+            # several same-segment labels that net to +1 (AppleShare send_option
+            # `my_f_info-tOpt.f_info`, Specific `user_path+2-us_start+us_end`).
+            dec = _grouped_linear_reloc(asm, text)
         if dec:
             name, addend = dec
         elif not as_data:
