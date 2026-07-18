@@ -132,6 +132,32 @@ TOOLMAP = {
         ('TheTool', 0x0000, ['le.asm', 'common.asm']),
         ('TheProc', 0x4000, ['LineEditProc.asm']),
     ]}),
+    # QDAux ships a SIX-load-segment ExpressLoad binary (plus ~ExpressLoad and a
+    # linker-generated ~JumpTable), per QDAux/MakeFile's -lseg groups:
+    #   MAINPart     (KIND 0)      qdaux, faces, icon, special.slabs, common,
+    #                              copybits.asm(@MAINPart)   -- resident tool
+    #   CopyBits     (KIND 0)      copybits.asm(@CopyBits)   -- static defproc
+    #   ~JumpTable   (KIND 2)      linker-generated (12 thunks into the 3 dynamics)
+    #   Pictures     (KIND 0x8000) pics, pixel, text, slabs  -- DYNAMIC
+    #   SeedFill     (KIND 0x8000) seedfill                  -- DYNAMIC
+    #   PixelMap2Rgn (KIND 0x8000) PixelMap2Rgn.aii          -- DYNAMIC
+    # copybits.asm is ONE assembled object split across TWO load segments by SEG
+    # section: `SEG 'MAINPart'` (ISTDPIXELS) joins MAINPart, `SEG 'CopyBits'`
+    # (COPYBITS/STRETCHBITS/FORCECOPYBITLOAD/...) joins CopyBits.  The
+    # ('copybits.asm', 'MAINPart'/'CopyBits') source-spec tuples select the
+    # matching sections while keeping the full object's symbols, so MAINPart's
+    # references to a CopyBits-section routine resolve to its real placed address.
+    # Segments are listed in MAKEFILE source order; _link_jt_tool reorders them to
+    # the gold file layout (non-dynamic block, ~JumpTable, dynamic block).
+    '018': ('QDAux',      {'jt_segments': [
+        ('MAINPart', 0x0000, ['qdaux.asm', 'faces.asm', 'icon.asm',
+                              'special.slabs.asm', 'common.asm',
+                              ('copybits.asm', 'MAINPart')]),
+        ('Pictures', 0x8000, ['pics.asm', 'pixel.asm', 'text.asm', 'slabs.asm']),
+        ('CopyBits', 0x0000, [('copybits.asm', 'CopyBits')]),
+        ('SeedFill', 0x8000, ['seedfill.asm']),
+        ('PixelMap2Rgn', 0x8000, ['PixelMap2Rgn.aii']),
+    ]}),
     '021': ('DialogMgr',  ['dialog.asm']),
     '022': ('Scrap',      ['scrap.asm', 'common.asm']),
     # StdFile: single-segment, no -lseg in makefile (matches
@@ -208,6 +234,62 @@ def _assemble_objects(srcs, subdir):
     return objects
 
 
+# One assembled OMF object per source, cached: a source that feeds TWO load
+# segments via a SEG-section split (QDAux copybits.asm -> MAINPart + CopyBits)
+# is assembled ONCE and placed twice, selecting a different SEG section each
+# time (see _norm_src / _link_jt_tool).  Keeps the FULL Asm alongside the object
+# so _build_symtab publishes each placed section's labels at its placed base.
+_ASM_CACHE: dict = {}
+
+
+def _assemble_source(subdir, fname):
+    key = (subdir, fname)
+    if key not in _ASM_CACHE:
+        a = asm.assemble(f'{TB}/{subdir}/{fname}', INCS)
+        _ASM_CACHE[key] = (omf.emit(a), a)
+    return _ASM_CACHE[key]
+
+
+def _norm_src(spec):
+    """Normalise one jt_segments source entry to ``(filename, section_or_None)``.
+
+    A plain ``'file.asm'`` string is the whole object (all its OMF segments).
+    A ``('file.asm', 'CopyBits')`` tuple selects ONLY that object's segments
+    whose SEG-section name (gsasm stamps it as the OMF LOADNAME) matches — the
+    MPW makefile ``copybits.asm.obj(@CopyBits)`` idiom, where one assembled
+    object feeds two load segments."""
+    if isinstance(spec, tuple):
+        return spec[0], spec[1]
+    return spec, None
+
+
+def _seg_place_order(srcs, subdir):
+    """Assemble a load segment's sources and return ``(objs, order)``.
+
+    ``objs`` is ``[(obj_bytes, Asm), ...]``; ``order`` is the ``_place`` /
+    ``seg_order`` placement list ``[(obj_idx, seg_idx), ...]`` selecting which
+    OMF segments of each object join this load segment.  ``order`` is ``None``
+    (natural full order, byte-identical to no order) unless a source is
+    SEG-section-filtered, in which case only that object's matching-LOADNAME
+    segments are placed — but the FULL Asm is kept so cross-section symbol
+    references still resolve to their real placed addresses."""
+    objs, order, filtered = [], [], False
+    for spec in srcs:
+        fname, section = _norm_src(spec)
+        obj, a = _assemble_source(subdir, fname)
+        oi = len(objs)
+        objs.append((obj, a))
+        parsed = linkiigs._parse_obj(obj)
+        if section is None:
+            sel = range(len(parsed))
+        else:
+            filtered = True
+            sel = [si for si, s in enumerate(parsed)
+                   if s['loadname'].lower() == section.lower()]
+        order += [(oi, si) for si in sel]
+    return objs, (order if filtered else None)
+
+
 def _compute_externs(srcs, subdir, base):
     """Assemble srcs and compute their exported symbol addresses at given base."""
     asm_segs_list = []
@@ -279,21 +361,25 @@ def link_module(roots):
     return _lconst_image(result)
 
 
-def _seg_symbols(objs):
+def _seg_symbols(objs, order=None):
     """Merged symbol table (label_upper -> base-0 offset) for one load segment's
-    objects, i.e. every symbol's offset WITHIN the linked load segment."""
-    placed, osb, poi = linkiigs._place(objs, 0)
+    objects, i.e. every symbol's offset WITHIN the linked load segment.
+    ``order`` (a ``_place`` placement list) selects which OMF segments join this
+    load segment — a SEG-section-filtered object only publishes symbols for its
+    placed sections (an omitted section's labels resolve elsewhere, cross-seg)."""
+    placed, osb, poi = linkiigs._place(objs, 0, order=order)
     sym, _ = linkiigs._build_symtab(objs, placed, osb, poi, {})
     return sym
 
 
-def _scan_refs(objs):
+def _scan_refs(objs, order=None):
     """Yield (abs_off, size, primary_symbol_upper) for every EXPR-family record
     in a load segment's placed objects, in body order.  abs_off is the byte
     offset within the (base-0) load segment; primary_symbol is the first symbol
     referenced by the expression (the far-pointer target for the single-symbol
-    inter-segment references we rewrite)."""
-    placed, _osb, _poi = linkiigs._place(objs, 0)
+    inter-segment references we rewrite).  ``order`` selects the placed OMF
+    segments (SEG-section split), matching the load segment's own body."""
+    placed, _osb, _poi = linkiigs._place(objs, 0, order=order)
     for _sn, recs, sb, _hdr, _a in placed:
         boff = 0
         for _at, nm, d in recs:
@@ -357,11 +443,16 @@ def _link_jt_tool(subdir, segs):
         segnum[name] = n; kind_of[name] = kind; n += 1
 
     # Assemble each segment's objects and record its merged symbol offsets.
-    seg_objs, seg_sym = {}, {}
+    # seg_order[name] is the _place/seg_order placement list (SEG-section split):
+    # a source that feeds two load segments (copybits.asm -> MAINPart+CopyBits)
+    # is assembled once and placed once per segment, selecting its matching
+    # SEG section each time.  None = natural full placement (byte-identical).
+    seg_objs, seg_sym, seg_order = {}, {}, {}
     for name, _kind, srcs in segs:
-        objs = _assemble_objects(srcs, subdir)
+        objs, order = _seg_place_order(srcs, subdir)
         seg_objs[name] = objs
-        seg_sym[name] = _seg_symbols(objs)
+        seg_order[name] = order
+        seg_sym[name] = _seg_symbols(objs, order)
 
     # Global export map: SYMBOL_upper -> (owning_gold_name, offset_in_segment).
     expmap = {}
@@ -386,7 +477,7 @@ def _link_jt_tool(subdir, segs):
     # (target_segnum, routine_offset), first-seen order (entry index -> JSL offset).
     jt_entries, jt_index = [], {}
     for name, _kind, _srcs in segs:
-        for _aoff, _size, symu in _scan_refs(seg_objs[name]):
+        for _aoff, _size, symu in _scan_refs(seg_objs[name], seg_order[name]):
             tgt = _cross_target(name, symu)
             if tgt and (kind_of[tgt[0]] & 0x8000):
                 key = (segnum[tgt[0]], tgt[1])
@@ -410,12 +501,13 @@ def _link_jt_tool(subdir, segs):
                 externs[symu] = toff
         objs = seg_objs[name]
         result = linkiigs.link(objs, opts={'merge': True, 'extern': externs,
-                                           'abs_extra': list(externs.keys())})
+                                           'abs_extra': list(externs.keys()),
+                                           'seg_order': seg_order[name]})
         img = bytearray(_lconst_image(result))
         # Write the file segnum into the bank byte of each size>=3 inter-segment
         # field (cINTERSEG convention: [off_lo, off_hi, segnum]); dynamic targets
         # carry the ~JumpTable's segnum, static/0x4000 targets their own.
-        for aoff, size, symu in _scan_refs(objs):
+        for aoff, size, symu in _scan_refs(objs, seg_order[name]):
             tgt = _cross_target(name, symu)
             if tgt and size >= 3 and aoff + 2 < len(img):
                 img[aoff + 2] = (jt_segnum if (kind_of[tgt[0]] & 0x8000)
