@@ -1,0 +1,6 @@
+SEGMENT 1: 'T'
+  LOADNAME='main' LENGTH=4 KIND=$4000 ORG=0 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=65
+  +00038 DS        2 zero bytes
+  +0003d CONST     len=2    35 12
+  +00040 END
+TOTAL 65 bytes, 1 segment(s)

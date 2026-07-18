@@ -195,9 +195,16 @@ def parse_line(raw):
         mem_instr = (up in m65816.MNEMONICS
                      and up not in m65816.BRANCH8
                      and up not in m65816.BRANCH16)
-        operand = first_field(rest2, expr_cont=(up in _EXPR_CONT_OPS
-                                                or up.startswith('DC')),
-                              num_cont=mem_instr)
+        # Expression continuation is for DATA-value directives (DC.B/W/L, whose
+        # `dc.w access - g + dec` MPW folds).  DCB (`DCB[.bwl] count[,value]`) is a
+        # COUNT directive like DS — its first field is a byte count, so `dcb.b 2 +2`
+        # must reserve 2, not 4 (the trailing `+2` is an unmarked comment).  Both DS
+        # and DCB therefore CUT at the first blank; `not up.startswith('DCB')`
+        # excludes DCB from the DC-family continuation (no corpus DCB uses a blank-
+        # separated count expression — this is byte-neutral).
+        expr_cont = (up in _EXPR_CONT_OPS
+                     or (up.startswith('DC') and not up.startswith('DCB')))
+        operand = first_field(rest2, expr_cont=expr_cont, num_cont=mem_instr)
     return Line(label, op, operand, raw, comment)
 
 

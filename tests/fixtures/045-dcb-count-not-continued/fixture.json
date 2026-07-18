@@ -1,0 +1,3 @@
+{
+  "note": "DCB is a COUNT directive like DS (first field = byte count); `dcb.b 2 +2` reserves 2, not 4. DCB must NOT ride the DC-family expression-continuation. Guards asm.py first_field expr_cont scoping (Codex adversarial-review finding). DC.W still folds (data continuation intact)."
+}
