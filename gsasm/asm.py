@@ -401,6 +401,16 @@ class Macro:
         self.param_defaults = param_defaults or {}
 
 
+class IncludeNotFoundError(Exception):
+    """A source ``INCLUDE``/``APPEND`` that could not be resolved on any search
+    path.  RAISED (not silently appended to ``a.errors`` and skipped) so a dropped
+    include cannot produce a wrong-but-quiet assembly: the SCSIHD.Driver residual
+    (2026-07-18) was exactly this — a `/`-in-HFS-name include that didn't resolve,
+    silently dropping ~1850 bytes, and no harness inspected ``a.errors``.  Every
+    harness wraps ``assemble()`` in try/except, so this surfaces as a loud check
+    failure instead of a bogus 100%."""
+
+
 # --------------------------------------------------------------------------
 # Assembler state
 # --------------------------------------------------------------------------
@@ -1023,8 +1033,14 @@ class Asm:
         curdir = self.dirstack[-1] if self.dirstack else None
         p = self.resolve_include(spec, curdir)
         if not p:
-            self._err(f"include not found: {spec}")
-            return
+            # A reached INCLUDE that does not resolve is ALWAYS a real error —
+            # its code is dropped from the assembly.  Record it (file:line
+            # context) AND raise, rather than the old swallow-and-continue that
+            # let the SCSIHD.Driver drop go unnoticed.
+            msg = f"include not found: {spec}"
+            self._err(msg)
+            raise IncludeNotFoundError(
+                f"{self._cur_file}:{self._cur_line}: {msg}")
         self.run_unit(read_text(p).split('\n'), os.path.dirname(p), filepath=p)
 
     # ----------------------------------------------------------------
