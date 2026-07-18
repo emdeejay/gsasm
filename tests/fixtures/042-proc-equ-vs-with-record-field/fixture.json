@@ -1,0 +1,3 @@
+{
+  "note": "a PROC-interior EQU must not clobber a same-named DATA-RECORD field, and a stale (still-active) WITH must not shadow that local EQU. StdFile Tool023 DevName collision: PopUpGlobals.DevName (relocatable field) vs GetThePrefix `devName equ ParBlock+02`. Guards the asm.py define_label proc-EQU-vs-data-record-label scoping fix (keep_prior) AND the resolve() local-shadows-WITH fix."
+}

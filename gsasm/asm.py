@@ -646,8 +646,15 @@ class Asm:
                 if same:
                     return based(cand[0], seg)
         # WITH record context: an unqualified field name resolves to the active
-        # record's field (offsets, NOT relocatable -> no base added)
-        if self.with_stack and '.' not in name:
+        # record's field (offsets, NOT relocatable -> no base added).  An
+        # EXPLICIT local definition in the current segment (a PROC-local EQU or
+        # label) SHADOWS the WITH-imported field of the same name — MPW binds the
+        # innermost explicit definition first.  StdFile's GetThePrefix defines
+        # `devName equ ParBlock+02` while a stale `with PopUpGlobals` is still
+        # active; the local equate ($b8) must win over PopUpGlobals.DevName ($36).
+        local_here = seg is not None and (
+            u in self.seg_local.get(seg, {}) or u in self.seg_equ.get(seg, {}))
+        if self.with_stack and '.' not in name and not local_here:
             for recs in reversed(self.with_stack):
                 for rec in recs:
                     q = rec + '.' + u
@@ -1097,9 +1104,16 @@ class Asm:
                 # GLOBALS field even INSIDE P_CREATE_DATE, which defines its
                 # own `temp dc.w 0` (the local's bytes emit; its name is
                 # inert).  So the masked label is kept out of seg_local too.
+                # A PROC-interior EQU is likewise module-local (MPW: interior
+                # symbols are local unless EXPORT/ENTRY) and must NOT clobber
+                # the global DATA-RECORD label either — it only shadows the name
+                # WITHIN its own PROC (recorded in seg_equ below).  StdFile's
+                # GetThePrefix defines `devName equ ParBlock+02`; the file-wide
+                # binding must stay the PopUpGlobals record field `DevName` so a
+                # `ldx #DevName` in the popup code still relocates against it.
                 seg = len(self.segs) - 1
                 prior = self.symseg.get(u)
-                keep_prior = (kind == 'label' and prior is not None
+                keep_prior = (kind in ('label', 'equ') and prior is not None
                               and prior != seg
                               and self.symtype.get(u) == 'label'
                               and prior < len(self.segs)
