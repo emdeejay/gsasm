@@ -2113,17 +2113,9 @@ class Asm:
 
         # macro variable declarations / assignment
         if u in ('GBLA', 'GBLC', 'GBLB'):
-            for nm in _split_commas(ln.operand):
-                nm = nm.strip().lstrip('&')
-                if nm:
-                    self.declare(nm, u[3], local=False)
-            return
+            self._dir_gbl(ln, u); return
         if u in ('LCLA', 'LCLC', 'LCLB'):
-            for nm in _split_commas(ln.operand):
-                nm = nm.strip().lstrip('&')
-                if nm:
-                    self.declare(nm, u[3], local=True)
-            return
+            self._dir_lcl(ln, u); return
         if u == 'SETA':
             self.setvar(ln.label.lstrip('&'), self.evaluate(ln.operand) or 0)
             return
@@ -2139,17 +2131,7 @@ class Asm:
         # DCI macro reimplements this with &LEN/substring/&CONCAT tricks that
         # depend on quote-retaining macro-string semantics gsasm doesn't share.
         if u == 'DCI':
-            self._lbl(ln)
-            opd = (ln.operand or '').strip()
-            data = b''
-            if len(opd) >= 2 and opd[0] in "'\"" and opd[-1] == opd[0]:
-                q = opd[0]
-                inner = opd[1:-1].replace(q + q, q)   # '' inside '...' = one '
-                data = _mac_bytes(inner)              # raw ASCII (DCI body MSB off)
-            if data:
-                data = data[:-1] + bytes([data[-1] | 0x80])
-            self.emit_line(ln, data, [])
-            return
+            self._dir_dci(ln); return
 
         # macro invocation?
         macro, suffix = self.find_macro(op)
@@ -2162,31 +2144,7 @@ class Asm:
 
         # equates (SET is a redefinable equate)
         if u in ('EQU', 'GEQU', '=', 'SET'):
-            # `name EQU *` inside a relocatable PROC is a code LABEL by another
-            # spelling (AD3.5.read `FastBufr EQU *`): references must relocate
-            # (SEGNAME+offset), not bake the segment-relative literal.  In an
-            # absolute (ORG'd) segment the equate value already equals the
-            # label's absolute address, so the historical equate path stands.
-            if ((ln.operand or '').strip() == '*' and ln.label
-                    and self.in_proc and not self.segs[-1].absolute
-                    and self.segs[-1].temporg is None):
-                self.define_label(ln.label, self.loc)
-                return
-            self.define_label(ln.label, self.evaluate(ln.operand) or 0, kind='equ',
-                              redefinable=(u == 'SET'))
-            # An EQU whose RHS is exactly ONE relocatable label (optionally +/-const)
-            # is an ALIAS (a second name for that address), not a constant: refs must
-            # relocate. Record it so needs_reloc/omf._expr_for treat NAME as the
-            # target label + addend. Keyed strictly on RHS-resolves-to-relocatable-
-            # LABEL: equates aliasing other equates/imports/constants, and label-
-            # DIFFERENCE equates (two idents / `*`), fall through and stay absolute.
-            if ln.label and not ln.label.startswith('@'):
-                al = self._equ_alias_of(ln.operand)
-                if al is not None:
-                    self.equ_alias[self._fold(ln.label)] = al
-                else:
-                    self.equ_alias.pop(self._fold(ln.label), None)   # SET redefine
-            return
+            self._dir_equ(ln, u); return
 
         # state directives
         if u == 'LONGA':
@@ -2194,21 +2152,7 @@ class Asm:
         if u == 'LONGI':
             self.longi = ln.operand.strip().upper() == 'ON'; self._lbl(ln); return
         if u == 'MACHINE':
-            # Select the target CPU.  The 8-bit parts (M6502/M65C02) have no
-            # 16-bit accumulator/index, so immediate operands are always one
-            # byte — force LONGA/LONGI OFF.  M65816 (re)asserts the 16-bit
-            # default; a following explicit LONGA/LONGI OFF still wins (e.g.
-            # Monitor.aii is MACHINE M65816 then LONGA OFF / LONGI OFF).
-            m = ln.operand.strip().upper()
-            if m:
-                self.machine = m
-                if m in ('M6502', 'M65C02'):
-                    self.longa = False
-                    self.longi = False
-                elif m in ('M65816', 'M65832'):
-                    self.longa = True
-                    self.longi = True
-            self._lbl(ln); return
+            self._dir_machine(ln); return
         if u == 'STRING':
             self.string_mode = ln.operand.strip().upper() or 'ASIS'; return
         if u == 'MSB':
@@ -2221,208 +2165,16 @@ class Asm:
 
         # record (structure) templates: fields are offsets, emit no bytes
         if u == 'RECORD':
-            # Syntax (MPW Assembler Reference Ch.4, p.64/76):
-            #
-            #   [name] RECORD [ENTRY|EXPORT] [, INCR|DECR]   -> data-segment (emitting)
-            #   [name] RECORD [ENTRY|EXPORT]                  -> data-segment (emitting)
-            #    name  RECORD  offset  [, INCR|DECR]          -> template (non-emitting)
-            #    name  RECORD  IMPORT                         -> template (non-emitting)
-            #    name  RECORD  {origin}                       -> template (non-emitting)
-            #    name  RECORD  (no operand)                   -> data-segment (emitting)
-            #
-            # Disambiguate: if the first token of the operand is ENTRY, EXPORT, or
-            # INCR/DECR (possibly preceded by a comma), it's a data-segment RECORD.
-            # Otherwise it's a numeric-base template RECORD.
-            op_raw = (ln.operand or '').strip()
-            # Check if the operand (ignoring INCR/DECR suffix) begins with ENTRY/EXPORT
-            _op_first = op_raw.split(',')[0].strip().upper() if op_raw else ''
-            _is_data_seg = (not op_raw) or (_op_first in ('ENTRY', 'EXPORT', 'INCR', 'DECREMENT',
-                                                          'INCREMENT', 'DECR'))
-            if op_raw and not _is_data_seg:
-                # Template (field-offset) RECORD:
-                # strip optional trailing ,INCR|DECR modifier
-                op = op_raw
-                dec = False
-                if ',' in op:                      # `base,increment|decrement`
-                    base_txt, mod = op.split(',', 1)
-                    modl = mod.strip().lower()
-                    if 'decrement' in modl or 'increment' in modl:
-                        dec = 'decrement' in modl
-                        op = base_txt.strip()
-                # `Name RECORD IMPORT`: Name is an EXTERNAL data instance (defined
-                # and exported elsewhere — AppleShare's SPWrite/SPCommand are
-                # `record import` in Flush/Write and `record export` in Data, and
-                # `import SPWrite:tSPWrite` in yet other modules: three spellings of
-                # the same external).  Its fields are laid out inline as offsets, but
-                # a `Name.field` ref is the external Name+offset (ABSOLUTE), not a
-                # direct-page template offset — so Name is an import and ENDR binds
-                # each field to (Name, offset) via equ_alias (like a typed IMPORT).
-                is_import = (_op_first == 'IMPORT')
-                base = 0 if is_import else (self.evaluate(op) or 0)
-                # Store base + label so ENDR can set the record name to
-                # sizeof(record) — MPW AsmIIgs makes a template record's label
-                # equal its total size (so `DS RecordType` allocates that many bytes).
-                self.record_stack.append((self.loc, self.emit_enabled,
-                                          self.cur_record, False, self._record_dec,
-                                          base, ln.label, is_import))
-                self.emit_enabled = False
-                self.loc = base
-                self._rec_hi_stack.append(base)    # location-counter high-water
-                self._record_dec = dec             # fields allocate downward
-                self._record_data = False
-                if ln.label:
-                    if is_import:
-                        self.imports.add(self._fold(ln.label))
-                    else:
-                        self.define_label(ln.label, base, kind='equ')
-                self.cur_record = ln.label
-            else:
-                # Data-segment RECORD (no operand, or ENTRY/EXPORT operand):
-                # Emits its contents as a named OMF data segment.
-                # EXPORT -> private=False (exported); ENTRY -> also public.
-                exported = _op_first in ('ENTRY', 'EXPORT')
-                self.record_stack.append((self.loc, self.emit_enabled,
-                                          self.cur_record, True, self._record_dec))
-                self._record_dec = False
-                # interior EQUs are record-scoped FIELDS (DOS3.3 param.records:
-                # `vol_name long` expands to `vol_name equ DummyPC` inside a
-                # bare `volume1 record` — gold resolves volume1.vol_name);
-                # positional labels stay global (define_label checks
-                # _record_data so an emitting data record's code labels are
-                # unaffected).
-                self.cur_record = ln.label
-                self._record_data = True
-                self.loc = 0                       # new segment starts at 0
-                self._rec_hi_stack.append(0)       # location-counter high-water
-                name = self._fold(ln.label or '')
-                # `Name Record EXPORT` publicly exports the record label (same
-                # semantics as `Name PROC EXPORT`): cross-object by-name refs
-                # resolve to it through the linker's global symbol table.
-                if exported and name:
-                    self.exports.add(name)
-                cur = self.segs[-1]
-                if cur.name is None and not cur.items:
-                    cur.name = name; cur.loadname = 'main'; cur.is_data = True
-                    cur.private = not exported
-                else:
-                    seg = Segment(name, 'main', None, len(self.segs) + 1)
-                    seg.is_data = True; seg.private = not exported
-                    self.segs.append(seg)
-                if ln.label:
-                    self.define_label(ln.label, self.loc)
-                    # `Name Record EXPORT` owns its GLOBAL record (same as an
-                    # in-segment EXPORT directive): a later same-named label in
-                    # another segment must not emit the public GLOBAL there
-                    # (MSDos `length Record Export` vs filename's interior
-                    # `length ds.w 1` field)
-                    if exported:
-                        self._note_entry_seg(name)
-                        self._maybe_global(ln.label)
-            return
+            self._dir_record(ln); return
         if (u == 'DSECT' and self.record_stack and self.record_stack[-1][3]
                 and not self.segs[-1].items):
-            # MPW dummy section INSIDE a just-opened bare RECORD (DOS3.3
-            # param.records: `volume1 record` then `dsect 0`): convert the
-            # data-segment record to an offset TEMPLATE (fields become record
-            # offsets, ENDR records sizeof).  A bare DSECT anywhere else keeps
-            # the historical unknown-op no-op (tool sources use free-standing
-            # `dsect`/`word`/`long` groups with their own macros).
-            base = self.evaluate(ln.operand) or 0
-            saved = self.record_stack.pop()
-            cur = self.segs[-1]
-            rec_label = cur.name          # folded record name
-            # return the data segment to "fresh/reusable" (omf.emit drops
-            # empty unnamed segments; the next PROC reuses this one)
-            cur.name = None; cur.is_data = False; cur.private = False
-            self.record_stack.append((saved[0], saved[1], saved[2], False,
-                                      saved[4], base, rec_label))
-            self.emit_enabled = False
-            self._record_dec = False
-            self._record_data = False
-            self.cur_record = rec_label
-            if rec_label:
-                self.define_label(rec_label, base, kind='equ')
-            self.loc = base
-            self._lbl(ln)
-            return
+            self._dir_dsect_record(ln); return
         if u in ('BYTE', 'WORD', 'LONG') and self.cur_record:
-            # MPW record-field type allocators (param.records dialect):
-            # `dev_name long` reserves 4 at the current record offset.  An
-            # operand is a COUNT (`buf word 8`).  Template records only.
-            w = {'BYTE': 1, 'WORD': 2, 'LONG': 4}[u]
-            cnt = self.evaluate(ln.operand) if (ln.operand or '').strip() else 1
-            size = w * (cnt or 1)
-            if self._record_dec:
-                self.loc -= size
-                self._lbl(ln)
-            else:
-                self._lbl(ln)
-                self.reserve(size)
-            return
+            self._dir_record_typefield(ln, u); return
         if u == 'ENDR':
-            data_rec = self.record_stack[-1][3] if self.record_stack else False
-            if ln.label:
-                self.define_label(ln.label, self.loc,
-                                  kind='label' if data_rec else 'equ')
-            if self._rec_hi_stack:
-                self._rec_hi_stack.pop()
-            if self.record_stack:
-                entry = self.record_stack.pop()
-                final_rec_loc = self.loc          # position at end of record body
-                (self.loc, self.emit_enabled, self.cur_record, _,
-                 self._record_dec) = entry[:5]
-                self._record_data = (self.record_stack[-1][3]
-                                     if self.record_stack else False)
-                # Template (non-data) record: remember sizeof = final_loc - base so
-                # `DS RecordName` allocates that many bytes (MPW AsmIIgs behaviour).
-                # The record LABEL keeps its base value (used by WITH and by value
-                # refs like `lda #Record`) — clobbering it to sizeof regresses
-                # firmware that references a WITH'd zero-page record (SmartPort).
-                if not data_rec and len(entry) >= 7:
-                    saved_base, saved_label = entry[5], entry[6]
-                    if saved_label:
-                        self.record_sizes[self._fold(saved_label)] = final_rec_loc - saved_base
-                    # `Name RECORD IMPORT`: bind each inline field to the external
-                    # Name+offset so `Name.field` sizes/relocates absolute (gold
-                    # `sta SPWrite.WrtBufLen` = 8d 3b 45 = SPWrite+$0f, not the
-                    # direct-page template offset 85 0f).
-                    if len(entry) >= 8 and entry[7] and saved_label:
-                        recname = self._fold(saved_label)
-                        prefix = recname + '.'
-                        for q in list(self.record_ds_fields):
-                            if q.startswith(prefix):
-                                off = self.symbols.get(q)
-                                if isinstance(off, int):
-                                    self.equ_alias.setdefault(q, (recname, off))
-            if data_rec:
-                # finalize: trailing content goes to a fresh segment (next PROC
-                # reuses it if still empty/unnamed)
-                self.loc = 0
-                self.segs.append(Segment(None, 'main', None, len(self.segs) + 1))
-            return
+            self._dir_endr(ln); return
         if u == 'WITH':
-            # WITH RecA[,RecB] establishes a record field namespace: unqualified
-            # field names resolve to RecA.field (innermost WITH wins)
-            self._lbl(ln)
-            recs = [self._fold(r.strip()) for r in (ln.operand or '').split(',') if r.strip()]
-            self.with_stack.append(recs)
-            # WITH over a TYPED IMPORT (`Import inst:Type` then `WITH inst`)
-            # binds each DS field of the Type template to inst+offset — an
-            # EXTERNAL reference the linker resolves (MSDos `lda FAT_count`
-            # under `with bios_parm_block` is absolute BIOS_PARM_BLOCK+5, not
-            # the direct-page template offset).  equ_alias carries both the
-            # absolute sizing (is_reloc) and the by-name+addend emission.
-            for r in recs:
-                t = self.import_type.get(r)
-                if not t:
-                    continue
-                prefix = t + '.'
-                for q in self.record_ds_fields:
-                    if q.startswith(prefix):
-                        off = self.symbols.get(q)
-                        if isinstance(off, int):
-                            self.equ_alias.setdefault(q[len(prefix):], (r, off))
-            return
+            self._dir_with(ln); return
         if u == 'ENDWITH':
             self._lbl(ln)
             if self.with_stack:
@@ -2445,158 +2197,25 @@ class Asm:
             self.seg_loadname = _unquote(ln.operand) if ln.operand else None
             return
         if u == 'ORG':
-            if not (ln.operand or '').strip():
-                # bare ORG: reset the location counter to the extreme (max for an
-                # incrementing template, min for a decrementing one) value reached
-                # so far — MPW Asm Ref p.102.  Inside a RECORD template this is the
-                # high-water across the record's variant ORG overlays (a union: the
-                # record size must span its largest arm, e.g. GS.OS my_direct_page's
-                # graphics vs. text dialog overlays -> my_dp_size = 80, not 74).
-                if self._rec_hi_stack:
-                    hi = self._rec_hi_stack[-1]
-                    self.loc = min(hi, self.loc) if self._record_dec \
-                        else max(hi, self.loc)
-                    self._rec_hi_stack[-1] = self.loc
-                else:
-                    # In a code/data segment the high water IS the emitted length
-                    # (ends a backward-ORG overlay); absolute/temporg segments keep
-                    # the historical no-op (their loc is not item-indexed).
-                    cur = self.segs[-1]
-                    if not cur.absolute and cur.temporg is None:
-                        self.loc = max(self.loc, cur.length())
-                self._lbl(ln)
-                return
-            v = self.evaluate(ln.operand)
-            if v is not None:
-                # capture the pre-reset high-water so a later bare ORG (union
-                # size) sees this variant arm's full extent before loc rewinds
-                if self._rec_hi_stack:
-                    self._rec_hi_stack[-1] = (
-                        min(self._rec_hi_stack[-1], self.loc) if self._record_dec
-                        else max(self._rec_hi_stack[-1], self.loc))
-                self.loc = v
-            self._lbl(ln)
-            return
+            self._dir_org(ln); return
         if u in ('ENTRY',):
-            self._lbl(ln)                         # `label ENTRY` defines the label
-            # `ENTRY name[,name]` only DECLARES entries; the labels are defined
-            # at their real positions elsewhere (do NOT define them here).
-            for tok in _split_commas(ln.operand or ''):
-                nm = tok.split(':')[0].strip()
-                if nm:
-                    self.entries.add(self._fold(nm))
-                    self._note_entry_seg(self._fold(nm))
-            if ln.label:
-                self.entries.add(self._fold(ln.label))
-                self._note_entry_seg(self._fold(ln.label))
-            return
+            self._dir_entry(ln); return
         if u == 'EXPORT':
-            self._lbl(ln)
-            if ln.operand:
-                for tok in _split_commas(ln.operand):
-                    nm = tok.split(':')[0].strip()
-                    if nm:
-                        self.exports.add(self._fold(nm))
-                        self._note_entry_seg(self._fold(nm))
-            if ln.label:
-                self._note_entry_seg(self._fold(ln.label))
-            return
+            self._dir_export(ln); return
         if u == 'IMPORT':
-            # `IMPORT a,b,c` declares several externals on one line; each may carry
-            # a `:attr` suffix (stripped).  (Was: only the first was taken, so
-            # e.g. GQuit's `Import e1_errBuf,e1_errStr` became one bogus symbol.)
-            for part in (ln.operand or '').split(','):
-                bits = part.split(':')
-                nm = bits[0].strip()
-                if nm:
-                    f = self._fold(nm)
-                    self.imports.add(f)
-                    # `IMPORT name:Type` — remember the declared type; WITH on
-                    # the import binds the type's fields to name+offset, and a
-                    # QUALIFIED `name.field` reference is the same external
-                    # (MSDos `ldy #one_entry.attributes` = ONE_ENTRY+0x0b, an
-                    # import+addend the linker resolves)
-                    if len(bits) > 1 and bits[1].strip():
-                        t = self._fold(bits[1].strip())
-                        self.import_type[f] = t
-                        prefix = t + '.'
-                        for q in self.record_ds_fields:
-                            if q.startswith(prefix):
-                                off = self.symbols.get(q)
-                                if isinstance(off, int):
-                                    self.equ_alias.setdefault(
-                                        f + '.' + q[len(prefix):], (f, off))
-                    # evict a courtesy bare claimed by a template-RECORD field:
-                    # the import is the canonical bare binding (the qualified
-                    # RecName.field def stays)
-                    if f in self.field_bare:
-                        self.field_bare.discard(f)
-                        self.symbols.pop(f, None)
-                        self.symtype.pop(f, None)
-            self._lbl(ln); return
+            self._dir_import(ln); return
         if u == 'ALIGN':
-            a = self.evaluate(ln.operand) or 1
-            if a > 1 and self.loc % a:
-                self.loc += a - (self.loc % a)
-            self._lbl(ln); return
+            self._dir_align(ln); return
         if u == 'ANOP':
             self._lbl(ln); return
 
         # data
         if u == 'DC' or u.startswith('DC.'):
-            self._lbl(ln)
-            data, fixups = self._dc_bytes(u, ln.operand)
-            self.emit_line(ln, data, fixups); return
+            self._dir_dc(ln, u); return
         if u == 'DS' or u.startswith('DS.'):
-            size = self._ds_size(u, ln.operand)
-            rec = self._fold((ln.operand or '').strip())
-            if self._record_dec:                   # decrement record: field grows
-                self.loc -= size                   # downward; label at the new loc
-                self._lbl(ln)
-                base = self.loc
-            else:
-                self._lbl(ln)
-                base = self.loc
-                self.reserve(size)
-            # a DS-allocated label inside a TEMPLATE record is a true FIELD
-            # (instance-relative offset) — as opposed to an interior EQU
-            # constant.  Typed-import WITH binds only these.
-            if (ln.label and self.cur_record and not self._record_data
-                    and not self.emit_enabled and '.' not in ln.label):
-                self.record_ds_fields.add(
-                    self._fold(self.cur_record + '.' + ln.label))
-            # `Label ds RecordName` is a TYPED instance: explode the record's
-            # fields into Label.field so qualified refs (`Label.field`) resolve to
-            # Label + RecordName.field (MPW typed-DS semantics).  Inside ANOTHER
-            # record's TEMPLATE this `ds` is a NESTED field (e.g. `Ctl RECORD`
-            # containing `Rect ds Rectangle`): the composite must be qualified
-            # by the ENCLOSING template too (`Ctl.Rect.y2`), not just the bare
-            # field name (`Rect.y2`), so deeper qualified refs resolve -- and it
-            # is a plain offset EQUATE like any other template field (not a
-            # relocatable code label: `Label` there is a real segment address,
-            # but `Ctl.Rect` is just a record-relative offset), so it must
-            # explode with kind='equ', not the 'label' kind the typed-DS-
-            # instance case uses.  The explosion itself already recurses
-            # through any further-nested `RecordName.*` composites already in
-            # .symbols, so this qualify-and-kind fix is the only piece needed
-            # for arbitrary nesting depth.
-            if ln.label and rec in self.record_sizes:
-                qual_label, qual_kind = ln.label, 'label'
-                if (self.cur_record and not self._record_data
-                        and not self.emit_enabled):
-                    qual_label = self.cur_record + '.' + ln.label
-                    qual_kind = 'equ'
-                self._explode_record_fields(qual_label, base, rec, kind=qual_kind)
-            return
+            self._dir_ds(ln, u); return
         if u in ('DCB',) or u.startswith('DCB.'):
-            self._lbl(ln)
-            data, fixups = self._dcb_bytes(u, ln.operand)
-            # a zero fill is stored as reserved space (DS), not literal bytes
-            if data and not any(data):
-                self.reserve(len(data))
-            else:
-                self.emit_line(ln, data, fixups)
-            return
+            self._dir_dcb(ln, u); return
 
         # listing / diagnostics: ignore (define a label if present)
         # DATACHK/CODECHK are AsmIIgs assembler-check toggles (On/Off) that emit
@@ -2628,10 +2247,7 @@ class Asm:
         # when reached.  The operand is a message string that may contain spaces
         # (consumed whole via _MULTI_TOKEN_OPS above).
         if u == 'AERROR':
-            self._lbl(ln)
-            msg = (ln.operand or '').strip().strip("'\"")
-            self._err(f"AError: {msg}")
-            return
+            self._dir_aerror(ln); return
 
         # Func / endf: MPW function-block construct.  `Label Func` starts a new
         # OMF segment (like PROC); `endf` ends it (like ENDP).
@@ -2645,6 +2261,439 @@ class Asm:
         # unknown
         self._lbl(ln)
         self._err(f"unknown op {op!r} operand={ln.operand!r}")
+
+    # ------------------------------------------------------------------
+    # Per-directive handlers (R6).  Bodies moved VERBATIM out of the
+    # dispatch ladder above; dispatch retains the original test order (it
+    # is semantically load-bearing — e.g. DCI before macro lookup, MACHINE
+    # ahead of the ignore list).  Do not merge "similar" handlers.
+    # ------------------------------------------------------------------
+
+    def _dir_gbl(self, ln, u):
+        for nm in _split_commas(ln.operand):
+            nm = nm.strip().lstrip('&')
+            if nm:
+                self.declare(nm, u[3], local=False)
+
+    def _dir_lcl(self, ln, u):
+        for nm in _split_commas(ln.operand):
+            nm = nm.strip().lstrip('&')
+            if nm:
+                self.declare(nm, u[3], local=True)
+
+    def _dir_dci(self, ln):
+        self._lbl(ln)
+        opd = (ln.operand or '').strip()
+        data = b''
+        if len(opd) >= 2 and opd[0] in "'\"" and opd[-1] == opd[0]:
+            q = opd[0]
+            inner = opd[1:-1].replace(q + q, q)   # '' inside '...' = one '
+            data = _mac_bytes(inner)              # raw ASCII (DCI body MSB off)
+        if data:
+            data = data[:-1] + bytes([data[-1] | 0x80])
+        self.emit_line(ln, data, [])
+
+    def _dir_equ(self, ln, u):
+        # `name EQU *` inside a relocatable PROC is a code LABEL by another
+        # spelling (AD3.5.read `FastBufr EQU *`): references must relocate
+        # (SEGNAME+offset), not bake the segment-relative literal.  In an
+        # absolute (ORG'd) segment the equate value already equals the
+        # label's absolute address, so the historical equate path stands.
+        if ((ln.operand or '').strip() == '*' and ln.label
+                and self.in_proc and not self.segs[-1].absolute
+                and self.segs[-1].temporg is None):
+            self.define_label(ln.label, self.loc)
+            return
+        self.define_label(ln.label, self.evaluate(ln.operand) or 0, kind='equ',
+                          redefinable=(u == 'SET'))
+        # An EQU whose RHS is exactly ONE relocatable label (optionally +/-const)
+        # is an ALIAS (a second name for that address), not a constant: refs must
+        # relocate. Record it so needs_reloc/omf._expr_for treat NAME as the
+        # target label + addend. Keyed strictly on RHS-resolves-to-relocatable-
+        # LABEL: equates aliasing other equates/imports/constants, and label-
+        # DIFFERENCE equates (two idents / `*`), fall through and stay absolute.
+        if ln.label and not ln.label.startswith('@'):
+            al = self._equ_alias_of(ln.operand)
+            if al is not None:
+                self.equ_alias[self._fold(ln.label)] = al
+            else:
+                self.equ_alias.pop(self._fold(ln.label), None)   # SET redefine
+
+    def _dir_machine(self, ln):
+        # Select the target CPU.  The 8-bit parts (M6502/M65C02) have no
+        # 16-bit accumulator/index, so immediate operands are always one
+        # byte — force LONGA/LONGI OFF.  M65816 (re)asserts the 16-bit
+        # default; a following explicit LONGA/LONGI OFF still wins (e.g.
+        # Monitor.aii is MACHINE M65816 then LONGA OFF / LONGI OFF).
+        m = ln.operand.strip().upper()
+        if m:
+            self.machine = m
+            if m in ('M6502', 'M65C02'):
+                self.longa = False
+                self.longi = False
+            elif m in ('M65816', 'M65832'):
+                self.longa = True
+                self.longi = True
+        self._lbl(ln)
+
+    def _dir_record(self, ln):
+        # Syntax (MPW Assembler Reference Ch.4, p.64/76):
+        #
+        #   [name] RECORD [ENTRY|EXPORT] [, INCR|DECR]   -> data-segment (emitting)
+        #   [name] RECORD [ENTRY|EXPORT]                  -> data-segment (emitting)
+        #    name  RECORD  offset  [, INCR|DECR]          -> template (non-emitting)
+        #    name  RECORD  IMPORT                         -> template (non-emitting)
+        #    name  RECORD  {origin}                       -> template (non-emitting)
+        #    name  RECORD  (no operand)                   -> data-segment (emitting)
+        #
+        # Disambiguate: if the first token of the operand is ENTRY, EXPORT, or
+        # INCR/DECR (possibly preceded by a comma), it's a data-segment RECORD.
+        # Otherwise it's a numeric-base template RECORD.
+        op_raw = (ln.operand or '').strip()
+        # Check if the operand (ignoring INCR/DECR suffix) begins with ENTRY/EXPORT
+        _op_first = op_raw.split(',')[0].strip().upper() if op_raw else ''
+        _is_data_seg = (not op_raw) or (_op_first in ('ENTRY', 'EXPORT', 'INCR', 'DECREMENT',
+                                                      'INCREMENT', 'DECR'))
+        if op_raw and not _is_data_seg:
+            # Template (field-offset) RECORD:
+            # strip optional trailing ,INCR|DECR modifier
+            op = op_raw
+            dec = False
+            if ',' in op:                      # `base,increment|decrement`
+                base_txt, mod = op.split(',', 1)
+                modl = mod.strip().lower()
+                if 'decrement' in modl or 'increment' in modl:
+                    dec = 'decrement' in modl
+                    op = base_txt.strip()
+            # `Name RECORD IMPORT`: Name is an EXTERNAL data instance (defined
+            # and exported elsewhere — AppleShare's SPWrite/SPCommand are
+            # `record import` in Flush/Write and `record export` in Data, and
+            # `import SPWrite:tSPWrite` in yet other modules: three spellings of
+            # the same external).  Its fields are laid out inline as offsets, but
+            # a `Name.field` ref is the external Name+offset (ABSOLUTE), not a
+            # direct-page template offset — so Name is an import and ENDR binds
+            # each field to (Name, offset) via equ_alias (like a typed IMPORT).
+            is_import = (_op_first == 'IMPORT')
+            base = 0 if is_import else (self.evaluate(op) or 0)
+            # Store base + label so ENDR can set the record name to
+            # sizeof(record) — MPW AsmIIgs makes a template record's label
+            # equal its total size (so `DS RecordType` allocates that many bytes).
+            self.record_stack.append((self.loc, self.emit_enabled,
+                                      self.cur_record, False, self._record_dec,
+                                      base, ln.label, is_import))
+            self.emit_enabled = False
+            self.loc = base
+            self._rec_hi_stack.append(base)    # location-counter high-water
+            self._record_dec = dec             # fields allocate downward
+            self._record_data = False
+            if ln.label:
+                if is_import:
+                    self.imports.add(self._fold(ln.label))
+                else:
+                    self.define_label(ln.label, base, kind='equ')
+            self.cur_record = ln.label
+        else:
+            # Data-segment RECORD (no operand, or ENTRY/EXPORT operand):
+            # Emits its contents as a named OMF data segment.
+            # EXPORT -> private=False (exported); ENTRY -> also public.
+            exported = _op_first in ('ENTRY', 'EXPORT')
+            self.record_stack.append((self.loc, self.emit_enabled,
+                                      self.cur_record, True, self._record_dec))
+            self._record_dec = False
+            # interior EQUs are record-scoped FIELDS (DOS3.3 param.records:
+            # `vol_name long` expands to `vol_name equ DummyPC` inside a
+            # bare `volume1 record` — gold resolves volume1.vol_name);
+            # positional labels stay global (define_label checks
+            # _record_data so an emitting data record's code labels are
+            # unaffected).
+            self.cur_record = ln.label
+            self._record_data = True
+            self.loc = 0                       # new segment starts at 0
+            self._rec_hi_stack.append(0)       # location-counter high-water
+            name = self._fold(ln.label or '')
+            # `Name Record EXPORT` publicly exports the record label (same
+            # semantics as `Name PROC EXPORT`): cross-object by-name refs
+            # resolve to it through the linker's global symbol table.
+            if exported and name:
+                self.exports.add(name)
+            cur = self.segs[-1]
+            if cur.name is None and not cur.items:
+                cur.name = name; cur.loadname = 'main'; cur.is_data = True
+                cur.private = not exported
+            else:
+                seg = Segment(name, 'main', None, len(self.segs) + 1)
+                seg.is_data = True; seg.private = not exported
+                self.segs.append(seg)
+            if ln.label:
+                self.define_label(ln.label, self.loc)
+                # `Name Record EXPORT` owns its GLOBAL record (same as an
+                # in-segment EXPORT directive): a later same-named label in
+                # another segment must not emit the public GLOBAL there
+                # (MSDos `length Record Export` vs filename's interior
+                # `length ds.w 1` field)
+                if exported:
+                    self._note_entry_seg(name)
+                    self._maybe_global(ln.label)
+
+    def _dir_dsect_record(self, ln):
+        # MPW dummy section INSIDE a just-opened bare RECORD (DOS3.3
+        # param.records: `volume1 record` then `dsect 0`): convert the
+        # data-segment record to an offset TEMPLATE (fields become record
+        # offsets, ENDR records sizeof).  A bare DSECT anywhere else keeps
+        # the historical unknown-op no-op (tool sources use free-standing
+        # `dsect`/`word`/`long` groups with their own macros).
+        base = self.evaluate(ln.operand) or 0
+        saved = self.record_stack.pop()
+        cur = self.segs[-1]
+        rec_label = cur.name          # folded record name
+        # return the data segment to "fresh/reusable" (omf.emit drops
+        # empty unnamed segments; the next PROC reuses this one)
+        cur.name = None; cur.is_data = False; cur.private = False
+        self.record_stack.append((saved[0], saved[1], saved[2], False,
+                                  saved[4], base, rec_label))
+        self.emit_enabled = False
+        self._record_dec = False
+        self._record_data = False
+        self.cur_record = rec_label
+        if rec_label:
+            self.define_label(rec_label, base, kind='equ')
+        self.loc = base
+        self._lbl(ln)
+
+    def _dir_record_typefield(self, ln, u):
+        # MPW record-field type allocators (param.records dialect):
+        # `dev_name long` reserves 4 at the current record offset.  An
+        # operand is a COUNT (`buf word 8`).  Template records only.
+        w = {'BYTE': 1, 'WORD': 2, 'LONG': 4}[u]
+        cnt = self.evaluate(ln.operand) if (ln.operand or '').strip() else 1
+        size = w * (cnt or 1)
+        if self._record_dec:
+            self.loc -= size
+            self._lbl(ln)
+        else:
+            self._lbl(ln)
+            self.reserve(size)
+
+    def _dir_endr(self, ln):
+        data_rec = self.record_stack[-1][3] if self.record_stack else False
+        if ln.label:
+            self.define_label(ln.label, self.loc,
+                              kind='label' if data_rec else 'equ')
+        if self._rec_hi_stack:
+            self._rec_hi_stack.pop()
+        if self.record_stack:
+            entry = self.record_stack.pop()
+            final_rec_loc = self.loc          # position at end of record body
+            (self.loc, self.emit_enabled, self.cur_record, _,
+             self._record_dec) = entry[:5]
+            self._record_data = (self.record_stack[-1][3]
+                                 if self.record_stack else False)
+            # Template (non-data) record: remember sizeof = final_loc - base so
+            # `DS RecordName` allocates that many bytes (MPW AsmIIgs behaviour).
+            # The record LABEL keeps its base value (used by WITH and by value
+            # refs like `lda #Record`) — clobbering it to sizeof regresses
+            # firmware that references a WITH'd zero-page record (SmartPort).
+            if not data_rec and len(entry) >= 7:
+                saved_base, saved_label = entry[5], entry[6]
+                if saved_label:
+                    self.record_sizes[self._fold(saved_label)] = final_rec_loc - saved_base
+                # `Name RECORD IMPORT`: bind each inline field to the external
+                # Name+offset so `Name.field` sizes/relocates absolute (gold
+                # `sta SPWrite.WrtBufLen` = 8d 3b 45 = SPWrite+$0f, not the
+                # direct-page template offset 85 0f).
+                if len(entry) >= 8 and entry[7] and saved_label:
+                    recname = self._fold(saved_label)
+                    prefix = recname + '.'
+                    for q in list(self.record_ds_fields):
+                        if q.startswith(prefix):
+                            off = self.symbols.get(q)
+                            if isinstance(off, int):
+                                self.equ_alias.setdefault(q, (recname, off))
+        if data_rec:
+            # finalize: trailing content goes to a fresh segment (next PROC
+            # reuses it if still empty/unnamed)
+            self.loc = 0
+            self.segs.append(Segment(None, 'main', None, len(self.segs) + 1))
+
+    def _dir_with(self, ln):
+        # WITH RecA[,RecB] establishes a record field namespace: unqualified
+        # field names resolve to RecA.field (innermost WITH wins)
+        self._lbl(ln)
+        recs = [self._fold(r.strip()) for r in (ln.operand or '').split(',') if r.strip()]
+        self.with_stack.append(recs)
+        # WITH over a TYPED IMPORT (`Import inst:Type` then `WITH inst`)
+        # binds each DS field of the Type template to inst+offset — an
+        # EXTERNAL reference the linker resolves (MSDos `lda FAT_count`
+        # under `with bios_parm_block` is absolute BIOS_PARM_BLOCK+5, not
+        # the direct-page template offset).  equ_alias carries both the
+        # absolute sizing (is_reloc) and the by-name+addend emission.
+        for r in recs:
+            t = self.import_type.get(r)
+            if not t:
+                continue
+            prefix = t + '.'
+            for q in self.record_ds_fields:
+                if q.startswith(prefix):
+                    off = self.symbols.get(q)
+                    if isinstance(off, int):
+                        self.equ_alias.setdefault(q[len(prefix):], (r, off))
+
+    def _dir_org(self, ln):
+        if not (ln.operand or '').strip():
+            # bare ORG: reset the location counter to the extreme (max for an
+            # incrementing template, min for a decrementing one) value reached
+            # so far — MPW Asm Ref p.102.  Inside a RECORD template this is the
+            # high-water across the record's variant ORG overlays (a union: the
+            # record size must span its largest arm, e.g. GS.OS my_direct_page's
+            # graphics vs. text dialog overlays -> my_dp_size = 80, not 74).
+            if self._rec_hi_stack:
+                hi = self._rec_hi_stack[-1]
+                self.loc = min(hi, self.loc) if self._record_dec \
+                    else max(hi, self.loc)
+                self._rec_hi_stack[-1] = self.loc
+            else:
+                # In a code/data segment the high water IS the emitted length
+                # (ends a backward-ORG overlay); absolute/temporg segments keep
+                # the historical no-op (their loc is not item-indexed).
+                cur = self.segs[-1]
+                if not cur.absolute and cur.temporg is None:
+                    self.loc = max(self.loc, cur.length())
+            self._lbl(ln)
+            return
+        v = self.evaluate(ln.operand)
+        if v is not None:
+            # capture the pre-reset high-water so a later bare ORG (union
+            # size) sees this variant arm's full extent before loc rewinds
+            if self._rec_hi_stack:
+                self._rec_hi_stack[-1] = (
+                    min(self._rec_hi_stack[-1], self.loc) if self._record_dec
+                    else max(self._rec_hi_stack[-1], self.loc))
+            self.loc = v
+        self._lbl(ln)
+
+    def _dir_entry(self, ln):
+        self._lbl(ln)                         # `label ENTRY` defines the label
+        # `ENTRY name[,name]` only DECLARES entries; the labels are defined
+        # at their real positions elsewhere (do NOT define them here).
+        for tok in _split_commas(ln.operand or ''):
+            nm = tok.split(':')[0].strip()
+            if nm:
+                self.entries.add(self._fold(nm))
+                self._note_entry_seg(self._fold(nm))
+        if ln.label:
+            self.entries.add(self._fold(ln.label))
+            self._note_entry_seg(self._fold(ln.label))
+
+    def _dir_export(self, ln):
+        self._lbl(ln)
+        if ln.operand:
+            for tok in _split_commas(ln.operand):
+                nm = tok.split(':')[0].strip()
+                if nm:
+                    self.exports.add(self._fold(nm))
+                    self._note_entry_seg(self._fold(nm))
+        if ln.label:
+            self._note_entry_seg(self._fold(ln.label))
+
+    def _dir_import(self, ln):
+        # `IMPORT a,b,c` declares several externals on one line; each may carry
+        # a `:attr` suffix (stripped).  (Was: only the first was taken, so
+        # e.g. GQuit's `Import e1_errBuf,e1_errStr` became one bogus symbol.)
+        for part in (ln.operand or '').split(','):
+            bits = part.split(':')
+            nm = bits[0].strip()
+            if nm:
+                f = self._fold(nm)
+                self.imports.add(f)
+                # `IMPORT name:Type` — remember the declared type; WITH on
+                # the import binds the type's fields to name+offset, and a
+                # QUALIFIED `name.field` reference is the same external
+                # (MSDos `ldy #one_entry.attributes` = ONE_ENTRY+0x0b, an
+                # import+addend the linker resolves)
+                if len(bits) > 1 and bits[1].strip():
+                    t = self._fold(bits[1].strip())
+                    self.import_type[f] = t
+                    prefix = t + '.'
+                    for q in self.record_ds_fields:
+                        if q.startswith(prefix):
+                            off = self.symbols.get(q)
+                            if isinstance(off, int):
+                                self.equ_alias.setdefault(
+                                    f + '.' + q[len(prefix):], (f, off))
+                # evict a courtesy bare claimed by a template-RECORD field:
+                # the import is the canonical bare binding (the qualified
+                # RecName.field def stays)
+                if f in self.field_bare:
+                    self.field_bare.discard(f)
+                    self.symbols.pop(f, None)
+                    self.symtype.pop(f, None)
+        self._lbl(ln)
+
+    def _dir_align(self, ln):
+        a = self.evaluate(ln.operand) or 1
+        if a > 1 and self.loc % a:
+            self.loc += a - (self.loc % a)
+        self._lbl(ln)
+
+    def _dir_dc(self, ln, u):
+        self._lbl(ln)
+        data, fixups = self._dc_bytes(u, ln.operand)
+        self.emit_line(ln, data, fixups)
+
+    def _dir_ds(self, ln, u):
+        size = self._ds_size(u, ln.operand)
+        rec = self._fold((ln.operand or '').strip())
+        if self._record_dec:                   # decrement record: field grows
+            self.loc -= size                   # downward; label at the new loc
+            self._lbl(ln)
+            base = self.loc
+        else:
+            self._lbl(ln)
+            base = self.loc
+            self.reserve(size)
+        # a DS-allocated label inside a TEMPLATE record is a true FIELD
+        # (instance-relative offset) — as opposed to an interior EQU
+        # constant.  Typed-import WITH binds only these.
+        if (ln.label and self.cur_record and not self._record_data
+                and not self.emit_enabled and '.' not in ln.label):
+            self.record_ds_fields.add(
+                self._fold(self.cur_record + '.' + ln.label))
+        # `Label ds RecordName` is a TYPED instance: explode the record's
+        # fields into Label.field so qualified refs (`Label.field`) resolve to
+        # Label + RecordName.field (MPW typed-DS semantics).  Inside ANOTHER
+        # record's TEMPLATE this `ds` is a NESTED field (e.g. `Ctl RECORD`
+        # containing `Rect ds Rectangle`): the composite must be qualified
+        # by the ENCLOSING template too (`Ctl.Rect.y2`), not just the bare
+        # field name (`Rect.y2`), so deeper qualified refs resolve -- and it
+        # is a plain offset EQUATE like any other template field (not a
+        # relocatable code label: `Label` there is a real segment address,
+        # but `Ctl.Rect` is just a record-relative offset), so it must
+        # explode with kind='equ', not the 'label' kind the typed-DS-
+        # instance case uses.  The explosion itself already recurses
+        # through any further-nested `RecordName.*` composites already in
+        # .symbols, so this qualify-and-kind fix is the only piece needed
+        # for arbitrary nesting depth.
+        if ln.label and rec in self.record_sizes:
+            qual_label, qual_kind = ln.label, 'label'
+            if (self.cur_record and not self._record_data
+                    and not self.emit_enabled):
+                qual_label = self.cur_record + '.' + ln.label
+                qual_kind = 'equ'
+            self._explode_record_fields(qual_label, base, rec, kind=qual_kind)
+
+    def _dir_dcb(self, ln, u):
+        self._lbl(ln)
+        data, fixups = self._dcb_bytes(u, ln.operand)
+        # a zero fill is stored as reserved space (DS), not literal bytes
+        if data and not any(data):
+            self.reserve(len(data))
+        else:
+            self.emit_line(ln, data, fixups)
+
+    def _dir_aerror(self, ln):
+        self._lbl(ln)
+        msg = (ln.operand or '').strip().strip("'\"")
+        self._err(f"AError: {msg}")
 
     def _note_entry_seg(self, name):
         """Record the segment in which an ENTRY/EXPORT directive appears. For a
