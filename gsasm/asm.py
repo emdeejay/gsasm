@@ -1152,6 +1152,104 @@ class Asm:
     # ----------------------------------------------------------------
     # Symbol / location helpers
     # ----------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # define_label collision predicates (R7).  Each names one hard-won
+    # symbol-collision rule; the boolean expressions moved VERBATIM out of
+    # define_label.  The ORDER they are consulted in define_label (and
+    # their short-circuiting) is load-bearing — do not reorder.
+    # ------------------------------------------------------------------
+
+    def _is_record_field(self, name, kind):
+        """Inside a RECORD, this definition is a record FIELD, not a global.
+        In a DATA-segment record, positional labels stay global (they
+        address emitted content); only interior EQUs are record fields.
+        Fixtures 012 (field vs import), 042 (PopUpCtlRecord.titleWidth must
+        not clobber `titleWidth EQU 14`), 048 (top-level equ vs data record)."""
+        return (self.cur_record and '.' not in name
+                and not (self._record_data and kind == 'label'))
+
+    def _field_owns_bare(self, u):
+        """A template-record field may claim the BARE name only if nothing
+        else owns it — an existing symbol or a declared IMPORT is the
+        canonical bare binding (MSDos `stz newline_len` sizes absolute
+        against the imported data record, not the fcr template field).
+        Fixtures 012, 042, 048."""
+        return u not in self.symbols and u not in self.imports
+
+    def _proc_equ_reuses_global(self, name, kind, u):
+        """A proc-scoped EQU reusing a name that already has a cross-module
+        GLOBAL code label (IMPORT/EXPORT/ENTRY) is module-local: it must not
+        clobber the global binding (GS.OS bank0.dispatcher `a_reg` EXPORTed
+        ds.b vs lc_dispatcher's local `a_reg equ dir_reg+2`).  Fixture 036."""
+        return (kind == 'equ' and self.in_proc and not name.startswith('@')
+                and self.symtype.get(u) == 'label'
+                and (u in self.imports or u in self.exports
+                     or u in self.entries))
+
+    def _masked_by_data_record(self, kind, u, prior, seg):
+        """A plain code-PROC label (or proc-interior EQU) duplicating a
+        DATA-RECORD label is masked: the record's label is the canonical
+        file-visible binding (golden Pascal.FST binds `temp` to the GLOBALS
+        field even inside P_CREATE_DATE's own `temp dc.w 0`; StdFile
+        GetThePrefix `devName equ ParBlock+02` vs PopUpGlobals `DevName`).
+        Fixtures 042, 044."""
+        return ((kind == 'label'
+                 or (kind == 'equ' and self.in_proc))
+                and prior is not None
+                and prior != seg
+                and self.symtype.get(u) == 'label'
+                and prior < len(self.segs)
+                and getattr(self.segs[prior], 'is_data', False)
+                and not getattr(self.segs[seg], 'is_data', False)
+                and u not in self.entries
+                and u not in self.exports)
+
+    def _label_reuses_entry_elsewhere(self, kind, u, prior, seg):
+        """A plain label reusing an ENTRY name from a DIFFERENT segment than
+        the one that declared the entry is module-local — cross-module refs
+        must keep resolving to the ENTRY (GS.OS SCM `entry more` at golden
+        $B70A vs the plain `more` copy-loops).  Scoped to ENTRY, not EXPORT:
+        a re-EXPORTed data label follows last-wins / data-record masking
+        (AppleDisk3.5 `export DATAMARKS` must NOT defer here).  Fixture 039."""
+        cur_name = (self._fold(self.segs[seg].name or '')
+                    if seg < len(self.segs) else '')
+        ent_home = self.entry_seg.get(u)
+        prior_name = (self._fold(self.segs[prior].name or '')
+                      if prior is not None and prior < len(self.segs)
+                      else None)
+        return (
+            kind == 'label' and prior is not None and prior != seg
+            and self.symtype.get(u) == 'label'
+            and u in self.entries and u not in self.exports
+            and ent_home is not None and ent_home != cur_name
+            and ent_home == prior_name)
+
+    def _prior_modscope_dup(self, name, kind, u, prior, seg):
+        """A plain label inside a PROC duplicating a name already bound at
+        MODULE SCOPE (an anonymous, name=None segment) is local to that
+        PROC; other procs' references resolve to the module-scope label
+        (AppleShare Time.aii's two `month_adjust` tables).  Complement of
+        the data-record and foreign-ENTRY rules — same MPW interior-locality
+        principle (commit 5612d89)."""
+        return (
+            kind == 'label' and self.in_proc and not name.startswith('@')
+            and prior is not None and prior != seg
+            and self.symtype.get(u) == 'label'
+            and prior < len(self.segs)
+            and self.segs[prior].name is None
+            and u not in self.entries and u not in self.exports)
+
+    def _masking_record_with_active(self, prior):
+        """Is the data record that masks a keep_prior label WITH-active?
+        Active -> the bare name is the record field (resolve()'s with_stack)
+        and the masked local stays OUT of seg_local (Pascal.FST `temp` under
+        `with GLOBALS`); inactive -> the local must be seg_local-reachable
+        (AppleShare `bne next` under `with dp,mydata`).  Fixtures 042, 044."""
+        prior_recname = self._fold(self.segs[prior].name or '')
+        return any(
+            prior_recname == self._fold(r)
+            for recs in self.with_stack for r in recs)
+
     def define_label(self, name, value, kind='label', redefinable=False):
         if name:
             # ANY label not beginning with @ delimits @-local-label scope (MPW
@@ -1169,10 +1267,7 @@ class Asm:
             # of the same name (e.g. PopUpCtlRecord.titleWidth=64 vs the menu
             # `titleWidth EQU 14`). So inside a RECORD, define ONLY the qualified
             # name (unless the bare name is otherwise undefined — harmless).
-            # In a DATA-segment record, positional labels stay global (they
-            # address emitted content); only interior EQUs are record fields.
-            field = (self.cur_record and '.' not in name
-                     and not (self._record_data and kind == 'label'))
+            field = self._is_record_field(name, kind)
             if field:
                 q = self._fold(self.cur_record + '.' + name)
                 self.symbols[q] = value
@@ -1199,12 +1294,7 @@ class Asm:
                 # DummyPC+2`; a stale bare would equate every field to 0) —
                 # while a record-scoped SET shadowing someone else's global
                 # (the DefineStack family) stays field-only.
-                # a declared IMPORT also claims the bare name: the external is
-                # the canonical bare binding (MPW template fields never leak),
-                # so the field must not shadow it (MSDos `stz newline_len`
-                # sizes absolute against the imported data record, not the
-                # fcr template field)
-                owns = u not in self.symbols and u not in self.imports
+                owns = self._field_owns_bare(u)
                 if (owns or self._record_data
                         or (redefinable and u in self.setvars)):
                     self.symbols[u] = value
@@ -1232,20 +1322,7 @@ class Asm:
             # name which ALREADY has a CODE LABEL must not clobber the label: the
             # label is the real address (for cross-segment address references), the
             # EQU is a per-segment local value (recorded in seg_equ for local refs).
-            # Scoping to an existing 'label' spares pure-EQU imports like Max_call
-            # (no code label -> the EQU is canonical and overwrites as before).
-            # The prior label must be a cross-module GLOBAL (IMPORT, EXPORT, or
-            # ENTRY): per the MPW Asm Ref, "labels defined inside a code module are
-            # local to that module" unless EXPORT/ENTRY, so a proc-interior EQU is
-            # module-local and cannot be the global binding for a name another
-            # segment references by name (GS.OS bank0.dispatcher: `a_reg` is an
-            # EXPORTed `ds.b` in dsptch_vars that the `dispatcher` seg references
-            # `>a_reg`/`|a_reg`, while lc_dispatcher has its own local
-            # `a_reg equ dir_reg+2` — the equate must not clobber the export).
-            if (kind == 'equ' and self.in_proc and not name.startswith('@')
-                    and self.symtype.get(u) == 'label'
-                    and (u in self.imports or u in self.exports
-                         or u in self.entries)):
+            if self._proc_equ_reuses_global(name, kind, u):
                 self.seg_equ.setdefault(len(self.segs) - 1, {})[u] = value
                 self.defcount[u] = self.defcount.get(u, 0) + 1
                 self.labels.append((name, value))
@@ -1269,65 +1346,10 @@ class Asm:
                 # updates the global normally (it is not swallowed into `labels`).
                 seg = len(self.segs) - 1
                 prior = self.symseg.get(u)
-                keep_prior = ((kind == 'label'
-                               or (kind == 'equ' and self.in_proc))
-                              and prior is not None
-                              and prior != seg
-                              and self.symtype.get(u) == 'label'
-                              and prior < len(self.segs)
-                              and getattr(self.segs[prior], 'is_data', False)
-                              and not getattr(self.segs[seg], 'is_data', False)
-                              and u not in self.entries
-                              and u not in self.exports)
-                # A plain label that reuses an ENTRY/EXPORT name but sits in a
-                # DIFFERENT segment than the one that DECLARED the entry/export is a
-                # MODULE-LOCAL label (MPW: interior labels are local to their module
-                # unless themselves EXPORT/ENTRY).  It must not clobber the global
-                # entry's binding — a cross-module reference resolves to the ENTRY —
-                # but it stays reachable WITHIN its own segment (a local ref binds to
-                # it).  GS.OS SCM declares `entry more` in copy_ext_string; the copy
-                # loops in get_prefix/get_name/end_session/swapout each reuse a plain
-                # `more`, and `allocvcr`'s cross-module `jsr more` must reach the
-                # ENTRY (golden $B70A), not the last plain redefinition ($F99B).
-                # Scoped to ENTRY (not EXPORT) whose current global binding is still
-                # the segment that DECLARED it.  An ENTRY names a single global entry
-                # point that cross-module references resolve to; a same-named plain
-                # label elsewhere is that module's own local.  EXPORT is left alone:
-                # a re-EXPORTed/redefined data label follows the existing last-wins /
-                # data-record masking rules (AppleDisk3.5 `export DATAMARKS` in
-                # DRIVER_DATA vs a local copy in READ1TO1 must NOT defer here).
-                cur_name = (self._fold(self.segs[seg].name or '')
-                            if seg < len(self.segs) else '')
-                ent_home = self.entry_seg.get(u)
-                prior_name = (self._fold(self.segs[prior].name or '')
-                              if prior is not None and prior < len(self.segs)
-                              else None)
-                foreign_entry_dup = (
-                    kind == 'label' and prior is not None and prior != seg
-                    and self.symtype.get(u) == 'label'
-                    and u in self.entries and u not in self.exports
-                    and ent_home is not None and ent_home != cur_name
-                    and ent_home == prior_name)
-                # A plain label defined INSIDE a PROC that duplicates a name already
-                # bound at MODULE SCOPE (an anonymous, name=None segment — code/data
-                # before or between PROCs) is MODULE-LOCAL to that PROC (MPW: interior
-                # labels are local unless EXPORT/ENTRY).  It must not clobber the
-                # module-scope global binding — a reference from ANOTHER proc resolves
-                # to the module-scope label — but it stays reachable WITHIN its own
-                # segment (seg_local, checked before symbols in resolve()).  AppleShare
-                # Time.aii defines a module-level `month_adjust dc.w 0,1,-1,...` table
-                # (linked $2A89) AND a second `month_adjust dc.w 1,4,4,...` inside
-                # dow_convert ($2FA8); the sbc/lda in time_afp_tool / time_tool_afp
-                # must reach the FIRST (module) table, the adc inside dow_convert its
-                # own local.  Complement of the data-record keep_prior and the ENTRY
-                # foreign_entry_dup rules — same MPW interior-locality principle.
-                prior_modscope = (
-                    kind == 'label' and self.in_proc and not name.startswith('@')
-                    and prior is not None and prior != seg
-                    and self.symtype.get(u) == 'label'
-                    and prior < len(self.segs)
-                    and self.segs[prior].name is None
-                    and u not in self.entries and u not in self.exports)
+                keep_prior = self._masked_by_data_record(kind, u, prior, seg)
+                foreign_entry_dup = self._label_reuses_entry_elsewhere(
+                    kind, u, prior, seg)
+                prior_modscope = self._prior_modscope_dup(name, kind, u, prior, seg)
                 if not keep_prior and not foreign_entry_dup and not prior_modscope:
                     self.symbols[u] = value
                     self.symtype[u] = kind
@@ -1367,10 +1389,7 @@ class Asm:
                 # PROC-LOCAL `next` — which requires seg_local registration.  The
                 # discriminator is exactly whether the masking record name is WITH-active.
                 elif kind == 'label' and keep_prior and not name.startswith('@'):
-                    prior_recname = self._fold(self.segs[prior].name or '')
-                    prior_in_with = any(
-                        prior_recname == self._fold(r)
-                        for recs in self.with_stack for r in recs)
+                    prior_in_with = self._masking_record_with_active(prior)
                     if not prior_in_with:
                         self.seg_local.setdefault(seg, {})[u] = value
                 # an EQU/SET inside a module (PROC) is local to that module — record
