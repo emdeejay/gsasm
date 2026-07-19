@@ -123,8 +123,26 @@ the patch, in `_link._build_body` inputs — asm.py/linkiigs territory):
 Close these two (root-cause + fixture, standard discipline) and TS2/TS3
 should fall with the machinery already in place.
 
-**E2d STATUS (2026-07-19, later): BOTH blockers were one rule — MPW's
-`object(SYM,...)` ORDER MYSTERY SOLVED.** The three "mutually contradictory"
+**E2 CLOSED (2026-07-19): TS2 36665/36665 AND TS3 41700/41700 BYTE-EXACT**
+(disk logical-exact 27 → 29; only Tool034/E3 remains).  The E2e last mile
+after the notes below: (1) span-aware `_group_of` — an import that resolves
+to an ABSOLUTE exported equate (`export NAME:equ` GEQUs: TS2 `UserDummyTable
+equ $FE01EF`, `OENDCALL4 equ $feffc2`, `SystemFont equ $FE77E0`) lies outside
+every group span; gold emits NO reloc record and keeps the absolute bytes —
+the classifier had assigned such targets to the LAST group and patched
+garbage; (2) `_adj` group-rebase guarded to in-span values (absolutes were
+rebased by -group_base); (3) the stype-27 absolute case bakes the deferred
+`>>16` high word before dropping the record; (4) standalone records emit
+SORTED BY SITE OFFSET, not category order (golden: TS3 INIT's size-4 dc.l
+cINTERSEGs precede the >>8 case-A ones; TS3 MAIN's case-B RELOC pair precedes
+the cRELOCs); (5) cross-group SUPER type-(25+segnum) stored values rebased
+target-relative (TS3 INIT's 15 patch-table entries were +662); (6) HET
+intermediate entry size is 59+2*(kind==0x0002)-4*(prev==0x2000) — the -4
+(invisible in the byte stream, visible in the entry-chain pointer) is TS2's
+golden entry-3 ptr 140.
+
+**E2d (superseded by the above): BOTH "assembler blockers" were one rule —
+MPW's `object(SYM,...)` ORDER MYSTERY SOLVED.** The three "mutually contradictory"
 golden ordering cases reconciled: ONE object() reference pulls its selected
 segments in the object's NATURAL (emit) order; what looked like filter-list
 order was the makefiles referencing the SAME object MULTIPLE TIMES with

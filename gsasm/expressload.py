@@ -670,7 +670,19 @@ def _het_entries(
         if i < N - 1:
             # Intermediate entry (1-based: entry_{i+1})
             kind_i = segs[i]['hdr']['KIND']
-            entry_size = 59 + 2 * (kind_i == 0x0002)
+            prev_kind = segs[i - 1]['hdr']['KIND']
+            # Entry size 59, +2 when THIS segment is the ~JumpTable (KIND
+            # 0x0002 — Tool015/016/018 golden), and -4 when the PREVIOUS
+            # segment is an INIT segment (KIND 0x2000).  The -4 is invisible
+            # in the byte stream (the SegHeaderEntry template suffix flows
+            # contiguously across the entry boundary; only the split point
+            # moves) but it shifts this entry's END and the NEXT entry's
+            # chain pointer: TS2 (INIT/MAIN/BIGONLY) golden HET stores
+            # entry-3 ptr 140 = 85 + 55, not 85 + 59 — the sole golden case
+            # with an intermediate entry after a KIND-0x2000 segment (TS3 has
+            # no intermediate entry; the tools have no INIT segments).
+            entry_size = (59 + 2 * (kind_i == 0x0002)
+                          - 4 * (prev_kind == 0x2000))
             name_len_prev = len(prev_names[i - 1])
             partial_i = entry_size - spill_i - 1 - name_len_prev - 16
             partial.append(partial_i)
@@ -1298,17 +1310,30 @@ def expressload(
     # We need to know, for each non-empty output group, its absolute start address.
     group_obj_indices: list[int] = []   # group ids of non-empty groups, in order
     group_bases: list[int] = []         # absolute base of each non-empty group
+    group_ends: list[int] = []          # absolute end (base + merged length)
     for g in range(n_groups_total):
         indices = placed_by_group[g]
         if indices:
             group_obj_indices.append(g)
             group_bases.append(placed[indices[0]][2])
+            last = placed[indices[-1]]
+            group_ends.append(last[2] + _link._body_length(last[1]))
 
-    def _group_of(abs_addr: int) -> int:
-        """Return the group index (0-based into group_bases) that abs_addr belongs to."""
+    def _group_of(abs_addr: int) -> int | None:
+        """Return the group index (0-based into group_bases) that abs_addr
+        belongs to, or None when the address lies OUTSIDE every group's span.
+
+        The None case is an ABSOLUTE target: a by-name import that resolved to
+        an exported EQUATE (GEQU), e.g. TS2's `UserDummyTable equ $FE01EF` and
+        `OENDCALL4 equ $feffc2` (Patch2 tl.asm/strip.asm `export NAME:equ`).
+        Gold emits NO reloc record for such a site and keeps the absolute
+        value in the body — before this check, $FE01EF classified as
+        "cross-group into the last group" and the site was patched with
+        (addr - last_group_base) & 0xFFFF = the observed $A5EE garbage.
+        """
         for g in range(len(group_bases) - 1, -1, -1):
             if abs_addr >= group_bases[g]:
-                return g
+                return g if abs_addr < group_ends[g] else None
         return 0
 
     # ------------------------------------------------------------------
@@ -1425,8 +1450,17 @@ def expressload(
         # but the loader will load group G at its own base 0.  Subtract group_base from
         # all symbol values so within-group EXPRs evaluate to group-relative addresses.
         if group_base > 0:
-            def _adj(v: Any, gb: int = group_base) -> Any:
-                return (v - gb) if isinstance(v, int) else v
+            # Only PLACED addresses (inside the joint span of the placed
+            # groups) are group-rebased.  A symbol that resolved to an
+            # ABSOLUTE equate value outside every group's span (TS2's
+            # `UserDummyTable equ $FE01EF`, `OENDCALL4 equ $feffc2` --
+            # Patch2 `export NAME:equ`) must keep its absolute value: gold
+            # stores it verbatim with no reloc.  Before this guard those
+            # equates were rebased by -group_base, storing e.g.
+            # $FFC2-$403 = $FBBF in TS2's MAIN body.
+            _joint_end = group_ends[-1] if group_ends else 0
+            def _adj(v: Any, gb: int = group_base, je: int = _joint_end) -> Any:
+                return (v - gb) if (isinstance(v, int) and 0 <= v < je) else v
             adj_sym = {k: _adj(v) for k, v in sym.items()}
         else:
             adj_sym = sym
@@ -1484,7 +1518,14 @@ def expressload(
         # DYNAMIC targets need jt_entries, and dyn_flags is all-False whenever
         # there is no dynamic group, so the jt-routing branch below is simply
         # never taken in that case.
-        standalone_group = bytearray()
+        # (site_offset, record_bytes) pairs — flushed SORTED BY SITE OFFSET
+        # (golden rule: gold's standalone records are ordered by ascending
+        # patch offset regardless of record type — TS3 INIT emits the size-4
+        # dc.l cINTERSEGs @0x6e..0x106 before the >>8 case-A ones @0x10e+,
+        # and TS3 MAIN emits the case-B RELOC pair @10514 before the cRELOCs
+        # @12243+; the old category-grouped order matched gold only when the
+        # categories happened to be offset-ordered).
+        standalone_group: list[tuple[int, bytes]] = []
         # Per-SEGMENT symbol table (absolute/joint address space, unlike the
         # group-relative adj_sym/adj_og pair used for body-building above):
         # each segment's overlay is its OWN owning object's table, not one
@@ -1531,6 +1572,11 @@ def expressload(
                 ops_wo = ops[:-3] + ['end']
             raw_target = _link._eval(ops_wo, grp_body_syms[seg_i]) & 0xFFFFFFFF
             tgt_group = _group_of(raw_target)
+            if tgt_group is None:
+                # Absolute target (exported-equate import, outside every
+                # group's span): gold emits NO standalone record — the body
+                # already holds the resolved absolute value.
+                continue
             if tgt_group == group_g:
                 # Intra: merged_arr already holds the correct group-relative
                 # (already-shifted) placeholder value, built via adj_sym
@@ -1541,9 +1587,9 @@ def expressload(
                 else:
                     rel_val = raw_target & ((1 << (8 * size)) - 1)
                 if rel_off < 0x10000 and rel_val < 0x10000:
-                    standalone_group += emit_creloc(size, shift, rel_off, rel_val)
+                    standalone_group.append((rel_off, emit_creloc(size, shift, rel_off, rel_val)))
                 else:
-                    standalone_group += emit_reloc(size, shift, rel_off, rel_val)
+                    standalone_group.append((rel_off, emit_reloc(size, shift, rel_off, rel_val)))
             else:
                 off_in_tgt = raw_target - group_bases[tgt_group]
                 merged_arr[rel_off:rel_off + size] = b'\x00' * size
@@ -1561,11 +1607,11 @@ def expressload(
                     tgt_segnum = _final_segnum(tgt_group)
                     tgt_segoff = off_in_tgt
                 if rel_off < 0x10000 and tgt_segoff < 0x10000:
-                    standalone_group += emit_cinterseg(
-                        size, shift, rel_off, tgt_segnum, tgt_segoff)
+                    standalone_group.append((rel_off, emit_cinterseg(
+                        size, shift, rel_off, tgt_segnum, tgt_segoff)))
                 else:
-                    standalone_group += emit_interseg(
-                        size, shift, rel_off, tgt_segnum, tgt_segoff)
+                    standalone_group.append((rel_off, emit_interseg(
+                        size, shift, rel_off, tgt_segnum, tgt_segoff)))
 
         # Case-B: a relocation whose target expression carries a source-level
         # flagged addend (``Label+$80000000`` / ``Label+$C0000000`` — the
@@ -1591,9 +1637,9 @@ def expressload(
                     f"relocation unsupported — offset {rel_off:#x}")
             rel_val = flag | ((clean - group_base) & 0x00FFFFFF)
             if rel_off < 0x10000 and rel_val < 0x10000:
-                standalone_group += emit_creloc(b_size, b_shift, rel_off, rel_val)
+                standalone_group.append((rel_off, emit_creloc(b_size, b_shift, rel_off, rel_val)))
             else:
-                standalone_group += emit_reloc(b_size, b_shift, rel_off, rel_val)
+                standalone_group.append((rel_off, emit_reloc(b_size, b_shift, rel_off, rel_val)))
 
         if case_b_abs_offsets:
             for stype in list(group_relocs_raw):
@@ -1634,6 +1680,11 @@ def expressload(
                         joint_target = _link._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
                         field_size = _esz
                     tgt_group = _group_of(joint_target)
+                    if tgt_group is None:
+                        # Absolute target (e.g. TS2 `OENDCALL4 equ $feffc2`
+                        # reached via a by-name import): gold drops the reloc
+                        # record entirely and keeps the absolute body bytes.
+                        continue
                     if tgt_group != group_g:
                         tgt_group_base = group_bases[tgt_group]
                         off_in_tgt = joint_target - tgt_group_base
@@ -1651,11 +1702,11 @@ def expressload(
                             tgt_segnum = _final_segnum(tgt_group)
                             merged_arr[rel_off:rel_off + field_size] = b'\x00' * field_size
                             if rel_off < 0x10000 and off_in_tgt < 0x10000:
-                                standalone_group += emit_cinterseg(
-                                    field_size, 0, rel_off, tgt_segnum, off_in_tgt)
+                                standalone_group.append((rel_off, emit_cinterseg(
+                                    field_size, 0, rel_off, tgt_segnum, off_in_tgt)))
                             else:
-                                standalone_group += emit_interseg(
-                                    field_size, 0, rel_off, tgt_segnum, off_in_tgt)
+                                standalone_group.append((rel_off, emit_interseg(
+                                    field_size, 0, rel_off, tgt_segnum, off_in_tgt)))
                             continue
                         # Cross-group: encode as SUPER type-2 (INTERSEG, FileNum=1,
                         # SegNum = target group's output segnum).
@@ -1752,6 +1803,19 @@ def expressload(
 
                     if sym_joint is not None:
                         tgt_group = _group_of(sym_joint)
+                        if tgt_group is None:
+                            # Absolute target (exported equate, e.g. TS2's
+                            # `UserDummyTable equ $FE01EF` / `SystemFont equ
+                            # $FE77E0` high-word `#^X` immediates): drop the
+                            # record AND apply the deferred >>16 here — the
+                            # body still holds the unshifted low word (the
+                            # _defer_shifts placeholder that the SUPER-27
+                            # loader patch would normally overwrite), but with
+                            # no record the final absolute high word must be
+                            # baked: gold stores $00FE with no reloc.
+                            merged_arr[rel_off:rel_off + 2] = (
+                                ((sym_joint >> 16) & 0xFFFF).to_bytes(2, 'little'))
+                            continue
                         if jt_enabled and dyn_flags[tgt_group]:
                             # A bank-byte (high-word) field can't carry a DYNAMIC
                             # group's bank directly (it isn't loaded yet, so its
@@ -1768,6 +1832,24 @@ def expressload(
                         else:
                             tgt_segnum = _final_segnum(tgt_group) if jt_enabled else (tgt_group + 2)
                             corrected_type = 25 + tgt_segnum
+                            # A CROSS-group type-(25+segnum) site's STORED 2-byte
+                            # value must be TARGET-group-relative (the loader adds
+                            # the target segment's own runtime base).  The body
+                            # builder's group-adjust subtracted only the CALLING
+                            # group's base, leaving joint-space values — TS3
+                            # INIT's 15 SUPER-t28 patch-table entries each read
+                            # +662 (= MAIN's joint base) over gold until rebased.
+                            # Scoped to the no-JT path: the jt tools' golden
+                            # corpus has no static cross-group bank-word site
+                            # (dynamic targets take the own-bank branch above),
+                            # and they are byte-exact without this.
+                            if not jt_enabled and tgt_group != group_g:
+                                _stored = int.from_bytes(
+                                    merged_arr[rel_off:rel_off + 2], 'little')
+                                _stored = (_stored + group_bases[group_g]
+                                           - group_bases[tgt_group]) & 0xFFFF
+                                merged_arr[rel_off:rel_off + 2] = \
+                                    _stored.to_bytes(2, 'little')
                     else:
                         corrected_type = 27  # fallback
                     final_relocs.setdefault(corrected_type, []).append(rel_off)
@@ -1789,6 +1871,11 @@ def expressload(
                     _esz, _eops, _eseg_i = expr_at[abs_off]
                     joint_target = _link._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
                     tgt_group = _group_of(joint_target)
+                    if tgt_group is None:
+                        # Absolute target (exported equate, e.g. TS2
+                        # `UserDummyTable equ $FE01EF` low-word site): drop
+                        # the record, keep the absolute body bytes.
+                        continue
                     if tgt_group != group_g:
                         tgt_group_base = group_bases[tgt_group]
                         off_in_tgt = joint_target - tgt_group_base
@@ -1815,7 +1902,9 @@ def expressload(
 
         merged = bytes(merged_arr)
 
-        super_records = bytearray(standalone_group)
+        super_records = bytearray()
+        for _soff, _srec in sorted(standalone_group, key=lambda p: p[0]):
+            super_records += _srec
         for stype in sorted(final_relocs):
             super_records += emit_super(stype, sorted(final_relocs[stype]))
         super_records += b'\x00'   # END
