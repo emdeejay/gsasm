@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gsasm"
-version = "0.2.0"
+version = "0.3.0"
 description = "Clean-room MPW IIgs toolchain in Python: 65816 assembler, OMF linker, Rez resource compiler"
 readme = "README.md"
 license = { file = "LICENSE" }
