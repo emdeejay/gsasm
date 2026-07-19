@@ -1,6 +1,7 @@
 """OMF v2.0 object-file parser (for understanding/validating AsmIIgs output)
 and emitter. Object records are decoded so we can reproduce them byte-exactly.
 """
+from __future__ import annotations
 import struct
 import re
 from . import expr as _expr
@@ -115,6 +116,41 @@ def parse_records(d, start, numlen=4, lablen=0):
             out.append((at, name, detail)); continue
         out.append((at, name, 'UNHANDLED')); break
     return out, i
+
+
+def iter_segments(data: bytes, *, records: bool = True):
+    """Yield parsed OMF segments from a concatenated object/load byte string.
+
+    Each yielded dict contains:
+      'name': SEGNAME decoded as mac_roman and stripped, preserving case
+      'raw' : the complete segment byte string
+      'hdr' : parse_header() output
+      'recs': parse_records() output when records=True, otherwise None
+      'off' : byte offset of the segment in *data*
+    """
+    off = 0
+    while off < len(data):
+        h = parse_header(data[off:])
+        bc = h['BYTECNT']
+        if bc == 0:
+            break
+        raw = data[off:off + bc]
+        recs = None
+        if records:
+            recs, _ = parse_records(
+                raw,
+                h['DISPDATA'],
+                h.get('NUMLEN', 4),
+                h.get('LABLEN', 0),
+            )
+        yield {
+            'name': h['SEGNAME'].decode('mac_roman', 'replace').strip(),
+            'raw': raw,
+            'hdr': h,
+            'recs': recs,
+            'off': off,
+        }
+        off += bc
 
 
 def _read_expr(d, i, numlen):

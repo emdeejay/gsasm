@@ -6,6 +6,8 @@ a flat stream of expanded primitive lines. The output is what the object
 emitter will later consume; for now it lets us validate against the .lst
 `Loc` column.
 """
+from __future__ import annotations
+
 import os
 import re
 
@@ -202,9 +204,12 @@ def parse_line(raw):
         # and DCB therefore CUT at the first blank; `not up.startswith('DCB')`
         # excludes DCB from the DC-family continuation (no corpus DCB uses a blank-
         # separated count expression — this is byte-neutral).
+        count_dir = up == 'DS' or up.startswith('DS.')
         expr_cont = (up in _EXPR_CONT_OPS
-                     or (up.startswith('DC') and not up.startswith('DCB')))
-        operand = first_field(rest2, expr_cont=expr_cont, num_cont=mem_instr)
+                     or (up.startswith('DC') and not up.startswith('DCB'))
+                     or count_dir)
+        operand = first_field(rest2, expr_cont=expr_cont, num_cont=mem_instr,
+                              count_dir=count_dir)
     return Line(label, op, operand, raw, comment)
 
 
@@ -215,9 +220,13 @@ _MULTI_TOKEN_OPS = {'IF', 'ELSEIF', 'WHILE', 'AIF', 'PROC', 'ERRIF', 'DO',
 # Data/equate directives whose operand EXPRESSION continues across
 # whitespace around +/- (see first_field expr_cont).  Instructions and
 # branches are excluded: their unmarked comments can start with '-' etc.
-# DS is also excluded for now: P8's `ds.b $C80 - (loader_end-procstart)`
-# pad needs forward-reference DS sizing (multi-pass) that gsasm lacks —
-# re-add DS here when that lands.
+# DS is folded via the `up == 'DS' or up.startswith('DS.')` clause where
+# expr_cont is computed (its COUNT is a full expression: P8 Sel.Alt.n's
+# `ds.b (alt_dispatch + 16) - * -2` pads to a paragraph boundary and MUST fold
+# the whole `- * -2` tail — the operand is an expression, not a bare count).
+# The `_expr_tail` all-or-nothing gate keeps a genuine prose comment from
+# folding, and no corpus DS uses a blank-separated `count +prose` form (DCB,
+# the true count-only directive, stays excluded — see fixture 045).
 _EXPR_CONT_OPS = {'EQU', 'GEQU', '=', 'SET'}
 
 # A tail that is ENTIRELY `[+-] <number>` terms — number = $hex, %binary, or
@@ -234,7 +243,7 @@ _NUM_ADDEND_TAIL = re.compile(
 _MNEM_SYNONYM = {'TSA': 'TSC', 'TAS': 'TCS'}
 
 
-def first_field(s, expr_cont=False, num_cont=False):
+def first_field(s, expr_cont=False, num_cont=False, count_dir=False):
     """Leading operand token: stops at the first whitespace that is at paren/
     bracket depth 0 and outside a quoted string. Whitespace ADJACENT to a comma
     is part of a comma-separated list (e.g. `DC.W Flag, 0`), not a comment
@@ -282,8 +291,16 @@ def first_field(s, expr_cont=False, num_cont=False):
             # A tail with trailing prose is an unmarked comment and never
             # matches: `equ $80 * bit7 set when...` cuts at `$80`,
             # `adc #2  and add offset...` cuts at `#2`, `bne x -yes.` cuts.
+            # A COUNT directive (DS) still folds a genuine expression tail
+            # (`ds.b (alt_dispatch + 16) - * -2` -> paragraph pad), but a tail
+            # that is a PURE numeric addend (`ds.b 2 +2`) is the classic
+            # count-with-comment form and must NOT fold (reserve 2, not 4) —
+            # the `*`/symbol/paren in a real continuation never matches
+            # _NUM_ADDEND_TAIL, so the two are cleanly separable.
             if ((expr_cont or s.lstrip(' \t')[:1] == '#')
-                    and _expr_tail(s[j:])):
+                    and _expr_tail(s[j:])
+                    and not (count_dir
+                             and _NUM_ADDEND_TAIL.match(s[j:].rstrip()))):
                 return s.rstrip()
             # A MEMORY-operand instruction (`num_cont`, set by the caller ONLY for a
             # non-branch 65816 mnemonic) continues its operand across whitespace for
@@ -523,6 +540,10 @@ class Asm:
         # 16-bit native); 8-bit code sets LONGA/LONGI OFF explicitly.
         self.longa = True
         self.longi = True
+        # Target CPU (MACHINE directive).  M65816 keeps the 16-bit default;
+        # the 8-bit CPUs (M6502/M65C02) have no wide accumulator/index, so
+        # MACHINE forces LONGA/LONGI OFF for them (see the directive handler).
+        self.machine = 'M65816'
         self.string_mode = 'ASIS'
         self.msb = 'OFF'
         # CASE ON (Loader.a, line 1) makes symbols case-SENSITIVE. It is the only
@@ -746,6 +767,18 @@ class Asm:
             if j < n and text[j] == '[':
                 sl, j = self._read_bracket(text, j)
                 val = self._slice(val, sl)
+            elif (self.getvar(name) is None and not self.localstack
+                    and name.upper() not in
+                        ('SYSGLOBAL', 'SYSLOCAL', 'SYSDATE', 'SYSTIME')):
+                # An undefined `&NAME` OUTSIDE any macro is left LITERAL: at top
+                # level a bare `&name` can only be a SET/GBL variable, and MPW
+                # leaves an unknown &-reference untouched rather than deleting it
+                # (CClock.n `DC.B 'JIMJAYKERRY&MIKE'` keeps the literal `&MIKE`).
+                # Inside a macro an unresolved name is an omitted parameter, which
+                # `_var_str` correctly renders as empty (the branch below).
+                out.append('&' + name)
+                i = j
+                continue
             else:
                 # consume a single separator dot
                 if j < n and text[j] == '.':
@@ -927,7 +960,7 @@ class Asm:
             if key == 'MSB':
                 return self.msb
             if key == 'MACHINE':
-                return 'M65816'
+                return self.machine
             return ''
         if u == 'DEFAULT':
             a = _unquote(args[0]) if args else ''
@@ -1442,15 +1475,20 @@ class Asm:
         advance the location (fields are offsets, not stored bytes)."""
         at = self.loc
         barr = bytearray(data)
-        # Backward mid-segment ORG (MPW overlay): in a plain relocatable
-        # segment the location counter equals the emitted length, so loc <
-        # length() means this line OVERWRITES earlier bytes instead of
-        # appending (AD3.5.data `ORG trk_ctr` re-lays the multi-track parms).
+        # Backward mid-segment ORG (MPW overlay): the location counter, mapped
+        # into item space, is below the emitted length, so this line OVERWRITES
+        # earlier bytes instead of appending (relocatable AD3.5.data `ORG
+        # trk_ctr` re-lays the multi-track parms; absolute P8 MliSrc `jmp 0 /
+        # org *-2 / ds.b 2` aliases a self-modified jmp operand).  In an ORG'd
+        # (absolute) segment self.loc is origin-based while item offsets are
+        # 0-based, so translate through the segment origin.
         cur = self.segs[-1]
+        base = cur.org if (cur.absolute and cur.org is not None) else 0
+        off_items = self.loc - base
         if (self.emit_enabled and barr and not fixups
-                and not cur.absolute and cur.temporg is None
-                and self.loc < cur.length()
-                and self._overlay_patch(cur, self.loc, bytes(barr))):
+                and cur.temporg is None
+                and 0 <= off_items < cur.length()
+                and self._overlay_patch(cur, off_items, bytes(barr))):
             self.emitted.append((at, ln, barr))
             self.loc += len(barr)
             return
@@ -1470,10 +1508,15 @@ class Asm:
         self.loc += len(barr)
 
     def reserve(self, n):
-        # inside a backward-ORG overlay the space already exists — advance only
+        # inside a backward-ORG overlay the space already exists — advance only.
+        # self.loc is origin-based in an ORG'd (absolute) segment, so translate
+        # through the segment origin before comparing to the 0-based length
+        # (P8 MliSrc `org *-2 / ds.b 2` reserves the self-modified jmp operand).
         cur = self.segs[-1]
-        if (self.emit_enabled and n > 0 and not cur.absolute
-                and cur.temporg is None and self.loc + n <= cur.length()):
+        base = cur.org if (cur.absolute and cur.org is not None) else 0
+        off_items = self.loc - base
+        if (self.emit_enabled and n > 0 and cur.temporg is None
+                and off_items >= 0 and off_items + n <= cur.length()):
             self.loc += n
             return
         if self.emit_enabled and n > 0:
@@ -1609,7 +1652,7 @@ class Asm:
 
     def _cond_leaf(self, t, raw=False):
         t = t.strip()
-        if t[:1] == '(' and t[-1:] == ')':
+        if _outer_parens_wrap(t):
             return self._cond_or(t[1:-1], raw)
         for opref in ('<>', '<=', '>=', '=', '<', '>'):
             idx = _find_op(t, opref)
@@ -1810,7 +1853,12 @@ class Asm:
                 continue
 
             # ---- normal line: substitute, parse, dispatch ----
-            sline = parse_line(self.subst(raw))
+            # &-substitute the CODE only, never the ;-comment: a comment may
+            # contain `&NAME` / `&NAME(...)` text (Ram.n:101
+            # `;CMD,UNIT,BUFPTR,&BLOCK(lo)`) that is not a real variable/builtin
+            # call and must not be expanded (or raise "unknown builtin").
+            _body, _cmt = strip_comment(raw.rstrip('\n'))
+            sline = parse_line(self.subst(_body) + _cmt)
             # record the expanded primitive line (skip macro-call markers; their
             # expansion is recorded as it is processed)
             if sline.op is not None and self.find_macro(sline.op)[0] is None:
@@ -2053,6 +2101,22 @@ class Asm:
             self.longa = ln.operand.strip().upper() == 'ON'; self._lbl(ln); return
         if u == 'LONGI':
             self.longi = ln.operand.strip().upper() == 'ON'; self._lbl(ln); return
+        if u == 'MACHINE':
+            # Select the target CPU.  The 8-bit parts (M6502/M65C02) have no
+            # 16-bit accumulator/index, so immediate operands are always one
+            # byte — force LONGA/LONGI OFF.  M65816 (re)asserts the 16-bit
+            # default; a following explicit LONGA/LONGI OFF still wins (e.g.
+            # Monitor.aii is MACHINE M65816 then LONGA OFF / LONGI OFF).
+            m = ln.operand.strip().upper()
+            if m:
+                self.machine = m
+                if m in ('M6502', 'M65C02'):
+                    self.longa = False
+                    self.longi = False
+                elif m in ('M65816', 'M65832'):
+                    self.longa = True
+                    self.longi = True
+            self._lbl(ln); return
         if u == 'STRING':
             self.string_mode = ln.operand.strip().upper() or 'ASIS'; return
         if u == 'MSB':
@@ -2446,7 +2510,7 @@ class Asm:
         # DATACHK/CODECHK are AsmIIgs assembler-check toggles (On/Off) that emit
         # no bytes and do not shift the DS/DC layout — treat as no-ops.
         if u in ('TITLE', 'PRINT', 'LIST', 'PAGE', 'PAGESIZE', 'EJECT', 'SPACE',
-                 'NOGEN', 'GEN', 'MACHINE', 'WRITELN', 'ERR', 'ERRIF',
+                 'NOGEN', 'GEN', 'WRITELN', 'ERR', 'ERRIF',
                  'NEEDS', 'BLANKS', 'LONGTABLE', 'KEEP', 'NOTE', 'WHILE', 'MEXIT',
                  'DATACHK', 'CODECHK'):
             self._lbl(ln); return
@@ -2823,6 +2887,34 @@ def _split_kw(s, kw):
         cur.append(c); i += 1
     out.append(''.join(cur))
     return out
+
+
+def _outer_parens_wrap(s):
+    """True iff a SINGLE matching '(' ... ')' pair encloses the WHOLE of *s*.
+
+    Guards against treating `(A) op (B)` as fully parenthesised: it opens with
+    '(' and ends with ')', but those are DIFFERENT parens, so stripping them
+    yields the malformed `A) op (B`.  We must confirm the leading '(' matches
+    the trailing ')', i.e. the paren depth returns to 0 only at the last char.
+    """
+    if not (s[:1] == '(' and s[-1:] == ')'):
+        return False
+    depth = 0
+    in_str = False
+    quote = ''
+    for i, c in enumerate(s):
+        if in_str:
+            if c == quote:
+                in_str = False
+        elif c in "'\"":
+            in_str = True; quote = c
+        elif c == '(':
+            depth += 1
+        elif c == ')':
+            depth -= 1
+            if depth == 0:
+                return i == len(s) - 1
+    return False
 
 
 def _find_op(s, opref):

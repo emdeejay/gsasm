@@ -1,0 +1,6 @@
+SEGMENT 1: 'T'
+  LOADNAME='main' LENGTH=6 KIND=$4000 ORG=4096 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=74
+  +00038 CONST     len=4    4c 00 00 99
+  +0003d LEXPR     size=2 [sym83:T $1 op1]
+  +00049 END
+TOTAL 74 bytes, 1 segment(s)

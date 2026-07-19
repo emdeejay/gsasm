@@ -1,0 +1,3 @@
+{
+  "note": "A DS count that is a full expression folds across blanks (BLANKS ON): P8 Sel.Alt.n `ds.b (alt_dispatch + 16) - * -2` pads to a paragraph boundary. gsasm previously cut at the first blank (`(disp+16)` -> reserve 4112) and shifted the whole segment; it now folds the `- * -2` tail (reserve 5). A pure-numeric tail (`ds.b 2 +2`) still stays a count-with-comment (fixture 041)."
+}

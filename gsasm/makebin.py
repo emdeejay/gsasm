@@ -39,14 +39,11 @@ record.
 This reuses link._build_body (the OMF stack-machine evaluator) and the same
 GLOBAL/GEQU symbol-collection pass used by linkrom.py and toolcheck.py.
 
-Known gap (reportable, not fixed here):
+Historical ProBoot regression marker:
   DC.W LabelA-LabelB where both labels are segment heads (PROC names) in
-  different segments resolves to 0 in the assembler because both have
-  segment-relative value 0 at assembly time.  The real linkiigs would assign
-  sequential base addresses before evaluating DC.W expressions, resolving the
-  difference correctly.  gsasm/omf.py cannot be changed without re-validating
-  the ROM; this gap affects ProBoot DC.W getfstname-jump_table (2 bytes, offset
-  0x0a) giving 1666/1668 instead of 1668/1668.
+  different segments must remain a link-time layout constant, not an assembler
+  literal 0.  The old ProBoot failure at offset 0x0a produced 1666/1668 bytes;
+  work/probootcheck.py now gates the closed behavior at 1668/1668.
 """
 
 from __future__ import annotations
@@ -69,23 +66,15 @@ def _parse_segs(data: bytes) -> list[dict]:
       'recs'  : list of (offset, name, detail) from parse_records
       'length': declared body length (h['LENGTH'])
     """
-    segs: list[dict] = []
-    off = 0
-    while off < len(data):
-        h = _omf.parse_header(data[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        recs, _ = _omf.parse_records(
-            data[off:off + bc],
-            h['DISPDATA'],
-            h.get('NUMLEN', 4),
-            h.get('LABLEN', 0),
-        )
-        nm = h['SEGNAME'].decode('mac_roman', 'replace').strip().upper()
-        segs.append({'name': nm, 'hdr': h, 'recs': recs, 'length': h['LENGTH']})
-        off += bc
-    return segs
+    return [
+        {
+            'name': seg['name'].upper(),
+            'hdr': seg['hdr'],
+            'recs': seg['recs'],
+            'length': seg['hdr']['LENGTH'],
+        }
+        for seg in _omf.iter_segments(data)
+    ]
 
 
 def _build_sym(segs: list[dict], org: int) -> dict[str, int]:
@@ -154,6 +143,60 @@ def makebin(load_file_bytes: bytes, org: int) -> bytes:
                                   seg_base)
         result.extend(body)
     return bytes(result)
+
+
+def makebin_segments(obj_bytes: bytes,
+                     orgs: dict[str, int] | None = None) -> dict[str, bytes]:
+    """Link every segment in *obj_bytes* with ONE combined symbol table, then
+    flatten each to raw bytes.  Returns an ordered dict {SEGNAME: flat_bytes}.
+
+    Unlike ``makebin`` (which flattens one segment against only its own
+    symbols), this shares the symbol table across all segments so a
+    cross-segment ENTRY/GLOBAL reference resolves to the *other* segment's
+    linked address.  Each segment is based at its OMF-header ORG, or at an
+    override supplied in *orgs* ({SEGNAME: org}, case-insensitive).
+
+    This mirrors the linkiigs ``-lseg NAME -org $X`` recipe that places several
+    named segments at fixed, non-contiguous origins in a single link before
+    MakeBinIIgs flattens each — as used by the P8 build (GS.OS/MakeFiles/make.p8,
+    where PROCONE/PROCTWO/PROCTHREE/PROCFOUR sit at $2000/$BF00/$DE00/$FF9B and
+    reference one another's entry points).
+    """
+    segs = _parse_segs(obj_bytes)
+    if not segs:
+        return {}
+    orgs = {k.upper(): v for k, v in (orgs or {}).items()}
+
+    sym: dict[str, int] = {}
+    gequ_pending: list[tuple[str, list]] = []
+    for seg in segs:
+        base = orgs.get(seg['name'], seg['hdr'].get('ORG') or 0)
+        seg['base'] = base
+        sym[seg['name']] = base
+        body_off = 0
+        for _, rname, d in seg['recs']:
+            if rname in ('CONST', 'LCONST'):
+                body_off += len(d)
+            elif rname == 'DS':
+                body_off += d
+            elif rname in ('LEXPR', 'BEXPR', 'EXPR', 'RELEXPR'):
+                body_off += d[0]
+            elif rname == 'GLOBAL':
+                sym[d['label'].upper()] = base + body_off
+            elif rname == 'GEQU':
+                gequ_pending.append((d['label'].upper(), d['expr']))
+    # Resolve deferred GEQUs (two passes for forward references).
+    for label, ops in gequ_pending:
+        sym.setdefault(label, _link._eval(ops, sym))
+    for label, ops in gequ_pending:
+        sym[label] = _link._eval(ops, sym)
+
+    out: dict[str, bytes] = {}
+    for seg in segs:
+        body = _link._build_body(seg['recs'],
+                                 dict(sym, __LOC__=seg['base']), seg['base'])
+        out[seg['name']] = bytes(body)
+    return out
 
 
 def overlay(host_bytes: bytes,

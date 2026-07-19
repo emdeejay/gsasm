@@ -1,0 +1,3 @@
+{
+  "note": "A conditional relation with a parenthesised term on both sides, `IF (A) < (B)`, must not be treated as a single fully-parenthesised expression (it opens '(' and closes ')' with DIFFERENT parens). _outer_parens_wrap checks the leading '(' matches the trailing ')'. Before the fix P8 MliSrc's `IF (*-procstart) < ($E000-Proc3_Org)` wrongly took the true branch and ran a negative-count ds.b, corrupting PROCTHREE."
+}

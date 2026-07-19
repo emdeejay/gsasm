@@ -1,0 +1,7 @@
+SEGMENT 1: 'DISP'
+  LOADNAME='main' LENGTH=16 KIND=$4000 ORG=4096 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=90
+  +0003b CONST     len=9    01 02 03 04 05 06 07 08 09
+  +00045 DS        5 zero bytes
+  +0004a LEXPR     size=2 [sym83:DISP $E op1]
+  +00059 END
+TOTAL 90 bytes, 1 segment(s)

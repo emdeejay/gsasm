@@ -1,0 +1,3 @@
+{
+  "note": "A backward mid-segment ORG (`jmp 0 / org *-2 / v ds.b 2`) that re-lays emitted bytes must work in an ORG'd (absolute) segment: self.loc is origin-based there, so the overlay translates through the segment origin before comparing to the 0-based emitted length. Before the fix `not cur.absolute` disabled the overlay and the ds.b appended 2 bytes, shifting the segment (P8 MliSrc PROCONE/PROCTHREE self-modified jmp/jsr vectors)."
+}

@@ -46,29 +46,32 @@ OverlayIIgs model: extends the destination file as overlays are applied.
 Later overlays overwrite earlier ones that extended past their slot.  The final
 file is 17128 bytes because sel.alt at $4000 extends to 17128 exactly.
 
-sel.alt note — gsasm gap:
-  sel.alt.n has  ds.b (alt_dispatch+16)-*-2  to fill to a paragraph boundary.
-  Real AsmIIgs two-pass resolves alt_dispatch=0x1000, *=0x1009 -> DS=5.
-  gsasm resolves forward-ref alt_dispatch=0x1000 but gives DS=4112 (0x1010 = 16 +
-  the DS expression is evaluated with the segment's 0-origin ORG not applied to '*').
-  This causes:
-    - makebin(sel.alt.n) = 4851 B instead of 744 B
-    - All subsequent address offsets in sel.alt wrong (segment layout shifted)
-    - First diff in P8 at offset $400e (0 vs golden code byte 0x47)
-  The builder is NOT patching this: gsasm limitation is reported, not fixed.
+The result is BYTE-EXACT against the golden P8#FF0000 (work/p8check.py).  The
+four MLI PROC segments are linked together (makebin_segments, so cross-segment
+ENTRY references resolve) and every driver is byte-exact.  The gsasm fixes that
+closed this milestone: MACHINE M6502/M65C02 forcing 8-bit immediates (QuitCode,
+Ram); backward mid-segment ORG overlays in ORG'd segments (`jmp/jsr 0 / org *-2`
+self-modified vectors); the `(A) < (B)` conditional-paren fix (the loader-pad
+`if`); DS-count expression folding (sel.alt's paragraph pad); an undefined
+top-level `&NAME` staying literal (CClock `&MIKE`); and not &-substituting
+;-comments (Ram `&BLOCK`).
 
 Target: /System.Disk/System/P8 — type=$FF (SYS), aux=$0000, 17128 bytes
 """
 import os
 import sys
 
-# p8_driver.py lives at work/diskbuilders/p8_driver.py.
-# The project root is three directories up.
-_ROOT = os.path.dirname(                    # worktree/
-         os.path.dirname(                   # work/
-          os.path.dirname(                  # work/diskbuilders/
-           os.path.abspath(__file__))))
-sys.path.insert(0, _ROOT)                   # so `import gsasm` resolves
+_WORK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _WORK not in sys.path:
+    sys.path.insert(0, _WORK)
+
+from _common import (
+    ensure_repo_on_path,
+    gsos_incs,
+    gsos_source_root,
+    work_abs,
+)
+ensure_repo_on_path()
 
 from gsasm import asm      as _asm
 from gsasm import omf      as _omf
@@ -77,19 +80,15 @@ from gsasm import makebin  as _makebin
 # ---------------------------------------------------------------------------
 # Source paths
 # ---------------------------------------------------------------------------
-_SRC      = os.path.join(_ROOT, 'ref/GSOS_6/IIGS.601.SRC')
+_SRC      = gsos_source_root(abs_path=True)
 _GS       = os.path.join(_SRC, 'GS.OS')
 _CMN      = os.path.join(_GS,  'Common')
 _P8       = os.path.join(_GS,  'P8')
 _P8D      = os.path.join(_P8,  'P8.Drivers')
-_INCS_DIR = os.path.join(_ROOT, 'work/includes')
+_INCS_DIR = work_abs('includes')
 
 # Include path: Common first, then every GS.OS subdir, then work/includes.
-_INCS = [_CMN] + [d for d, _, _ in os.walk(_GS)] + [_INCS_DIR]
-
-# Non-fatal pseudo-ops to ignore (matches kernelcheck.py / kernel_setup.py)
-_IGNORE_OPS = ('pagesize', 'datachk', 'endproc', 'eject', 'writeln', 'codechk',
-               'aerror')
+_INCS = gsos_incs(_INCS_DIR, src=_SRC)
 
 # P8 original build date (embedded in golden P8#FF0000 at offset 0x26)
 _P8_SYSDATE = '06-May-93'
@@ -102,22 +101,28 @@ P8_SIZE = 17128
 # Assembly helpers
 # ---------------------------------------------------------------------------
 
-def _assemble(src_path, extra_incs=None):
+class P8AssemblyError(Exception):
+    """A P8 source file reached an assembler error (including AError size
+    assertions).  P8 is a clean, byte-exact build: any reached error means the
+    layout is wrong, so we abort rather than emit a plausible-looking image."""
+
+
+def _assemble(src_path, extra_incs=None, sysdate=None):
     """Assemble *src_path* and return (obj_bytes, Asm).
 
-    Non-fatal pseudo-ops (including 'aerror') are silently ignored;
-    other errors are printed to stderr but do not abort.
+    Raises P8AssemblyError on ANY assembler error — including the AError size
+    assertions the P8 sources embed (`AError: Not enough room for CortFlag`,
+    `Code length overflow`).  Those fire exactly when a segment does not lay out
+    to its expected length, so treating them as fatal is what keeps a wrong
+    image from passing as progress.
     """
     incs = list(extra_incs or []) + _INCS
-    a = _asm.assemble(src_path, incs)
-    fatal = [e for e in a.errors
-             if not any(x in e.lower() for x in _IGNORE_OPS)]
-    if fatal:
+    a = _asm.assemble(src_path, incs, sysdate=sysdate)
+    if a.errors:
         name = os.path.basename(src_path)
-        print(f'  [{name}] {len(fatal)} non-ignored errors; first 2:',
-              file=sys.stderr)
-        for e in fatal[:2]:
-            print(f'    {e}', file=sys.stderr)
+        detail = '\n    '.join(a.errors[:5])
+        raise P8AssemblyError(
+            f'{name}: {len(a.errors)} assembler error(s):\n    {detail}')
     return _omf.emit(a), a
 
 
@@ -136,24 +141,15 @@ def _parse_segs(obj_bytes):
 
     Returns list of dicts: {name, raw, length, org}.
     """
-    segs = []
-    off = 0
-    while off < len(obj_bytes):
-        h = _omf.parse_header(obj_bytes[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        sname = h['SEGNAME'].decode('mac_roman', 'replace').strip()
-        length = h['LENGTH']
-        org = h.get('ORG', 0) or 0
-        segs.append({
-            'name':   sname,
-            'raw':    obj_bytes[off:off + bc],
-            'length': length,
-            'org':    org,
-        })
-        off += bc
-    return segs
+    return [
+        {
+            'name':   seg['name'],
+            'raw':    seg['raw'],
+            'length': seg['hdr']['LENGTH'],
+            'org':    seg['hdr'].get('ORG', 0) or 0,
+        }
+        for seg in _omf.iter_segments(obj_bytes, records=False)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -180,69 +176,56 @@ def _overlay(dest: bytearray, src_bytes: bytes, offset: int) -> None:
 def _build_p8() -> bytes:
     """Build the full 17128-byte P8 from MliSrc.aii + P8.Drivers.
 
-    Returns exactly P8_SIZE (17128) bytes.  Raises ValueError if the result
-    is not exactly P8_SIZE bytes (guarding against assembly failures that
-    produce wrong sizes).
-
-    Known gsasm gaps (not fixable here, characterised in module docstring):
-      1. lda #^Label (bank byte): SUPER type-27 unimplemented -> 0x00 emitted.
-         Affects ~40% of PROCONE, ~83% of PROCTWO, ~83% of PROCTHREE.
-      2. sel.alt.n DS computation: gsasm gives DS=4112 (should be 5).
-         Causes wrong segment layout and wrong address offsets throughout sel.alt.
-         First P8 diff in sel.alt area at $400e.
-      3. aerror pseudo-op: unknown in gsasm (silently ignored via _IGNORE_OPS).
+    Returns exactly P8_SIZE (17128) bytes — byte-exact against the golden
+    P8#FF0000.  Raises P8AssemblyError on any reached assembler error and
+    ValueError if the packaged result is not exactly P8_SIZE bytes.
     """
     # ----------------------------------------------------------------
     # Step 1: Assemble MliSrc.aii -> parse PROC segments
     # ----------------------------------------------------------------
+    # &sysdate must expand to the build date embedded in the golden P8 (offset
+    # 0x26) for byte-exactness; _assemble threads it through and raises on any
+    # assembler error.
     mli_obj, _mli_asm = _assemble(
         os.path.join(_P8, 'MliSrc.aii'),
         extra_incs=[_P8],
-    )
-    # Inject the original build date for byte-exact &sysdate expansion
-    # (date must be passed as sysdate= arg to asm.assemble — but
-    # _assemble() wrapper doesn't expose it.  Re-assemble with sysdate.)
-    mli_asm2 = _asm.assemble(
-        os.path.join(_P8, 'MliSrc.aii'),
-        [_P8] + _INCS,
         sysdate=_P8_SYSDATE,
     )
-    mli_obj = _omf.emit(mli_asm2)
 
-    mli_segs = _parse_segs(mli_obj)
+    # linkiigs -lseg PROCONE -org $2000 ... links all four PROC segments into
+    # one load file BEFORE MakeBinIIgs flattens each, so cross-segment ENTRY
+    # references (e.g. PROCONE's `lda kversion` -> PROCTWO+$FF = $BFFF) resolve
+    # to their linked absolute addresses.  makebin_segments reproduces that with
+    # a combined symbol table; the PROC ORGs already ride in the OMF headers
+    # ($2000/$BF00/$DE00/$FF9B), matching make.p8's -org values.
+    proc_bins = _makebin.makebin_segments(mli_obj)
 
-    # Find PROC segments by name
-    def _find_seg(name):
-        name_u = name.upper()
-        for s in mli_segs:
-            if s['name'].upper() == name_u:
-                return s
-        raise KeyError(f'Segment {name!r} not found in mlisrc.obj; '
-                       f'have: {[s["name"] for s in mli_segs]}')
+    def _proc_bin(name):
+        try:
+            return proc_bins[name.upper()]
+        except KeyError:
+            raise KeyError(f'Segment {name!r} not found in mlisrc.obj; '
+                           f'have: {sorted(proc_bins)}')
 
-    procone   = _find_seg('PROCONE')
-    proctwo   = _find_seg('PROCTWO')
-    procthree = _find_seg('PROCTHREE')
-    procfour  = _find_seg('PROCFOUR')
-
-    # MakeBinIIgs for each PROC: flat binary at its declared ORG.
-    # Our makebin.makebin() places one segment at its org.
-    procone_bin   = _makebin.makebin(procone['raw'],   procone['org'])
-    proctwo_bin   = _makebin.makebin(proctwo['raw'],   proctwo['org'])
-    procthree_bin = _makebin.makebin(procthree['raw'], procthree['org'])
-    procfour_bin  = _makebin.makebin(procfour['raw'],  procfour['org'])
+    procone_bin   = _proc_bin('PROCONE')
+    proctwo_bin   = _proc_bin('PROCTWO')
+    procthree_bin = _proc_bin('PROCTHREE')
+    procfour_bin  = _proc_bin('PROCFOUR')
 
     # ----------------------------------------------------------------
     # Step 2: Assemble driver binaries
     # ----------------------------------------------------------------
 
-    # ram.n — three segments (RAM1, RAM2, RAM3)
+    # ram.n — three segments (RAM1 @ $200, RAM2 @ $2C80, RAM3 @ $FF00) linked
+    # together (make.p8: linkiigs -lseg RAM1 -org $200 -lseg RAM2 -org $2C80
+    # -lseg RAM3 -org $FF00) so their cross-segment references resolve: RAM1
+    # imports NOERR/MAINWRT from RAM3 and exports DONEWRT (an independent
+    # per-segment makebin baked those to $0000).
     ram_obj, _ram_asm = _assemble(os.path.join(_P8D, 'Ram.n'))
-    ram_segs = _parse_segs(ram_obj)
-    ram_by_name = {s['name'].upper(): s for s in ram_segs}
-    ram1_bin = _makebin.makebin(ram_by_name['RAM1']['raw'], ram_by_name['RAM1']['org'])
-    ram2_bin = _makebin.makebin(ram_by_name['RAM2']['raw'], ram_by_name['RAM2']['org'])
-    ram3_bin = _makebin.makebin(ram_by_name['RAM3']['raw'], ram_by_name['RAM3']['org'])
+    ram_bins = _makebin.makebin_segments(ram_obj)
+    ram1_bin = ram_bins['RAM1']
+    ram2_bin = ram_bins['RAM2']
+    ram3_bin = ram_bins['RAM3']
 
     # Single-segment drivers
     cclock_bin = _makebin_single(os.path.join(_P8D, 'CClock.n'),    0xd742)
@@ -254,9 +237,10 @@ def _build_p8() -> bytes:
         extra_incs=[_P8D],
     )
 
-    # sel.alt.n — single segment but with DS=4112 gsasm gap (correct value is 5).
-    # makebin produces 4851 bytes; the first 744 (= P8_SIZE - 0x4000) survive
-    # after clipping to P8_SIZE at the end.
+    # sel.alt.n — single segment, 744 bytes; overlaid at $4000 it extends the
+    # file to exactly P8_SIZE ($4000 + 744 = $42E8).  Its paragraph-pad
+    # `ds.b (alt_dispatch + 16) - * -2` now sizes to 5 (was 4112 before the
+    # DS-expression fold + ORG-relative `*` fixes).
     selalt_bin = _makebin_single(
         os.path.join(_P8D, 'Sel.Alt.n'), 0x1000,
         extra_incs=[_CMN],
@@ -288,13 +272,15 @@ def _build_p8() -> bytes:
     _overlay(dest, quitcode_bin,  0x3d00)   # Better Bye _Quit handler
     _overlay(dest, selalt_bin,    0x4000)   # GQuit loader/launcher
 
-    # Clip to the known P8 size.  This handles sel.alt's DS=4112 artefact
-    # (makebin produces 4851 bytes; only 744 bytes fall within P8_SIZE).
-    result = bytes(dest[:P8_SIZE])
-    if len(result) != P8_SIZE:
+    # After the last overlay the file is exactly P8_SIZE (sel.alt at $4000 runs
+    # to $42E8).  Assert rather than silently clip: an oversize dest means a
+    # driver segment came out the wrong length, which must fail — not be hidden
+    # by trimming the image back to a plausible size.
+    if len(dest) != P8_SIZE:
         raise ValueError(
-            f'P8 build produced {len(result)} bytes, expected {P8_SIZE}')
-    return result
+            f'P8 build produced {len(dest)} bytes, expected {P8_SIZE} '
+            f'(a driver/PROC segment is the wrong length)')
+    return bytes(dest)
 
 
 # ---------------------------------------------------------------------------
@@ -305,12 +291,8 @@ def builders(V):
     """Return {disk_path: callable() -> bytes} for P8.
 
     *V* is the volume prefix (e.g. '/System.Disk').  The callable returns the
-    full 17128-byte P8 data-fork bytes.
-
-    Residual (not fixable without gsasm changes):
-      P8 — 17128 bytes built but content has known gaps:
-        PROCONE/PROCTWO/PROCTHREE: ~40-60% match (SUPER type-27 bank byte).
-        sel.alt: wrong from byte 14 (DS=4112 vs DS=5 gsasm forward-ref gap).
+    full 17128-byte P8 data-fork bytes — byte-exact against the golden
+    P8#FF0000 (verified by work/p8check.py).
     """
     return {
         f'{V}/System/P8': _build_p8,
