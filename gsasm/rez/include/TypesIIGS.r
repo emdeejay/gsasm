@@ -29,9 +29,28 @@
 #define rWindColor          0x8010
 #define rAlertString        0x8015
 #define rCodeResource       0x8017
+#define rCDEVCode           0x8018
+#define rCDEVFlags          0x8019
+#define rListRef            0x801C
 #define rErrorString        0x8020
 #define rVersion            0x8029
 #define rComment            0x802A
+#define rTaggedStrings      0x802E
+
+/* Control/alert convenience constants used by CDEV sources (values via
+ * the token oracle over the 19 CtlPanel .r sources). */
+#define ctlVisible           0x0000
+#define ctlInvis             0x0080
+#define CtlInactive          0xFF00
+#define DefaultButton        1
+#define ResourceToResource   9
+#define FctlProcNotPtr       0x1000
+#define fType2PopUp          0x0040
+#define fSubTextIsPascal     0x0001
+#define fSubstituteText      0x0002
+#define fBlastText           0x0004
+#define fCtlTie              0x0008
+#define fAlert               0x2000
 
 /* --- Plain string resources ------------------------------------------- */
 /* Raw text, no length prefix, no implicit terminator (rErrorString bodies
@@ -267,4 +286,36 @@ type rVersion {
     integer verUS = 0;                          /* country code           */
     pstring;                                    /* product name           */
     pstring;                                    /* more info              */
+};
+
+/* --- Control Panel devices (CDEVs) -------------------------------------- */
+/* rCDEVFlags (Toolbox Ref Vol 3 / Control Panel chapter): the CDEV's
+ * capability flag word, four capability bytes, its data rectangle, and
+ * three FIXED-CAPACITY Pascal strings (name 15, author 32, version 8 —
+ * storage is capacity+1, zero-padded; settled against the General CDEV
+ * golden fork).  The rCDEVCode resource is a `read` of the CDEV's linked
+ * code, so it needs no template.  Flag-bit values via the token oracle. */
+#define wantMachine       0x0001
+#define wantBoot          0x0002
+#define wantInit          0x0008
+#define wantClose         0x0010
+#define wantEvents        0x0020
+#define wantCreate        0x0040
+#define wantAbout         0x0080
+#define wantRect          0x0100
+#define wantHit           0x0200
+#define wantRun           0x0400
+#define wantEdit          0x0800
+#define updateSSfromBRAM  0x4000
+
+type rCDEVFlags {
+    integer;               /* capability flags                            */
+    byte;                  /* enabled                                     */
+    byte;                  /* version                                     */
+    byte;                  /* machine                                     */
+    byte;                  /* system                                      */
+    rect;                  /* data rectangle                              */
+    pstring[15];           /* name    (16-byte field)                     */
+    pstring[32];           /* author  (33-byte field — golden width)      */
+    pstring[8];            /* version ( 9-byte field — golden width)      */
 };

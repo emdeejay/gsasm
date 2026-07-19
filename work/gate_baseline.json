@@ -1,6 +1,10 @@
 {
+  "cdev_rsrc_bytes_exact": [
+    26532,
+    0
+  ],
   "disk_logical_exact": [
-    30,
+    35,
     0
   ],
   "driver_bytes": [

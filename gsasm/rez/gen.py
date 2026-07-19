@@ -769,14 +769,17 @@ def _write_string_like(f, data, writer):
         writer.write_bytes(bytes([len(data)]))
         writer.write_bytes(data)
         if f.size is not None:
-            # Fixed-size pstring[N] -- NOT exercised by the corpus (every
-            # pstring field here is unbounded); best-effort: N is the
-            # field's total byte size (length byte + content), zero-padded.
-            total = _eval_expr(f.size, _Ctx())
+            # Fixed-size pstring[N]: N is the string CAPACITY, storage is
+            # N+1 bytes (length byte + N chars), zero-padded.  Settled by
+            # golden evidence (2026-07-19): the CDEV rCDEVFlags name/author/
+            # version fields occupy 16/32/10 bytes for pstring[15]/[31]/[9]
+            # (General golden fork, work/rez_types_diag.py CDEV targets) —
+            # the earlier best-effort "N = total bytes" reading was wrong.
+            total = _eval_expr(f.size, _Ctx()) + 1
             used = 1 + len(data)
             if used > total:
-                raise GenError(f"{f.file}:{f.line}: pstring[{total}] too "
-                                f"small for a {used}-byte pstring")
+                raise GenError(f"{f.file}:{f.line}: pstring[{total - 1}] too "
+                                f"small for a {used - 1}-byte string")
             writer.write_bits(0, (total - used) * 8)
     elif bt == 'cstring':
         # NOT exercised by the corpus; best-effort per design-doc field

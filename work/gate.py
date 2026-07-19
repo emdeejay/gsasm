@@ -73,6 +73,11 @@ CHECKS = [
          r'PASS EasyMount resource fork: built=(\d+)B', 'count'),
         ('rez_easymount_data_bytes_exact',
          r'PASS EasyMount data fork: built=(\d+)B', 'count')]),
+    # Rez tier-1 CDEV forks (clean-room include; rCDEVCode extraction-fed —
+    # see work/cdevcheck.py's docstring for exactly what this proves).
+    ('cdevcheck', ['cdevcheck.py'], [
+        ('cdev_rsrc_bytes_exact',
+         r'CDEV_RSRC_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
 ]
 
 FULL_CHECKS = [

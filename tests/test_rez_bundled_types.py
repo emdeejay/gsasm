@@ -50,6 +50,12 @@ resource rMenu (4) {
 resource rControlList (5) {
     { 0x10, 0x20 }
 };
+
+resource rCDEVFlags (6) {
+    wantInit+wantHit, 1, 1, 1, 4,
+    {0, 0, 10, 20},
+    "Nm", "Au", "V1"
+};
 '''
 
 
@@ -86,6 +92,13 @@ def test_bundled_types_compile():
     # rControlList: refs + zero terminator
     assert data[5] == (b'\x10\x00\x00\x00' b'\x20\x00\x00\x00'
                        b'\x00\x00\x00\x00')
+    # rCDEVFlags: flags word, 4 bytes, rect, then FIXED-CAPACITY pstrings —
+    # pstring[N] stores N+1 bytes (golden General CDEV: 16/33/9 fields)
+    assert data[6] == (b'\x08\x02' b'\x01\x01\x01\x04'
+                       b'\x00\x00\x00\x00\x0a\x00\x14\x00'
+                       + b'\x02Nm' + b'\x00' * 13
+                       + b'\x02Au' + b'\x00' * 30
+                       + b'\x02V1' + b'\x00' * 6)
 
 
 if __name__ == '__main__':

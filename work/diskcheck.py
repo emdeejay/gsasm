@@ -213,9 +213,21 @@ def _build_easymount_rsrc():
     return easymountcheck.build_easymount_rsrc_fork()
 
 
+def _build_cdev(name):
+    def _b():
+        import cdevcheck                    # Rez tier-1: CDEV forks (clean-room
+        return cdevcheck.build_cdev_fork(name)   # include; code extraction-fed)
+    return _b
+
+
 REZ_BUILDERS = {
     f'{V}/System/System.Setup/Sys.Resources': _build_sysresources_rsrc,
     f'{V}/System/System.Setup/EasyMount': _build_easymount_rsrc,
+    f'{V}/System/CDevs/General': _build_cdev('General'),
+    f'{V}/System/CDevs/Printer': _build_cdev('Printer'),
+    f'{V}/System/CDevs/RAM': _build_cdev('RAM'),
+    f'{V}/System/CDevs/Slots': _build_cdev('Slots'),
+    f'{V}/System/CDevs/Time': _build_cdev('Time'),
 }
 
 
