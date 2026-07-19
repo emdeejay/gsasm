@@ -11,6 +11,11 @@ E-packets are *behavior-adding* (new bytes must match gold), R-packets are
 
 ## Measured state of the six files
 
+*(Historical snapshot from planning time, 2026-07-19 morning — ALL SIX are now
+byte-exact; see the E1/E2/E3 CLOSED notes in their phase sections.  The
+Tool034 row in particular was measured before LOAD/DUMP support existed and
+overstates the real gap.)*
+
 | File | Built | Gold | Structural delta |
 |---|---|---|---|
 | Tool015 | 18192 | 18362 | missing `~JumpTable:k2:26` seg; `~ExpressLoad` dir 161 vs 240 (Δ79) |
@@ -191,8 +196,29 @@ Acceptance: Tool034 byte-exact (logical-exact 29 → 30 = **whole disk**).
 Risk: highest of the three — unknown bug surface. Budget ~1 week, may close
 faster (Tool018's "unclosable" residual fell in one session).
 
+**E3 CLOSED (2026-07-19, commits d951821 + bc37f8d) — in ONE session, and the
+"4,444 short / 10,032 long" table numbers above were STALE** (measured before
+LOAD support existed; the real deltas were +108 code bytes and a 6-byte reloc
+dict shortfall).  Five fixes, each with a corpus-free guard: (1) LOAD/DUMP
+dialect — `LOAD 'X'` replays the registered dump-generating source up to its
+matching `DUMP` (the makefile rule `Include.Symbols ← AsmIIGS -c
+GenerateDump`), leaf-name matched; fstcheck's AppleShare rewrite hack replaced
+by the native path (fixture 054).  (2) `**`/`++` symbolic logical AND/OR in
+conditionals — TextEdit/StdFile/ControlMgr `addl` one-arg form (fixture 055).
+(3) `ORG <field>` inside a RECORD binds the record's OWN field before a
+WITH-active same-named field — TempStyle RECORD WorkArea (fixture 056).
+(4) `_defer_shifts` defers LEFT shifts like right — fastdraw
+`lda #(returnHere-1)<<8` (tests/test_linkiigs_defer_left_shift.py, which also
+asserts the standalone cRELOC pair survives into the ExpressLoad dictionary).
+(5) `omf._core`: after a size prefix (| ! < >) parens are arithmetic grouping,
+not indirection — `pea |(returnHere-1)>>8` kept its >>8 and its (2,-8) cRELOC
+(fixture 057).  Code image 35,651/35,651; on-disk file 38,242/38,242;
+tool_bytes 150,459 → 186,110; **disk_logical_exact 30/30 = WHOLE DISK.**
+The WIP carve-out mechanism (toolcheck.WIP) was used during the grind and is
+now empty, per rule 3 above.
+
 **Do NOT start E2/E3 before E1 lands** — E1's directory-builder changes are
-the foundation both build on.
+the foundation both build on.  (Historical: the phases landed in order.)
 
 ---
 
@@ -221,5 +247,10 @@ Before the deliberate GitHub mirror update:
 - README/RESULTS refreshed to the P8 + whole-disk numbers,
 - `docs/REFACTORING.md` status note updated to reflect landed packets,
 - CI (Forgejo Actions) green on 3.9/3.12/3.14.
+
+Status 2026-07-19: E complete (disk 30/30 locked), R6/R7/R8 landed
+gate-stdout-identical, README/RESULTS/GSOS_MILESTONES refreshed after the
+2026-07-19 adversarial review (docs/ADVERSARIAL_REVIEW_LAST_8_COMMITS —
+Finding 1).  Remaining before the mirror update: CI check.
 
 Then: Rez includes uplift (parked; separate plan when we get there).

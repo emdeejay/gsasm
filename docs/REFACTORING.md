@@ -5,12 +5,17 @@ can execute. Read the **Prime Directive** and **Verification Recipe** before
 touching anything; every packet below links back to them.
 
 Status note (2026-07-19): R1 segment iteration, R2 harness common helpers,
-R3 forensic-script quarantine, R4 annotation hygiene, R5 drift fixes, and R9
-expressload decomposition landed with the Tier-1/E0 work.  R8 (link.py eval
-utils -> omf.py, commit ea7ea5f), R6 (dispatch split, cebad22), and R7
-(define_label predicates, 6731bb4) landed post-E3, each verified gate-stdout
-byte-identical.  Remaining backlog: R10 (opt-in assembly cache) only.  Keep
-this guide as the spec the landed commits were reviewed against.
+R3 forensic-script quarantine, R4 annotation hygiene, and R5 drift fixes
+landed with the Tier-1/E0 work.  R8 (link.py eval utils -> omf.py, commit
+ea7ea5f), R6 (dispatch split, cebad22), and R7 (define_label predicates,
+6731bb4) landed post-E3, each verified gate-stdout byte-identical.  R9 is
+PARTIAL: E0 extracted the per-table builders (_het_entries,
+_seg_conversion_table, _seg_header_block, _pathname_block), but the E1/E2
+multi-segment packaging feature then grew `expressload()` itself to ~940
+lines — exactly the outcome the packet warned about — so a fresh
+decomposition pass over `expressload()` remains OPEN backlog alongside R10
+(opt-in assembly cache).  Keep this guide as the spec the landed commits
+were reviewed against.
 
 ---
 
@@ -280,16 +285,20 @@ PR: mechanically update the 8+8+3+2 call sites, leaving `link.link()` alone
 (it's the fixtures' `"link": true` oracle — renaming it would dirty blessed
 fixture metadata for no gain). ~1 day + review.
 
-### R9. Decompose `expressload._build_het_lconst` (271 lines) and `expressload()` (221 lines)
+### R9. Decompose `expressload()` (PARTIAL — re-scoped 2026-07-19)
 
-These build the ExpressLoad directory segment — the next active frontier
-(Tool015/016/018/034, TS2/TS3 whole-file packaging), so investing here has
-compounding returns. Extract the per-table builders (`_het_entries`,
-`_seg_conversion`, `_seg_headers`, pathname block) as pure
-`bytes -> bytes` functions with the golden layout offsets in their docstrings
-(cross-reference `docs/design/expressload.md`). Do this BEFORE starting the
-multi-segment packaging feature, not after — the feature will double this
-file's complexity otherwise. ~2 days.
+Original packet: extract the directory-segment per-table builders and split
+`expressload()` before the multi-segment packaging feature.  The first half
+landed with E0 (`_het_entries`, `_seg_conversion_table`, `_seg_header_block`,
+`_pathname_block` are extracted, golden layout offsets in docstrings,
+cross-referenced to `docs/design/expressload.md`).  The warned-about second
+half then happened anyway: the E1/E2 multi-segment packaging feature grew
+`expressload()` to ~940 lines (single-segment path + multiseg group path +
+standalone/case-B/SUPER emission inline).  REMAINING WORK: split
+`expressload()` into the single-segment and multiseg-group pipelines and
+extract the reloc-dictionary emission stages, same zero-drift discipline —
+the E2e "six golden rules" comments must move verbatim with their code.
+~2 days, senior review.
 
 ### R10. Opt-in assembly cache for the gate's inner loop
 
@@ -357,9 +366,9 @@ behavior, not style.
 | 6 | R8 link.py utils → omf | med | 1d |
 | 7 | R6 dispatch split | med | 2d |
 | 8 | R7 define_label predicates | med | 1-2d |
-| 9 | R9 expressload decomposition | med | 2d |
+| 9 | R9 expressload decomposition (remaining half) | med | 2d |
 | 10 | R10 assembly cache | med (opt-in) | 1d |
 
-Each packet independently shippable; stop anywhere. R9 should land before the
-ExpressLoad multi-segment packaging feature (the remaining disk frontier);
-everything else is order-flexible after the Tier-1 block.
+Each packet independently shippable; stop anywhere.  (R9's "land before the
+multi-segment packaging feature" advice is moot — the feature landed first
+with E1/E2 and the file grew as predicted; see the re-scoped R9 above.)

@@ -17,11 +17,19 @@ Rebuilt from the original source and verified byte-identical to the shipping
 binaries:
 
 - **ROM 03** — all 262,144 bytes
-- **All 7 buildable FSTs** (ProDOS, HFS, Char, High Sierra, DOS 3.3, Pascal,
-  MS-DOS) and **11 of 12 device drivers**
-- **`prodos`, `Start.GS.OS`, `Error.Msg`, the GS/OS Loader**, `Tool014`
-  (Window Manager), and 19 of the 30 System 6.0.1 files the disk harness
-  rebuilds
+- **The GS/OS kernel** — `prodos`, `GS.OS` (38,805/38,805), `Start.GS.OS`,
+  `Error.Msg`, the Loader, and **P8** (ProDOS 8 compatibility kernel,
+  17,128/17,128 including its overlay packaging)
+- **All 8 buildable FSTs** (ProDOS, HFS, Char, High Sierra, DOS 3.3, Pascal,
+  MS-DOS, AppleShare — 111,584/111,584 bytes) and **all 12 device drivers**
+  (94,948/94,948)
+- **All 12 mapped toolbox toolsets** (186,110/186,110 bytes) — including the
+  multi-segment ExpressLoad tools (Window/Menu/Control Managers, QDAux,
+  TextEdit …) with their linker-generated `~JumpTable` segments and full
+  relocation dictionaries
+- **The whole System 6.0.1 System Disk** — every one of the 30 files the
+  disk harness rebuilds from source is logically byte-exact, and the packed
+  800K disk image matches physically, all 819,264 bytes
 - **Resource forks** (`gsrez`): `Sys.Resources` (24,337 bytes, 143 resources
   including embedded code resources) and `EasyMount` — the latter byte-exact
   across **both** forks, code and resources, from source to shipping file
@@ -30,13 +38,11 @@ binaries:
 - **61/61 ROM objects link-identical** — for every module, linking `gsasm`'s
   object or Apple's original produces the same load image
 
-`GS.OS` reaches 38,757 of 38,805 bytes (99.88%). A prior "94-byte external
-floor" was a misdiagnosis: the bank-$E1 vectors it blamed (`E1_MSG_ADDRESS`,
-`E1_VOLNAME`, …) are in fact `EXPORT`ed `DS` globals in `GQuit.src`, resolved
-by the whole-OS link — seeding them closed 46 of the 94 bytes. The remaining
-48 are three unrelated, settled classes (bank-0 interior placement, init
-header lengths, an `scm_main` cross-ref). The full accounting, with evidence
-for each limit, is in [docs/RESULTS.md](docs/RESULTS.md).
+Every "proven limit" recorded along the way — a GS.OS "94-byte external
+floor", "absent" AppleShare sources, "unclosable" ExpressLoad relocation
+encodings — was eventually falsified as a nameable assembler or harness bug
+and closed. The full accounting, with the evidence trail for each, is in
+[docs/RESULTS.md](docs/RESULTS.md).
 
 Byte-exact reproduction also makes the shipping binaries *subtractable*. For a
 worked example — recovering a lost community bug fix from a modified `HFS.FST`
