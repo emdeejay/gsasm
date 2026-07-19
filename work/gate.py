@@ -37,6 +37,8 @@ CHECKS = [
         ('link_identical', r'(\d+)\s+LINK_IDENTICAL', 'count')]),
     ('kernelcheck', ['kernelcheck.py'], [
         ('kernel_bytes', r'TOTAL\s+(\d+)/(\d+)', 'frac')]),
+    ('p8check', ['p8check.py'], [
+        ('p8_bytes', r'P8 raw code-image match:\s*(\d+)/(\d+)', 'frac')]),
     ('fstcheck', ['fstcheck.py'], [
         ('fst_bytes', r'CORPUS raw code-image match:\s*(\d+)/(\d+)', 'frac')]),
     ('drivercheck', ['drivercheck.py'], [

@@ -1,0 +1,3 @@
+{
+  "note": "Two &-substitution rules: (1) an undefined `&NAME` outside any macro stays LITERAL (CClock `DC.B 'JIMJAYKERRY&MIKE'` keeps `&MIKE`; before the fix the undefined MIKE expanded to '' and dropped bytes); (2) a `;`-comment is not &-substituted (Ram.n `;...&BLOCK(lo)` must not raise 'unknown builtin &BLOCK' nor expand). A DEFINED &-var still substitutes, proving the fix is scoped."
+}

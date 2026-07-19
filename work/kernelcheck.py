@@ -141,9 +141,11 @@ Error.Msg.  The former "94-byte external floor" fell in stages (94 -> 44 -> 0):
      they emit no bytes and are not in the residual.)
   2. Loader.bin is excluded from this harness's GS.OS comparison; the Loader is
      built and verified byte-exact separately (work/loader_placed.py, 16590/16590).
-  3. P8: only PROCONE is compared (golden P8 is 4 PROCs + driver overlays laid
-     in by OverlayIIgs); &sysdate is injected as '06-May-93' (from golden
-     P8#FF0000 offset 0x26).  P8 is documented out of scope.
+  3. P8: this harness keeps only the historical PROCONE informational compare.
+     The accepted full P8 build is gated separately by work/p8check.py
+     (17128/17128), including all four MLI PROC segments and OverlayIIgs driver
+     overlays. &sysdate is injected as '06-May-93' from golden P8#FF0000 offset
+     0x26.
 
 Usage:
     python3 work/kernelcheck.py              # full report
@@ -161,7 +163,18 @@ Golden extraction (run once, idempotent):
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _common import (
+    byte_match,
+    ensure_repo_on_path,
+    find_prefixed_file,
+    gsos_incs,
+    gsos_source_root,
+    gsos_tree_incs,
+    mismatch_offsets,
+    report_nonignored_asm_errors,
+    work_abs,
+)
+ensure_repo_on_path()
 
 from gsasm import asm as _asm
 from gsasm import omf as _omf
@@ -172,10 +185,10 @@ from gsasm import makebin as _makebin
 # Paths
 # ---------------------------------------------------------------------------
 
-SRC        = 'ref/GSOS_6/IIGS.601.SRC'
-GS         = SRC + '/GS.OS'
-OS_DIR     = GS  + '/OS'
-CMN        = GS  + '/Common'
+SRC        = gsos_source_root()
+GS         = os.path.join(SRC, 'GS.OS')
+OS_DIR     = os.path.join(GS, 'OS')
+CMN        = os.path.join(GS, 'Common')
 DISK2      = ('ref/GSOS_6/System601_disks/System 6.0.1/'
               'Disk 2 of 7 System Disk.2mg')
 GOLDEN_DIR = 'ref/GSOS_6/os_bin'
@@ -185,11 +198,8 @@ GOLDEN_DIR = 'ref/GSOS_6/os_bin'
 # These are needed by mlisrc.aii (M16.UTIL, e16.memory) and Init2/Init3
 # (E16.Control, E16.Window).  gsasm already does case-insensitive lookup so
 # 'M16.UTIL' in source finds 'M16.Util' on disk.
-INCLUDES_DIR = os.path.join(os.path.dirname(__file__), 'includes')
-INCS = [CMN] + [d for d, _, _ in os.walk(GS)] + [INCLUDES_DIR]
-
-# Non-fatal pseudo-ops that gsasm doesn't implement (harmless to ignore)
-_IGNORE_OPS = ('pagesize', 'datachk', 'endproc', 'eject', 'writeln', 'codechk')
+INCLUDES_DIR = work_abs('includes')
+INCS = gsos_incs(INCLUDES_DIR, src=SRC)
 
 # Known Loader.bin prefix size in GS.OS (derived from golden: first SCM segment
 # SEG_0_HEADER starts at byte 16590 = 0x40CE in the golden GS.OS file).
@@ -261,13 +271,7 @@ def ensure_golden() -> bool:
 
 def _find_golden(prefix: str) -> str | None:
     """Return the first file in GOLDEN_DIR whose name starts with *prefix*."""
-    try:
-        for fn in os.listdir(GOLDEN_DIR):
-            if fn.startswith(prefix):
-                return os.path.join(GOLDEN_DIR, fn)
-    except FileNotFoundError:
-        pass
-    return None
+    return find_prefixed_file(GOLDEN_DIR, prefix)
 
 
 # ---------------------------------------------------------------------------
@@ -285,14 +289,7 @@ def _assemble(src_path: str, extra_incs: list[str] | None = None,
     """
     incs = (extra_incs or []) + INCS
     a = _asm.assemble(src_path, incs, sysdate=sysdate)
-    fatal = [e for e in a.errors
-             if not any(x in e.lower() for x in _IGNORE_OPS)]
-    if fatal:
-        name = os.path.basename(src_path)
-        print(f'  [{name}] {len(fatal)} non-ignored errors; first 2:',
-              file=sys.stderr)
-        for e in fatal[:2]:
-            print(f'    {e}', file=sys.stderr)
+    report_nonignored_asm_errors(src_path, a.errors)
     return _omf.emit(a), a
 
 
@@ -305,26 +302,17 @@ def _parse_obj_segs(obj_bytes: bytes) -> list[dict]:
 
     Returns list of dicts with keys: loadname, segname, length, org, recs, raw.
     """
-    segs: list[dict] = []
-    off = 0
-    while off < len(obj_bytes):
-        h = _omf.parse_header(obj_bytes[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        seg_bytes = obj_bytes[off:off + bc]
-        recs, _ = _omf.parse_records(
-            seg_bytes, h['DISPDATA'], h.get('NUMLEN', 4), h.get('LABLEN', 0))
-        segs.append({
-            'loadname': h['LOADNAME'].decode('mac_roman', 'replace').strip(),
-            'segname':  h['SEGNAME'].decode('mac_roman', 'replace').strip(),
-            'length':   h['LENGTH'],
-            'org':      h.get('ORG', 0) or 0,
-            'recs':     recs,
-            'raw':      seg_bytes,
-        })
-        off += bc
-    return segs
+    return [
+        {
+            'loadname': seg['hdr']['LOADNAME'].decode('mac_roman', 'replace').strip(),
+            'segname':  seg['name'],
+            'length':   seg['hdr']['LENGTH'],
+            'org':      seg['hdr'].get('ORG', 0) or 0,
+            'recs':     seg['recs'],
+            'raw':      seg['raw'],
+        }
+        for seg in _omf.iter_segments(obj_bytes)
+    ]
 
 
 def _select_group(groups: dict[str, list[dict]], name: str) -> list[dict]:
@@ -346,17 +334,8 @@ def _select_group(groups: dict[str, list[dict]], name: str) -> list[dict]:
 def _code_image(linked_bytes: bytes) -> bytes:
     """Extract the CONST/LCONST code image from a linked OMF result."""
     img = bytearray()
-    off = 0
-    while off < len(linked_bytes):
-        h = _omf.parse_header(linked_bytes[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        recs, _ = _omf.parse_records(
-            linked_bytes[off:off + bc], h['DISPDATA'],
-            h.get('NUMLEN', 4), h.get('LABLEN', 0))
-        img += b''.join(r[2] for r in recs if r[1] in ('CONST', 'LCONST'))
-        off += bc
+    for seg in _omf.iter_segments(linked_bytes):
+        img += b''.join(r[2] for r in seg['recs'] if r[1] in ('CONST', 'LCONST'))
     return bytes(img)
 
 
@@ -873,7 +852,7 @@ def _build_prodos() -> bytes:
     """Assemble ProBoot.src and flatten at org=$2000."""
     boot_src = f'{GS}/Boot/ProBoot.src'
     # ProBoot uses a slightly different include path (all GS.OS subdirs)
-    incs_boot = [d for d, _, _ in os.walk(GS)]
+    incs_boot = gsos_tree_incs(SRC)
     a = _asm.assemble(boot_src, incs_boot)
     obj = _omf.emit(a)
     return _makebin.makebin(obj, 0x2000)
@@ -886,8 +865,7 @@ def _build_prodos() -> bytes:
 def _compare(mine: bytes, golden: bytes, name: str,
              show_diff: bool = False) -> tuple[int, int]:
     """Compare and print a summary line.  Returns (matching_bytes, compared_len)."""
-    n   = min(len(mine), len(golden))
-    m   = sum(1 for i in range(n) if mine[i] == golden[i])
+    m, n = byte_match(mine, golden)
     pct = (100 * m // n) if n else 0
     exact = m == n and len(mine) == len(golden)
     flag  = 'EXACT' if exact else f'{pct}%'
@@ -897,7 +875,7 @@ def _compare(mine: bytes, golden: bytes, name: str,
     print(f'  {name:<22} {m:>6}/{n:<6}  {flag}{size_note}')
 
     if show_diff and not exact:
-        diffs = [i for i in range(n) if mine[i] != golden[i]]
+        diffs = mismatch_offsets(mine, golden)
         if diffs:
             pos = diffs[0]
             print(f'    first diff @ {pos:#06x}: '
@@ -1039,10 +1017,14 @@ def main() -> int:
             # Compare only the first len(p8_mine) bytes.
             p8_g_slice = p8_g[:len(p8_mine)]
             m, n = _compare(p8_mine, p8_g_slice, 'P8 (PROCONE only)', show_diff)
-            results.append(('P8 (PROCONE)', m, n,
-                            'linkiigs(mlisrc PROCONE, org=$2000)'))
-            print('  (Driver overlays excluded; cclock/tclock/ram/sel/xrwtot '
-                  'not compared.)')
+            # INFORMATIONAL ONLY — deliberately NOT added to `results`/the
+            # kernel_bytes TOTAL.  This compares raw PROCONE (org $2000) against
+            # the golden P8 file, whose bytes past $0C80 are the OverlayIIgs
+            # driver overlays, not PROCONE — so the tail mismatch is meaningless
+            # noise that would make kernel_bytes wobble whenever PROCONE's length
+            # changes.  The full, byte-exact P8 is gated by work/p8check.py.
+            print(f'  (informational: raw PROCONE vs golden P8 = {m}/{n}; '
+                  'the real P8 gate is work/p8check.py, 17128/17128.)')
         except Exception as exc:
             print(f'  FAIL: {exc}', file=sys.stderr)
     else:
@@ -1080,9 +1062,9 @@ def main() -> int:
     print('     addend 1B) — each root-caused vs the MPW Asm Ref, fixtures 035-041.')
     print('  2. Loader.bin is excluded from the GS.OS comparison here; the Loader')
     print('     is built byte-exact separately (work/loader_placed.py, 16590/16590).')
-    print('  3. P8: only PROCONE compared (golden P8 = 4 PROCs + OverlayIIgs driver')
-    print('     overlays); &sysdate injected as 06-May-93 from the golden binary.')
-    print('     P8 is documented out of scope.')
+    print('  3. P8 is BYTE-EXACT (17128/17128) and gated by work/p8check.py; the')
+    print('     raw-PROCONE line above is informational only and excluded from this')
+    print('     TOTAL (it compares PROCONE against the OverlayIIgs-overlaid golden).')
 
     return 0
 

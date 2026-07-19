@@ -1,0 +1,3 @@
+{
+  "note": "MACHINE selects target CPU width: M6502/M65C02 force LONGA/LONGI OFF (8-bit immediates, 1 byte); M65816 asserts the 16-bit default but a following explicit LONGA/LONGI OFF still wins (Monitor.aii is MACHINE M65816 then LONGA OFF). Before the fix MACHINE was a no-op and 8-bit immediates emitted 16-bit, shifting whole segments (P8 QuitCode.aii/Ram.n)."
+}
