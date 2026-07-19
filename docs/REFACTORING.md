@@ -4,11 +4,13 @@ An analysis of the codebase's structural debt, written as work packets a junior
 can execute. Read the **Prime Directive** and **Verification Recipe** before
 touching anything; every packet below links back to them.
 
-Status note from the current working tree: R1 segment iteration, R2 harness
-common helpers/compare consolidation, R3 forensic-script quarantine, R4
-annotation hygiene, and the high-signal R5 drift fixes have been started or
-landed in this refactor branch. Keep this guide as the backlog, not as a claim
-that every packet below is still untouched.
+Status note (2026-07-19): R1 segment iteration, R2 harness common helpers,
+R3 forensic-script quarantine, R4 annotation hygiene, R5 drift fixes, and R9
+expressload decomposition landed with the Tier-1/E0 work.  R8 (link.py eval
+utils -> omf.py, commit ea7ea5f), R6 (dispatch split, cebad22), and R7
+(define_label predicates, 6731bb4) landed post-E3, each verified gate-stdout
+byte-identical.  Remaining backlog: R10 (opt-in assembly cache) only.  Keep
+this guide as the spec the landed commits were reviewed against.
 
 ---
 
