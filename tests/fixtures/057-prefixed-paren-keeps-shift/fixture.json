@@ -1,0 +1,3 @@
+{
+  "note": "A size-prefixed (| ! < >) non-immediate operand cannot be indirection, so its parens are arithmetic grouping and any trailing >>N/<<N survives into the OMF expression. Guards omf.py _core's `prefixed` bypass (E3 Tool034 fastdraw `pea |(returnHere-1)>>8`)."
+}
