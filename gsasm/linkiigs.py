@@ -35,14 +35,13 @@ Public interface:
 Returns raw OMF bytes: a single segment (merge=True) or concatenated segments
 (merge=False).
 
-Reuses link._eval, link._build_body, link._body_length, link._make_segment
+Reuses omf._eval, omf._build_body, omf._body_length, omf._make_segment
 without modification so the ROM-validated path is unchanged.
 """
 
 from __future__ import annotations
 from typing import Any
 from . import omf as _omf
-from . import link as _link
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -197,7 +196,7 @@ def _place(
         placed.append((seg['segname'], seg['recs'], seg_base, h, asm_obj))
         placed_obj_idx.append(oi)
         obj_seg_bases[oi][si] = seg_base
-        base = seg_base + _link._body_length(seg['recs'])
+        base = seg_base + _omf._body_length(seg['recs'])
 
     return placed, obj_seg_bases, placed_obj_idx
 
@@ -431,7 +430,7 @@ def _build_symtab(
                     obj_globals[oi][label] = val
             elif nm == 'GEQU':
                 label = d['label']
-                sym.setdefault(label, _link._eval(d['expr'], sym))
+                sym.setdefault(label, _omf._eval(d['expr'], sym))
 
     # Caller-supplied externals (e.g. from linkrom's rommap) — last-wins
     for k, v in extern.items():
@@ -530,7 +529,7 @@ def link(objects: list[tuple[bytes, Any | None]],
         # This ensures e.g. WDefProc's JSR PUSHRECT resolves to WDefProc's
         # own PUSHRECT, not windmgr.asm's same-named export.
         local_sym = sym if not obj_globals[oi] else {**sym, **obj_globals[oi]}
-        bodies.append(_link._build_body(recs2, local_sym, seg_base))
+        bodies.append(_omf._build_body(recs2, local_sym, seg_base))
 
     # ------------------------------------------------------------------
     # Pass 4: emit the output
@@ -569,7 +568,7 @@ def link(objects: list[tuple[bytes, Any | None]],
             if 27 in relocs:
                 relocs[26] = relocs.pop(27)
             tail = b''.join(_exl.emit_super(t, relocs[t]) for t in sorted(relocs))
-        return _link._make_segment(out_name, out_load, out_org, out_kind, 1,
+        return _omf._make_segment(out_name, out_load, out_org, out_kind, 1,
                                    merged, tail_recs=tail)
     else:
         # Segmented: re-emit each segment as a separate OMF segment with its
@@ -581,7 +580,7 @@ def link(objects: list[tuple[bytes, Any | None]],
             seg_name = hdr['SEGNAME']
             seg_load = hdr['LOADNAME']
             seg_kind = kind if opts.get('kind') is not None else hdr['KIND']
-            out += _link._make_segment(
+            out += _omf._make_segment(
                 seg_name, seg_load, seg_base, seg_kind, seg_idx + 1, body
             )
         return bytes(out)

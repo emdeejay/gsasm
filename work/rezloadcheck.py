@@ -99,7 +99,6 @@ ensure_repo_on_path(HERE)
 
 from gsasm import asm as _asm            # noqa: E402
 from gsasm import omf as _omf            # noqa: E402
-from gsasm import link as _link          # noqa: E402
 from gsasm import linkiigs as _lig       # noqa: E402
 from gsasm import expressload as _exl    # noqa: E402
 import rezcheck as _rez                  # noqa: E402
@@ -187,7 +186,7 @@ def _scan_reloc_dictionary(placed, sym, abs_syms):
                     if not const_only:
                         site = seg_base + off
                         sym['__LOC__'] = site
-                        target = _link._eval(ops_wo, sym) & 0xFFFFFFFF
+                        target = _omf._eval(ops_wo, sym) & 0xFFFFFFFF
                         if target > 0xFFFFFF:
                             standalone.append((site, size, shift, target))
                         else:
@@ -214,7 +213,7 @@ def link_load(obj, a, segname, kind=None):
         recs2 = _lig._defer_shifts(recs, abs_syms)[0]
         oi = pidx[i]
         local = sym if not obj_globals[oi] else {**sym, **obj_globals[oi]}
-        bodies.append(_link._build_body(recs2, local, seg_base))
+        bodies.append(_omf._build_body(recs2, local, seg_base))
     body = _lig._merge_bodies(placed, bodies)
 
     supers, standalone = _scan_reloc_dictionary(placed, dict(sym), abs_syms)
@@ -225,7 +224,7 @@ def link_load(obj, a, segname, kind=None):
             tail += _exl.emit_super(stype, sorted(supers[stype]))
 
     out_kind = kind if kind is not None else placed[0][3]['KIND']
-    return _link._make_segment(segname, b'\x00' * 10, 0, out_kind, 1, body,
+    return _omf._make_segment(segname, b'\x00' * 10, 0, out_kind, 1, body,
                                tail_recs=tail)
 
 

@@ -70,7 +70,7 @@ fork (`EasyMount.rii`).
       (b) `expressload.py`'s single-segment standalone-reloc scan
           (`_scan_standalone_relocs`/`_scan_case_b`) evaluated
           expressions against the plain multi-object-shared `sym` table
-          instead of the per-object-merged table `_link._build_body`
+          instead of the per-object-merged table `_omf._build_body`
           actually resolves each segment's body against.
           `linkiigs._build_symtab` deliberately keeps segment names
           object-PRIVATE in a multi-object link (a segment named

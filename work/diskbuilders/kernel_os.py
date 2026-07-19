@@ -54,7 +54,6 @@ ensure_repo_on_path()
 
 from gsasm import asm      as _asm
 from gsasm import omf      as _omf
-from gsasm import link     as _link
 from gsasm import linkiigs as _lnk
 from gsasm import makebin  as _makebin
 
@@ -134,7 +133,7 @@ def _build_loader_bin(order=_LOADER_ORDER, base0=_LOADER_BASE, return_meta=False
     seg inherits the preceding NAMED loadname within its object), stores the groups
     contiguously in ``order``, but bases each group at its runtime ORG (the group
     header's ORG) so relocations resolve against the runtime address, not the flat
-    position.  Reuses the tested ``linkiigs._build_symtab`` + ``link._build_body``.
+    position.  Reuses the tested ``linkiigs._build_symtab`` + ``omf._build_body``.
     """
     loader = os.path.join(_GS, 'Loader')
     objs = [_assemble(os.path.join(loader, s))
@@ -149,7 +148,7 @@ def _build_loader_bin(order=_LOADER_ORDER, base0=_LOADER_BASE, return_meta=False
             if ln != 'main':
                 cur = ln
             info[(oi, ei)] = {'ln': ln if ln != 'main' else (cur or 'main'),
-                              'len': _link._body_length(sd['recs']),
+                              'len': _omf._body_length(sd['recs']),
                               'org': sd.get('org', 0) or 0}
 
     # Flat order = groups in ``order``, stable within a group (obj then emit idx).
@@ -192,7 +191,7 @@ def _build_loader_bin(order=_LOADER_ORDER, base0=_LOADER_BASE, return_meta=False
         _seg, recs, rt, _hdr, _asm = placed[pi]
         oi = placed_obj_idx[pi]
         local = sym if not obj_globals[oi] else {**sym, **obj_globals[oi]}
-        out += _link._build_body(recs, dict(local, __LOC__=rt), rt)
+        out += _omf._build_body(recs, dict(local, __LOC__=rt), rt)
     if return_meta:
         return bytes(out), [(info[k], k) for k in keys]
     return bytes(out)
