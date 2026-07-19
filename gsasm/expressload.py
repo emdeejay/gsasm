@@ -32,7 +32,6 @@ import struct
 from typing import Any
 
 from . import omf as _omf
-from . import link as _link
 from . import linkiigs as _linkiigs
 
 
@@ -476,7 +475,7 @@ def _scan_case_b(
                             ops_wo = ops[:-3] + ['end']
                         site = seg_base + body_off
                         local_sym['__LOC__'] = site
-                        val = _link._eval(ops_wo, local_sym) & 0xFFFFFFFF
+                        val = _omf._eval(ops_wo, local_sym) & 0xFFFFFFFF
                         if val > 0xFFFFFF:
                             out.append((site, size, shift, val))
                 body_off += size
@@ -1166,7 +1165,7 @@ def expressload(
         recs2, _srels = _linkiigs._defer_shifts(recs)
         oi = placed_obj_idx[placed_i]
         local_sym = sym if not obj_globals[oi] else {**sym, **obj_globals[oi]}
-        bodies.append(_link._build_body(recs2, local_sym, seg_base))
+        bodies.append(_omf._build_body(recs2, local_sym, seg_base))
         body_syms.append(local_sym)
 
     # ------------------------------------------------------------------
@@ -1215,7 +1214,7 @@ def expressload(
                         and ops[-2] == ('op', 7)
                         and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
                     ops_wo = ops[:-3] + ['end']
-                rel_off = _link._eval(ops_wo, body_syms[seg_i]) & 0xFFFFFF
+                rel_off = _omf._eval(ops_wo, body_syms[seg_i]) & 0xFFFFFF
             combined.append((offset, size, shift, rel_off))
 
         case_b = _scan_case_b(placed, body_syms)
@@ -1317,7 +1316,7 @@ def expressload(
             group_obj_indices.append(g)
             group_bases.append(placed[indices[0]][2])
             last = placed[indices[-1]]
-            group_ends.append(last[2] + _link._body_length(last[1]))
+            group_ends.append(last[2] + _omf._body_length(last[1]))
 
     def _group_of(abs_addr: int) -> int | None:
         """Return the group index (0-based into group_bases) that abs_addr
@@ -1492,7 +1491,7 @@ def expressload(
             local_sym = adj_sym if not adj_og else {**adj_sym, **adj_og}
             # Adjust seg_base to be group-relative (subtract group_base).
             adj_seg_base = seg_base - group_base
-            group_bodies.append(_link._build_body(recs2, local_sym, adj_seg_base))
+            group_bodies.append(_omf._build_body(recs2, local_sym, adj_seg_base))
 
         merged = b''.join(group_bodies)
         merged_arr = bytearray(merged)   # mutable — may be patched for type-2 relocs
@@ -1570,7 +1569,7 @@ def expressload(
                     and ops[-2] == ('op', 7)
                     and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
                 ops_wo = ops[:-3] + ['end']
-            raw_target = _link._eval(ops_wo, grp_body_syms[seg_i]) & 0xFFFFFFFF
+            raw_target = _omf._eval(ops_wo, grp_body_syms[seg_i]) & 0xFFFFFFFF
             tgt_group = _group_of(raw_target)
             if tgt_group is None:
                 # Absolute target (exported-equate import, outside every
@@ -1665,7 +1664,7 @@ def expressload(
                         # with the symbol, giving exactly the value that must
                         # be stored relative to whichever base applies).
                         _esz, _eops, _eseg_i = expr_at[abs_off]
-                        joint_target = _link._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
+                        joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
                         field_size = _esz
                     else:
                         # No ~JumpTable in play (E2): same robust re-evaluation
@@ -1677,7 +1676,7 @@ def expressload(
                         # group (measured against TS2 INIT's QDCALLTABLE2/
                         # ORIGBELLVECTOR refs — docs/EXPRESSLOAD_TIER2_PLAN.md E2).
                         _esz, _eops, _eseg_i = expr_at[abs_off]
-                        joint_target = _link._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
+                        joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
                         field_size = _esz
                     tgt_group = _group_of(joint_target)
                     if tgt_group is None:
@@ -1869,7 +1868,7 @@ def expressload(
                     # EXPRESSLOAD_TIER2_PLAN.md E2 — dyn_flags is all-False
                     # there, so the jt-routing sub-branch below is inert).
                     _esz, _eops, _eseg_i = expr_at[abs_off]
-                    joint_target = _link._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
+                    joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
                     tgt_group = _group_of(joint_target)
                     if tgt_group is None:
                         # Absolute target (exported equate, e.g. TS2

@@ -36,7 +36,7 @@ LCONST segment), it simply copies the bytes; when called with a multi-segment
 object it places the segments sequentially from org and resolves each EXPR
 record.
 
-This reuses link._build_body (the OMF stack-machine evaluator) and the same
+This reuses omf._build_body (the OMF stack-machine evaluator) and the same
 GLOBAL/GEQU symbol-collection pass used by linkrom.py and toolcheck.py.
 
 Historical ProBoot regression marker:
@@ -50,7 +50,6 @@ from __future__ import annotations
 import os
 import struct
 from . import omf as _omf
-from . import link as _link
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +81,7 @@ def _build_sym(segs: list[dict], org: int) -> dict[str, int]:
     collect GLOBAL/GEQU symbol definitions.
 
     Returns a symbol dict mapping upper-case name → integer value suitable for
-    passing to link._build_body.
+    passing to omf._build_body.
     """
     sym: dict[str, int] = {}
     base = org
@@ -108,10 +107,10 @@ def _build_sym(segs: list[dict], org: int) -> dict[str, int]:
 
     # Resolve deferred GEQUs (two passes to handle forward references).
     for label, ops in gequ_pending:
-        val = _link._eval(ops, sym)
+        val = _omf._eval(ops, sym)
         sym.setdefault(label, val)
     for label, ops in gequ_pending:
-        sym[label] = _link._eval(ops, sym)
+        sym[label] = _omf._eval(ops, sym)
 
     return sym
 
@@ -139,7 +138,7 @@ def makebin(load_file_bytes: bytes, org: int) -> bytes:
     result = bytearray()
     for seg in segs:
         seg_base = sym[seg['name']]
-        body = _link._build_body(seg['recs'], dict(sym, __LOC__=seg_base),
+        body = _omf._build_body(seg['recs'], dict(sym, __LOC__=seg_base),
                                   seg_base)
         result.extend(body)
     return bytes(result)
@@ -187,13 +186,13 @@ def makebin_segments(obj_bytes: bytes,
                 gequ_pending.append((d['label'].upper(), d['expr']))
     # Resolve deferred GEQUs (two passes for forward references).
     for label, ops in gequ_pending:
-        sym.setdefault(label, _link._eval(ops, sym))
+        sym.setdefault(label, _omf._eval(ops, sym))
     for label, ops in gequ_pending:
-        sym[label] = _link._eval(ops, sym)
+        sym[label] = _omf._eval(ops, sym)
 
     out: dict[str, bytes] = {}
     for seg in segs:
-        body = _link._build_body(seg['recs'],
+        body = _omf._build_body(seg['recs'],
                                  dict(sym, __LOC__=seg['base']), seg['base'])
         out[seg['name']] = bytes(body)
     return out
