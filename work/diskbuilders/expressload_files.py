@@ -100,11 +100,12 @@ _TOOL_INCS = toolbox_incs(_TB, _FW)
 _GOS_INCS = gsos_incs(src=_SRC)
 
 
-def _build_tool(subdir, srcs, defines=None):
+def _build_tool(subdir, srcs, defines=None, loads=None):
     """Assemble srcs (relative to _TB/subdir), link, and expressload."""
     objects = []
     for r in srcs:
-        a = asm.assemble(f'{_TB}/{subdir}/{r}', _TOOL_INCS, defines=defines or None)
+        a = asm.assemble(f'{_TB}/{subdir}/{r}', _TOOL_INCS, defines=defines or None,
+                         loads=loads or None)
         obj = omf.emit(a)
         objects.append((obj, a))
     return expressload(objects)
@@ -332,17 +333,18 @@ def _build_tool028():
 
 def _build_tool034():
     # TextEdit — single-segment KIND=0x0000 (no -lseg in makefile).
-    # Residual: 4444-byte code-image shortfall (31207 built vs 35651 gold).
-    # Root cause: assembler bug — our build produces less code than the shipped
-    # binary, suggesting conditional assembly or macro expansion differences.
-    # Gold also has 2 cRELOC records that expressload() does not generate.
+    # Code image byte-exact since E3 (toolcheck.TOOLMAP['034']: LOAD/DUMP,
+    # **-conditional, record-ORG own-field, deferred left shift).  asm opts
+    # mirror the makefile: -d DebugSymbols=0 and the Include.Symbols dump
+    # rule (AsmIIGS -c GenerateDump).
     return _build_tool('textedit', [
         'highlevel.aii', 'block.aii', 'defproc.aii', 'draw.aii',
         'entry.aii', 'fastdraw.aii', 'format.aii', 'idle.aii',
         'key.aii', 'measure.aii', 'memory.aii', 'record.aii',
         'scrap.aii', 'scroll.aii', 'selection.aii', 'super.aii',
         'text.aii', 'width.aii', 'wrap.aii',
-    ])
+    ], defines={'DebugSymbols': 0},
+       loads={'Include.Symbols': 'GenerateDump'})
 
 
 # ---------------------------------------------------------------------------

@@ -830,12 +830,18 @@ def _core(operand):
     s = operand.strip()
     immediate = s.startswith('#')
     s = s.lstrip('#')
+    prefixed = False
     if not immediate and s[:1] in '<>|!':
         s = s[1:]
+        prefixed = True
     # for a non-immediate operand, leading ( or [ is indirection — strip it and
     # its matching close. For an immediate, parens are arithmetic (e.g.
-    # #(muReturn-1)>>8) and must be left for _expr_for.
-    if not immediate and (s.startswith('[') or s.startswith('(')):
+    # #(muReturn-1)>>8) and must be left for _expr_for.  After an explicit
+    # size prefix the operand is direct by definition, so its parens are
+    # arithmetic grouping too: TextEdit fastdraw's `pea |(returnHere-1)>>8`
+    # must keep the >>8 (truncating at the close paren silently dropped it,
+    # losing the site's shift reloc).
+    if not immediate and not prefixed and (s.startswith('[') or s.startswith('(')):
         s = s[1:]
         for c in ')]':
             j = s.rfind(c)
