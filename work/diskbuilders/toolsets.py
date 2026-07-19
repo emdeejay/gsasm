@@ -164,15 +164,23 @@ def _part(path, names, defines=None):
 
     A filter name is normally a segment name (gsasm emits one segment per PROC,
     named for its first label).  When it is instead an interior label, the Asm's
-    ``symseg`` map resolves it to the emit-segment that contains it.  Selected
-    segments are emitted in FILTER-LIST order (first mention wins when several
-    names resolve to the same segment) — GOLDEN PROOF, overturning the earlier
-    "original emit order" reading: TS3's golden MAIN places CMLOADRESOURCE at
-    0x32a2, immediately after the SETLETEXTBYID segment (which also contains
-    the interior label GETLETEXTBYID), exactly the makefile's
-    ``ControlMgr.asm.obj(...,SETLETEXTBYID,GETLETEXTBYID,CMLOADRESOURCE,...)``
-    order — while ControlMgr.asm's source order has the six ByID/helper
-    segments (230 bytes) between them, which is where gsasm used to place them.
+    ``symseg`` map resolves it to the emit-segment that contains it.
+
+    ORDER RULE (reconciled 2026-07-19, supersedes both earlier readings):
+    ONE ``object(SYM,...)`` reference pulls its selected segments in the
+    object's NATURAL (emit) order — the filter list is a SET for that pull.
+    What looked like "filter-list order" was the makefiles referencing the
+    SAME object several times with different symbol subsets (Patch3:
+    ``ControlMgr.asm.obj(...)`` twice, ``NDACalls.asm.obj(...)`` twice;
+    Patch2: ``mm.asm.obj`` three times, ``rects.asm.obj`` three,
+    ``env.asm.obj`` twice) — each reference is a separate pull at its
+    position in the -lseg sequence.  This single rule reconciles all three
+    formerly-contradictory golden cases: Locator.pch (natural within its one
+    ref), NewCalls.asm DOINITCURSOR (natural within its one ref), and
+    ControlMgr CMLOADRESOURCE at 0x32a2 (natural within ref #1, whose set
+    excludes the six ByID/helper segments that only ref #2 pulls).  Each
+    builder below therefore mirrors the makefile's references one _part()
+    call per reference — do NOT re-merge them.
     """
     obj, a = _assemble(path, defines)
     segl = _obj_seg_list(obj)
@@ -203,6 +211,7 @@ def _part(path, names, defines=None):
         ei = _resolve(lab)
         if ei is not None and ei not in order:
             order.append(ei)
+    order.sort()          # NATURAL (emit) order within one object() reference
 
     return obj, a, order
 
@@ -228,15 +237,29 @@ def _expressload_groups(groups):
     segkinds = [g[2] for g in groups]
 
     for gi, (items, _segname, _segkind) in enumerate(groups):
+        # Dedupe repeated references to the SAME object within one group (the
+        # makefiles pull e.g. ControlMgr.asm.obj twice with different symbol
+        # subsets): both pulls must share ONE objects[] entry so
+        # linkiigs._build_symtab's per-object scoping sees the whole FILE as
+        # one scope; each pull's segments enter `order` at the pull's own
+        # position.  (_assemble caches per (path, defines), so the same file
+        # yields the identical Asm instance — dedupe by its id.)  A file
+        # referenced from DIFFERENT groups (Patch2 qd init.asm/text.asm in
+        # both MAIN and BIGONLY) still gets one entry per group — obj_group
+        # is per object, and cross-group pulls are disjoint segment sets.
+        seen: dict[int, int] = {}
         for item in items:
             if len(item) == 2:
                 obj_bytes, a = item
                 seg_order = list(range(len(_obj_seg_list(obj_bytes))))
             else:
                 obj_bytes, a, seg_order = item
-            oi = len(objects)
-            objects.append((obj_bytes, a))
-            obj_group.append(gi)
+            oi = seen.get(id(a))
+            if oi is None:
+                oi = len(objects)
+                objects.append((obj_bytes, a))
+                obj_group.append(gi)
+                seen[id(a)] = oi
             order.extend((oi, si) for si in seg_order)
 
     return expressload(objects, opts={
@@ -311,11 +334,14 @@ def _build_ts2():
         _whole(f'{_MT}/RomDataMgr.asm', {'Big': 1}),
         _part(f'{_P3}/Misc.tools.pch', ['COMPUTEDEFAULTFAILMSG']),
         _whole(f'{_P2}/mm.asm'),
+        # makefile refs mm.asm.obj THREE times (three pulls, each natural-order):
         _part(f'{_MM}/mm.asm', ['REALFREEMEM', 'SEARCHUPFAST', 'SEARCHDOWNFAST', 'GETNEXTFREE',
                                 'SEARCHUP', 'SEARCHDOWN', 'STARTX', 'START0', 'STARTXTOP',
-                                'SEARCHHANDLE', 'CHECKRECENT', 'GETNEXT', 'XSEARCHFAIL',
+                                'SEARCHHANDLE', 'CHECKRECENT', 'GETNEXT'], {'RAMVersion': 0}),
+        _part(f'{_MM}/mm.asm', ['XSEARCHFAIL',
                                 'XUSERPURGE', 'ADDTOOOMQUEUE', 'DELETEFROMOOMQUEUE',
-                                'GETIDOFCALLINGROUTINE', 'MMSHUTDOWN', 'XPURGE', 'NUKEIT',
+                                'GETIDOFCALLINGROUTINE'], {'RAMVersion': 0}),
+        _part(f'{_MM}/mm.asm', ['MMSHUTDOWN', 'XPURGE', 'NUKEIT',
                                 'BESTTOP', 'VERIFYHANDLE', 'SETHANDLEID'], {'RAMVersion': 0}),
         _whole(f'{_P2}/text.tools.asm'),
     ]
@@ -326,15 +352,19 @@ def _build_ts2():
         _part(f'{_QD}/conics.asm', ['IDRAWCONIC', 'OVALPENSIZE']),
         _part(f'{_QD}/lines.asm', ['ISTDLINE', 'GRABPENLOC', 'STABPENLOC', 'FASTRATIO']),
         _part(f'{_QD}/pixelmaps.asm', ['IRGNBLT']),
+        # makefile refs rects.asm.obj THREE times (three pulls, each natural-order):
         _part(f'{_QD}/rects.asm', ['COMMONSLABSETUP', 'SETFIRSTDESTREF', 'NEXTPATSLICE',
-                                   'SETNEXTDESTREF', 'ISETSLABADR', 'CHECKPENVIS', 'GRABPENSIZE',
-                                   'FRAMERECT', 'PAINTRECT', 'ERASERECT', 'INVERTRECT',
+                                   'SETNEXTDESTREF', 'ISETSLABADR', 'CHECKPENVIS', 'GRABPENSIZE']),
+        _part(f'{_QD}/rects.asm', ['FRAMERECT', 'PAINTRECT', 'ERASERECT', 'INVERTRECT',
                                    'FILLRECT', 'JOINRECT', 'CALLRECT', 'GETRECT', 'ISTDRECT',
-                                   'FRRECT', 'IDRAWRECTB', 'FASTDRAWRECT', 'IXSETUP', 'XSETUP320',
+                                   'FRRECT']),
+        _part(f'{_QD}/rects.asm', ['IDRAWRECTB', 'FASTDRAWRECT', 'IXSETUP', 'XSETUP320',
                                    'XSETUP640', 'SLABTABLE', 'FASTSLABTABLE', 'LEFTMASKTABLE',
                                    'RIGHTMASKTABLE']),
+        # makefile refs env.asm.obj TWICE (two pulls, each natural-order):
         _part(f'{_QD}/env.asm', ['IROTATEPAT', 'IROTATEMASK', 'IEXPANDMASK', 'EXPANDM640',
-                                 'EXPANDM320', 'IUSERPAT2ZP', 'IPORTLOC2ZP', 'IGETPENPREADY',
+                                 'EXPANDM320']),
+        _part(f'{_QD}/env.asm', ['IUSERPAT2ZP', 'IPORTLOC2ZP', 'IGETPENPREADY',
                                  'IGETBACKPREADY', 'IPEN2ZP', 'IBACK2ZP', 'IGETMASKREADY']),
         _whole(f'{_P2}/slab.asm'),
         _part(f'{_QD}/regions.asm', ['DRAWRGN', 'DEREFC', 'GETBOUNDSC', 'UNLOCKC', 'INITUP3RGNS',
@@ -373,10 +403,12 @@ def _build_ts3():
                                       'RESIZEINFOBAR', 'HANDLEDISKINSERT', 'FLUSHKEYEVENTS',
                                       'DOINITCURSOR', 'UPDATEWINDOW']),
         _whole(f'{_P3}/ControlMgr.pch'),
+        # makefile refs ControlMgr.asm.obj TWICE (two pulls, each natural-order):
         _part(f'{_CM}/ControlMgr.asm', ['CTLSHUTDOWN', 'FINDRADIOBUTTON', 'SETLETEXTBYID',
                                         'GETLETEXTBYID', 'CMLOADRESOURCE', 'GETANDSETPREFS',
                                         'LOADRESOURCE', 'DRAWRECT', 'PUSHVVERT_PEN', 'STATICRAM',
-                                        'DEREFERENCE', 'SET_PATT', 'SETVERTPEN', 'FRACTION',
+                                        'DEREFERENCE']),
+        _part(f'{_CM}/ControlMgr.asm', ['SET_PATT', 'SETVERTPEN', 'FRACTION',
                                         'PUSHRECT2', 'PUSHVCTL_FONT', 'PUSHRECORD', 'READMOREFLAGS',
                                         'ENTER470', 'SET_TEXTMODE', 'SMEAR', 'COMPUTESCROLLCOLOR',
                                         'SETCTLVALUEBYID', 'GETCTLVALUEBYID', 'INVALONECTLBYID',
@@ -399,8 +431,10 @@ def _build_ts3():
         _part(f'{_QD}/Env.asm', ['EXTENDCOLORWORD']),
         _whole(f'{_P3}/Desk.pch'),
         _whole(f'{_QDA}/strip.asm'),
+        # makefile refs NDACalls.asm.obj TWICE (two pulls, each natural-order):
         _part(f'{_DESK}/NDACalls.asm', ['STARTNDACALL', 'DESKUTILS', 'ENDNDACALL', 'OERROUT4',
-                                        'OPENNDA', 'FUTZRESIDS', 'AREWETOP', 'SENDOPEN',
+                                        'OPENNDA']),
+        _part(f'{_DESK}/NDACalls.asm', ['FUTZRESIDS', 'AREWETOP', 'SENDOPEN',
                                         'SENDCLOSE', 'CHECKNDASTUFF', 'CALLCDAMENU',
                                         'FINDTHISWINDOW', 'DOCLOSESTUFF', 'FRONTTOAX',
                                         'SENDACTION', 'SENDINIT']),

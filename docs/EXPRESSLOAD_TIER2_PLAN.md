@@ -123,6 +123,34 @@ the patch, in `_link._build_body` inputs — asm.py/linkiigs territory):
 Close these two (root-cause + fixture, standard discipline) and TS2/TS3
 should fall with the machinery already in place.
 
+**E2d STATUS (2026-07-19, later): BOTH blockers were one rule — MPW's
+`object(SYM,...)` ORDER MYSTERY SOLVED.** The three "mutually contradictory"
+golden ordering cases reconciled: ONE object() reference pulls its selected
+segments in the object's NATURAL (emit) order; what looked like filter-list
+order was the makefiles referencing the SAME object MULTIPLE TIMES with
+different symbol subsets (Patch3: ControlMgr.asm ×2, NDACalls.asm ×2;
+Patch2: mm.asm ×3, rects.asm ×3, env.asm ×2) — the transcription had
+flattened those into one list each.  toolsets now mirrors the makefile
+references 1:1 (_part = natural order per pull; repeated refs share ONE
+objects[] entry per group so per-file scoping stays whole).  ALSO fixed en
+route: linkiigs pass-(c) setdefault for asm=None combos (TLBootInit);
+per-file objects via opts['obj_group']/opts['order'] (E2c).
+State: TS3 41512/41700 matched, LENGTH-EXACT, first diff @0x2cf; TS2
+36746 vs 36665, 25303 matched, first diff @0x5e.  REMAINING (precisely
+localized, next session):
+  - TS3: 57 two-byte sites in INIT (stride ~15, a patch table), each stored
+    value exactly +662 (=INIT len) over gold — cross-group INIT->MAIN stored
+    values must be TARGET-group-relative; these sites bypass the stype-0
+    cross-group rebase (they are not in that classification path).  ALSO
+    INIT's record population differs: gold has 20 cINTERSEG size=4 shift=0
+    (offsets 110..262 stride 8 — a `dc.l MainRoutine` table) where built
+    emits 20 cINTERSEG size=2 shift=248 (case-A >>8 sites at 270+) — the
+    4-byte dc.l cross-group table entries and the case-A sites need their
+    record types/coverage reconciled against gold's.
+  - TS2: same class + its own tail (built 81 over: spurious extra records
+    cascading from the above).  Re-measure after the TS3 fixes — the
+    machinery is shared.
+
 ### E3. Tool034 / TextEdit byte-exactness
 
 The last file, and the only one that is a real unknown. Treat it exactly like
