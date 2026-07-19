@@ -101,6 +101,28 @@ match is alignment shift after early directory/reloc deltas.
 Acceptance: TS2/TS3 byte-exact (logical-exact 27 → 29). Risk: medium —
 per-segment surprises possible (this is Tool.Setup patch code). ~2-4 days.
 
+**E2 STATUS (2026-07-19): reloc machinery CLOSED; blocked by two pre-existing
+assembler-level bugs.** The 391/211 missing bytes were entirely reloc
+dictionary: the multiseg no-JT path never ran case-A standalone scanning,
+never ran case-B at all, and mis-classified cross-group SUPER type-0/1 when
+a combo-object symbol resolved to 0. All fixed in expressload.py (plus a new
+finding: a 4-byte `dc.l Label` cross-group far pointer takes a standalone
+cINTERSEG, where the 3-byte `dc.l Label-1` form rides SUPER type-2 — gold
+distinguishes by field size). After: TS3 41697/41700 (standalone lists
+byte-identical to gold; SUPER counts 979/979 t0, 525/525 t1, 61/61 t28);
+TS2 36743 vs 36665 (78 over, all cascade). The remaining gap is TWO
+code-image/symbol-resolution bugs that predate E2 (verified present before
+the patch, in `_link._build_body` inputs — asm.py/linkiigs territory):
+  - TS3: ControlMgr.asm `CMLoadResource-1` dispatch entry (MAIN @0x2db6)
+    resolves $3387 built vs $32a1 gold (~230B PROC placement/size delta;
+    the preceding NEWCONTROL2-1 entry is exact).
+  - TS2: Patch2/tl.asm `TLBootInit-1` (MAIN @0xc, the FIRST MAIN diff)
+    resolves 4095 ($FFF — smells like an unresolved/sentinel value) vs
+    gold 123; cascades through all of MAIN's placement and produces TS2's
+    spurious extra SUPER records (type-2 29-vs-4 etc.) as a symptom.
+Close these two (root-cause + fixture, standard discipline) and TS2/TS3
+should fall with the machinery already in place.
+
 ### E3. Tool034 / TextEdit byte-exactness
 
 The last file, and the only one that is a real unknown. Treat it exactly like

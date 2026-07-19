@@ -1290,37 +1290,48 @@ def expressload(
     # diskbuilder callers do); a dynamic group before a non-dynamic one raises.
     jt_entries_opt: list[tuple[int, int]] | None = opts.get('jt_entries')
     jt_enabled = jt_entries_opt is not None
-    n_nondyn = 0
+    n_groups = len(group_obj_indices)
+    n_nondyn = n_groups
     has_dyn = False
     jt_segnum: int | None = None
-    dyn_flags: list[bool] = []
+    dyn_flags: list[bool] = [
+        bool((segkinds_opt[i] if i < len(segkinds_opt) else 0) & 0x8000)
+        for i in range(n_groups)
+    ]
     jt_index: dict[tuple[int, int], int] = {}
 
-    if jt_enabled:
-        n_groups = len(group_obj_indices)
-        if len(segkinds_opt) < n_groups:
-            raise ValueError(
-                "expressload(): opts['jt_entries'] requires opts['segkinds'] "
-                "to specify every output group's KIND")
-        dyn_flags = [bool(k & 0x8000) for k in segkinds_opt[:n_groups]]
+    # The non-dynamic/dynamic block boundary is intrinsic to the groups'
+    # KINDs (segkinds' 0x8000 bit) and matters for EVERY multi-object
+    # ExpressLoad build, not only the ones requesting a ~JumpTable — a
+    # cross-group reference's target segnum must still be computed correctly
+    # even when no group is dynamic (E2, docs/EXPRESSLOAD_TIER2_PLAN.md).
+    # Only a DYNAMIC target actually requires jt_entries (its routine isn't
+    # resident, so the reference must route through the loader-generated
+    # ~JumpTable thunk).
+    if n_groups > 1:
+        n_nondyn = 0
         while n_nondyn < n_groups and not dyn_flags[n_nondyn]:
             n_nondyn += 1
         if not all(dyn_flags[n_nondyn:]):
             raise ValueError(
-                "expressload(): opts['jt_entries'] requires all non-dynamic "
-                "output groups (KIND without bit 0x8000) before all dynamic "
-                "ones — the golden ~JumpTable layout is non-dynamic block, "
-                "~JumpTable, dynamic block")
+                "expressload(): dynamic output groups (segkinds KIND & "
+                "0x8000) must all come after every non-dynamic group — the "
+                "golden ~JumpTable layout is non-dynamic block, ~JumpTable, "
+                "dynamic block")
         has_dyn = n_nondyn < n_groups
         if has_dyn:
+            if not jt_enabled:
+                raise ValueError(
+                    "expressload(): a dynamic output group (segkinds KIND & "
+                    "0x8000) requires opts['jt_entries']")
             jt_segnum = 2 + n_nondyn
-        jt_index = {key: i for i, key in enumerate(jt_entries_opt)}
+            jt_index = {key: i for i, key in enumerate(jt_entries_opt)}
 
     def _final_segnum(g: int) -> int:
         """Output segment number of group *g*, accounting for the ~JumpTable
-        slot inserted right after the non-dynamic block (no-op when the
-        ~JumpTable feature is off, or *g* is itself non-dynamic)."""
-        if jt_enabled and g >= n_nondyn:
+        slot inserted right after the non-dynamic block (no-op when there is
+        no dynamic group, or *g* is itself non-dynamic)."""
+        if has_dyn and g >= n_nondyn:
             return 2 + g + 1
         return 2 + g
 
@@ -1332,16 +1343,18 @@ def expressload(
     # only via that group's OWN obj_globals[oi], never the shared `sym` table
     # (measured against gold: Tool018 MAINPart references Pictures/pics.asm's
     # `SaveSomething`/`iStdComment`, both `PROC EXPORT`, and `sym` has neither
-    # — only obj_globals[2] does). Widen the base table used for cross-group
-    # re-evaluation with every object's own private table as a FALLBACK, `sym`
-    # still taking priority for anything it does have.
+    # — only obj_globals[2] does; TS2/TS3's ~40-object groups hit the exact
+    # same gap, E2). Widen the base table used for cross-group re-evaluation
+    # with every object's own private table as a FALLBACK, `sym` still taking
+    # priority for anything it does have. Built for every multi-object build
+    # (not just jt_enabled ones) — E2's non-JT cross-group corrections need it
+    # too.
     _fallback_sym: dict = {}
-    if jt_enabled:
-        for _oi in range(n_objs):
-            _og = obj_globals[_oi]
-            if _og:
-                _fallback_sym.update(_og)
-        _fallback_sym.update(sym)
+    for _oi in range(n_objs):
+        _og = obj_globals[_oi]
+        if _og:
+            _fallback_sym.update(_og)
+    _fallback_sym.update(sym)
 
     # For each object group, merge its placed segments' bodies and collect relocs.
     out_groups: list[dict] = []
@@ -1395,83 +1408,122 @@ def expressload(
         # gold (Tool016 ControlMgr): the pre-patch placeholder is 0 (fully
         # loader-computed from the record's own segno/segoff), and when the
         # target is DYNAMIC it routes through the ~JumpTable exactly like a
-        # 3-byte far pointer (docs/EXPRESSLOAD_TIER2_PLAN.md E1). Opt-in only
-        # (jt_enabled) — every other multiseg caller is unaffected.
+        # 3-byte far pointer (docs/EXPRESSLOAD_TIER2_PLAN.md E1). Runs for
+        # every multi-group build (not just jt_enabled ones): a no-JT build
+        # (e.g. TS2/TS3, docs/EXPRESSLOAD_TIER2_PLAN.md E2) still has cross-
+        # group case-A references among its purely-resident groups; only
+        # DYNAMIC targets need jt_entries, and dyn_flags is all-False whenever
+        # there is no dynamic group, so the jt-routing branch below is simply
+        # never taken in that case.
         standalone_group = bytearray()
-        if jt_enabled:
-            _og_this = obj_globals[oi]
-            _grp_sym_base = _fallback_sym if not _og_this else {**_fallback_sym, **_og_this}
-            grp_body_syms = [_grp_sym_base for _ in indices]
+        _og_this = obj_globals[oi]
+        _grp_sym_base = _fallback_sym if not _og_this else {**_fallback_sym, **_og_this}
+        grp_body_syms = [_grp_sym_base for _ in indices]
 
-            # abs_off -> (size, ops, seg_i) for every EXPR-family record in this
-            # group, in the SAME (un-deferred) record basis _scan_relocs itself
-            # scans — lets the stype==0/1 cross-group branches below RE-EVALUATE
-            # an expression's true joint-space target directly (robust against
-            # the 16-bit wraparound a "read the group-adjusted stored bytes back"
-            # trick suffers when the target group's base and the calling group's
-            # base straddle a 64K boundary, or the field is a `dc.l routine-1`
-            # dispatch-table entry, e.g. Tool018 SeedFill/Pictures -> PixelMap2Rgn).
-            expr_at: dict[int, tuple[int, list, int]] = {}
-            for seg_i, placed_i in enumerate(indices):
-                _sn, recs_e, sb_e, _hdr_e, _a_e = placed[placed_i]
-                body_off_e = 0
-                for _, nm_e, d_e in recs_e:
-                    if nm_e == 'END':
-                        break
-                    if nm_e in ('CONST', 'LCONST'):
-                        body_off_e += len(d_e)
-                    elif nm_e in ('LEXPR', 'BEXPR', 'EXPR'):
-                        expr_at[sb_e + body_off_e] = (d_e[0], d_e[1], seg_i)
-                        body_off_e += d_e[0]
-                    elif nm_e == 'RELEXPR':
-                        body_off_e += d_e[0]
-                    elif nm_e == 'DS':
-                        body_off_e += d_e
+        # abs_off -> (size, ops, seg_i) for every EXPR-family record in this
+        # group, in the SAME (un-deferred) record basis _scan_relocs itself
+        # scans — lets the stype==0/1 cross-group branches below RE-EVALUATE
+        # an expression's true joint-space target directly (robust against
+        # the 16-bit wraparound a "read the group-adjusted stored bytes back"
+        # trick suffers when the target group's base and the calling group's
+        # base straddle a 64K boundary, or the field is a `dc.l routine-1`
+        # dispatch-table entry, e.g. Tool018 SeedFill/Pictures -> PixelMap2Rgn).
+        expr_at: dict[int, tuple[int, list, int]] = {}
+        for seg_i, placed_i in enumerate(indices):
+            _sn, recs_e, sb_e, _hdr_e, _a_e = placed[placed_i]
+            body_off_e = 0
+            for _, nm_e, d_e in recs_e:
+                if nm_e == 'END':
+                    break
+                if nm_e in ('CONST', 'LCONST'):
+                    body_off_e += len(d_e)
+                elif nm_e in ('LEXPR', 'BEXPR', 'EXPR'):
+                    expr_at[sb_e + body_off_e] = (d_e[0], d_e[1], seg_i)
+                    body_off_e += d_e[0]
+                elif nm_e == 'RELEXPR':
+                    body_off_e += d_e[0]
+                elif nm_e == 'DS':
+                    body_off_e += d_e
 
-            for offset, size, shift, ops, seg_i in _scan_standalone_relocs(group_placed):
-                rel_off = offset - group_base
-                ops_wo = ops
-                if (shift and len(ops) >= 4 and ops[-1] == 'end'
-                        and ops[-2] == ('op', 7)
-                        and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
-                    ops_wo = ops[:-3] + ['end']
-                raw_target = _link._eval(ops_wo, grp_body_syms[seg_i]) & 0xFFFFFFFF
-                tgt_group = _group_of(raw_target)
-                if tgt_group == group_g:
-                    # Intra: merged_arr already holds the correct group-relative
-                    # (already-shifted) placeholder value, built via adj_sym
-                    # exactly like the single-segment path — reuse it directly.
-                    if size >= 2:
-                        rel_val = int.from_bytes(
-                            merged_arr[rel_off:rel_off + size], 'little')
-                    else:
-                        rel_val = raw_target & ((1 << (8 * size)) - 1)
-                    if rel_off < 0x10000 and rel_val < 0x10000:
-                        standalone_group += emit_creloc(size, shift, rel_off, rel_val)
-                    else:
-                        standalone_group += emit_reloc(size, shift, rel_off, rel_val)
+        for offset, size, shift, ops, seg_i in _scan_standalone_relocs(group_placed):
+            rel_off = offset - group_base
+            ops_wo = ops
+            if (shift and len(ops) >= 4 and ops[-1] == 'end'
+                    and ops[-2] == ('op', 7)
+                    and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
+                ops_wo = ops[:-3] + ['end']
+            raw_target = _link._eval(ops_wo, grp_body_syms[seg_i]) & 0xFFFFFFFF
+            tgt_group = _group_of(raw_target)
+            if tgt_group == group_g:
+                # Intra: merged_arr already holds the correct group-relative
+                # (already-shifted) placeholder value, built via adj_sym
+                # exactly like the single-segment path — reuse it directly.
+                if size >= 2:
+                    rel_val = int.from_bytes(
+                        merged_arr[rel_off:rel_off + size], 'little')
                 else:
-                    off_in_tgt = raw_target - group_bases[tgt_group]
-                    merged_arr[rel_off:rel_off + size] = b'\x00' * size
-                    if dyn_flags[tgt_group]:
-                        key = (_final_segnum(tgt_group), off_in_tgt)
-                        idx = jt_index.get(key)
-                        if idx is None:
-                            raise ValueError(
-                                "expressload(): opts['jt_entries'] has no entry "
-                                f"for dynamic target segnum={key[0]} "
-                                f"offset={key[1]:#x}")
-                        tgt_segnum = jt_segnum
-                        tgt_segoff = jt_jsl_offset(idx)
-                    else:
-                        tgt_segnum = _final_segnum(tgt_group)
-                        tgt_segoff = off_in_tgt
-                    if rel_off < 0x10000 and tgt_segoff < 0x10000:
-                        standalone_group += emit_cinterseg(
-                            size, shift, rel_off, tgt_segnum, tgt_segoff)
-                    else:
-                        standalone_group += emit_interseg(
-                            size, shift, rel_off, tgt_segnum, tgt_segoff)
+                    rel_val = raw_target & ((1 << (8 * size)) - 1)
+                if rel_off < 0x10000 and rel_val < 0x10000:
+                    standalone_group += emit_creloc(size, shift, rel_off, rel_val)
+                else:
+                    standalone_group += emit_reloc(size, shift, rel_off, rel_val)
+            else:
+                off_in_tgt = raw_target - group_bases[tgt_group]
+                merged_arr[rel_off:rel_off + size] = b'\x00' * size
+                if dyn_flags[tgt_group]:
+                    key = (_final_segnum(tgt_group), off_in_tgt)
+                    idx = jt_index.get(key)
+                    if idx is None:
+                        raise ValueError(
+                            "expressload(): opts['jt_entries'] has no entry "
+                            f"for dynamic target segnum={key[0]} "
+                            f"offset={key[1]:#x}")
+                    tgt_segnum = jt_segnum
+                    tgt_segoff = jt_jsl_offset(idx)
+                else:
+                    tgt_segnum = _final_segnum(tgt_group)
+                    tgt_segoff = off_in_tgt
+                if rel_off < 0x10000 and tgt_segoff < 0x10000:
+                    standalone_group += emit_cinterseg(
+                        size, shift, rel_off, tgt_segnum, tgt_segoff)
+                else:
+                    standalone_group += emit_interseg(
+                        size, shift, rel_off, tgt_segnum, tgt_segoff)
+
+        # Case-B: a relocation whose target expression carries a source-level
+        # flagged addend (``Label+$80000000`` / ``Label+$C0000000`` — the
+        # ModalDialog filterProc/hook-pointer convention, same rule as the
+        # single-segment path's ``_scan_case_b``). TS3's MAIN group re-
+        # assembles WindMgr/NewCalls.asm, which carries exactly this pattern
+        # (``myEventFilter+$80000000``, docs/EXPRESSLOAD_TIER2_PLAN.md E2) —
+        # the same record class that closed Tool014. Not gated on jt_enabled:
+        # the single-segment rule never depended on ~JumpTable either, and
+        # the golden corpus shows no case-B site outside the OWNING group (a
+        # cross-group flagged addend is unobserved and unsupported — raise
+        # rather than silently mis-encode it).
+        case_b_group = _scan_case_b(group_placed, grp_body_syms)
+        case_b_abs_offsets = {site for site, _sz, _sh, _val in case_b_group}
+        for site, b_size, b_shift, b_val in case_b_group:
+            rel_off = site - group_base
+            flag = b_val & 0xFF000000
+            clean = b_val & 0x00FFFFFF
+            tgt_group = _group_of(clean)
+            if tgt_group != group_g:
+                raise ValueError(
+                    "expressload(): cross-group case-B (flagged addend) "
+                    f"relocation unsupported — offset {rel_off:#x}")
+            rel_val = flag | ((clean - group_base) & 0x00FFFFFF)
+            if rel_off < 0x10000 and rel_val < 0x10000:
+                standalone_group += emit_creloc(b_size, b_shift, rel_off, rel_val)
+            else:
+                standalone_group += emit_reloc(b_size, b_shift, rel_off, rel_val)
+
+        if case_b_abs_offsets:
+            for stype in list(group_relocs_raw):
+                group_relocs_raw[stype] = [
+                    o for o in group_relocs_raw[stype] if o not in case_b_abs_offsets]
+                if not group_relocs_raw[stype]:
+                    del group_relocs_raw[stype]
 
         final_relocs: dict[int, list[int]] = {}
         for stype, abs_offs in group_relocs_raw.items():
@@ -1491,21 +1543,46 @@ def expressload(
                         # be stored relative to whichever base applies).
                         _esz, _eops, _eseg_i = expr_at[abs_off]
                         joint_target = _link._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
+                        field_size = _esz
                     else:
-                        # At this point merged_arr has group-base–adjusted code, so we
-                        # must read the target from the UN-adjusted body. The target in
-                        # merged_arr[rel_off:rel_off+2] is the group-relative address
-                        # AFTER adjustment; the original joint address = rel_target +
-                        # group_base.
-                        rel_target = (merged_arr[rel_off] | (merged_arr[rel_off + 1] << 8))
-                        joint_target = rel_target + group_base
+                        # No ~JumpTable in play (E2): same robust re-evaluation
+                        # as the jt_enabled branch — reading the group-adjusted
+                        # stored bytes back (the old approach here) silently
+                        # resolves an unresolved cross-object symbol (a "combo"
+                        # group's private export, see _fallback_sym's docstring)
+                        # to 0 instead of raising, misclassifying it as same-
+                        # group (measured against TS2 INIT's QDCALLTABLE2/
+                        # ORIGBELLVECTOR refs — docs/EXPRESSLOAD_TIER2_PLAN.md E2).
+                        _esz, _eops, _eseg_i = expr_at[abs_off]
+                        joint_target = _link._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
+                        field_size = _esz
                     tgt_group = _group_of(joint_target)
                     if tgt_group != group_g:
+                        tgt_group_base = group_bases[tgt_group]
+                        off_in_tgt = joint_target - tgt_group_base
+                        if not jt_enabled and field_size >= 4:
+                            # A full 4-byte `dc.l Label` cross-group pointer (as
+                            # opposed to the 3-byte `dc.l Label-1` dispatch-table
+                            # idiom) cannot ride the compressed 3-byte SUPER
+                            # type-2 patch — MPW emits a standalone cINTERSEG/
+                            # INTERSEG instead, exactly like a case-A far pointer
+                            # (measured against TS2/TS3 INIT's TLCALLTABLE-style
+                            # `dc.l` dispatch entries, docs/EXPRESSLOAD_TIER2_PLAN.md
+                            # E2). Scoped to the no-JT path: this pattern is
+                            # unobserved in the jt-gated tools' golden corpus, so
+                            # that path is left untouched.
+                            tgt_segnum = _final_segnum(tgt_group)
+                            merged_arr[rel_off:rel_off + field_size] = b'\x00' * field_size
+                            if rel_off < 0x10000 and off_in_tgt < 0x10000:
+                                standalone_group += emit_cinterseg(
+                                    field_size, 0, rel_off, tgt_segnum, off_in_tgt)
+                            else:
+                                standalone_group += emit_interseg(
+                                    field_size, 0, rel_off, tgt_segnum, off_in_tgt)
+                            continue
                         # Cross-group: encode as SUPER type-2 (INTERSEG, FileNum=1,
                         # SegNum = target group's output segnum).
-                        tgt_group_base = group_bases[tgt_group]
-                        tgt_segnum     = tgt_group + 2   # segnum 2 = first load seg
-                        off_in_tgt = joint_target - tgt_group_base
+                        tgt_segnum = tgt_group + 2   # segnum 2 = first load seg
                         if jt_enabled:
                             if dyn_flags[tgt_group]:
                                 # A reference into a DYNAMIC (on-demand) group cannot
@@ -1524,6 +1601,8 @@ def expressload(
                                 tgt_segnum = jt_segnum
                             else:
                                 tgt_segnum = _final_segnum(tgt_group)
+                        else:
+                            tgt_segnum = _final_segnum(tgt_group)
                         # Patch the 3 bytes in the merged code image.
                         merged_arr[rel_off]     = off_in_tgt & 0xFF
                         merged_arr[rel_off + 1] = (off_in_tgt >> 8) & 0xFF
@@ -1558,11 +1637,25 @@ def expressload(
                                     for op2 in ops2:
                                         if isinstance(op2, tuple) and op2[0].startswith('sym'):
                                             sname2 = op2[1]
-                                            # Try joint sym then obj_globals
+                                            # Try joint sym then obj_globals; a
+                                            # "combo" group's private export
+                                            # (see _fallback_sym's docstring)
+                                            # is in neither, so fall further
+                                            # back to _fallback_sym rather
+                                            # than silently leaving sym_joint
+                                            # unresolved (measured against TS2
+                                            # INIT's ORIGBELLVECTOR bank-byte
+                                            # ref, docs/EXPRESSLOAD_TIER2_PLAN.md
+                                            # E2). Scoped to the no-JT path —
+                                            # jt_enabled tools already resolve
+                                            # correctly via sym/obj_globals[oi]
+                                            # alone.
                                             jv = sym.get(sname2)
                                             if jv is None:
                                                 og2 = obj_globals[oi]
                                                 jv = og2.get(sname2) if og2 else None
+                                            if jv is None and not jt_enabled:
+                                                jv = _fallback_sym.get(sname2)
                                             if isinstance(jv, int):
                                                 sym_joint = jv
                                             break
@@ -1596,7 +1689,7 @@ def expressload(
                         corrected_type = 27  # fallback
                     final_relocs.setdefault(corrected_type, []).append(rel_off)
 
-                elif stype == 0 and jt_enabled:
+                elif stype == 0:
                     # 2-byte (type-0) low-word reloc: check if target is in a
                     # different group. Re-evaluate against the joint symbol
                     # table (same robustness reasoning as stype==1, above). A
@@ -1605,7 +1698,11 @@ def expressload(
                     # cross target segnum gets its own SUPER type — measured
                     # against gold (Tool016/018): 13 + the target's own final
                     # segnum (JT-routed the same way as stype==1 when the
-                    # target is DYNAMIC).
+                    # target is DYNAMIC). Not gated on jt_enabled: the same
+                    # correction applies whenever there IS a cross-group
+                    # target, dynamic or not (TS2/TS3, docs/
+                    # EXPRESSLOAD_TIER2_PLAN.md E2 — dyn_flags is all-False
+                    # there, so the jt-routing sub-branch below is inert).
                     _esz, _eops, _eseg_i = expr_at[abs_off]
                     joint_target = _link._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
                     tgt_group = _group_of(joint_target)
