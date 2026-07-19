@@ -51,7 +51,8 @@ def build(fixdir):
     a = asm.assemble(src, [fixdir],
                      defines=cfg.get('defines'),
                      sysdate=cfg.get('sysdate'),
-                     systime=cfg.get('systime'))
+                     systime=cfg.get('systime'),
+                     loads=cfg.get('loads'))
     if a.errors:
         raise AssertionError('assembly errors:\n  ' + '\n  '.join(a.errors[:10]))
     outs = {'expected.obj': omf.emit(a)}

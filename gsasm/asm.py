@@ -428,13 +428,34 @@ class IncludeNotFoundError(Exception):
     failure instead of a bogus 100%."""
 
 
+class _DumpReached(Exception):
+    """Internal: raised by the ``DUMP`` handler when a ``LOAD`` replay reaches
+    its matching ``DUMP`` line, unwinding back to ``do_load``.  Assembler state
+    at that instant is exactly the state MPW AsmIIgs serialized into the dump
+    file, so stopping here IS the restore."""
+
+
+def _dump_leaf(spec):
+    """Leaf dump-file name (upper) of a LOAD/DUMP operand: unquote, then take
+    the last ':'-separated MPW path component."""
+    name = _unquote((spec or '').strip()).strip()
+    return name.split(':')[-1].upper()
+
+
 # --------------------------------------------------------------------------
 # Assembler state
 # --------------------------------------------------------------------------
 class Asm:
     def __init__(self, include_paths, seed=None, seed_type=None, seg_seed=None,
-                 sysdate=None, systime=None):
+                 sysdate=None, systime=None, loads=None):
         self.include_paths = include_paths
+        # MPW `LOAD 'dumpfile'` support: dump-file name (upper) -> the SOURCE
+        # file that generates it via `DUMP 'dumpfile'` (from the makefile rule,
+        # e.g. TextEdit's  Include.Symbols <- AsmIIGS -c GenerateDump).  gsasm
+        # never reads/writes MPW's binary dump format; LOAD replays the
+        # generating source up to its DUMP line instead (see do_load).
+        self.loads = {_dump_leaf(k): v for k, v in (loads or {}).items()}
+        self._load_stop = None        # dump name (upper) an active LOAD replay stops at
         self.seed = seed or {}        # symbol values from a prior pass
         # &sysdate / &systime builtins: the assembler's build date/time strings.
         # When None the builtins return ''. Pass the original build date/time to
@@ -692,6 +713,16 @@ class Asm:
         # active; the local equate ($b8) must win over PopUpGlobals.DevName ($36).
         local_here = seg is not None and (
             u in self.seg_local.get(seg, {}) or u in self.seg_equ.get(seg, {}))
+        # Inside a RECORD template definition, the record's OWN fields bind
+        # first: TempStyle (origin WorkArea=$dc, TextEdit GlobalVars) does
+        # `ORG fontID` — MPW rebases to TempStyle.fontID ($dc), not to a
+        # WITH-active TEStyle.fontID (offset 0).
+        if self.cur_record and '.' not in name:
+            q = self._fold(self.cur_record + '.' + name)
+            if q in self.symbols:
+                return self.symbols[q]
+            if q in self.seed:
+                return self.seed[q]
         if self.with_stack and '.' not in name and not local_here:
             for recs in reversed(self.with_stack):
                 for rec in recs:
@@ -1075,6 +1106,48 @@ class Asm:
             raise IncludeNotFoundError(
                 f"{self._cur_file}:{self._cur_line}: {msg}")
         self.run_unit(read_text(p).split('\n'), os.path.dirname(p), filepath=p)
+
+    def do_load(self, spec):
+        """MPW ``LOAD 'dumpfile'``: restore assembler state (symbols, macros,
+        records, variables) saved by a prior ``DUMP 'dumpfile'`` assembly.
+
+        Clean-room approach: rather than parse MPW's undocumented binary dump
+        format, replay the REGISTERED generating source (``self.loads``, from
+        the makefile's dump rule) and stop at its matching ``DUMP`` line — the
+        state at that point is definitionally the state the dump captured.
+        Replay merges into current state (definitions made before the LOAD
+        survive), matching observed MPW usage: TextEdit's GlobalIncludes sets
+        BreakFlag/TraceFlag equates BEFORE ``LOAD 'Include.Symbols'`` and the
+        macros restored by it test those flags afterwards."""
+        name = _dump_leaf(spec)
+        gen = self.loads.get(name)
+        if gen is None:
+            msg = (f"LOAD {spec}: no dump-generating source registered "
+                   f"(pass loads={{{name!r}: '<source>'}} to assemble())")
+            self._err(msg)
+            raise IncludeNotFoundError(
+                f"{self._cur_file}:{self._cur_line}: {msg}")
+        curdir = self.dirstack[-1] if self.dirstack else None
+        p = self.resolve_include(gen, curdir)
+        if not p:
+            msg = f"LOAD {spec}: dump-generating source not found: {gen}"
+            self._err(msg)
+            raise IncludeNotFoundError(
+                f"{self._cur_file}:{self._cur_line}: {msg}")
+        saved = self._load_stop
+        self._load_stop = name
+        try:
+            self.run_unit(read_text(p).split('\n'), os.path.dirname(p),
+                          filepath=p)
+            # Fell off the end (or hit END) without reaching DUMP: the
+            # registration is wrong.  Undo a replayed END so the outer file
+            # keeps assembling, and say so loudly.
+            self.ended = False
+            self._err(f"LOAD {spec}: {gen} never reached DUMP '{name}'")
+        except _DumpReached:
+            pass
+        finally:
+            self._load_stop = saved
 
     # ----------------------------------------------------------------
     # Symbol / location helpers
@@ -1639,13 +1712,17 @@ class Asm:
         return any(tk in ('=', '<>', '<', '>', '<=', '>=') for tk in toks)
 
     def _cond_or(self, t, raw=False):
-        parts = _split_kw(t, 'OR')
+        # `++` is MPW Asm's symbolic logical OR, same level as the OR keyword
+        # (as `**` is symbolic AND — TextEdit/StdFile/ControlMgr *.macros
+        # `IF &C='' ** &B='' THEN`).  Both split space-delimited only, the sole
+        # form the corpus evidences.
+        parts = [q for p in _split_kw(t, 'OR') for q in _split_kw(p, '++')]
         if len(parts) > 1:
             return any(self._cond_and(p, raw) for p in parts)
         return self._cond_and(t, raw)
 
     def _cond_and(self, t, raw=False):
-        parts = _split_kw(t, 'AND')
+        parts = [q for p in _split_kw(t, 'AND') for q in _split_kw(p, '**')]
         if len(parts) > 1:
             return all(self._cond_leaf(p, raw) for p in parts)
         return self._cond_leaf(t, raw)
@@ -1841,6 +1918,21 @@ class Asm:
             # ---- control directives needing no & in op ----
             if op == 'INCLUDE':
                 self.do_include(pre.operand)
+                continue
+            if op == 'LOAD':
+                self.do_load(pre.operand)
+                continue
+            if op == 'DUMP':
+                # In a direct assembly (`AsmIIGS -c GenerateDump`) DUMP writes
+                # MPW's binary symbol dump — an artifact gsasm never needs, so
+                # it is a no-op.  During a LOAD replay it marks the point whose
+                # assembler state the dump captured: stop exactly here.
+                # Match on the LEAF name: the DUMP operand may carry an MPW
+                # path (AppleShare `dump ':obj:equates.dump'`) that the LOAD
+                # side (`load 'equates.dump'`) omits.
+                if self._load_stop is not None and \
+                        _dump_leaf(pre.operand) == self._load_stop:
+                    raise _DumpReached()
                 continue
             if op == 'END':
                 self.ended = True
@@ -3001,9 +3093,10 @@ def _find_ci(base, relpath):
 
 
 def _run_once(path, include_paths, seed, seed_type, seg_seed=None, defines=None,
-              at_seed=None, at_seg_seed=None, sysdate=None, systime=None):
+              at_seed=None, at_seg_seed=None, sysdate=None, systime=None,
+              loads=None):
     asm = Asm(include_paths, seed=seed, seed_type=seed_type, seg_seed=seg_seed,
-              sysdate=sysdate, systime=systime)
+              sysdate=sysdate, systime=systime, loads=loads)
     # the prior pass's COMPLETE @-label positions must be available DURING this
     # pass (a forward @-ref is resolved while assembling, before its definition)
     asm.at_seed = at_seed or {}
@@ -3022,12 +3115,14 @@ def _run_once(path, include_paths, seed, seed_type, seg_seed=None, defines=None,
 
 
 def assemble(path, include_paths, passes=3, defines=None, sysdate=None,
-             systime=None):
+             systime=None, loads=None):
     """Multi-pass assembly: later passes seed symbol values AND kinds from
     earlier ones so forward references size correctly. Symbol kinds make this
     safe: only equates drive direct-page sizing; relocatable labels stay
     absolute regardless of their (link-relative) value.
     `defines` supplies asmiigs `-d NAME=VALUE` command-line equates.
+    `loads` maps a `LOAD 'dumpfile'` name to the source that `DUMP`s it (the
+    makefile's dump rule); see Asm.do_load for the replay semantics.
     `sysdate`/`systime` override the &sysdate/&systime builtins (used by
     source that embeds the original build date for byte-exact reproduction).
 
@@ -3040,13 +3135,13 @@ def assemble(path, include_paths, passes=3, defines=None, sysdate=None,
     The ROM corpus is fully converged at two passes, so the extra pass is a
     no-op for those files."""
     a = _run_once(path, include_paths, seed=None, seed_type=None, defines=defines,
-                  sysdate=sysdate, systime=systime)
+                  sysdate=sysdate, systime=systime, loads=loads)
     for _ in range(passes - 1):
         prev = a
         a = _run_once(path, include_paths, seed=prev.symbols, seed_type=prev.symtype,
                       seg_seed=prev.seg_local, defines=defines,
                       at_seed=prev.at_defs, at_seg_seed=prev.at_seg,
-                      sysdate=sysdate, systime=systime)
+                      sysdate=sysdate, systime=systime, loads=loads)
     return a
 
 

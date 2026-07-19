@@ -1,0 +1,3 @@
+{
+  "note": "ORG <field> inside a RECORD template resolves the record's own field before any WITH-active record's same-named field (MPW innermost binding) — else post-ORG fields lose a nonzero origin. Guards asm.py resolve() cur_record-first lookup (E3 Tool034 TempStyle RECORD WorkArea)."
+}

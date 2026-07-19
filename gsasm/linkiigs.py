@@ -86,8 +86,11 @@ def _defer_shifts(recs, abs_syms=frozenset()):
     A relocatable load file (ToolNNN/driver/FST) stores the base-0 value and lets
     the loader apply the high-word shift via a SUPER type-27 reloc; resolving the
     shift at link time would bake 0 (`offset >> 16`), which is the bank-byte gap.
-    Only right shifts on a reloc expression are deferred; left shifts / non-reloc
-    constants fall through and resolve normally.
+    LEFT shifts on a reloc expression defer identically (a standalone reloc with
+    positive shift): TextEdit fastdraw's `lda #(returnHere-1)<<8` stores the
+    un-shifted offset ($3226), and baking `(offset<<8)&0xFFFF` would also be
+    wrong at runtime once the loader relocates the segment.  Non-reloc constants
+    fall through and resolve normally.
 
     ``abs_syms`` names the GEQU (link-time CONSTANT) symbols: a right shift whose
     value references ONLY constants (e.g. the SCSI Manager's `#work_vars_size>>16`
@@ -115,7 +118,7 @@ def _defer_shifts(recs, abs_syms=frozenset()):
                 # low word (e.g. PrintMgr's `pushlong #LocalPathEnd-LocalPathname`,
                 # 31>>16, which must be 0, not 0x1F).
                 const_only = all(s in abs_syms for s in syms)
-                if count < 0 and not const_only:    # right shift -> defer to load
+                if count != 0 and not const_only:   # any shift -> defer to load
                     out.append((at, nm, (size, ops[:-3] + ['end'])))
                     relocs.append((pos, size, count))
                     pos += size
