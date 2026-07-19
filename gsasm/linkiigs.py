@@ -59,26 +59,17 @@ def _decode_segname(h: dict) -> str:
 def _parse_obj(obj_bytes: bytes) -> list[dict]:
     """Split a multi-segment OMF object into a list of dicts
     {hdr, recs, segname, length}."""
-    segs: list[dict] = []
-    off = 0
-    while off < len(obj_bytes):
-        h = _omf.parse_header(obj_bytes[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        seg_data = obj_bytes[off:off + bc]
-        recs, _ = _omf.parse_records(seg_data, h['DISPDATA'],
-                                     h['NUMLEN'], h['LABLEN'])
-        segs.append({
-            'hdr': h,
-            'recs': recs,
-            'segname': _decode_segname(h),
-            'length': h['LENGTH'],
-            'loadname': h['LOADNAME'].decode('mac_roman', 'replace').strip(),
-            'org': h.get('ORG', 0) or 0,
-        })
-        off += bc
-    return segs
+    return [
+        {
+            'hdr': seg['hdr'],
+            'recs': seg['recs'],
+            'segname': _decode_segname(seg['hdr']),
+            'length': seg['hdr']['LENGTH'],
+            'loadname': seg['hdr']['LOADNAME'].decode('mac_roman', 'replace').strip(),
+            'org': seg['hdr'].get('ORG', 0) or 0,
+        }
+        for seg in _omf.iter_segments(obj_bytes)
+    ]
 
 
 # ---------------------------------------------------------------------------

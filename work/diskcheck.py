@@ -27,14 +27,14 @@ a builder-correctness gate; a no-builder run is trivially 100%):
 """
 import sys, os
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))          # gsasm/
+from _common import ROOT, byte_match, ensure_repo_on_path, first_diff
+ensure_repo_on_path()
 
 
 def _find_a2til():
     """Locate the a2til toolkit without a hard-coded absolute path (P3)."""
     for p in (os.environ.get('A2TIL_PATH'),
-              os.path.join(os.path.dirname(os.path.dirname(HERE)), 'a2til'),  # sibling
+              os.path.join(os.path.dirname(ROOT), 'a2til'),  # sibling
               os.path.expanduser('~/src/a2til')):
         if p and os.path.isdir(os.path.join(p, 'a2til')):
             return p
@@ -271,10 +271,9 @@ def build_and_overlay_rsrc(vol, f):
 
 
 def _first_diff(a, b):
-    n = min(len(a), len(b))
-    for i in range(n):
-        if a[i] != b[i]:
-            return hex(i)
+    d = first_diff(a, b)
+    if d is not None and d < min(len(a), len(b)):
+        return hex(d)
     return f'len {len(a)} vs {len(b)}'
 
 
@@ -326,8 +325,7 @@ def check(disk_path=SYSTEM_DISK, verbose=False, min_built=0):
                 notes.append(f'    {f.path}: {note}')
 
     recon = bytes(buf)
-    n = min(len(recon), len(orig))
-    match = sum(1 for i in range(n) if recon[i] == orig[i])
+    match, n = byte_match(recon, orig)
 
     n_wireable = (own[BUILD]
                   + sum(1 for f in files if f.owner == REZ and f.path in REZ_BUILDERS)

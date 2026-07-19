@@ -5,12 +5,13 @@ against the listing's Object Code column, aligned by source text via difflib.
 Reports opcode mismatches (addressing-mode errors) and operand mismatches
 (value errors), ignoring relocatable operands (listing shows all-FF)."""
 import sys, os, glob, re, difflib, collections
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _common import ensure_repo_on_path, romsrc_incs, romsrc_root
+ensure_repo_on_path()
 from gsasm import asm
 from gsasm import m65816
 
-ROOT = 'work/romsrc/GS_ROM'
-INCS = ['work/includes'] + [d for d, _, _ in os.walk(ROOT)]
+ROOT = romsrc_root()
+INCS = romsrc_incs(ROOT)
 MN = set(x.lower() for x in m65816.MNEMONICS)
 
 

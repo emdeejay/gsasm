@@ -179,7 +179,7 @@ def emit_reloc(size: int, shift: int, offset: int, rel_offset: int) -> bytes:
 # + resolved address, and falls through).  The layout is fully specified by the
 # Loader source in the tree (GS.OS/Loader/Jump.a + Loader.Equates) and this
 # codec reproduces all three golden tables (Tool015/016/018) byte-exact —
-# see work/jumptable_probe.py, from which it is ported.
+# see work/archive/jumptable_probe.py, from which it is ported.
 #
 #     header  : seg_jmp_start = 8 bytes of 0x00
 #     entries : jmp_entry_size = 14 bytes each:
@@ -240,20 +240,11 @@ def de_express(path_or_bytes) -> bytes:
     else:
         data = bytes(path_or_bytes)
 
-    off = 0
     img = bytearray()
-    while off < len(data):
-        h = _omf.parse_header(data[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        nm = h['SEGNAME'].decode('mac_roman', 'replace').strip()
+    for seg in _omf.iter_segments(data):
+        nm = seg['name']
         if not nm.startswith('~ExpressLoad'):
-            recs, _ = _omf.parse_records(
-                data[off:off + bc], h['DISPDATA'],
-                h.get('NUMLEN', 4), h.get('LABLEN', 0))
-            img += b''.join(r[2] for r in recs if r[1] in ('CONST', 'LCONST'))
-        off += bc
+            img += b''.join(r[2] for r in seg['recs'] if r[1] in ('CONST', 'LCONST'))
     return bytes(img)
 
 
@@ -406,7 +397,7 @@ def _scan_case_b(
     of a far-pointer PEA pair, which stores the SAME full value as its
     low-word (``shift=0``) partner, not the value shifted right 16.
 
-    Confirmed against the golden corpus (work/reloc_survey.py, docs/TODO.md
+    Confirmed against the golden corpus (work/archive/reloc_survey.py, docs/TODO.md
     section 1): all 9 flagged case-B records are ``(size, shift)`` in
     ``{(2, 0), (2, 16)}`` — SUPER types 0 and 27, the far-pointer PEA-pair /
     bank-byte filter-hook idiom.  Restricting to those two (size, shift) pairs
@@ -959,7 +950,7 @@ def expressload(
         # Standalone cRELOC/RELOC records come BEFORE the SUPER records,
         # matching MPW ExpressLoad, sorted together by patch offset (verified:
         # the golden corpus's standalone records are always in ascending-
-        # offset order regardless of case A/B — work/reloc_survey.py).
+        # offset order regardless of case A/B — work/archive/reloc_survey.py).
         #
         # Two cases collapse into one combined, offset-sorted list:
         #   case A — a shifted relocation whose (size, shift) has NO SUPER

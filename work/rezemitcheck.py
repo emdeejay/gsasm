@@ -19,11 +19,10 @@ Usage:
 """
 import sys, os, struct, importlib.util
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)                 # so `import rezcheck` / `diskcheck` work
+from _common import ROOT as REPO_ROOT, WORK, ensure_repo_on_path, first_diff
+ensure_repo_on_path(WORK)                # so `import rezcheck` / `diskcheck` work
 import rezcheck as rc                     # noqa: E402
 
-REPO_ROOT = os.path.dirname(HERE)
 EMIT_PATH = os.path.join(REPO_ROOT, 'gsasm', 'rez', 'emit.py')
 _spec = importlib.util.spec_from_file_location('gsasm_rez_emit', EMIT_PATH)
 emit = importlib.util.module_from_spec(_spec)
@@ -102,8 +101,7 @@ def roundtrip(path: str) -> bool:
           f'map_diff={report["map_diff"]} match={report["n_match"]}/{report["n_resources"]} '
           f'diff={report["n_diff"]} missing={report["n_missing"]} extra={report["n_extra"]}')
     if not ok and built != fork.raw:
-        n = min(len(built), len(fork.raw))
-        first = next((i for i in range(n) if built[i] != fork.raw[i]), n)
+        first = first_diff(built, fork.raw)
         print(f'    first raw byte diff at offset {first}: '
               f'golden={fork.raw[first:first+8].hex()} built={built[first:first+8].hex()}')
     return ok

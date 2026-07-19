@@ -328,6 +328,7 @@ named array) and pinned by a hand-written test in `tests/test_rez_gen.py`,
 but — unlike everything else in this module — it is *not* backed by a
 golden-byte comparison and should be treated as speculative.
 """
+from __future__ import annotations
 
 import struct
 from dataclasses import dataclass

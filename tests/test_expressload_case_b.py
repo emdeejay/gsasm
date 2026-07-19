@@ -13,7 +13,7 @@ shift=0 store the SAME flagged value, not the value shifted right 16), and
 for an unpaired single shift-16 record (Tool027's `lda #^(Label+$80000000)`
 style, no matching low-word pair).
 
-This was proven against the golden System 6.0.1 corpus (work/reloc_survey.py):
+This was proven against the golden System 6.0.1 corpus (work/archive/reloc_survey.py):
 all 9 flagged case-B records are exactly this pattern, mapped to source lines
 in docs/TODO.md's table (Tool014/023/027, TS3). It is corpus-free here: an
 ORIGINAL source (no Apple material) exercising the same PEA-pair / unpaired
@@ -81,16 +81,10 @@ SOURCE = (
 # the raw bytes directly instead of trusting the library's own helper).
 # ---------------------------------------------------------------------------
 def _split_segments(data):
-    segs = []
-    off = 0
-    while off < len(data):
-        h = omf.parse_header(data[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        segs.append((h, data[off:off + bc]))
-        off += bc
-    return segs
+    return [
+        (seg['hdr'], seg['raw'])
+        for seg in omf.iter_segments(data, records=False)
+    ]
 
 
 def _decode_tail(seg_bytes, dispdata):

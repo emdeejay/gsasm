@@ -38,12 +38,12 @@ individual tool designs assume (OMF primer, golden-binary layout, gotchas).
 | # | Target images | Tools needed | Status |
 |---|---|---|---|
 | M0 | ROM 03 firmware (256K, 3 banks) | gsasm + `linkrom` + ROM makebin | ✅ **byte-exact** (`work/buildrom.py`); objcheck 40/61 obj-identical, linkcheck 61/61 link-identical |
-| M1 | `System/Tools/ToolNNN` (13 toolsets) | gsasm + M2 + M4 | 🟡 **99.5%** (`work/toolcheck.py`); residual = the ExpressLoad case-B encoding, linker-generated `~JumpTable` segments, and a Tool019 source discrepancy — see RESULTS.md |
+| M1 | `System/Tools/ToolNNN` mapped code images (11 toolsets) | gsasm + M2 + M4 | ✅ **byte-exact** (`work/toolcheck.py`, 150,459/150,459); full on-disk ExpressLoad builders still have diskcheck logical residuals for Tool015/016/018/034 |
 | M2 | general OMF load-file linker | `gsasm/linkiigs.py` | ✅ **done** — tools, FSTs, drivers and the kernel all link through it |
 | M3 | MakeBin/Overlay/catenate | `gsasm/makebin.py` | ✅ **done** — `prodos` byte-exact (`work/probootcheck.py`) |
-| M4 | ExpressLoad relinker | `gsasm/expressload.py` | ✅ **done** — byte-exact vs Tool022/021/028; one documented encoding limit (case B) |
-| M5 | `System/FSTs/*`, `System/Drivers/*` | gsasm + M2 (+M3) | ✅ **done** — all 7 buildable FSTs byte-exact; 11/12 drivers byte-exact (SCSIHD golden is a later source revision) |
-| M6 | `GS.OS`, `Start.GS.OS`, `P8`, `prodos`, `ERROR.MSG` | gsasm + M2 + M3 + M4 | ✅ prodos/Start.GS.OS/Error.Msg/Loader byte-exact; GS.OS 99.88% (48-byte residual, three unrelated classes; the old "94-byte external floor" was a misdiagnosis — see RESULTS.md); P8 out of scope |
+| M4 | ExpressLoad relinker | `gsasm/expressload.py` | ✅ **done for the gated code-image corpus** — byte-exact mapped tools/FSTs/drivers; remaining full-file ExpressLoad residuals are tracked by `work/diskcheck.py` |
+| M5 | `System/FSTs/*`, `System/Drivers/*` | gsasm + M2 (+M3) | ✅ **done** — all 8 buildable FSTs and all 12 mapped drivers byte-exact |
+| M6 | `GS.OS`, `Start.GS.OS`, `P8`, `prodos`, `ERROR.MSG` | gsasm + M2 + M3 + M4 | ✅ byte-exact, including GS.OS SCM, Loader, Start.GS.OS, P8, prodos, and Error.Msg |
 | M7 | Finder, Installer, asm CDEVs/NDAs (resource forks) | gsasm + M2 + **Rez** | 🟡 first target done: `design/rez.md` |
 | — | Pascal/C desktop (Ctl-Panel CDEVs, GSCalc, ADU, Teach, Logon) | PascalIIgs / C | ❌ out of scope |
 
@@ -55,14 +55,14 @@ the real chip. This is the proof that gsasm + a linker + a bank packager
 reproduces real shipping bytes, and it anchors everything after it: every
 change to the core is gated on the ROM staying byte-exact (`work/gate.py`).
 
-### M1 — Toolbox `ToolNNN` 🟡 99.5%
+### M1 — Toolbox `ToolNNN` mapped code images ✅
 `work/toolcheck.py` assembles each manager from `GSToolbox`, links, and
 byte-compares against the shipping (de-ExpressLoad'd) `ToolNNN`. The
-cross-segment dispatch-table problem and the sizing-drift class were both
-solved; what remains is bounded by things outside the source archive
-(RESULTS.md): the ExpressLoad case-B relocation encoding, `~JumpTable`
-segments the MPW linker generated into three tools, and one tool whose
-archived source disagrees with its binary.
+cross-segment dispatch-table problem, source-level ExpressLoad case-B flags,
+`~JumpTable` routing, Tool018's QDAux segmentation, and Tool019's pure-literal
+shift are all closed for the mapped code-image corpus: 11 tools, 150,459 bytes.
+`work/diskcheck.py` still distinguishes full on-disk ExpressLoad file residuals
+for Tool015/016/018/034 from these code-image results.
 
 ### M2 — General `LinkIIgs` ✅ (`gsasm/linkiigs.py`)
 The general OMF v2 load-file linker: N input objects (multi-segment, APW/OMF),
@@ -79,28 +79,24 @@ byte-exact `prodos` boot file. Design record: `design/makebin.md`.
 ### M4 — ExpressLoad relinker ✅ (`gsasm/expressload.py`)
 Converts a plain OMF load file into the ExpressLoad fast-load format (the
 `~ExpressLoad` directory segment, reorganized segments, compressed `SUPER`
-relocation dictionaries). Byte-exact against the golden Tool022/021/028. The
-one limit — the converter's standalone-vs-SUPER choice for a handful of
-relocations ("case B") is internal state of the original tool, not a function
-of its input — is analysed in `design/expressload.md`.
+relocation dictionaries). The gated code-image corpus is byte-exact; the old
+case-B "not a function of input" claim was overturned by source-level flagged
+addends. Full on-disk ExpressLoad mismatches that remain in `work/diskcheck.py`
+are tracked separately from the code-image gate.
 
 ### M5 — FSTs + Drivers ✅
-`work/fstcheck.py` / `work/drivercheck.py`. All seven FSTs with source in the
-archive reproduce byte-exact (AppleShare's source is absent). Eleven of twelve
-drivers reproduce byte-exact; the shipping SCSIHD.Driver was built from a
-later source revision than the archived one (RESULTS.md has the evidence).
+`work/fstcheck.py` / `work/drivercheck.py`. All eight buildable FSTs with source
+in the archive reproduce byte-exact, including AppleShare.FST. All twelve
+mapped shipping drivers reproduce byte-exact, including SCSIHD.Driver.
 
-### M6 — GS/OS kernel ✅ at the proven floor
+### M6 — GS/OS kernel and boot files ✅
 `work/kernelcheck.py`, following the tree's own `linkOS` recipe: link the OS
 objects, split into `scm.bin.N` segments, catenate segments into `GS.OS` and
-`Start.GS.OS`. `prodos`, `Start.GS.OS`, `Error.Msg` and the Loader are
-byte-exact. `GS.OS` reaches 99.88% (48 bytes short). An earlier "94-byte
+`Start.GS.OS`. `GS.OS` SCM, Loader, `Start.GS.OS`, `prodos`, `Error.Msg`, and
+the full OverlayIIgs-built P8 image are byte-exact. An earlier "94-byte
 external floor" was overturned: the bank-$E1 vectors blamed for it are
 `EXPORT`ed `DS` globals in `GQuit.src`, resolved by the whole-OS link (see
-RESULTS.md); the 48-byte residual is three unrelated settled classes. P8
-needs the OverlayIIgs
-driver-overlay build plus include files not in the GS/OS tree, and is
-documented out of scope.
+RESULTS.md), and the remaining assembler/linker classes are now closed.
 
 ### M7 — Rez + asm desktop 🟡 first target done (Sys.Resources byte-exact)
 Finder, Installer, and the asm-only CDEVs/NDAs assemble with gsasm but need a

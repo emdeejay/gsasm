@@ -16,10 +16,9 @@ Usage:
     python3 work/probootcheck.py          # full report
     python3 work/probootcheck.py --diff   # also dump first-diff context
 
-Expected result: 1666/1668 bytes identical (99%).
-The 2-byte residual is a known gsasm/omf.py gap (DC.W LabelA-LabelB across
-segments resolves to 0 at assembly time; the difference is a layout constant
-that the real linkiigs would supply).  See gsasm/makebin.py docstring.
+Expected result: 1668/1668 bytes identical.  The former 2-byte
+getfstname-jump_table segment-head difference is closed and this harness keeps
+it gated.
 
 Golden extraction (run once, idempotent):
     cadius EXTRACTFILE \\
@@ -29,7 +28,14 @@ Golden extraction (run once, idempotent):
 import sys
 import os
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _common import (
+    byte_match,
+    ensure_repo_on_path,
+    gsos_source_root,
+    gsos_tree_incs,
+    mismatch_offsets,
+)
+ensure_repo_on_path()
 
 from gsasm import asm, omf, makebin
 
@@ -37,9 +43,9 @@ from gsasm import asm, omf, makebin
 # Paths
 # ---------------------------------------------------------------------------
 
-SRC  = 'ref/GSOS_6/IIGS.601.SRC'
-GS   = SRC + '/GS.OS'
-BOOT = GS + '/Boot/ProBoot.src'
+SRC  = gsos_source_root()
+GS   = os.path.join(SRC, 'GS.OS')
+BOOT = os.path.join(GS, 'Boot', 'ProBoot.src')
 DISK = ('ref/GSOS_6/System601_disks/System 6.0.1/'
         'Disk 2 of 7 System Disk.2mg')
 GOLDEN_DIR = 'ref/GSOS_6/os_bin'
@@ -80,7 +86,7 @@ def build_prodos() -> bytes:
       makebiniigs -org $2000 proboot.obj
     """
     # Include paths: every subdirectory of the GS.OS source tree.
-    incs = [d for d, _, _ in os.walk(GS)]
+    incs = gsos_tree_incs(SRC)
 
     # Step 1: assemble
     a = asm.assemble(BOOT, incs)
@@ -111,15 +117,14 @@ def main(show_diff: bool = False) -> int:
         print(f'Build failed: {exc}', file=sys.stderr)
         raise
 
-    n = min(len(mine), len(golden))
-    m = sum(1 for i in range(n) if mine[i] == golden[i])
+    m, n = byte_match(mine, golden)
     pct = (100 * m // n) if n else 0
 
     print(f'prodos: gsasm={len(mine)} golden={len(golden)} '
           f'match {m}/{n} ({pct}%)  org=${ORG:04X}')
 
     if m < n and show_diff:
-        diffs = [i for i in range(n) if mine[i] != golden[i]]
+        diffs = mismatch_offsets(mine, golden)
         print(f'  {len(diffs)} mismatched byte(s):')
         for pos in diffs[:20]:
             print(f'    offset {pos:#06x}:  gsasm={mine[pos]:02x}  golden={golden[pos]:02x}')
@@ -129,15 +134,10 @@ def main(show_diff: bool = False) -> int:
     if len(mine) != len(golden):
         print(f'  WARNING: size mismatch  gsasm={len(mine)}  golden={len(golden)}')
 
-    # Known gap summary
-    if m == 1666 and n == 1668:
-        print()
-        print('  Known gap (2 bytes @ 0x0a-0x0b):')
-        print('    DC.W getfstname-jump_table = 0x0000 (got) vs 0x03d4 (golden)')
-        print('    Root cause: cross-segment label difference emitted as literal 0')
-        print('    by omf.py emit_segment; requires gsasm-core fix (out of scope).')
-    elif m == n:
+    if m == n:
         print('  BYTE-EXACT  ✓')
+    else:
+        print('  NOT byte-exact; any residual here is a regression or a new bug.')
 
     return 0 if m == n else 1
 

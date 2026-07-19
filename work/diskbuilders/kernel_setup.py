@@ -22,13 +22,19 @@ import os
 import struct
 import sys
 
-# kernel_setup.py lives at work/diskbuilders/kernel_setup.py.
-# The project root is three directories up.
-_ROOT = os.path.dirname(                    # worktree/
-         os.path.dirname(                   # work/
-          os.path.dirname(                  # work/diskbuilders/
-           os.path.abspath(__file__))))
-sys.path.insert(0, _ROOT)                   # so `import gsasm` resolves
+_WORK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _WORK not in sys.path:
+    sys.path.insert(0, _WORK)
+
+from _common import (
+    ROOT as _ROOT,
+    ensure_repo_on_path,
+    gsos_incs,
+    gsos_source_root,
+    report_nonignored_asm_errors,
+    work_abs,
+)
+ensure_repo_on_path()
 
 from gsasm import asm      as _asm
 from gsasm import omf      as _omf
@@ -38,16 +44,13 @@ from gsasm import makebin  as _makebin
 # ---------------------------------------------------------------------------
 # Source paths (absolute, derived from project root)
 # ---------------------------------------------------------------------------
-_SRC      = os.path.join(_ROOT, 'ref/GSOS_6/IIGS.601.SRC')
+_SRC      = gsos_source_root(abs_path=True)
 _GS       = os.path.join(_SRC, 'GS.OS')
 _CMN      = os.path.join(_GS,  'Common')
-_INCS_DIR = os.path.join(_ROOT, 'work/includes')
+_INCS_DIR = work_abs('includes')
 
 # Include path: Common first, then every GS.OS subdir, then work/includes.
-_INCS = [_CMN] + [d for d, _, _ in os.walk(_GS)] + [_INCS_DIR]
-
-# Non-fatal pseudo-ops that gsasm doesn't implement (matches kernelcheck.py)
-_IGNORE_OPS = ('pagesize', 'datachk', 'endproc', 'eject', 'writeln', 'codechk')
+_INCS = gsos_incs(_INCS_DIR, src=_SRC)
 
 
 # ---------------------------------------------------------------------------
@@ -61,14 +64,7 @@ def _assemble(src_path):
     stderr (do not abort the run, matching kernelcheck.py behaviour).
     """
     a = _asm.assemble(src_path, _INCS)
-    fatal = [e for e in a.errors
-             if not any(x in e.lower() for x in _IGNORE_OPS)]
-    if fatal:
-        name = os.path.basename(src_path)
-        print(f'  [{name}] {len(fatal)} non-ignored errors; first 2:',
-              file=sys.stderr)
-        for e in fatal[:2]:
-            print(f'    {e}', file=sys.stderr)
+    report_nonignored_asm_errors(src_path, a.errors)
     return _omf.emit(a), a
 
 

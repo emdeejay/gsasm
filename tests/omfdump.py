@@ -36,22 +36,17 @@ def _expr_str(e):
 def dump(data):
     """Return the textual dump of every segment in `data`."""
     lines = []
-    off = 0
-    segno = 0
-    while off + 44 <= len(data):
-        h = omf.parse_header(data[off:])
-        if h['BYTECNT'] == 0:
-            break
-        segno += 1
-        seg = h['SEGNAME'].decode('mac_roman', 'replace')
+    seg_count = 0
+    for seg_count, seg in enumerate(omf.iter_segments(data), start=1):
+        h = seg['hdr']
+        seg_name = h['SEGNAME'].decode('mac_roman', 'replace')
         load = h['LOADNAME'].decode('mac_roman', 'replace').rstrip()
-        lines.append(f'SEGMENT {segno}: {seg!r}')
+        lines.append(f'SEGMENT {seg_count}: {seg_name!r}')
         lines.append(f"  LOADNAME={load!r} LENGTH={h['LENGTH']} KIND=${h['KIND']:04X}"
                      f" ORG={h['ORG']} ALIGN={h['ALIGN']}"
                      f" LABLEN={h['LABLEN']} NUMLEN={h['NUMLEN']}"
                      f" BYTECNT={h['BYTECNT']}")
-        recs, _ = omf.parse_records(data[off:], h['DISPDATA'], numlen=h['NUMLEN'])
-        for at, name, detail in recs:
+        for at, name, detail in seg['recs']:
             if name in ('CONST', 'LCONST'):
                 lines.append(f'  +{at:05x} {name:9s} len={len(detail):<4d} {_hx(detail)}')
             elif name == 'DS':
@@ -84,8 +79,7 @@ def dump(data):
                 lines.append(f'  +{at:05x} END')
             else:
                 lines.append(f'  +{at:05x} {name} {detail!r}')
-        off += h['BYTECNT']
-    lines.append(f'TOTAL {len(data)} bytes, {segno} segment(s)')
+    lines.append(f'TOTAL {len(data)} bytes, {seg_count} segment(s)')
     return '\n'.join(lines) + '\n'
 
 

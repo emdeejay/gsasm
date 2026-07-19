@@ -47,7 +47,7 @@ harnesses, with the ROM's byte-identity + the objcheck set as the byte anchor.
 
 ## Migration plan (each step gated on `work/gate.py` AND the ops-oracle)
 1. Add `linear_decompose` to `omf.py`.
-2. **Ops-oracle harness** (`work/p3_oracle.py`): instrument `_expr_for` to compute,
+2. **Ops-oracle harness** (`work/archive/p3_oracle.py`): instrument `_expr_for` to compute,
    for every call, the *would-be* new path alongside the old and assert byte-equal;
    run buildrom + all `*check.py`. Must be green before any detector is removed.
 3. Rewrite each detector as a thin classifier over `linear_decompose`, keeping its

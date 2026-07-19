@@ -13,11 +13,12 @@ produce the bank images. Validated against rom.map (the original linker's
 symbol->address map) and the real ROM.FE/FC/FD.
 """
 import sys, os, re, glob, struct
-sys.path.insert(0, '.')
+from _common import byte_match, ensure_repo_on_path, mismatch_offsets, romsrc_incs, romsrc_root
+ensure_repo_on_path()
 from gsasm import asm, omf
 
-ROOT = 'work/romsrc/GS_ROM'
-INCS = ['work/includes'] + [d for d, _, _ in os.walk(ROOT)]
+ROOT = romsrc_root()
+INCS = romsrc_incs(ROOT)
 
 BANKS = {
     0xFE: ['tl/tl.asm', 'tl/loading.asm', 'toolpatch/toolpatch.asm',
@@ -80,17 +81,7 @@ def parse_map():
 
 def split_obj(blob):
     """Split a multi-segment OMF object into per-segment (header, recs, length)."""
-    segs = []
-    i = 0
-    while i < len(blob):
-        h = omf.parse_header(blob[i:])
-        recs, _ = omf.parse_records(blob[i:i+h['BYTECNT']], h['DISPDATA'],
-                                    h['NUMLEN'], h['LABLEN'])
-        segs.append((h, recs))
-        if h['BYTECNT'] == 0:
-            break
-        i += h['BYTECNT']
-    return segs
+    return [(seg['hdr'], seg['recs']) for seg in omf.iter_segments(blob)]
 
 
 def place():
@@ -267,9 +258,9 @@ def main():
     for bank in only:
         img = emit_bank(bank, placements, gtab, sym2val)
         real = open(ROOT + '/ROM/' + want[bank], 'rb').read()
-        n = min(len(img), len(real))
-        m = sum(1 for i in range(n) if img[i] == real[i])
-        fd = next((i for i in range(n) if img[i] != real[i]), -1)
+        m, n = byte_match(img, real)
+        diffs = mismatch_offsets(img, real)
+        fd = diffs[0] if diffs else -1
         print(f"bank {bank:02X}: mine {len(img)} real {len(real)}  "
               f"match {m}/{n} ({100*m//max(n,1)}%)  first diff @ "
               f"{hex(fd) if fd >= 0 else 'NONE'}")

@@ -68,7 +68,7 @@ Commands run:
 python3 tests/run_fixtures.py
 python3 tests/run_fixtures.py 041
 python3 work/fstcheck.py
-python3 work/appleshare_diag.py
+python3 work/archive/appleshare_diag.py
 python3 work/gate.py
 ```
 
@@ -76,7 +76,7 @@ Results:
 
 - Fixtures: `42/42 fixtures pass`; fixture 041 passes.
 - AppleShare informational build: `17813/17825`, size exact; WS-A no longer appears
-  in `work/appleshare_diag.py`.
+  in `work/archive/appleshare_diag.py`.
 - Gate: PASS, with one current-branch improvement reported for `driver_bytes`.
 
 Note: while reviewing, the worktree already contained an unrelated local

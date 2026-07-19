@@ -4,11 +4,12 @@ via the flat image of each ORG'd firmware segment + slot/Applesoft overlays.
 Also reports objcheck byte-identical count (cheap correctness guard).
 """
 import sys, os, glob
-sys.path.insert(0, '.')
+from _common import byte_match, ensure_repo_on_path, mismatch_offsets, romsrc_incs, romsrc_root
+ensure_repo_on_path()
 from gsasm import asm, omf
 
-ROOT = 'work/romsrc/GS_ROM'
-INCS = ['work/includes'] + [d for d, _, _ in os.walk(ROOT)]
+ROOT = romsrc_root()
+INCS = romsrc_incs(ROOT)
 BINP = ROOT + '/bin/'
 
 
@@ -47,13 +48,13 @@ def cover():
             print(f"  {binf:16} ERR {repr(e)[:50]}")
             continue
         b = open(BINP + binf, 'rb').read()
-        n = min(len(f), len(b))
-        m = sum(1 for i in range(n) if f[i] == b[i])
+        m, n = byte_match(f, b)
         total_match += m
         total += len(b)
         ok = (f == b)
         perfect += ok
-        fd = next((i for i in range(n) if f[i] != b[i]), -1)
+        diffs = mismatch_offsets(f, b)
+        fd = diffs[0] if diffs else -1
         print(f"  {binf:16} {m:6}/{len(b):6} ({100*m//max(len(b),1):3}%) "
               f"{'PERFECT' if ok else 'first@'+hex(fd)}")
     print(f"  --- firmware/overlay ROM bytes gsasm-exact: {total_match}/{total} "

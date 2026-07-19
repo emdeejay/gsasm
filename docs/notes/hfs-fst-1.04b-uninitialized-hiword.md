@@ -205,7 +205,7 @@ deletion, and the `ET_LOG_2_PHYS` `bcc/brk`/`adc #0` — then reassemble, relink
 and re-ExpressLoad with gsasm, and compare the result to the *real* 1.04b binary.
 
 ```
-$ python3 work/hfs104b_roundtrip.py
+$ python3 work/archive/hfs104b_roundtrip.py
 rebuilt (patched 6.0.1 source) : 32642 bytes
 real 1.04b binary (de-express) : 32642 bytes
 
@@ -237,11 +237,11 @@ is what the issue asked for.
 ---
 
 *Reproduce it:*
-*`python3 work/hfs104b_analysis.py` — the subtraction: de-ExpressLoads the three
+*`python3 work/archive/hfs104b_analysis.py` — the subtraction: de-ExpressLoads the three
 HFS.FST images, rebuilds the 6.0.1 offset→source map from gsasm's byte-exact
 layout, block-aligns 1.04b, classifies the 762 edits, and disassembles both fix
 sites.*
-*`python3 work/hfs104b_roundtrip.py` — the proof: applies the recovered edits to
+*`python3 work/archive/hfs104b_roundtrip.py` — the proof: applies the recovered edits to
 the 6.0.1 source and rebuilds 1.04b byte-exact.*
 *The 6.0.1 original is itself the image gsasm builds byte-exact
 (`work/fstcheck.py HFS.FST`).*

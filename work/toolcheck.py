@@ -19,10 +19,11 @@ segment-relative code the loader relocates — which is what gsasm's linked imag
 is compared against (exactly the flat()-image comparison work/buildrom.py uses
 for the ROM banks).
 
-STATUS (2026-07): the OMF emit+link path resolves cross-segment/-object
-references, including the per-tool dispatch table (DC.L routine-1) — the lever
-that gates every tool. Single-object managers reach 98-99% byte-identical
-(DialogMgr, ListMgr, Scrap); the corpus sits at ~78%.
+STATUS (2026-07): all 11 mapped toolbox code images are byte-exact
+(150,459/150,459).  The OMF emit+link path resolves cross-segment/-object
+references, including per-tool dispatch tables (DC.L routine-1), static and
+dynamic inter-segment calls, and linker-generated `~JumpTable` thunks for the
+mapped multi-segment managers.
 
 Multi-segment tools (MenuMgr, ControlMgr, LineEdit) ship several load segments,
 some plus a linker-generated `~JumpTable`; they take the 'jt_segments' TOOLMAP
@@ -34,17 +35,16 @@ it); inter-segment far pointers resolve as gold does — a reference into a DYNA
 into a STATIC/KIND-0x4000 segment is a direct cINTERSEG. The generated
 ~JumpTable is verified byte-for-byte against gold (a mismatch raises). Flat-
 linking such a tool into one blob is WRONG — it makes every intra-segment reloc
-look "off by the segment base" (see work/tool016_diag.py). The simpler per-
+look "off by the segment base" (see work/archive/tool016_diag.py). The simpler per-
 segment `_check_multiseg` ('segments' TOOLMAP form) remains for tools that need
 no inter-segment reference resolution.
 
-Known remaining residuals (per-module levers, not a shared blocker):
+Historical closures:
   * `~JumpTable` segments (Tool015/016) — CLOSED (2026-07-18): gsasm now
     generates them and routes DYNAMIC-segment far pointers through them; both
-    tools byte-exact (docs/TODO.md §2). Tool018 (QDAux) also has its 12-entry
-    ~JumpTable derived byte-exact but is not mapped — two non-JT blockers remain
-    (copybits.asm SEG-section split + one independent seedfill.asm assembly byte;
-    see docs/TODO.md §2);
+    tools byte-exact (docs/TODO.md §2). Tool018 (QDAux) is also mapped and
+    byte-exact; its 12-entry ~JumpTable, copybits.asm SEG-section split, and
+    SeedFill byte are closed.
   * Tool023 (StdFile) — CLOSED (2026-07-18): was a `DevName` name collision
     (a PopUpGlobals data-record field vs GetThePrefix's `devName equ ParBlock+02`)
     that (a) let the PROC-local EQU clobber the global data-record label and
@@ -58,15 +58,24 @@ The OMF emitter changes (which the byte-exact ROM build depends on) must still b
 re-validated with work/buildrom.py + objcheck + linkcheck.
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _common import (
+    byte_match,
+    ensure_repo_on_path,
+    firmware_root,
+    gsos_source_root,
+    mismatch_offsets,
+    toolbox_incs,
+    toolbox_root,
+)
+ensure_repo_on_path()
 from gsasm import asm, omf, link, linkiigs
 from gsasm.expressload import de_express, encode_jumptable, jt_jsl_offset
 
-SRC = 'ref/GSOS_6/IIGS.601.SRC'
-TB  = SRC + '/GSToolbox'
-FW  = SRC + '/GSFirmware'
+SRC = gsos_source_root()
+TB  = toolbox_root()
+FW  = firmware_root()
 BIN = 'ref/GSOS_6/tool_bin'
-INCS = [d for d, _, _ in os.walk(TB)] + [d for d, _, _ in os.walk(FW)] + ['work/includes']
+INCS = toolbox_incs()
 
 # ToolNNN -> (manager subdir, entry).
 # entry is either:
@@ -107,14 +116,12 @@ TOOLMAP = {
     # compared against de_express(gold) (= main|StatText|~JumpTable|Pics). That
     # basis is wrong for a genuinely multi-segment tool: every StatText/Pics
     # intra-segment word reloc came out off by exactly its segment's base in the
-    # merged image (0x30c9 / 0x355f), and the 26-byte ~JumpTable gsasm can't emit
-    # (linker-generated, see docs/TODO.md §2) shifted all of Pics — 451 "diffs"
+    # merged image (0x30c9 / 0x355f), and the 26-byte ~JumpTable shifted all of
+    # Pics — 451 "diffs"
     # that were 100% segmentation artifact, NOT value errors (proven in
-    # work/tool016_diag.py). Compared the way gold is actually segmented, gsasm
-    # is byte-exact: StatText 1174/1174, Pics 358/358, main 12488/12489. The one
-    # main byte is a far-pointer operand into the DYNAMIC Pics segment, which gold
-    # routes through ~JumpTable+0x12 (cINTERSEG to seg 4); resolving it needs the
-    # ~JumpTable gsasm doesn't generate — the same TODO §2 gap, honestly counted.
+    # work/archive/tool016_diag.py). The current jt_segments path compares the
+    # way gold is actually segmented, generates the ~JumpTable, routes the
+    # dynamic Pics far pointer through it, and is byte-exact.
     '016': ('ControlMgr', {'jt_segments': [
         ('main',     0x0000, ['ControlMgr.asm', 'SuperControl.asm',
                               'NewControl2.asm', 'DefProcs.asm',
@@ -162,8 +169,8 @@ TOOLMAP = {
     '022': ('Scrap',      ['scrap.asm', 'common.asm']),
     # StdFile: single-segment, no -lseg in makefile (matches
     # diskbuilders/expressload_files.py::_build_tool023's link order). BYTE-EXACT
-    # (15942/15942) since the 2026-07-18 `DevName` collision fix (see the "Known
-    # remaining residuals" note above and tests/fixtures/042). The `DevName`
+    # (15942/15942) since the 2026-07-18 `DevName` collision fix (see the
+    # historical-closures note above and tests/fixtures/042). The `DevName`
     # name is BOTH a PopUpGlobals data-record field and a GetThePrefix PROC-local
     # `equ` — the local EQU must neither clobber the global field label nor be
     # shadowed by the (stale, never-ENDWITH'd) `with PopUpGlobals`.
@@ -209,18 +216,11 @@ def golden(tool):
 
 def _gold_segment(raw_bytes, gold_name):
     """Extract the LCONST image of one named segment from an ExpressLoad binary."""
-    off = 0
-    while off < len(raw_bytes):
-        h = omf.parse_header(raw_bytes[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
+    for seg in omf.iter_segments(raw_bytes):
+        h = seg['hdr']
         nm = h['SEGNAME'].decode('mac_roman', 'replace').strip().rstrip('\x00')
         if nm == gold_name:
-            recs, _ = omf.parse_records(raw_bytes[off:off + bc], h['DISPDATA'],
-                                        h.get('NUMLEN', 4), h.get('LABLEN', 0))
-            return b''.join(r[2] for r in recs if r[1] in ('CONST', 'LCONST'))
-        off += bc
+            return b''.join(r[2] for r in seg['recs'] if r[1] in ('CONST', 'LCONST'))
     return None
 
 
@@ -327,18 +327,10 @@ def _compute_externs(srcs, subdir, base):
 def _lconst_image(linked_bytes):
     """Extract the flat LCONST code image from a merged linkiigs result."""
     img = bytearray()
-    off = 0
-    while off < len(linked_bytes):
-        h = omf.parse_header(linked_bytes[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        recs, _ = omf.parse_records(linked_bytes[off:off + bc], h['DISPDATA'],
-                                    h.get('NUMLEN', 4), h.get('LABLEN', 0))
-        for r in recs:
+    for seg in omf.iter_segments(linked_bytes):
+        for r in seg['recs']:
             if r[1] in ('CONST', 'LCONST'):
                 img += r[2]
-        off += bc
     return bytes(img)
 
 
@@ -557,9 +549,9 @@ def _check_jt_tool(tool, subdir, segs, verbose=False):
         if g_seg is None:
             continue
         mine_seg = images[name]
-        n = min(len(mine_seg), len(g_seg))
-        diffs_i = [i for i in range(n) if mine_seg[i] != g_seg[i]]
-        tot_m += n - len(diffs_i)
+        m, n = byte_match(mine_seg, g_seg)
+        diffs_i = mismatch_offsets(mine_seg, g_seg)
+        tot_m += m
         tot_n += n
         tot_mine += len(mine_seg)
         tot_gold += len(g_seg)
@@ -614,9 +606,8 @@ def _check_multiseg(tool, subdir, seg_specs, verbose=False):
         except Exception as e:
             return tool, subdir, None, f"{type(e).__name__}: {e}"
 
-        n = min(len(mine_seg), len(g_seg))
-        diffs_i = [i for i in range(n) if mine_seg[i] != g_seg[i]]
-        m = n - len(diffs_i)
+        m, n = byte_match(mine_seg, g_seg)
+        diffs_i = mismatch_offsets(mine_seg, g_seg)
         tot_m += m
         tot_n += n
         tot_mine += len(mine_seg)
@@ -655,18 +646,17 @@ def check(tool, verbose=False):
         mine = link_module([f'{subdir}/{r}' for r in roots])
     except Exception as e:
         return tool, subdir, None, f"{type(e).__name__}: {e}"
-    n = min(len(mine), len(g))
-    m = sum(1 for i in range(n) if mine[i] == g[i]) if n else 0
+    m, n = byte_match(mine, g)
     pct = (100 * m // n) if n else 0
     if verbose:
         print(f"Tool{tool} ({subdir}): gsasm={len(mine)} gold={len(g)} "
               f"match {m}/{n} ({pct}%)")
-        for i in range(n):
-            if mine[i] != g[i]:
-                print(f"  first diff @ {i:#06x}: gsasm={mine[i]:02x} gold={g[i]:02x}")
-                print(f"    gsasm {mine[max(0,i-4):i+8].hex()}")
-                print(f"    gold  {g[max(0,i-4):i+8].hex()}")
-                break
+        diffs = mismatch_offsets(mine, g)
+        if diffs:
+            i = diffs[0]
+            print(f"  first diff @ {i:#06x}: gsasm={mine[i]:02x} gold={g[i]:02x}")
+            print(f"    gsasm {mine[max(0,i-4):i+8].hex()}")
+            print(f"    gold  {g[max(0,i-4):i+8].hex()}")
     return tool, subdir, (pct, m, n, len(mine), len(g)), None
 
 

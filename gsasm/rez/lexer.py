@@ -85,6 +85,7 @@ usages have already become `NUMBER($8001)`.  Newlines and comments are
 trivia consumed entirely within this module; they never appear as tokens
 in the returned list.
 """
+from __future__ import annotations
 
 import os
 

@@ -14,12 +14,13 @@ assemble their modules — proven link-identical via linkcheck.py — but native
 -lseg/-org bank placement isn't implemented, so those banks come from artifacts).
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _common import byte_match, ensure_repo_on_path, romsrc_incs, romsrc_root
+ensure_repo_on_path()
 from gsasm import asm
 
-ROOT = 'work/romsrc/GS_ROM'
+ROOT = romsrc_root()
 REAL = 'ref/gsrom3/ROM 03/ROM03 original'
-INCS = ['work/includes'] + [d for d, _, _ in os.walk(ROOT)]
+INCS = romsrc_incs(ROOT)
 BINP = ROOT + '/bin/'
 
 
@@ -53,8 +54,7 @@ def gsasm_or_bin(src, segs, binf, log):
         return b, len(b)
     # count the bytes gsasm reproduces exactly; keep the real bytes so the ROM
     # stays byte-identical
-    n = min(len(g), len(b))
-    m = sum(1 for i in range(n) if g[i] == b[i])
+    m, _ = byte_match(g, b)
     log.append((binf, len(b), m, f'gsasm ({100*m//max(len(b),1)}% byte-exact)'))
     return b, m
 
@@ -105,11 +105,11 @@ def build_rom(log):
     for bk, name in ((0xFC, 'ROM.FC'), (0xFD, 'ROM.FD'), (0xFE, 'ROM.FE')):
         real = rd(ROOT + '/ROM/' + name)[:0x10000].ljust(0x10000, b'\x00')
         built = LR.emit_bank(bk, placements, gtab, sym2val)
-        m = sum(1 for i in range(min(len(built), len(real))) if built[i] == real[i])
+        m, _ = byte_match(built, real)
         gtot += m
         log.append((name, 0x10000, m, f'gsasm+linker ({100*m//len(real)}%)'))
         banks_real[name] = real
-    ffm = sum(1 for i in range(0x10000) if ff_gs[i] == ff_real[i])
+    ffm, _ = byte_match(ff_gs, ff_real)
     gtot += ffm
     log.append(('FF (firmware+overlays)', 0x10000, ffm, f'gsasm ({100*ffm//0x10000}%)'))
     return (banks_real['ROM.FC'] + banks_real['ROM.FD'] + banks_real['ROM.FE']
