@@ -231,8 +231,15 @@ def rez_main():
 
     from gsasm.rez import lexer, parser as rez_parser, gen, emit, convert
 
+    # The bundled clean-room type templates (gsasm/rez/include/TypesIIGS.r,
+    # byte-exact-validated against the System 6.0.1 Rez corpus -- see
+    # docs/REZ_TYPES_PLAN.md) are searched LAST so user -I dirs win.
+    bundled_inc = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "rez", "include")
+    incdirs = list(args.incdirs) + [bundled_inc]
+
     try:
-        stmts = rez_parser.parse(args.source, include_dirs=args.incdirs,
+        stmts = rez_parser.parse(args.source, include_dirs=incdirs,
                                   predefined={"RezIIGS": 1})
     except (lexer.LexError, rez_parser.ParseError) as exc:
         print(f"gsrez: error: {exc}", file=sys.stderr)

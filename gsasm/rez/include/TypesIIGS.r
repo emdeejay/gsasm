@@ -1,0 +1,270 @@
+/*
+ * Types.r — original, clean-room Apple IIgs Rez type templates for gsrez.
+ *
+ * Part of gsasm (MIT).  NOT Apple's TypesIIGS.r: every template here was
+ * derived from (resource-body values -> golden compiled bytes) oracle pairs
+ * over the byte-exact System 6.0.1 Rez corpus (work/rez_types_diag.py, see
+ * docs/REZ_TYPES_PLAN.md), corroborated against the published resource
+ * formats (Apple IIgs Toolbox Reference Vol 3; GS/OS TechNotes).  Template
+ * names, type numbers, switch-case labels, and named values are the
+ * corpus-dictated compatibility surface; everything else is original.
+ *
+ * Coverage policy: only templates exercised by a byte-exact corpus target
+ * are defined (house rule: no byte oracle, no claim).  The remaining
+ * Apple-defined resource types gain templates when a validated target uses
+ * them.
+ */
+
+/* Resource type numbers (Toolbox Ref Vol 3; used both as the `resource`
+ * type selector and as type constants in bodies / read statements). */
+#define rIcon               0x8001
+#define rControlList        0x8003
+#define rControlTemplate    0x8004
+#define rPString            0x8006
+#define rMenu               0x8009
+#define rMenuItem           0x800A
+#define rTextForLETextBox2  0x800B
+#define rCtlDefProc         0x800C
+#define rWindParam1         0x800E
+#define rWindColor          0x8010
+#define rAlertString        0x8015
+#define rCodeResource       0x8017
+#define rErrorString        0x8020
+#define rVersion            0x8029
+#define rComment            0x802A
+
+/* --- Plain string resources ------------------------------------------- */
+/* Raw text, no length prefix, no implicit terminator (rErrorString bodies
+ * write their trailing NUL explicitly as \0x00 — oracle: 90 instances). */
+
+type rPString {            /* length-byte Pascal string (oracle: 10) */
+    pstring;
+};
+
+type rTextForLETextBox2 {  /* LETextBox2 text with embedded *n / font codes */
+    string;
+};
+
+type rAlertString {        /* AlertWindow template string */
+    string;
+};
+
+type rErrorString {        /* SysBeep2/error text, explicit \0x00 tail */
+    string;
+};
+
+type rComment {            /* free-text comment */
+    string;
+};
+
+/* --- QuickDraw icon ---------------------------------------------------- */
+/* Header of four little-endian words (iconType, iconSize, iconHeight,
+ * iconWidth) then the packed 4-bit-per-pixel image and mask hex data.
+ * iconSize is NOT body-supplied: it is the byte length of the image data,
+ * computed from the label span.  Oracle: 12 instances, 8 + iconSize*2. */
+
+type rIcon {
+    integer;                              /* iconType ($8000 color)      */
+    integer = (iconMask - iconImage) / 8; /* iconSize = image byte count */
+    integer;                              /* iconHeight (pixels)         */
+    integer;                              /* iconWidth  (pixels)         */
+  iconImage:
+    hex string;                           /* image, iconSize bytes       */
+  iconMask:
+    hex string;                           /* mask, same size             */
+};
+
+/* --- Window Manager ----------------------------------------------------- */
+
+type rWindColor {          /* NewWindow2 color table: 5 LE words */
+    integer;               /* frameColor  */
+    integer;               /* titleColor  */
+    integer;               /* tBarColor   */
+    integer;               /* growColor   */
+    integer;               /* infoColor   */
+};
+
+/* NewWindow2 paramList (Toolbox Ref Vol 3 / Window Mgr).  The leading
+ * paramLength (80) and the 12 reserved bytes after wInfoHeight are
+ * template-supplied; the body provides the other 16 values.  Oracle: the
+ * wPlane `infront` = $FFFFFFFF and tail layout proven by 3 instances. */
+
+type rWindParam1 {
+    integer = 80;          /* paramLength                                 */
+    integer;               /* wFrameBits                                  */
+    longint;               /* wTitle ref                                  */
+    longint;               /* wRefCon                                     */
+    rect;                  /* wZoom                                       */
+    longint;               /* wColor table ref                            */
+    point;                 /* wYOrigin / wXOrigin                         */
+    point;                 /* wDataH / wDataW                             */
+    point;                 /* wMaxH / wMaxW                               */
+    point;                 /* wScrollVer / wScrollHor                     */
+    point;                 /* wPageVer / wPageHor                         */
+    longint;               /* wInfoRefCon                                 */
+    integer;               /* wInfoHeight                                 */
+    fill byte[12];         /* wFrameDefProc/wInfoDefProc/wContDefProc     */
+    rect;                  /* wPosition                                   */
+    longint behind = 0,    /* wPlane (behind: doc-derived, no oracle yet) */
+            infront = 0xFFFFFFFF;
+    longint;               /* wStorage / control-list ref                 */
+    integer;               /* wInVerb (rControlList descriptor)           */
+};
+
+/* --- Menu Manager ------------------------------------------------------- */
+/* rMenu / rMenuItem mirror the InsertMenu template stream (Toolbox Ref
+ * Vol 3).  The leading version word is 0 and the rMenu item-reference list
+ * carries a terminating zero long, both template-supplied.  (In Apple's
+ * include the terminator is conditional on RezIIGS, which the gsrez
+ * pipeline always defines; this include targets that configuration.) */
+
+/* Menu Manager reference/flag constants (Toolbox Ref Vol 3, NewMenu2 /
+ * InsertMItem2 refType and flag words; values via the token oracle). */
+#define NIL               0
+#define RefIsResource     2        /* refType: reference is a resource ID  */
+#define ItemRefShift      0x1000   /* itemFlag: item-ref type field shift  */
+#define ItemTitleRefShift 0x4000   /* itemFlag: title-ref type field shift */
+#define MenuTitleRefShift 0x4000   /* menuFlag: title-ref type field shift */
+#define fXOR              0x0020   /* itemFlag: XOR highlighting           */
+#define fAllowCache       0x0008   /* menuFlag: allow menu caching         */
+#define rMIItalic         0x0002   /* menu-item itemFlag: italic style     */
+
+type rMenu {
+    integer = 0;           /* version                                     */
+    integer;               /* menuID                                      */
+    integer;               /* menuFlag                                    */
+    longint;               /* menu title ref                              */
+    array {
+        longint;           /* rMenuItem refs                              */
+    };
+    longint = 0;           /* item-list terminator                        */
+};
+
+type rMenuItem {
+    integer = 0;           /* version                                     */
+    integer;               /* itemID                                      */
+    char;                  /* itemChar                                    */
+    char;                  /* itemAltChar                                 */
+    integer;               /* itemCheck                                   */
+    integer;               /* itemFlag                                    */
+    longint;               /* item title ref                              */
+};
+
+/* --- Control Manager ---------------------------------------------------- */
+
+type rControlList {        /* NewControl2 list: rControlTemplate refs */
+    array {
+        longint;
+    };
+    longint = 0;           /* list terminator                             */
+};
+
+/* NewControl2 single-control template (Toolbox Ref Vol 3, ch.28 "Control
+ * Manager Update").  Byte layout: pCount word, control ID long, rect, then
+ * the per-defproc parameter block.  pCount = 3 fixed params + however many
+ * of the optional params the body supplies (partial fill, oracle: pCount
+ * 8/9/10 across 21 instances).  The procRef long doubles as the case
+ * discriminator: standard defprocs use $8n000000 codes; iconButtonControl
+ * uses the $07FF0001 defproc resource reference convention.  Only the
+ * corpus-exercised cases are defined (coverage policy above). */
+
+type rControlTemplate {
+    integer = 3 + $$optionalCount(ctlParams);   /* pCount                 */
+    unsigned longint;                           /* control ID             */
+    rect;                                       /* control rect           */
+    switch {
+        case simpleButtonControl:
+            key unsigned hex longint = 0x80000000;
+            optional ctlParams {
+                integer;                        /* flags                  */
+                integer;                        /* moreFlags              */
+                longint;                        /* refCon                 */
+                longint;                        /* title ref              */
+                longint;                        /* color table ref        */
+                array {                         /* key equivalent         */
+                    char;                       /*   keyChar              */
+                    char;                       /*   keyAltChar           */
+                    integer;                    /*   keyModifiers         */
+                    integer;                    /*   keyCareBits          */
+                };
+            };
+        case radioControl:
+            key unsigned hex longint = 0x84000000;
+            optional ctlParams {
+                integer;                        /* flags (family in low)  */
+                integer;                        /* moreFlags              */
+                longint;                        /* refCon                 */
+                longint;                        /* title ref              */
+                integer;                        /* initial value          */
+                longint;                        /* color table ref        */
+                array {                         /* key equivalent         */
+                    char;
+                    char;
+                    integer;
+                    integer;
+                };
+            };
+        case statTextControl:
+            key unsigned hex longint = 0x81000000;
+            optional ctlParams {
+                integer;                        /* flags                  */
+                integer;                        /* moreFlags              */
+                longint;                        /* refCon                 */
+                longint;                        /* text ref               */
+                integer;                        /* text size              */
+                integer;                        /* justification          */
+            };
+        case editLineControl:
+            key unsigned hex longint = 0x83000000;
+            optional ctlParams {
+                integer;                        /* flags                  */
+                integer;                        /* moreFlags              */
+                longint;                        /* refCon                 */
+                integer;                        /* max text length        */
+                longint;                        /* default text ref       */
+                integer;                        /* password char          */
+            };
+        case iconButtonControl:
+            key unsigned hex longint = 0x07FF0001;
+            optional ctlParams {
+                integer;                        /* flags                  */
+                integer;                        /* moreFlags              */
+                longint;                        /* refCon                 */
+                longint;                        /* icon ref               */
+                longint;                        /* title ref              */
+                longint;                        /* color table ref        */
+                integer;                        /* display mode           */
+                array {                         /* key equivalent         */
+                    char;
+                    char;
+                    integer;
+                    integer;
+                };
+            };
+    };
+};
+
+/* --- Version ------------------------------------------------------------ */
+/* rVersion (Toolbox Ref Vol 3): a 4-byte version long (stored little-
+ * endian, hence the ReverseBytes group over the big-endian field order),
+ * a country word, then two Pascal strings (name, more info).  Stage codes:
+ * release = $A0 oracle-proven; the earlier stages are doc-derived.
+ * Country list: only the corpus-exercised code is defined (coverage
+ * policy). */
+
+type rVersion {
+    ReverseBytes {
+        hex byte;                               /* major (BCD)            */
+        hex bitstring[4];                       /* minor                  */
+        hex bitstring[4];                       /* bug fix                */
+        hex byte development = 0x20,            /* release stage          */
+                 alpha       = 0x40,
+                 beta        = 0x60,
+                 final       = 0x80,
+                 release     = 0xA0;
+        hex byte;                               /* non-release number     */
+    };
+    integer verUS = 0;                          /* country code           */
+    pstring;                                    /* product name           */
+    pstring;                                    /* more info              */
+};
