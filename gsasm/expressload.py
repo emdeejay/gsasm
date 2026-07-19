@@ -168,6 +168,35 @@ def emit_reloc(size: int, shift: int, offset: int, rel_offset: int) -> bytes:
             + struct.pack('<I', rel_offset & 0xFFFFFFFF))
 
 
+def emit_cinterseg(size: int, shift: int, offset: int, segno: int, segoff: int) -> bytes:
+    """Encode one cINTERSEG record (0xF6): compressed cross-segment relocation
+    (multi-segment ExpressLoad files only — a case-A/standalone reference whose
+    target lives in ANOTHER load segment, so a plain cRELOC's un-selfdescribing
+    ``relOffset`` can't identify which segment's base to add).
+
+    Layout: opcode(0xF6) + bytesInOperand(1) + bitShiftCount(1, signed) +
+    offset(2) + segNum(1) + segOffset(2).  FileNum is implicitly 1 (this load
+    file); ``segno`` is the TARGET's own final file segment number, ``segoff``
+    its own base-0 routine/data offset (measured against gold Tool016/018 — see
+    ``gsasm.expressload.expressload``'s ``jt_entries`` opt).
+    """
+    return (bytes([0xF6, size & 0xFF, (-shift) & 0xFF])
+            + struct.pack('<H', offset & 0xFFFF)
+            + bytes([segno & 0xFF])
+            + struct.pack('<H', segoff & 0xFFFF))
+
+
+def emit_interseg(size: int, shift: int, offset: int, segno: int, segoff: int) -> bytes:
+    """Encode one INTERSEG record (0xE3): full-width cross-segment relocation.
+    Used when offset/segoff exceed 16 bits — the uncompressed counterpart to
+    ``emit_cinterseg``. FileNum is implicitly 1 (this load file)."""
+    return (bytes([0xE3, size & 0xFF, (-shift) & 0xFF])
+            + struct.pack('<I', offset & 0xFFFFFFFF)
+            + struct.pack('<H', 1)
+            + struct.pack('<H', segno & 0xFFFF)
+            + struct.pack('<I', segoff & 0xFFFFFFFF))
+
+
 # ---------------------------------------------------------------------------
 # ~JumpTable (Jump_Segment, KIND=0x02) codec
 # ---------------------------------------------------------------------------
@@ -501,103 +530,39 @@ def _make_suffix_template(kind: int, segnum: int, dispname: int = 44,
             + bytes(10))
 
 
-def _build_het_lconst(
-        segs: list[dict],
-        seg_file_offsets: list[int],
-) -> bytes:
-    """Build the LCONST payload for the ~ExpressLoad directory segment.
+# ---------------------------------------------------------------------------
+# ~ExpressLoad directory-segment table builders (N>1 / multi-segment HET path)
+# ---------------------------------------------------------------------------
+# These four helpers each build one recognisable piece of the golden HET
+# layout documented in _build_het_lconst's docstring below (cross-reference
+# docs/design/expressload.md, "~ExpressLoad LCONST (HET...)").  They are pure
+# functions of ``segs`` (plus, for _het_entries, the file offsets) — no I/O,
+# no hidden state.
+#
+# IMPORTANT caveat on "block": for N>1 the golden HET format is a *chained,
+# suffix-spilling* design (see the docstring) — the SegHeaderEntry suffix
+# template and each segment's pathname are NOT stored as their own separate
+# contiguous byte ranges in the output.  Only the header (fixed 6 bytes), the
+# extra_block pointer array, and the pre-section SEGNUM conversion table are
+# genuinely separate, contiguous blocks; the SegHeaderEntry and pathname data
+# are woven byte-by-byte into the chained entry bodies that _het_entries
+# builds (spilling across entry boundaries to save space).  _seg_header_block
+# and _pathname_block therefore return the PER-SEGMENT inputs to that weave
+# (a list of byte-templates / a list of names) rather than one concatenated
+# byte string; _het_entries is the function that actually places them.
 
-    Parameters
-    ----------
-    segs
-        List of dicts (one per main load segment), each with keys:
-        ``hdr`` (parsed OMF header), ``body`` (resolved body bytes).
-        Ordered as they will appear in the output file.
-    seg_file_offsets
-        File offset of each segment in the output file.  The ~ExpressLoad
-        segment itself is at offset 0; the first main segment is at offset
-        ``~ExpressLoad.BYTECNT``, etc.
 
-    Returns
-    -------
-    bytes
-        The HET LCONST payload (not including the LCONST opcode/count prefix).
+def _seg_header_block(segs: list[dict]) -> list[bytes]:
+    """Build the 42-byte SegHeaderEntry suffix template for every output
+    segment (KIND/ALIGN/SEGNUM/DISPNAME — see ``_make_suffix_template``),
+    N>1 HET path only.
 
-    HET layout (byte-exact match against gold ExpressLoad binaries):
-
-    N = number of load segments.
-
-    Offset 0..5    : 6-byte header: [0..3]=0, [4..5]=N-1 LE word
-    Offset 6..6+N*8-1 : extra_block, N items of 8 bytes each:
-                       item[i] = [entry_ptr_i (LE dword), 0x00000000]
-                       entry_ptr_i = absolute offset of entry_i within HET
-    Offset 6+N*8 .. 10*N-1 : pre-section segnums (only if N>3):
-                       max(0, N-3) * 2 bytes = first N-3 SEGNUMs as LE words
-    Offset 10*N onward: entry bodies, structured as described below.
-
-    Entry bodies (chained suffix-spill design):
-    - entry_1: [segnums(6)] [code_start(4)] [length(4)] [reloc_start(4)]
-               [reloc_size(4)] [partial_suffix_1 bytes]
-    - entry_i (2..N-1): [spill_{i} bytes] [name_len(1)] [prev_name]
-               [code_start(4)] [length(4)] [reloc_start(4)] [reloc_size(4)]
-               [partial_suffix_i bytes]
-    - entry_N: [spill_N bytes] [name_len(1)] [prev_name_N-1]
-               [code_start(4)] [length(4)] [reloc_start(4)] [reloc_size(4)]
-               [full_suffix_42 bytes] [name_N_len(1)] [name_N bytes]
-
-    The "42-byte suffix template" for segment j encodes KIND, SEGNUM, DISPNAME.
-    Each intermediate entry emits a prefix of this template; the remainder
-    spills into the NEXT entry's prefix area.
-
-    Entry1 partial suffix bytes = 37 (N>=3), 36 (N=2), or 42 (N=1).
-    Intermediate entry_i size = 59 + 2*(KIND_i == 0x0002).
+    Returns one template per element of *segs*, in order.  These are NOT
+    emitted as one contiguous block: ``_het_entries`` spills each
+    template's bytes across the entry that names its owning segment and the
+    entry that follows it (the "chained suffix-spill design" in
+    ``_build_het_lconst``'s docstring).
     """
-    N = len(segs)
-
-    # ---- 6-byte HET header ----
-    header = struct.pack('<I', 0) + struct.pack('<H', N - 1)
-
-    if N == 1:
-        # ---- N=1: single-segment path (existing validated logic) ----
-        # The 'entry' block of 68 bytes starts at payload[6].
-        # Its first 8 bytes encode the extra_block item (ptr=10, zeros=0).
-        # The real entry body starts at payload[10].
-        seg_info = segs[0]
-        h        = seg_info['hdr']
-        foff     = seg_file_offsets[0]
-        body     = seg_info['body']
-        segnum   = h['SEGNUM']
-        kind     = h['KIND']
-        dispdata = h['DISPDATA']
-        length   = len(body)
-        dispname = h.get('DISPNAME', 44)
-
-        code_start  = foff + dispdata + 5
-        reloc_start = code_start + length
-        reloc_size  = seg_info.get('reloc_size', 0)
-
-        entry = bytearray(68)
-        entry[0] = 0x0a                              # entry_ptr lo byte (ptr=10)
-        struct.pack_into('<H', entry,  8, segnum)    # sn1 word (right-justified)
-        struct.pack_into('<I', entry, 10, code_start)
-        struct.pack_into('<I', entry, 14, length)
-        struct.pack_into('<I', entry, 18, reloc_start)
-        struct.pack_into('<I', entry, 22, reloc_size)
-        entry[28] = 4   # NUMLEN
-        entry[29] = 2   # VERSION
-        entry[32] = 1   # constant
-        # KIND as LE word at entry[34..35] (suffix offset 8..9 from entry body start)
-        struct.pack_into('<H', entry, 34, kind)
-        struct.pack_into('<I', entry, 42, h.get('ALIGN', 0))  # ALIGN dword
-        struct.pack_into('<I', entry, 48, segnum)    # SEGNUM dword
-        struct.pack_into('<I', entry, 54, dispname)  # DISPNAME dword
-
-        name_bytes = h['SEGNAME'].rstrip(b'\x00')
-        return header + bytes(entry) + bytes([len(name_bytes)]) + name_bytes
-
-    # ---- N>1: multi-segment path ----
-
-    # Build the 42-byte suffix template for each output segment.
     templates = []
     for seg_info in segs:
         h = seg_info['hdr']
@@ -605,6 +570,78 @@ def _build_het_lconst(
             h['KIND'], h['SEGNUM'], h.get('DISPNAME', 44),
             h.get('ALIGN', 0)
         ))
+    return templates
+
+
+def _seg_conversion_table(segs: list[dict]) -> tuple[bytes, bytes]:
+    """Build the segment-number conversion data for the N>1 HET layout: the
+    full, in-order list of each output segment's SEGNUM, split across the
+    two locations the golden layout stores it in.
+
+    Returns ``(pre_section, entry1_segnums)``:
+      pre_section    -- first N-3 SEGNUMs as LE words (empty unless N>3);
+                        written at HET offset ``6 + N*8`` (the "pre-section
+                        segnums" range in ``_build_het_lconst``'s docstring).
+      entry1_segnums -- last min(N,3) SEGNUMs, right-justified in 6 bytes;
+                        embedded as entry_1's first 6 bytes ("segnums(6)" in
+                        the docstring's entry_1 layout).
+    """
+    N = len(segs)
+    pre_section = bytearray()
+    if N > 3:
+        for i in range(N - 3):
+            sn = segs[i]['hdr']['SEGNUM']
+            pre_section += struct.pack('<H', sn)
+
+    # Gold format: 6 bytes with segnums packed at the RIGHT end.
+    # For N=2: bytes = [0x0000, sn0_LE16, sn1_LE16]
+    # For N=3: bytes = [sn0_LE16, sn1_LE16, sn2_LE16]
+    sn_count = min(N, 3)
+    segnums_bytes = bytearray(6)
+    pad_start = (3 - sn_count) * 2
+    for k in range(sn_count):
+        seg_k = segs[N - sn_count + k]
+        struct.pack_into('<H', segnums_bytes, pad_start + k * 2, seg_k['hdr']['SEGNUM'])
+
+    return bytes(pre_section), bytes(segnums_bytes)
+
+
+def _pathname_block(segs: list[dict]) -> list[bytes]:
+    """Return each segment's raw (NUL-stripped) SEGNAME, in *segs* order.
+
+    For N==1 this list's single element IS a standalone trailing byte block
+    (see ``_build_het_lconst``'s N==1 path: ``[name_len(1)][name]`` after the
+    68-byte entry).  For N>1 these names are NOT one contiguous block: they
+    are woven into the chained HET entries by ``_het_entries`` -- entry_{i+1}
+    embeds ``segs[i]``'s name as its own prefix ("prev_name" in the
+    docstring), and the last entry appends its own segment's name as a
+    trailing ``[name_len(1)][name]`` pair.
+    """
+    return [seg_info['hdr']['SEGNAME'].rstrip(b'\x00') for seg_info in segs]
+
+
+def _het_entries(
+        segs: list[dict],
+        seg_file_offsets: list[int],
+        templates: list[bytes],
+        prev_names: list[bytes],
+        segnums_bytes: bytes,
+) -> tuple[list[bytes], list[int]]:
+    """Build the chained HET entry-body byte strings for the N>1 HET layout
+    -- the "HET entry array": one element per output segment, encoding that
+    segment's ``code_start``/``length``/``reloc_start``/``reloc_size`` plus a
+    spilled slice of the SegHeaderEntry suffix template (from
+    ``_seg_header_block``) and an embedded pathname (from ``_pathname_block``
+    / ``_seg_conversion_table``'s ``entry1_segnums``).  See the entry-body
+    diagram in ``_build_het_lconst``'s docstring for the exact byte shapes of
+    entry_1, entry_i (2..N-1), and entry_N.
+
+    Returns ``(entry_body_parts, body_start_offsets)``: one element per
+    entry, in entry order; ``body_start_offsets[i]`` is entry i's absolute
+    byte offset within the HET LCONST payload (entry_1 starts at ``10*N``,
+    matching ``_build_het_lconst``'s docstring).
+    """
+    N = len(segs)
 
     # Compute partial_suffix sizes for each entry.
     # partial_suffix[0] = bytes of template[0] emitted in entry1
@@ -612,16 +649,20 @@ def _build_het_lconst(
     # partial_suffix[i] (2<=i<=N-2, intermediate) = entry_i_size - spill[i] - 1 - name_len[i-1] - 16
     # entry_i_size for intermediate = 59 + 2*(KIND_i == 0x0002)
 
-    partial1 = 37 if N >= 3 else 36   # bytes of template[0] emitted in entry1
+    # bytes of template[0] emitted in entry1 — NOT a function of N (an earlier
+    # draft of this formula bucketed by N and broke the moment two different-N
+    # tools shared a bucket: Tool015 N=3 and Tool018 N=6 both need 37, but
+    # Tool016 N=4 needs 33). Measured against gold (byte-for-byte: entry1's
+    # tail decodes as exactly template[0][:partial1] in every case):
+    #   Tool020 TheTool  (7 chars, N=2) -> 36
+    #   Tool016 main     (4 chars, N=4) -> 33
+    #   Tool015 MainTool (8 chars, N=3) -> 37
+    #   Tool018 MAINPart (8 chars, N=6) -> 37
+    # partial1 = 29 + len(segs[0]'s own SEGNAME) fits all four exactly.
+    partial1 = 29 + len(segs[0]['hdr']['SEGNAME'].rstrip(b'\x00'))
 
     partial = [partial1]
     spill = [0]   # spill[0] unused (entry1 has no prefix)
-
-    # Collect prev_name for each entry (the name embedded IN the entry = name of seg_{i-1})
-    # entry_2 embeds name of seg1, entry_3 embeds name of seg2, etc.
-    prev_names = []
-    for i in range(N):
-        prev_names.append(segs[i]['hdr']['SEGNAME'].rstrip(b'\x00'))
 
     for i in range(1, N):    # i = 0-based entry index (entry i+1 in 1-based)
         spill_i = 42 - partial[i - 1]
@@ -635,27 +676,7 @@ def _build_het_lconst(
             partial.append(partial_i)
         # last entry: no partial to compute (emits full template + trailing name)
 
-    # Pre-section segnums (only for N>3): first N-3 SEGNUMs as LE words.
-    pre_section = bytearray()
-    if N > 3:
-        for i in range(N - 3):
-            sn = segs[i]['hdr']['SEGNUM']
-            pre_section += struct.pack('<H', sn)
-
-    # Entry1 segnums (last min(N,3) SEGNUMs, right-justified in 6 bytes):
-    # Gold format: 6 bytes with segnums packed at the RIGHT end.
-    # For N=2: bytes = [0x0000, sn0_LE16, sn1_LE16]
-    # For N=3: bytes = [sn0_LE16, sn1_LE16, sn2_LE16]
-    sn_count = min(N, 3)
-    segnums_bytes = bytearray(6)
-    pad_start = (3 - sn_count) * 2
-    for k in range(sn_count):
-        seg_k = segs[N - sn_count + k]
-        struct.pack_into('<H', segnums_bytes, pad_start + k * 2, seg_k['hdr']['SEGNUM'])
-
     # Build entry bodies in sequence.
-    # We build the HET body bytes from offset 6+N*8 onward.
-    # The extra_block pointers must reference absolute HET offsets.
     entry_body_parts: list[bytes] = []   # one element per entry
     body_start_offsets: list[int] = []   # absolute HET offset of each entry's start
 
@@ -732,6 +753,141 @@ def _build_het_lconst(
 
     body_start_offsets.append(cur_offset)
     entry_body_parts.append(bytes(entry_last))
+
+    return entry_body_parts, body_start_offsets
+
+
+def _het_single_entry(seg_info: dict, seg_file_offset: int) -> bytes:
+    """Build the single 68-byte HET entry for the N==1 (single-segment) HET
+    layout.
+
+    The degenerate single-segment format needs no chaining, suffix-spill, or
+    SEGNUM conversion table (``_het_entries`` / ``_seg_header_block`` /
+    ``_seg_conversion_table`` are all N>1-only): SEGNUM/KIND/ALIGN/DISPNAME
+    sit directly in this one entry's fixed offsets, so this helper fuses
+    what those three functions do for N>1 into one flat 68-byte write. Its
+    trailing name (the ``_pathname_block`` element) is appended by the
+    caller, matching entry_N's trailing-name shape in the N>1 layout.
+    """
+    h        = seg_info['hdr']
+    foff     = seg_file_offset
+    body     = seg_info['body']
+    segnum   = h['SEGNUM']
+    kind     = h['KIND']
+    dispdata = h['DISPDATA']
+    length   = len(body)
+    dispname = h.get('DISPNAME', 44)
+
+    code_start  = foff + dispdata + 5
+    reloc_start = code_start + length
+    reloc_size  = seg_info.get('reloc_size', 0)
+
+    entry = bytearray(68)
+    entry[0] = 0x0a                              # entry_ptr lo byte (ptr=10)
+    struct.pack_into('<H', entry,  8, segnum)    # sn1 word (right-justified)
+    struct.pack_into('<I', entry, 10, code_start)
+    struct.pack_into('<I', entry, 14, length)
+    struct.pack_into('<I', entry, 18, reloc_start)
+    struct.pack_into('<I', entry, 22, reloc_size)
+    entry[28] = 4   # NUMLEN
+    entry[29] = 2   # VERSION
+    entry[32] = 1   # constant
+    # KIND as LE word at entry[34..35] (suffix offset 8..9 from entry body start)
+    struct.pack_into('<H', entry, 34, kind)
+    struct.pack_into('<I', entry, 42, h.get('ALIGN', 0))  # ALIGN dword
+    struct.pack_into('<I', entry, 48, segnum)    # SEGNUM dword
+    struct.pack_into('<I', entry, 54, dispname)  # DISPNAME dword
+
+    return bytes(entry)
+
+
+def _build_het_lconst(
+        segs: list[dict],
+        seg_file_offsets: list[int],
+) -> bytes:
+    """Build the LCONST payload for the ~ExpressLoad directory segment.
+
+    Parameters
+    ----------
+    segs
+        List of dicts (one per main load segment), each with keys:
+        ``hdr`` (parsed OMF header), ``body`` (resolved body bytes).
+        Ordered as they will appear in the output file.
+    seg_file_offsets
+        File offset of each segment in the output file.  The ~ExpressLoad
+        segment itself is at offset 0; the first main segment is at offset
+        ``~ExpressLoad.BYTECNT``, etc.
+
+    Returns
+    -------
+    bytes
+        The HET LCONST payload (not including the LCONST opcode/count prefix).
+
+    HET layout (byte-exact match against gold ExpressLoad binaries):
+
+    N = number of load segments.
+
+    Offset 0..5    : 6-byte header: [0..3]=0, [4..5]=N-1 LE word
+    Offset 6..6+N*8-1 : extra_block, N items of 8 bytes each:
+                       item[i] = [entry_ptr_i (LE dword), 0x00000000]
+                       entry_ptr_i = absolute offset of entry_i within HET
+    Offset 6+N*8 .. 10*N-1 : pre-section segnums (only if N>3):
+                       max(0, N-3) * 2 bytes = first N-3 SEGNUMs as LE words
+    Offset 10*N onward: entry bodies, structured as described below.
+
+    Entry bodies (chained suffix-spill design):
+    - entry_1: [segnums(6)] [code_start(4)] [length(4)] [reloc_start(4)]
+               [reloc_size(4)] [partial_suffix_1 bytes]
+    - entry_i (2..N-1): [spill_{i} bytes] [name_len(1)] [prev_name]
+               [code_start(4)] [length(4)] [reloc_start(4)] [reloc_size(4)]
+               [partial_suffix_i bytes]
+    - entry_N: [spill_N bytes] [name_len(1)] [prev_name_N-1]
+               [code_start(4)] [length(4)] [reloc_start(4)] [reloc_size(4)]
+               [full_suffix_42 bytes] [name_N_len(1)] [name_N bytes]
+
+    The "42-byte suffix template" for segment j encodes KIND, SEGNUM, DISPNAME.
+    Each intermediate entry emits a prefix of this template; the remainder
+    spills into the NEXT entry's prefix area.
+
+    Entry1 partial suffix bytes = 29 + len(segs[0]'s SEGNAME) for N>=2, or 42
+    for N==1 (see ``_het_entries``'s docstring for the measured data points —
+    it is NOT a function of N).
+    Intermediate entry_i size = 59 + 2*(KIND_i == 0x0002).
+    """
+    N = len(segs)
+
+    # ---- 6-byte HET header ----
+    header = struct.pack('<I', 0) + struct.pack('<H', N - 1)
+
+    if N == 1:
+        # ---- N=1: single-segment path (existing validated logic) ----
+        # The 'entry' block of 68 bytes starts at payload[6].
+        # Its first 8 bytes encode the extra_block item (ptr=10, zeros=0).
+        # The real entry body starts at payload[10].
+        entry = _het_single_entry(segs[0], seg_file_offsets[0])
+        name_bytes = _pathname_block(segs)[0]
+        return header + entry + bytes([len(name_bytes)]) + name_bytes
+
+    # ---- N>1: multi-segment path ----
+
+    # Build the 42-byte suffix template for each output segment (the
+    # SegHeaderEntry array).
+    templates = _seg_header_block(segs)
+
+    # Collect prev_name for each entry (the name embedded IN the entry = name of seg_{i-1})
+    # entry_2 embeds name of seg1, entry_3 embeds name of seg2, etc.
+    prev_names = _pathname_block(segs)
+
+    # Pre-section segnums (only for N>3) + entry1's embedded segnums (the
+    # segment-number conversion table).
+    pre_section, segnums_bytes = _seg_conversion_table(segs)
+
+    # Build entry bodies in sequence (the HET entry array).
+    # We build the HET body bytes from offset 6+N*8 onward.
+    # The extra_block pointers must reference absolute HET offsets.
+    entry_body_parts, body_start_offsets = _het_entries(
+        segs, seg_file_offsets, templates, prev_names, segnums_bytes
+    )
 
     # ---- Assemble final HET payload ----
     # The HET layout after the 6-byte header:
@@ -850,6 +1006,36 @@ def _make_output_seg(
     return bytes(seg)
 
 
+def _het_seg_meta(
+        segnum: int,
+        kind: int,
+        dispdata: int,
+        dispname: int,
+        name: bytes,
+        align: int,
+        body: bytes,
+        reloc_size: int,
+) -> dict:
+    """Build one element of the ``segs`` list ``_build_het_lconst`` (and its
+    helpers) consume — the ``{'hdr': {...}, 'body', 'reloc_size'}`` triple
+    describing one output load segment.  Used by both of ``expressload()``'s
+    output paths (single-segment ``het_input`` and multi-segment
+    ``out_groups``) so the two call sites build this table row identically.
+    """
+    return {
+        'hdr': {
+            'SEGNUM': segnum,
+            'KIND': kind,
+            'DISPDATA': dispdata,
+            'DISPNAME': dispname,
+            'SEGNAME': name,
+            'ALIGN': align,
+        },
+        'body': body,
+        'reloc_size': reloc_size,
+    }
+
+
 def expressload(
         objects: list[tuple[bytes, Any | None]],
         opts: dict | None = None,
@@ -883,6 +1069,21 @@ def expressload(
             List of KIND overrides (int) for multi-segment output, one per
             input object group.  If shorter than the number of groups,
             remaining groups use the first placed segment's KIND.
+        ``jt_entries``
+            Opt-in — emit a linker-generated ``~JumpTable`` (KIND 0x0002) load
+            segment at the golden position (after the non-dynamic block,
+            before the first dynamic group) and route every cross-group
+            reference into a DYNAMIC group (``segkinds`` KIND & 0x8000)
+            through it, exactly as MPW LinkIIgs does. Value is the ALREADY-
+            DERIVED ``[(target_segnum, routine_offset), ...]`` list — the
+            same one work/toolcheck.py's ``_link_jt_tool`` computes and gates
+            byte-exact against gold (this module does not re-derive the
+            reference-scan order, only consumes it as a lookup keyed by
+            (final target segnum, target's own base-0 routine offset)).
+            Requires ``multiseg`` and a complete ``segkinds`` (one entry per
+            output group) with all non-dynamic groups listed before all
+            dynamic ones (the golden layout). ``None`` (the default) leaves
+            every other caller's output byte-for-byte unchanged.
 
     Returns
     -------
@@ -1025,18 +1226,10 @@ def expressload(
         sname_field  = bytes([len(out_name)]) + out_name
         out_dispdata = out_dispname + 10 + len(sname_field)
 
-        het_input = [{
-            'hdr': {
-                'SEGNUM': 2,
-                'KIND': out_kind,
-                'DISPDATA': out_dispdata,
-                'DISPNAME': out_dispname,
-                'SEGNAME': out_name,
-                'ALIGN': out_align,
-            },
-            'body': merged_body,
-            'reloc_size': reloc_size_val,
-        }]
+        het_input = [_het_seg_meta(
+            2, out_kind, out_dispdata, out_dispname, out_name, out_align,
+            merged_body, reloc_size_val,
+        )]
 
         # Two-pass to fix up file offset.
         lconst_payload0 = _build_het_lconst(het_input, [0])
@@ -1077,6 +1270,78 @@ def expressload(
             if abs_addr >= group_bases[g]:
                 return g
         return 0
+
+    # ------------------------------------------------------------------
+    # ~JumpTable support (opt-in via opts['jt_entries']; every other caller
+    # is unaffected — see the module docstring's "opts" table).
+    #
+    # ``jt_entries`` is the CALLER-supplied ``[(target_segnum, routine_offset),
+    # ...]`` list already derived by the SAME algorithm work/toolcheck.py's
+    # ``_link_jt_tool`` uses (reference-scan order, gate-proven byte-exact
+    # against gold) — this module does not re-derive that order, only
+    # consumes it as a lookup table keyed by (final target segnum, target's
+    # own base-0 routine offset).
+    #
+    # Golden layout (measured against Tool015/016/018, docs/EXPRESSLOAD_TIER2_PLAN.md
+    # E1): file segment numbers are assigned non-dynamic block first (in the
+    # given ``objects``/``segkinds`` order), then ~JumpTable (if any group's
+    # KIND has the 0x8000 DYNAMIC bit set), then the dynamic block (in order).
+    # This requires the caller to already present objects in that order (the
+    # diskbuilder callers do); a dynamic group before a non-dynamic one raises.
+    jt_entries_opt: list[tuple[int, int]] | None = opts.get('jt_entries')
+    jt_enabled = jt_entries_opt is not None
+    n_nondyn = 0
+    has_dyn = False
+    jt_segnum: int | None = None
+    dyn_flags: list[bool] = []
+    jt_index: dict[tuple[int, int], int] = {}
+
+    if jt_enabled:
+        n_groups = len(group_obj_indices)
+        if len(segkinds_opt) < n_groups:
+            raise ValueError(
+                "expressload(): opts['jt_entries'] requires opts['segkinds'] "
+                "to specify every output group's KIND")
+        dyn_flags = [bool(k & 0x8000) for k in segkinds_opt[:n_groups]]
+        while n_nondyn < n_groups and not dyn_flags[n_nondyn]:
+            n_nondyn += 1
+        if not all(dyn_flags[n_nondyn:]):
+            raise ValueError(
+                "expressload(): opts['jt_entries'] requires all non-dynamic "
+                "output groups (KIND without bit 0x8000) before all dynamic "
+                "ones — the golden ~JumpTable layout is non-dynamic block, "
+                "~JumpTable, dynamic block")
+        has_dyn = n_nondyn < n_groups
+        if has_dyn:
+            jt_segnum = 2 + n_nondyn
+        jt_index = {key: i for i, key in enumerate(jt_entries_opt)}
+
+    def _final_segnum(g: int) -> int:
+        """Output segment number of group *g*, accounting for the ~JumpTable
+        slot inserted right after the non-dynamic block (no-op when the
+        ~JumpTable feature is off, or *g* is itself non-dynamic)."""
+        if jt_enabled and g >= n_nondyn:
+            return 2 + g + 1
+        return 2 + g
+
+    # A caller-provided "combo" group -- several separately-assembled objects
+    # concatenated into ONE raw-bytes blob with asm=None (every jt_entries
+    # caller's non-dynamic groups do this; see expressload_files.py) -- has no
+    # Asm metadata for _build_symtab to tell "exported" apart from "private",
+    # so a PROC EXPORT defined inside one combo group can end up reachable
+    # only via that group's OWN obj_globals[oi], never the shared `sym` table
+    # (measured against gold: Tool018 MAINPart references Pictures/pics.asm's
+    # `SaveSomething`/`iStdComment`, both `PROC EXPORT`, and `sym` has neither
+    # — only obj_globals[2] does). Widen the base table used for cross-group
+    # re-evaluation with every object's own private table as a FALLBACK, `sym`
+    # still taking priority for anything it does have.
+    _fallback_sym: dict = {}
+    if jt_enabled:
+        for _oi in range(n_objs):
+            _og = obj_globals[_oi]
+            if _og:
+                _fallback_sym.update(_og)
+        _fallback_sym.update(sym)
 
     # For each object group, merge its placed segments' bodies and collect relocs.
     out_groups: list[dict] = []
@@ -1122,6 +1387,92 @@ def expressload(
         # And correct bank-byte SUPER type (type-27/28/...) based on target group.
         group_relocs_raw = _scan_relocs(group_placed)
 
+        # Case-A standalone relocs (size,shift) with NO SUPER encoding at all —
+        # e.g. the ">>8 high byte" idiom (_scan_standalone_relocs's docstring).
+        # Same-segment: emit standalone cRELOC/RELOC exactly like the single-
+        # segment path. Cross-group: MUST be a standalone cINTERSEG/INTERSEG (a
+        # 2-byte field can't self-describe a target segment); measured against
+        # gold (Tool016 ControlMgr): the pre-patch placeholder is 0 (fully
+        # loader-computed from the record's own segno/segoff), and when the
+        # target is DYNAMIC it routes through the ~JumpTable exactly like a
+        # 3-byte far pointer (docs/EXPRESSLOAD_TIER2_PLAN.md E1). Opt-in only
+        # (jt_enabled) — every other multiseg caller is unaffected.
+        standalone_group = bytearray()
+        if jt_enabled:
+            _og_this = obj_globals[oi]
+            _grp_sym_base = _fallback_sym if not _og_this else {**_fallback_sym, **_og_this}
+            grp_body_syms = [_grp_sym_base for _ in indices]
+
+            # abs_off -> (size, ops, seg_i) for every EXPR-family record in this
+            # group, in the SAME (un-deferred) record basis _scan_relocs itself
+            # scans — lets the stype==0/1 cross-group branches below RE-EVALUATE
+            # an expression's true joint-space target directly (robust against
+            # the 16-bit wraparound a "read the group-adjusted stored bytes back"
+            # trick suffers when the target group's base and the calling group's
+            # base straddle a 64K boundary, or the field is a `dc.l routine-1`
+            # dispatch-table entry, e.g. Tool018 SeedFill/Pictures -> PixelMap2Rgn).
+            expr_at: dict[int, tuple[int, list, int]] = {}
+            for seg_i, placed_i in enumerate(indices):
+                _sn, recs_e, sb_e, _hdr_e, _a_e = placed[placed_i]
+                body_off_e = 0
+                for _, nm_e, d_e in recs_e:
+                    if nm_e == 'END':
+                        break
+                    if nm_e in ('CONST', 'LCONST'):
+                        body_off_e += len(d_e)
+                    elif nm_e in ('LEXPR', 'BEXPR', 'EXPR'):
+                        expr_at[sb_e + body_off_e] = (d_e[0], d_e[1], seg_i)
+                        body_off_e += d_e[0]
+                    elif nm_e == 'RELEXPR':
+                        body_off_e += d_e[0]
+                    elif nm_e == 'DS':
+                        body_off_e += d_e
+
+            for offset, size, shift, ops, seg_i in _scan_standalone_relocs(group_placed):
+                rel_off = offset - group_base
+                ops_wo = ops
+                if (shift and len(ops) >= 4 and ops[-1] == 'end'
+                        and ops[-2] == ('op', 7)
+                        and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
+                    ops_wo = ops[:-3] + ['end']
+                raw_target = _link._eval(ops_wo, grp_body_syms[seg_i]) & 0xFFFFFFFF
+                tgt_group = _group_of(raw_target)
+                if tgt_group == group_g:
+                    # Intra: merged_arr already holds the correct group-relative
+                    # (already-shifted) placeholder value, built via adj_sym
+                    # exactly like the single-segment path — reuse it directly.
+                    if size >= 2:
+                        rel_val = int.from_bytes(
+                            merged_arr[rel_off:rel_off + size], 'little')
+                    else:
+                        rel_val = raw_target & ((1 << (8 * size)) - 1)
+                    if rel_off < 0x10000 and rel_val < 0x10000:
+                        standalone_group += emit_creloc(size, shift, rel_off, rel_val)
+                    else:
+                        standalone_group += emit_reloc(size, shift, rel_off, rel_val)
+                else:
+                    off_in_tgt = raw_target - group_bases[tgt_group]
+                    merged_arr[rel_off:rel_off + size] = b'\x00' * size
+                    if dyn_flags[tgt_group]:
+                        key = (_final_segnum(tgt_group), off_in_tgt)
+                        idx = jt_index.get(key)
+                        if idx is None:
+                            raise ValueError(
+                                "expressload(): opts['jt_entries'] has no entry "
+                                f"for dynamic target segnum={key[0]} "
+                                f"offset={key[1]:#x}")
+                        tgt_segnum = jt_segnum
+                        tgt_segoff = jt_jsl_offset(idx)
+                    else:
+                        tgt_segnum = _final_segnum(tgt_group)
+                        tgt_segoff = off_in_tgt
+                    if rel_off < 0x10000 and tgt_segoff < 0x10000:
+                        standalone_group += emit_cinterseg(
+                            size, shift, rel_off, tgt_segnum, tgt_segoff)
+                    else:
+                        standalone_group += emit_interseg(
+                            size, shift, rel_off, tgt_segnum, tgt_segoff)
+
         final_relocs: dict[int, list[int]] = {}
         for stype, abs_offs in group_relocs_raw.items():
             for abs_off in abs_offs:
@@ -1129,12 +1480,25 @@ def expressload(
 
                 if stype == 1:
                     # 3-byte (type-1) reloc: check if target is in a different group.
-                    # At this point merged_arr has group-base–adjusted code, so we must
-                    # read the target from the UN-adjusted body.  The target in
-                    # merged_arr[rel_off:rel_off+2] is the group-relative address AFTER
-                    # adjustment; the original joint address = rel_target + group_base.
-                    rel_target = (merged_arr[rel_off] | (merged_arr[rel_off + 1] << 8))
-                    joint_target = rel_target + group_base
+                    if jt_enabled:
+                        # Re-evaluate the expression directly against the joint
+                        # symbol table rather than reading the group-adjusted
+                        # stored bytes back — robust against 16-bit wraparound
+                        # when the calling and target groups' bases straddle a
+                        # 64K boundary, and against the `dc.l routine-1`
+                        # dispatch-table idiom (the literal -1 evaluates along
+                        # with the symbol, giving exactly the value that must
+                        # be stored relative to whichever base applies).
+                        _esz, _eops, _eseg_i = expr_at[abs_off]
+                        joint_target = _link._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
+                    else:
+                        # At this point merged_arr has group-base–adjusted code, so we
+                        # must read the target from the UN-adjusted body. The target in
+                        # merged_arr[rel_off:rel_off+2] is the group-relative address
+                        # AFTER adjustment; the original joint address = rel_target +
+                        # group_base.
+                        rel_target = (merged_arr[rel_off] | (merged_arr[rel_off + 1] << 8))
+                        joint_target = rel_target + group_base
                     tgt_group = _group_of(joint_target)
                     if tgt_group != group_g:
                         # Cross-group: encode as SUPER type-2 (INTERSEG, FileNum=1,
@@ -1142,6 +1506,24 @@ def expressload(
                         tgt_group_base = group_bases[tgt_group]
                         tgt_segnum     = tgt_group + 2   # segnum 2 = first load seg
                         off_in_tgt = joint_target - tgt_group_base
+                        if jt_enabled:
+                            if dyn_flags[tgt_group]:
+                                # A reference into a DYNAMIC (on-demand) group cannot
+                                # point at the group directly — it routes through the
+                                # ~JumpTable's per-routine JSL thunk instead (the
+                                # target's own final segnum/offset is the jt_entries
+                                # lookup key, matching _link_jt_tool's derivation).
+                                key = (_final_segnum(tgt_group), off_in_tgt)
+                                idx = jt_index.get(key)
+                                if idx is None:
+                                    raise ValueError(
+                                        "expressload(): opts['jt_entries'] has no "
+                                        f"entry for dynamic target segnum={key[0]} "
+                                        f"offset={key[1]:#x}")
+                                off_in_tgt = jt_jsl_offset(idx)
+                                tgt_segnum = jt_segnum
+                            else:
+                                tgt_segnum = _final_segnum(tgt_group)
                         # Patch the 3 bytes in the merged code image.
                         merged_arr[rel_off]     = off_in_tgt & 0xFF
                         merged_arr[rel_off + 1] = (off_in_tgt >> 8) & 0xFF
@@ -1194,18 +1576,66 @@ def expressload(
 
                     if sym_joint is not None:
                         tgt_group = _group_of(sym_joint)
-                        tgt_segnum = tgt_group + 2
-                        corrected_type = 25 + tgt_segnum
+                        if jt_enabled and dyn_flags[tgt_group]:
+                            # A bank-byte (high-word) field can't carry a DYNAMIC
+                            # group's bank directly (it isn't loaded yet, so its
+                            # bank is unknown at link time, and a lone 2-byte
+                            # field has no companion offset to redirect through a
+                            # ~JumpTable thunk the way a 3-byte far pointer does).
+                            # Measured against gold (docs/EXPRESSLOAD_TIER2_PLAN.md
+                            # E1): it is emitted as the CALLING group's own bank
+                            # instead — type 25+own_segnum, same formula as a
+                            # genuine intra-segment bank-byte reference (which
+                            # this reduces to when tgt_group == group_g, e.g.
+                            # PopUpProc/Pictures/SeedFill's own bank-byte refs).
+                            corrected_type = 25 + _final_segnum(group_g)
+                        else:
+                            tgt_segnum = _final_segnum(tgt_group) if jt_enabled else (tgt_group + 2)
+                            corrected_type = 25 + tgt_segnum
                     else:
                         corrected_type = 27  # fallback
                     final_relocs.setdefault(corrected_type, []).append(rel_off)
+
+                elif stype == 0 and jt_enabled:
+                    # 2-byte (type-0) low-word reloc: check if target is in a
+                    # different group. Re-evaluate against the joint symbol
+                    # table (same robustness reasoning as stype==1, above). A
+                    # 2-byte field can't self-describe its target segment the
+                    # way a 3-byte far pointer's own 3rd byte can, so each
+                    # cross target segnum gets its own SUPER type — measured
+                    # against gold (Tool016/018): 13 + the target's own final
+                    # segnum (JT-routed the same way as stype==1 when the
+                    # target is DYNAMIC).
+                    _esz, _eops, _eseg_i = expr_at[abs_off]
+                    joint_target = _link._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
+                    tgt_group = _group_of(joint_target)
+                    if tgt_group != group_g:
+                        tgt_group_base = group_bases[tgt_group]
+                        off_in_tgt = joint_target - tgt_group_base
+                        if dyn_flags[tgt_group]:
+                            key = (_final_segnum(tgt_group), off_in_tgt)
+                            idx = jt_index.get(key)
+                            if idx is None:
+                                raise ValueError(
+                                    "expressload(): opts['jt_entries'] has no "
+                                    f"entry for dynamic target segnum={key[0]} "
+                                    f"offset={key[1]:#x}")
+                            off_in_tgt = jt_jsl_offset(idx)
+                            tgt_segnum = jt_segnum
+                        else:
+                            tgt_segnum = _final_segnum(tgt_group)
+                        merged_arr[rel_off]     = off_in_tgt & 0xFF
+                        merged_arr[rel_off + 1] = (off_in_tgt >> 8) & 0xFF
+                        final_relocs.setdefault(13 + tgt_segnum, []).append(rel_off)
+                    else:
+                        final_relocs.setdefault(0, []).append(rel_off)
 
                 else:
                     final_relocs.setdefault(stype, []).append(rel_off)
 
         merged = bytes(merged_arr)
 
-        super_records = bytearray()
+        super_records = bytearray(standalone_group)
         for stype in sorted(final_relocs):
             super_records += emit_super(stype, sorted(final_relocs[stype]))
         super_records += b'\x00'   # END
@@ -1224,7 +1654,7 @@ def expressload(
             out_kind = segkinds_opt[group_out_idx]
         else:
             out_kind = first_hdr['KIND']
-        out_segnum   = group_out_idx + 2   # SEGNUM starts at 2 (1 = ~ExpressLoad)
+        out_segnum   = _final_segnum(group_out_idx) if jt_enabled else (group_out_idx + 2)
         out_align    = max((p[3].get('ALIGN') or 0) for p in group_placed)
 
         # Build the output OMF segment
@@ -1237,20 +1667,33 @@ def expressload(
         sname_field  = bytes([len(out_name)]) + out_name
         out_dispdata = out_dispname + 10 + len(sname_field)
 
-        out_groups.append({
-            'hdr': {
-                'SEGNUM': out_segnum,
-                'KIND': out_kind,
-                'DISPDATA': out_dispdata,
-                'DISPNAME': out_dispname,
-                'SEGNAME': out_name,
-                'ALIGN': out_align,
-            },
-            'body': merged,
-            'reloc_size': reloc_size_val,
-            'seg_bytes': seg_bytes,
-        })
+        out_group_entry = _het_seg_meta(
+            out_segnum, out_kind, out_dispdata, out_dispname, out_name, out_align,
+            merged, reloc_size_val,
+        )
+        out_group_entry['seg_bytes'] = seg_bytes
+        out_groups.append(out_group_entry)
         group_out_idx += 1
+
+    if jt_enabled and has_dyn:
+        # Build and insert the linker-generated ~JumpTable load segment at its
+        # golden position — right after the non-dynamic block, before the
+        # first dynamic group (already the insertion point ``n_nondyn``, since
+        # out_groups is in the same order as the validated dyn_flags/segkinds).
+        jt_name = b'~JumpTable'
+        jt_body = encode_jumptable(jt_entries_opt)
+        jt_seg_bytes = _make_output_seg(
+            jt_name, 0x0002, jt_segnum, jt_body, b'\x00', align=0
+        )
+        jt_dispname = 44
+        jt_sname_field = bytes([len(jt_name)]) + jt_name
+        jt_dispdata = jt_dispname + 10 + len(jt_sname_field)
+        jt_group_entry = _het_seg_meta(
+            jt_segnum, 0x0002, jt_dispdata, jt_dispname, jt_name, 0,
+            jt_body, 0,
+        )
+        jt_group_entry['seg_bytes'] = jt_seg_bytes
+        out_groups.insert(n_nondyn, jt_group_entry)
 
     N = len(out_groups)
 

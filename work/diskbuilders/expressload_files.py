@@ -49,6 +49,22 @@ ensure_repo_on_path()
 from gsasm import asm, omf
 from gsasm.expressload import expressload
 
+# TOOLMAP['015'/'016'/'018']'s jt_segments spec and the jump-table-aware
+# multi-segment linker that derives (and gate-proves against gold) each
+# tool's ~JumpTable entries — imported, not copied (E1: the diskbuilder must
+# reuse the SAME derivation toolcheck uses).
+import toolcheck
+
+
+def _jt_entries_for(tool):
+    """[(target_segnum, routine_offset), ...] for ToolNNN's ~JumpTable, using
+    toolcheck's own jt_segments spec and _link_jt_tool derivation (already
+    gated byte-exact against gold's ~JumpTable segment for this tool)."""
+    subdir, spec = toolcheck.TOOLMAP[tool]
+    _images, jt_entries, _jt_segnum, _segnum = toolcheck._link_jt_tool(
+        subdir, spec['jt_segments'])
+    return jt_entries
+
 
 # ---------------------------------------------------------------------------
 # OMF filter helper — select segments by LOADNAME (for copybits.asm @SEGname)
@@ -153,6 +169,7 @@ def _build_tool015():
             'multiseg': True,
             'segnames': [b'MainTool', b'PopUpProc'],
             'segkinds':  [0x0000, 0x8000],
+            'jt_entries': _jt_entries_for('015'),
         },
     )
 
@@ -182,6 +199,7 @@ def _build_tool016():
             'multiseg': True,
             'segnames': [b'main', b'StatText', b'Pics'],
             'segkinds':  [0x0000, 0x0000, 0x8000],
+            'jt_entries': _jt_entries_for('016'),
         },
     )
 
@@ -244,6 +262,7 @@ def _build_tool018():
             'multiseg': True,
             'segnames': [b'MAINPart', b'CopyBits', b'Pictures', b'SeedFill', b'PixelMap2Rgn'],
             'segkinds':  [0x0000,      0x0000,      0x8000,      0x8000,      0x8000],
+            'jt_entries': _jt_entries_for('018'),
         },
     )
 

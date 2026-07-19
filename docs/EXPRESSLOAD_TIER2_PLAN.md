@@ -74,18 +74,27 @@ Acceptance: Tool015/016/018 full-file byte-exact in diskcheck
 (logical-exact 24 → 27); toolcheck/gate unchanged everywhere else.
 Risk: low — all constituent bytes already proven. ~1-2 days.
 
-### E2. TS2/TS3 builders
+### E2. TS2/TS3 residual closure
 
-1. Transcribe `Patch2/ts2.makeout` and `Patch3/ts3.makeout` module lists +
-   link recipes into `expressload_files.py` (same pattern as the tools; the
-   makeouts are the authority — transcribe, don't guess).
-2. Emit the `INIT` segment KIND 0x2000 faithfully (check what linkiigs
-   currently stamps; the golden INIT segs are 1027/662 bytes).
-3. The case-B addends (TS3 = NewCalls.asm `myEventFilter+$80000000`, same
+CORRECTION (2026-07-19): the original "NO BUILDER" claim was wrong — full
+builders already exist in `work/diskbuilders/toolsets.py`, transcribed from
+`Patch2/ts2.makeout` / `Patch3/ts3.makeout`, wired into diskcheck. Post-E1
+state (the E1 `_het_entries` entry1-size correction applies to all N≥2
+multiseg callers and moved both files slightly toward gold): TS2 3037/36665
+first-diff @0x5e, TS3 3898/41700 first-diff @0x6e — both lengths correct to
+within a few hundred bytes and, per toolsets.py's own analysis, long aligned
+stretches are byte-identical (TS3 MAIN matches through 0x2db6). The low raw
+match is alignment shift after early directory/reloc deltas.
+
+1. Localize the first diffs (both now in the `~ExpressLoad` directory area or
+   the first segment header) — directory-building deltas vs the tools' now-
+   proven path should be smallest first.
+2. The case-B addends (TS3 = NewCalls.asm `myEventFilter+$80000000`, same
    record that closed Tool014) must produce standalone flagged relocs in the
-   multiseg path — `_scan_case_b` exists; verify it fires here and the old
-   "multiseg emits no standalone relocs" note is falsified by construction.
-4. Compare INIT/MAIN/BIGONLY per-segment first (kernelcheck-style), THEN the
+   multiseg path — E1 added exactly this machinery for the tools (case-A
+   standalone scan + INTERSEG/cINTERSEG emission); TS2/TS3 likely need it
+   enabled/extended on their no-JT path.
+3. Compare INIT/MAIN/BIGONLY per-segment first (kernelcheck-style), THEN the
    full file — per-segment failures are assembler/linker bugs to be
    root-caused, not packaging noise.
 
