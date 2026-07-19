@@ -43,7 +43,7 @@ Status:
   and AppleShare source-discovery residuals are closed and guarded by this
   harness plus work/gate.py.
 """
-import sys, os, re, tempfile
+import sys, os
 from _common import (
     byte_match,
     ensure_repo_on_path,
@@ -56,7 +56,6 @@ from _common import (
 )
 ensure_repo_on_path()
 from gsasm import asm, omf, linkiigs
-from gsasm.asm import read_text
 from gsasm.expressload import de_express
 
 SRC  = gsos_source_root()
@@ -120,9 +119,9 @@ FSTMAP = {
 # MakeFile + JudgeName.aii under FSTs/AppleShare/Src).  Two source-tree quirks:
 #   * Modules share equates via MPW dump/load: Equates.aii ends with
 #     `dump ':obj:equates.dump'` and every other module opens with
-#     `load 'equates.dump'`.  gsasm has no binary dump/load, so we assemble
-#     Equates.aii inline: strip its trailing `dump`/`end` and rewrite each
-#     module's `load` line into an `include` of the cleaned copy.
+#     `load 'equates.dump'`.  gsasm's native LOAD support (asm.do_load,
+#     tests/fixtures/054) replays the registered generating source up to its
+#     DUMP line — the `loads` mapping below is this makefile rule.
 #   * DebugCode defaults to 0 (release build), passed as a -d define so the
 #     `&getenv('MSDDebugFlag')` shell probe in Equates.aii is skipped.
 #   * JudgeName.aii is a genuine `proc export` module that the MakeFile `objects`
@@ -135,7 +134,6 @@ APPLESHARE_ORDER = [
     'GetInfo', 'SetInfo', 'ChangePath', 'Open', 'Close', 'VolMod', 'Flush',
     'Mark', 'EOF', 'read', 'Write', 'GetDir', 'Specific', 'Time', 'Subs',
     'FindPath', 'SendPacket', 'JudgeName', 'Data']
-_LOAD_RE = re.compile(r"^(\s*)load\s+'equates\.dump'\s*$", re.I)
 
 
 def _build_appleshare():
@@ -145,34 +143,15 @@ def _build_appleshare():
         return None, None
     src = APPLESHARE_DIR
     files = {f.lower(): f for f in os.listdir(src) if f.endswith('.aii')}
-    import shutil
-    tmp = tempfile.mkdtemp(prefix='asfst_')
-    try:
-        eq = [l for l in read_text(os.path.join(src, files['equates.aii'])).split('\n')
-              if not l.strip().lower().startswith('dump')
-              and l.strip().lower() != 'end']
-        # Write mac_roman: read_text() decodes source as mac_roman, so the
-        # rewritten temp copies must round-trip that encoding — else the MPW
-        # one's-complement operator `≈` (mac_roman 0xC5) corrupts to UTF-8 and
-        # `and #≈flag` mis-assembles (a harness bug, not a gsasm bug).
-        with open(os.path.join(tmp, 'equates_clean.aii'), 'w',
-                  encoding='mac_roman') as f:
-            f.write('\n'.join(eq))
-        incs = [src, tmp] + INCS
-        objs = []
-        for base in APPLESHARE_ORDER:
-            text = read_text(os.path.join(src, files[base.lower() + '.aii'])).split('\n')
-            out = [(_LOAD_RE.match(l).group(1) + "include 'equates_clean.aii'"
-                    if _LOAD_RE.match(l) else l) for l in text]
-            p = os.path.join(tmp, base + '.aii')
-            with open(p, 'w', encoding='mac_roman') as f:
-                f.write('\n'.join(out))
-            a = asm.assemble(p, incs, defines={'DebugCode': 0})
-            objs.append((omf.emit(a), a))
-        result = linkiigs.link(objs, opts={'merge': True})
-        return _extract_img(result), g
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+    incs = [src] + INCS
+    objs = []
+    for base in APPLESHARE_ORDER:
+        a = asm.assemble(os.path.join(src, files[base.lower() + '.aii']), incs,
+                         defines={'DebugCode': 0},
+                         loads={'equates.dump': 'Equates.aii'})
+        objs.append((omf.emit(a), a))
+    result = linkiigs.link(objs, opts={'merge': True})
+    return _extract_img(result), g
 
 
 def _extract_img(result: bytes) -> bytes:

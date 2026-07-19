@@ -1,0 +1,3 @@
+{
+  "note": "MPW symbolic logical conditional operators: ** = AND, ++ = OR (space-delimited, same precedence level as the keywords). Guards asm.py _cond_or/_cond_and (E3 Tool034: TextEdit.macros addl one-arg form)."
+}

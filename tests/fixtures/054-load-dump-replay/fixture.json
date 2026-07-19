@@ -1,0 +1,4 @@
+{
+  "note": "MPW LOAD/DUMP dialect: LOAD replays the registered dump-generating source (see 'loads') up to its matching DUMP line — gsasm never reads MPW's binary dump format. Leaf-name matching ':obj:syms.dump' vs 'syms.dump'. Guards asm.py do_load/_dump_leaf (E3 Tool034 TextEdit + AppleShare FST).",
+  "loads": {"syms.dump": "GenSyms.asm"}
+}
