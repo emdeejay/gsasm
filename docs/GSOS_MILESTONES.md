@@ -38,7 +38,7 @@ individual tool designs assume (OMF primer, golden-binary layout, gotchas).
 | # | Target images | Tools needed | Status |
 |---|---|---|---|
 | M0 | ROM 03 firmware (256K, 3 banks) | gsasm + `linkrom` + ROM makebin | ✅ **byte-exact** (`work/buildrom.py`); objcheck 40/61 obj-identical, linkcheck 61/61 link-identical |
-| M1 | `System/Tools/ToolNNN` mapped code images (11 toolsets) | gsasm + M2 + M4 | ✅ **byte-exact** (`work/toolcheck.py`, 150,459/150,459); full on-disk ExpressLoad builders still have diskcheck logical residuals for Tool015/016/018/034 |
+| M1 | `System/Tools/ToolNNN` mapped code images (12 toolsets) | gsasm + M2 + M4 | ✅ **byte-exact** (`work/toolcheck.py`, 186,110/186,110 incl. Tool034/TextEdit); full on-disk ExpressLoad files ALSO byte-exact — diskcheck logical-exact is 30/30 (E0–E3 closed Tool015/016/018, TS2/TS3, Tool034) |
 | M2 | general OMF load-file linker | `gsasm/linkiigs.py` | ✅ **done** — tools, FSTs, drivers and the kernel all link through it |
 | M3 | MakeBin/Overlay/catenate | `gsasm/makebin.py` | ✅ **done** — `prodos` byte-exact (`work/probootcheck.py`) |
 | M4 | ExpressLoad relinker | `gsasm/expressload.py` | ✅ **done for the gated code-image corpus** — byte-exact mapped tools/FSTs/drivers; remaining full-file ExpressLoad residuals are tracked by `work/diskcheck.py` |
@@ -59,10 +59,10 @@ change to the core is gated on the ROM staying byte-exact (`work/gate.py`).
 `work/toolcheck.py` assembles each manager from `GSToolbox`, links, and
 byte-compares against the shipping (de-ExpressLoad'd) `ToolNNN`. The
 cross-segment dispatch-table problem, source-level ExpressLoad case-B flags,
-`~JumpTable` routing, Tool018's QDAux segmentation, and Tool019's pure-literal
-shift are all closed for the mapped code-image corpus: 11 tools, 150,459 bytes.
-`work/diskcheck.py` still distinguishes full on-disk ExpressLoad file residuals
-for Tool015/016/018/034 from these code-image results.
+`~JumpTable` routing, Tool018's QDAux segmentation, Tool019's pure-literal
+shift, and Tool034/TextEdit's LOAD/DUMP + record-ORG + shift-defer classes are
+all closed: 12 tools, 186,110 bytes. The full on-disk ExpressLoad files are
+byte-exact too — `work/diskcheck.py` logical-exact is 30/30 (E0–E3, 2026-07-19).
 
 ### M2 — General `LinkIIgs` ✅ (`gsasm/linkiigs.py`)
 The general OMF v2 load-file linker: N input objects (multi-segment, APW/OMF),

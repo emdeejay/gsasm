@@ -83,8 +83,12 @@ Two follow-up leads from the implementation:
   `resolve()` lets an explicit local def shadow a WITH field. Guard:
   `tests/fixtures/042-proc-equ-vs-with-record-field`.
 - **The multi-segment ExpressLoad path (`multiseg=True`) never emits ANY
-  standalone reloc records** (case A or B) — this is why TS2/TS3/Tool.Setup
-  didn't move. Separate, larger gap; needs its own careful pass.
+  standalone reloc records** (case A or B) — this was why TS2/TS3/Tool.Setup
+  didn't move. **CLOSED for TS2/TS3 (2026-07-19, E2, commit 8df2a45)**: the
+  multiseg path now emits the full standalone/case-B/SUPER dictionary and
+  TS2/TS3 are byte-exact on disk (36,665/36,665 and 41,700/41,700; disk
+  logical-exact 30/30 after E3 closed Tool034 too — see
+  `docs/EXPRESSLOAD_TIER2_PLAN.md`).
   (2026-07-15, R11: fixed the SAME class of placement-base bug in the
   **single-segment** path's standalone-reloc scan instead — EasyMount's
   `_scan_standalone_relocs`/`_scan_case_b` were evaluating expressions
