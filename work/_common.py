@@ -88,8 +88,16 @@ def toolbox_incs(tb: str | None = None,
 
 
 def rincludes(*, abs_path: bool = False) -> list[str]:
-    """Resource include path used by Rez harnesses."""
-    inc = work_rel('rincludes')
+    """Resource include path used by Rez harnesses.
+
+    Since 2026-07-19 this is the COMMITTED clean-room include
+    (`gsasm/rez/include/TypesIIGS.r`, see docs/REZ_TYPES_PLAN.md) — the recovered
+    Apple original in gitignored `work/rincludes/` is no longer consulted
+    by the Rez pipeline (the gate proves byte-exactness against the new
+    include).  `work/rincludes/AIIGSIncludes` remains a separate,
+    assembler-side dependency for building embedded code resources
+    (easymountcheck.INC_E16)."""
+    inc = os.path.join('gsasm', 'rez', 'include')
     return [os.path.join(ROOT, inc) if abs_path else inc]
 
 

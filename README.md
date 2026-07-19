@@ -119,13 +119,16 @@ gsrez <source.r> [-I <incdir>]... [-o <out>] [-t <filetype>] [-c <creator>]
 
 Compiles a Rez source file (the MPW IIgs `RezIIgs` dialect: `type` templates,
 `resource` bodies, `read` statements, the C-style preprocessor) into an Apple
-IIgs resource fork, written as a raw fork image. `TypesIIGS.r`-style include
-files are searched through `-I` directories; `read` files (e.g. linked code
-resources) through `--read-dir`. `--meta` sets fork-header fields (creation
-timestamp etc.) for byte-exact reproduction work.
+IIgs resource fork, written as a raw fork image. A clean-room `TypesIIGS.r`
+ships with gsasm (`gsasm/rez/include/`, searched after any `-I` directories),
+so `#include "TypesIIGS.r"` works out of the box for the corpus-validated
+templates — `docs/REZ_TYPES_PLAN.md` records how each was derived and which
+are covered. `read` files (e.g. linked code resources) are searched through
+`--read-dir`. `--meta` sets fork-header fields (creation timestamp etc.) for
+byte-exact reproduction work.
 
 ```sh
-gsrez sys.resources.r -I ./rincludes --read-dir ./build -o SYS.RESOURCES -t "F9  "
+gsrez sys.resources.r --read-dir ./build -o SYS.RESOURCES -t "F9  "
 ```
 
 ## Python API

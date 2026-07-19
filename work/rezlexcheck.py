@@ -2,7 +2,7 @@
 """Validate gsasm/rez/lexer.py against the two Rez corpus files (packet R3).
 
 Tokenizes the archive `sys.resources.r` (CR + MacRoman), which pulls in
-`work/rincludes/TypesIIGS.r` via `#include "typesiigs.r"` (case-insensitive
+`gsasm/rez/include/TypesIIGS.r` via `#include "typesiigs.r"` (case-insensitive
 match against the real, differently-cased `TypesIIGS.r`).  Corpus-derived
 checks live here (never under tests/ — the Apple sources are gitignored and
 not redistributable); tests/test_rez_lexer.py carries the small
@@ -25,7 +25,7 @@ INCS = rincludes()
 def main():
     ok = True
 
-    for path in ('work/rincludes/TypesIIGS.r', SRC):
+    for path in ('gsasm/rez/include/TypesIIGS.r', SRC):
         if not os.path.exists(path):
             print(f'FAIL: corpus file missing: {path}')
             return 1
@@ -59,7 +59,7 @@ def main():
         print('FAIL: stream does not end with an EOF token')
 
     both_files_present = (
-        files.get('work/rincludes/TypesIIGS.r', 0) > 0
+        files.get('gsasm/rez/include/TypesIIGS.r', 0) > 0
         and files.get(SRC, 0) > 0
     )
     if not both_files_present:
