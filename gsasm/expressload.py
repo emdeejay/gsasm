@@ -1061,13 +1061,35 @@ def expressload(
             Pre-seeded externals passed to the internal linker.
         ``kind``
             KIND override for single-segment output.
+        ``obj_group``
+            Opt-in per-FILE output groups: ``list[int]``, one entry per
+            object in ``objects``, giving that object's output GROUP index
+            (monotonic non-decreasing, e.g. ``[0, 0, 1, 1, 1, ..., 2, ...]``)
+            — several separately-assembled per-file objects (real ``Asm``
+            metadata, not a pre-concatenated combo blob) can share one output
+            load segment while keeping each file's private/EXPORT symbol
+            scoping genuinely per-file (see ``linkiigs._build_symtab``).
+            Absent (the default) — every object is its own group, EXACTLY
+            today's behaviour; every existing caller that doesn't pass this
+            key is byte-for-byte unaffected.  When present, ``segnames`` /
+            ``segkinds`` index GROUPS, not objects.
+        ``order``
+            Optional explicit placement order as ``(obj_idx, seg_idx)``
+            pairs, passed straight to ``linkiigs._place(objects, 0,
+            order=...)``.  Absent — default sequential per-object placement.
+            A segment omitted by ``order`` is NOT placed and must not appear
+            in any group body (used together with ``obj_group`` so a caller
+            can select a subset of each file's segments, in filter-list
+            order, without byte-filtering the object itself).
         ``segnames``
             List of segment name overrides (bytes) for multi-segment output,
-            one per input object group.  If shorter than the number of groups,
-            remaining groups use the first placed segment's SEGNAME.
+            one per output GROUP (see ``obj_group``) — one per input object
+            when ``obj_group`` is absent.  If shorter than the number of
+            groups, remaining groups use the first placed segment's SEGNAME.
         ``segkinds``
             List of KIND overrides (int) for multi-segment output, one per
-            input object group.  If shorter than the number of groups,
+            output GROUP (see ``obj_group``) — one per input object when
+            ``obj_group`` is absent.  If shorter than the number of groups,
             remaining groups use the first placed segment's KIND.
         ``jt_entries``
             Opt-in — emit a linker-generated ``~JumpTable`` (KIND 0x0002) load
@@ -1100,7 +1122,8 @@ def expressload(
     # ------------------------------------------------------------------
     # Pass 1: parse inputs and place segments
     # ------------------------------------------------------------------
-    placed, obj_seg_bases, placed_obj_idx = _linkiigs._place(objects, 0)
+    placed, obj_seg_bases, placed_obj_idx = _linkiigs._place(
+        objects, 0, order=opts.get('order'))
 
     if not placed:
         return b''
@@ -1243,11 +1266,28 @@ def expressload(
         return bytes(express_seg) + main_seg_bytes
 
     # ---- Multi-segment output ----
-    # Build placed_by_obj: for each input object, collect its placed entries.
-    placed_by_obj: list[list[int]] = [[] for _ in range(n_objs)]
+    # Opt-in per-FILE output groups (opts['obj_group']): several separately-
+    # assembled per-file objects (each with its OWN Asm, so _build_symtab's
+    # per-object scoping — private segment names, EXPORT/ENTRY visibility —
+    # is genuinely per-FILE) can share one output load segment.  Absent (the
+    # default), every object is its own group — EXACTLY today's behaviour,
+    # byte-for-byte, for every caller that doesn't pass this opt (e.g. the
+    # single-object-per-group ToolNNN builders in expressload_files.py).
+    obj_group_opt: list[int] | None = opts.get('obj_group')
+    if obj_group_opt is not None:
+        group_of_obj: list[int] = list(obj_group_opt)
+        n_groups_total = (max(group_of_obj) + 1) if group_of_obj else 0
+    else:
+        group_of_obj = list(range(n_objs))
+        n_groups_total = n_objs
+
+    # Build placed_by_group: for each output GROUP, collect its placed entries
+    # (in placed order — segments from several objects in the same group are
+    # interleaved exactly as ``order`` placed them).
+    placed_by_group: list[list[int]] = [[] for _ in range(n_groups_total)]
     for placed_i in range(len(placed)):
         oi = placed_obj_idx[placed_i]
-        placed_by_obj[oi].append(placed_i)
+        placed_by_group[group_of_obj[oi]].append(placed_i)
 
     # Caller-supplied name/kind overrides (per output group, indexed by group output idx).
     segnames_opt: list[bytes] = list(opts.get('segnames') or [])
@@ -1255,13 +1295,13 @@ def expressload(
 
     # Build the group boundary table: group_idx -> (base_abs, end_abs).
     # Used to classify cross-group references when building SUPER type-2 records.
-    # We need to know, for each non-empty object group, its absolute start address.
-    group_obj_indices: list[int] = []   # oi values of non-empty groups, in order
+    # We need to know, for each non-empty output group, its absolute start address.
+    group_obj_indices: list[int] = []   # group ids of non-empty groups, in order
     group_bases: list[int] = []         # absolute base of each non-empty group
-    for oi in range(n_objs):
-        indices = placed_by_obj[oi]
+    for g in range(n_groups_total):
+        indices = placed_by_group[g]
         if indices:
-            group_obj_indices.append(oi)
+            group_obj_indices.append(g)
             group_bases.append(placed[indices[0]][2])
 
     def _group_of(abs_addr: int) -> int:
@@ -1343,12 +1383,24 @@ def expressload(
     # only via that group's OWN obj_globals[oi], never the shared `sym` table
     # (measured against gold: Tool018 MAINPart references Pictures/pics.asm's
     # `SaveSomething`/`iStdComment`, both `PROC EXPORT`, and `sym` has neither
-    # — only obj_globals[2] does; TS2/TS3's ~40-object groups hit the exact
-    # same gap, E2). Widen the base table used for cross-group re-evaluation
-    # with every object's own private table as a FALLBACK, `sym` still taking
-    # priority for anything it does have. Built for every multi-object build
-    # (not just jt_enabled ones) — E2's non-JT cross-group corrections need it
-    # too.
+    # — only obj_globals[2] does). Widen the base table used for cross-group
+    # re-evaluation with every object's own private table as a FALLBACK,
+    # `sym` still taking priority for anything it does have. Built for every
+    # multi-object build (not just jt_enabled ones) — combo-callers' non-JT
+    # cross-group corrections need it too.
+    #
+    # TS2/TS3 (opts['obj_group']) are NOT combo groups: each object is a real
+    # per-file object with its own Asm, so _build_symtab's pass (a)/(b) already
+    # publish genuine EXPORTs into `sym` and scope private names per-FILE via
+    # obj_globals[oi] — restoring exactly the per-file binding MPW LinkIIgs
+    # performs (a private segment name in file A must never be visible to a
+    # reference in file B; only a real EXPORT crosses file boundaries). The
+    # per-SEGMENT overlay built below (``grp_body_syms``, keyed by each
+    # segment's OWN owning object) is what enforces that: it still falls back
+    # to `_fallback_sym` for a genuine cross-object reference that isn't in
+    # `sym` (e.g. an ENTRY the referencing file itself doesn't define), but a
+    # `**og_seg` overlay on top means THIS segment's own file's binding always
+    # wins over any other file's same-named private leftover in the fallback.
     _fallback_sym: dict = {}
     for _oi in range(n_objs):
         _og = obj_globals[_oi]
@@ -1356,11 +1408,11 @@ def expressload(
             _fallback_sym.update(_og)
     _fallback_sym.update(sym)
 
-    # For each object group, merge its placed segments' bodies and collect relocs.
+    # For each output group, merge its placed segments' bodies and collect relocs.
     out_groups: list[dict] = []
-    group_out_idx = 0   # index into out_groups (may differ from oi if some objects are empty)
-    for oi in range(n_objs):
-        indices = placed_by_obj[oi]
+    group_out_idx = 0   # index into out_groups (may differ from g if some groups are empty)
+    for g in range(n_groups_total):
+        indices = placed_by_group[g]
         if not indices:
             continue
 
@@ -1376,16 +1428,33 @@ def expressload(
             def _adj(v: Any, gb: int = group_base) -> Any:
                 return (v - gb) if isinstance(v, int) else v
             adj_sym = {k: _adj(v) for k, v in sym.items()}
-            og = obj_globals[oi]
-            adj_og: dict | None = ({k: _adj(v) for k, v in og.items()} if og else None)
         else:
             adj_sym = sym
-            adj_og  = obj_globals[oi]
+            def _adj(v: Any) -> Any:
+                return v
+
+        # A group may span SEVERAL per-file objects (opts['obj_group']) — each
+        # placed segment's own object's private/public table (obj_globals[oi])
+        # must overlay adj_sym, not one table shared by the whole group (that
+        # would let one file's private segment name leak into another file's
+        # references — exactly the MPW-divergent "binding" bug this per-file
+        # restructure fixes).  Cache per-object adjustment since several
+        # segments in the group commonly share the same owning object.
+        _adj_og_cache: dict[int, dict | None] = {}
+
+        def _adj_og(oi_seg: int) -> dict | None:
+            if oi_seg not in _adj_og_cache:
+                og = obj_globals[oi_seg]
+                _adj_og_cache[oi_seg] = (
+                    {k: _adj(v) for k, v in og.items()} if og else None)
+            return _adj_og_cache[oi_seg]
 
         group_bodies: list[bytes] = []
         for placed_i in indices:
             _segname, recs, seg_base, _hdr, _asm = placed[placed_i]
             recs2, _srels = _linkiigs._defer_shifts(recs)
+            oi_seg = placed_obj_idx[placed_i]
+            adj_og = _adj_og(oi_seg)
             local_sym = adj_sym if not adj_og else {**adj_sym, **adj_og}
             # Adjust seg_base to be group-relative (subtract group_base).
             adj_seg_base = seg_base - group_base
@@ -1416,9 +1485,17 @@ def expressload(
         # there is no dynamic group, so the jt-routing branch below is simply
         # never taken in that case.
         standalone_group = bytearray()
-        _og_this = obj_globals[oi]
-        _grp_sym_base = _fallback_sym if not _og_this else {**_fallback_sym, **_og_this}
-        grp_body_syms = [_grp_sym_base for _ in indices]
+        # Per-SEGMENT symbol table (absolute/joint address space, unlike the
+        # group-relative adj_sym/adj_og pair used for body-building above):
+        # each segment's overlay is its OWN owning object's table, not one
+        # table shared by the whole group — see the ``_adj_og`` comment
+        # above for why a whole-group table would let a private name from
+        # one file incorrectly shadow another file's reference.
+        grp_body_syms: list[dict] = []
+        for placed_i in indices:
+            og_seg = obj_globals[placed_obj_idx[placed_i]]
+            grp_body_syms.append(
+                _fallback_sym if not og_seg else {**_fallback_sym, **og_seg})
 
         # abs_off -> (size, ops, seg_i) for every EXPR-family record in this
         # group, in the SAME (un-deferred) record basis _scan_relocs itself
@@ -1649,10 +1726,16 @@ def expressload(
                                             # E2). Scoped to the no-JT path —
                                             # jt_enabled tools already resolve
                                             # correctly via sym/obj_globals[oi]
-                                            # alone.
+                                            # alone. ``oi`` here is THIS
+                                            # segment's OWN owning object
+                                            # (placed_obj_idx[placed_i]) — a
+                                            # group may span several per-file
+                                            # objects (opts['obj_group']), so
+                                            # the outer group loop's ``g`` is
+                                            # not an object index.
                                             jv = sym.get(sname2)
                                             if jv is None:
-                                                og2 = obj_globals[oi]
+                                                og2 = obj_globals[placed_obj_idx[placed_i]]
                                                 jv = og2.get(sname2) if og2 else None
                                             if jv is None and not jt_enabled:
                                                 jv = _fallback_sym.get(sname2)

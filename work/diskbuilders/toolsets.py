@@ -24,20 +24,47 @@ Gold segment layout (from ``omf.parse_header`` over the on-disk files):
 
 STATUS — logical residual, NOT byte-exact (see RESIDUAL note below):
   The grouping/filtering is correct: every built segment reproduces the gold's
-  EXACT code-image LENGTH (INIT/MAIN/BIGONLY all match to the byte), and long code
-  stretches are byte-identical (TS3 MAIN matches through offset 0x2db6).  All 82
-  source objects assemble cleanly.  The remaining diff is two gsasm-core gaps
-  (both OUTSIDE this module's mandate — do NOT patch gsasm/ from here):
-    (a) linkiigs multi-object symbol scoping: with ~40 filtered objects, dispatch
-        tables (e.g. tl.asm's TLCALLTABLE) resolve some DC.L entries to the wrong
-        same-named definition (e.g. TLVERSION from Locator.pch shadows a local
-        target) — the documented Tool019/Tool025 scoping class, at larger scale.
-    (b) expressload reloc-record format: gold INIT/MAIN use cINTERSEG + cRELOC +
-        RELOC records for interseg/intra refs; expressload() emits only SUPER
-        records (and inline-patches type-2 interseg).  BIGONLY (pure SUPER) is the
-        only group whose reloc format expressload can already match.
-  Both are shared with every other multi-seg tool residual and are owned by the
-  gsasm effort, not the disk builders.
+  EXACT code-image LENGTH (INIT/MAIN/BIGONLY all match to the byte).  All 82
+  source objects assemble cleanly.  Each object() is now passed to
+  expressload() as its own real per-file object (``obj_group``/``order`` opts,
+  E2c) rather than a pre-concatenated combo blob, so linkiigs._build_symtab's
+  per-object scoping (private segment names, EXPORT/ENTRY visibility) applies
+  per FILE — this closed some, but not all, of the earlier "wrong same-named
+  definition wins" binding class (E2's reloc-record-format gap is also closed:
+  expressload()'s case-A/case-B standalone-reloc paths already emit
+  cRELOC/RELOC/cINTERSEG/INTERSEG where gold does).
+
+  RESIDUAL (E2c investigation, gold-confirmed, OUTSIDE this module's symbol-
+  scoping mandate — do NOT hack around it here): MPW LinkIIgs's
+  ``object(SYM1,SYM2,...)`` segment SELECTION ORDER is not uniformly
+  "filter-list mention order" as `_part`'s ordering assumes. Two confirmed,
+  gold-verified counter-examples in TS3's MAIN group alone:
+    - Locator.pch: filter list is ``...,RESTORETEXTSTATE,TLSHUTDOWN,
+      MESSAGECENTER`` (TLSHUTDOWN mentioned before MESSAGECENTER, out of
+      their natural/emit order 5,6). `_part`'s filter-list order places
+      TLSHUTDOWN right after RESTORETEXTSTATE (addr 0x103); gold's own
+      ``dc.l TLShutDown-1`` dispatch entry at MAIN body offset 0xc stores
+      0x121, i.e. TLShutDown at 0x122 — gold placed MESSAGECENTER FIRST
+      (natural order), not filter-list order.
+    - WindMgr/NewCalls.asm: filter list mentions DOINITCURSOR LAST (after
+      FLUSHKEYEVENTS), out of its natural position (right after
+      DOMODALWINDOW). Gold's MAIN body diverges from built starting exactly
+      at MWGETCTLPART's filter-list-order position (0x202c) — consistent
+      with gold inserting DOINITCURSOR in its NATURAL position instead.
+    - Counter-counter-example (still holds, do not "fix" by switching to
+      natural order everywhere): ControlMgr.asm's CMLOADRESOURCE. Gold's own
+      ``dc.l CMLoadResource-1`` entry (ControlMgr.pch's CONTROLCALLTABLE,
+      MAIN offset 0x2db6) stores 0x32a1 -> CMLoadResource at 0x32a2, which is
+      EXACTLY `_part`'s FILTER-LIST-order prediction (immediately after
+      SETLETEXTBYID, skipping the six ByID/helper segments the makefile lists
+      later) — natural order predicts 0x3388 instead (230 bytes off, the
+      exact size of those six segments), which is wrong.
+  So the true MPW rule depends on something not yet identified (not simply
+  natural order, not simply filter-list order) and is the majority
+  contributor to the remaining TS2/TS3 byte residual. See the git history
+  around the "E2c" commit for the analysis; `_part`'s filter-list order is
+  left AS IS pending a real reverse-engineered rule (changing it blind
+  regresses the confirmed-correct ControlMgr.asm case).
 
 Object lists + -lseg groupings are transcribed verbatim from the linkiigs sections
 of ``GSToolbox/Patch/Patch2/makefile`` (TS2) and ``.../Patch3/makefile`` (TS3).
@@ -112,63 +139,110 @@ def _obj_seg_list(obj_bytes):
 
 
 def _whole(path, defines=None):
-    """The full OMF object (all segments) — matches ``object`` with no filter."""
-    return _assemble(path, defines)[0]
+    """The full OMF object (all segments), plus its ``Asm`` — matches
+    ``object`` with no filter.  Returns ``(obj_bytes, asm)``: unlike the
+    earlier blob-concatenation design, the object bytes are passed to
+    ``expressload()`` UNMODIFIED (with real per-file ``Asm`` metadata) so
+    ``linkiigs._build_symtab``'s per-object symbol scoping — private segment
+    names, EXPORT/ENTRY visibility — applies per FILE, exactly as MPW
+    LinkIIgs binds it, instead of being flattened into one combo blob.
+    """
+    return _assemble(path, defines)
 
 
 def _part(path, names, defines=None):
-    """OMF object filtered to segments defining any of *names* — matches
+    """The full OMF object (all segments) — like ``_whole`` — plus the
+    ordered list of segment indices selected by *names*, matching
     ``object(SYM1,SYM2,...)`` in the linkiigs -lseg directive.
+
+    Returns ``(obj_bytes, asm, seg_order)``.  ``obj_bytes``/``asm`` are the
+    FULL, unfiltered object (no byte filtering here — selection happens via
+    ``expressload()``'s ``opts['order']``, which needs the real segment
+    indices into this object to keep the asm-index mapping ``_build_symtab``
+    relies on intact).  ``seg_order`` is the ordered list of segment indices
+    into ``obj.segs``' emit order.
 
     A filter name is normally a segment name (gsasm emits one segment per PROC,
     named for its first label).  When it is instead an interior label, the Asm's
     ``symseg`` map resolves it to the emit-segment that contains it.  Selected
-    segments are emitted in their ORIGINAL emit order (not the filter-list order),
-    each as a whole — exactly as MPW LinkIIgs pulls a segment for a named symbol.
+    segments are emitted in FILTER-LIST order (first mention wins when several
+    names resolve to the same segment) — GOLDEN PROOF, overturning the earlier
+    "original emit order" reading: TS3's golden MAIN places CMLOADRESOURCE at
+    0x32a2, immediately after the SETLETEXTBYID segment (which also contains
+    the interior label GETLETEXTBYID), exactly the makefile's
+    ``ControlMgr.asm.obj(...,SETLETEXTBYID,GETLETEXTBYID,CMLOADRESOURCE,...)``
+    order — while ControlMgr.asm's source order has the six ByID/helper
+    segments (230 bytes) between them, which is where gsasm used to place them.
     """
     obj, a = _assemble(path, defines)
     segl = _obj_seg_list(obj)
     asm_segs = [s for s in a.segs if s.items or s.name]
-    want = {n.upper() for n in names}
 
-    keep = set()
-    # (1) direct segment-name matches
-    for i, (sn, _b) in enumerate(segl):
-        if sn in want:
-            keep.add(i)
-    # (2) interior-label matches via symseg -> containing emit segment
-    for lab in want:
+    def _resolve(lab):
+        """Filter name -> emit-segment index (segment name, else interior
+        label via symseg), or None."""
+        # (1) direct segment-name match
+        for i, (sn, _b) in enumerate(segl):
+            if sn == lab:
+                return i
+        # (2) interior label -> containing emit segment
         for key in (lab, lab.lower(), lab.capitalize()):
             if key in a.symseg:
                 sg = a.symseg[key]
                 if sg is None or sg < 0 or sg >= len(a.segs):
-                    break
+                    return None
                 try:
                     ei = asm_segs.index(a.segs[sg])
                 except ValueError:
-                    break
-                if ei < len(segl):
-                    keep.add(ei)
-                break
+                    return None
+                return ei if ei < len(segl) else None
+        return None
 
-    out = bytearray()
-    for i, (_sn, sb) in enumerate(segl):
-        if i in keep:
-            out += sb
-    return bytes(out)
+    order: list[int] = []
+    for lab in (n.upper() for n in names):
+        ei = _resolve(lab)
+        if ei is not None and ei not in order:
+            order.append(ei)
+
+    return obj, a, order
 
 
 def _expressload_groups(groups):
-    """Run expressload over a list of ``(group_obj_bytes, segname, segkind)``.
+    """Run expressload over a list of ``(items, segname, segkind)``, where
+    each *items* is a list of ``_whole()``/``_part()`` results (2-tuples or
+    3-tuples respectively) for one named load group (INIT/MAIN/BIGONLY).
 
-    Each group's concatenated OMF object bytes become one ExpressLoad load
-    segment (in order), preceded by the ~ExpressLoad directory segment.
+    Builds the flat per-file ``objects`` list, the ``obj_group`` map (one
+    entry per object, giving its output-group index — monotonic
+    non-decreasing, group order preserved exactly as *groups* lists them),
+    and the global ``order`` list of ``(obj_idx, seg_idx)`` pairs (honoring
+    each file's segment selection; a whole file contributes all its segments
+    in emit order).  Each named group's placed segments stay contiguous and
+    in *groups*' sequence — expressload() groups strictly by ``obj_group``,
+    and objects are appended group-by-group below.
     """
-    objects  = [(g[0], None) for g in groups]
+    objects: list[tuple[bytes, object]] = []
+    obj_group: list[int] = []
+    order: list[tuple[int, int]] = []
     segnames = [g[1] for g in groups]
     segkinds = [g[2] for g in groups]
+
+    for gi, (items, _segname, _segkind) in enumerate(groups):
+        for item in items:
+            if len(item) == 2:
+                obj_bytes, a = item
+                seg_order = list(range(len(_obj_seg_list(obj_bytes))))
+            else:
+                obj_bytes, a, seg_order = item
+            oi = len(objects)
+            objects.append((obj_bytes, a))
+            obj_group.append(gi)
+            order.extend((oi, si) for si in seg_order)
+
     return expressload(objects, opts={
         'multiseg': True,
+        'obj_group': obj_group,
+        'order': order,
         'segnames': segnames,
         'segkinds': segkinds,
     })
@@ -179,10 +253,10 @@ def _expressload_groups(groups):
 # ---------------------------------------------------------------------------
 def _build_ts2():
     # -lseg:$2000 INIT
-    init = _whole(f'{_P2}/install.asm') + _whole(f'{_P2}/InitSeg.asm')
+    init = [_whole(f'{_P2}/install.asm'), _whole(f'{_P2}/InitSeg.asm')]
 
     # -lseg MAIN
-    main = b''.join([
+    main = [
         _whole(f'{_P2}/strip.asm'),
         _whole(f'{_P2}/tl.asm'),
         _part(f'{_TL}/tl.asm', ['TLMEMROUTINES', 'TLSTARTANDSTOP'], {'RAMVersion': 0}),
@@ -244,10 +318,10 @@ def _build_ts2():
                                 'GETIDOFCALLINGROUTINE', 'MMSHUTDOWN', 'XPURGE', 'NUKEIT',
                                 'BESTTOP', 'VERIFYHANDLE', 'SETHANDLEID'], {'RAMVersion': 0}),
         _whole(f'{_P2}/text.tools.asm'),
-    ])
+    ]
 
     # -lseg BIGONLY
-    big = b''.join([
+    big = [
         _part(f'{_QD}/init.asm', ['DOFASTSETUP', 'TESTGPS']),
         _part(f'{_QD}/conics.asm', ['IDRAWCONIC', 'OVALPENSIZE']),
         _part(f'{_QD}/lines.asm', ['ISTDLINE', 'GRABPENLOC', 'STABPENLOC', 'FASTRATIO']),
@@ -271,7 +345,7 @@ def _build_ts2():
         _part(f'{_QD}/text.asm', ['IDCHAR', 'IDTEXT', 'IVALIDCHAR', 'FASTPUTCHAR', 'ISTDTEXT',
                                   'ICALCDRAWSTATUS', 'IADDEXTRAS']),
         _part(f'{_QD}/clipping.asm', ['MINRECTTOY1']),
-    ])
+    ]
 
     return _expressload_groups([
         (init, b'INIT',    0x2000),
@@ -285,10 +359,10 @@ def _build_ts2():
 # ---------------------------------------------------------------------------
 def _build_ts3():
     # -lseg:$2000 INIT
-    init = _whole(f'{_P3}/install.asm') + _whole(f'{_P3}/InitCode.pch')
+    init = [_whole(f'{_P3}/install.asm'), _whole(f'{_P3}/InitCode.pch')]
 
     # -lseg MAIN
-    main = b''.join([
+    main = [
         _part(f'{_P3}/Locator.pch', ['LOCATORCALLTABLE', 'TLVERSION', 'SAVETEXTSTATE',
                                      'RESTORETEXTSTATE', 'TLSHUTDOWN', 'MESSAGECENTER']),
         _whole(f'{_P3}/WindMgr.pch'),
@@ -348,7 +422,7 @@ def _build_ts3():
         _whole(f'{_P3}/IntMath.pch'),
         _whole(f'{_P3}/Text.Tools.pch'),
         _whole(f'{_P3}/SANE.pch'),
-    ])
+    ]
 
     return _expressload_groups([
         (init, b'INIT', 0x2000),
@@ -364,10 +438,11 @@ def builders(V):
 
     V is the volume prefix, e.g. '/System.Disk'.  Each callable returns the full
     ExpressLoad'd OMF file.  Both currently produce a precise LOGICAL RESIDUAL
-    (correct segment structure + exact code-image lengths; byte diffs confined to
-    linkiigs symbol-scoping targets and expressload's SUPER-only reloc format).
-    diskcheck's contract compares logical bytes before overlay, so a non-exact
-    build is reported as a worklist item and NOT overlaid — the image stays 100%.
+    (correct segment structure + exact code-image lengths) — see this module's
+    top-of-file STATUS/RESIDUAL note for the current gap (a `_part` segment-
+    selection-ORDER question, not symbol scoping). diskcheck's contract
+    compares logical bytes before overlay, so a non-exact build is reported as
+    a worklist item and NOT overlaid — the image stays 100%.
     """
     return {
         f'{V}/System/System.Setup/TS2': _build_ts2,

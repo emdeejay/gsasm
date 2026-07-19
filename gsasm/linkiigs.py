@@ -407,7 +407,25 @@ def _build_symtab(
                     sym[label] = val
                 # Per-object: ALL globals (including private) go here so that
                 # intra-object cross-segment references resolve correctly.
-                obj_globals[oi][label] = val
+                #
+                # For a pre-concatenated COMBO object (asm=None — several
+                # original .obj files fused into one blob, e.g. the TS2/TS3
+                # -lseg groups), use setdefault: the combo has no per-FILE
+                # scoping left, and a GLOBAL record from one constituent file
+                # must not clobber another constituent's private segment-name
+                # binding seeded by pass (a).  Golden proof: TS2's Patch2
+                # tl.asm dispatch `dc.l TLBootInit-1` binds to the file-local
+                # private TLBOOTINIT stub (placed 124 -> 123), NOT to the
+                # `TLBootInit` GLOBAL that Locator.pch's TLVERSION section
+                # publishes later in the same group.  Real objects (asm
+                # present) keep the overwrite — pass (b) already seeded every
+                # label from asm.symbols, so the overwrite is value-neutral
+                # there, and the PUSHRECT per-object-preference behaviour is
+                # unchanged.
+                if objects[oi][1] is None:
+                    obj_globals[oi].setdefault(label, val)
+                else:
+                    obj_globals[oi][label] = val
             elif nm == 'GEQU':
                 label = d['label']
                 sym.setdefault(label, _link._eval(d['expr'], sym))
