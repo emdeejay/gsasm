@@ -172,7 +172,7 @@ files, fixed at their root cause:
   way). The **multi-segment** (`multiseg=True`) ExpressLoad output path
   has no analogous fix — it never scans for standalone case-A/B records at
   all (a separate, larger gap; see `docs/TODO.md` section 1, and
-  `work/toolsetup_probe.py` — TS2/TS3/Tool.Setup's residuals are a
+  `work/archive/toolsetup_probe.py` — TS2/TS3/Tool.Setup's residuals are a
   different reloc-record-ENCODING wall, unrelated to this placement-base
   bug, and were unaffected by this fix).
 

@@ -102,6 +102,7 @@ API:
         meta: dict, see DEFAULT_META below for every recognized key,
             its meaning, and its default.
 """
+from __future__ import annotations
 import struct
 
 # --- byte-level constants (see docstring above and docs/design/rez.md) -----

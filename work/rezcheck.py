@@ -46,8 +46,8 @@ Library (for R2+):
 import sys, os, struct
 from collections import namedtuple
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)                 # so `import diskcheck` works from anywhere
+from _common import WORK, ensure_repo_on_path, first_diff as _first_diff
+ensure_repo_on_path(WORK)                # so `import diskcheck` works from anywhere
 import diskcheck as dc                   # noqa: E402 (also wires a2til onto sys.path)
 from a2til.prodos import Volume          # noqa: E402
 
@@ -208,15 +208,6 @@ def all_golden(disk=None):
 
 
 # --- compare(): the R2-R7 workhorse ----------------------------------------
-
-def _first_diff(a, b):
-    """First index where a[i] != b[i], else None if equal (incl. length)."""
-    n = min(len(a), len(b))
-    for i in range(n):
-        if a[i] != b[i]:
-            return i
-    return None if len(a) == len(b) else n
-
 
 def compare(golden: bytes, built: bytes) -> dict:
     """Byte-diff two resource forks with per-resource attribution.

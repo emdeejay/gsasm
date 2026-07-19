@@ -88,11 +88,14 @@ import importlib.util
 import os
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.dirname(HERE)
-for _p in (REPO, HERE):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+from _common import (
+    ROOT as REPO,
+    WORK as HERE,
+    ensure_repo_on_path,
+    first_diff as _first_diff,
+    work_abs,
+)
+ensure_repo_on_path(HERE)
 
 from gsasm import asm as _asm            # noqa: E402
 from gsasm import omf as _omf            # noqa: E402
@@ -112,7 +115,7 @@ convert_load = _conv_mod.convert_load
 
 SRC = os.path.join(REPO, 'ref', 'GSOS_6', 'IIGS.601.SRC', 'GSToolbox',
                    'Sys.Resources')
-INCS = [SRC, os.path.join(HERE, 'includes')]
+INCS = [SRC, work_abs('includes')]
 OUTDIR = os.path.join(HERE, 'link', 'rez')
 
 # (source, .Load artifact, res type, res id, output SEGNAME, KIND override)
@@ -229,14 +232,6 @@ def link_load(obj, a, segname, kind=None):
 # ---------------------------------------------------------------------------
 # Main: build + convert + compare
 # ---------------------------------------------------------------------------
-
-def _first_diff(a, b):
-    n = min(len(a), len(b))
-    for i in range(n):
-        if a[i] != b[i]:
-            return i
-    return None if len(a) == len(b) else n
-
 
 def main():
     os.makedirs(OUTDIR, exist_ok=True)

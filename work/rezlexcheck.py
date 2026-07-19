@@ -14,11 +14,12 @@ import collections
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _common import ensure_repo_on_path, rincludes, sysresources_rez
+ensure_repo_on_path()
 from gsasm.rez import lexer
 
-SRC = 'ref/GSOS_6/IIGS.601.SRC/GSToolbox/Sys.Resources/sys.resources.r'
-INCS = ['work/rincludes']
+SRC = sysresources_rez()
+INCS = rincludes()
 
 
 def main():

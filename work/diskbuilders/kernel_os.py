@@ -1,9 +1,8 @@
 """diskbuilders/kernel_os.py — M8 disk-file builders for GS.OS and GS.OS.Dev.
 
 Wires builders for the on-disk GS.OS and GS.OS.Dev kernel files on the System
-Disk.  These files are wired as precise residuals: the builders produce the best
-possible bytes with current gsasm capabilities, but the output does not yet
-match the golden exactly (known gaps documented below).
+Disk.  Both builders are now byte-exact; diskcheck's current logical residuals
+are in TS2/TS3 and selected full ExpressLoad tool files, not the kernel files.
 
   GS.OS  = Loader.bin ++ cat(scm.bin, scm.bin.{2..7}, scm.bin.{12..17})
   GS.OS.Dev = linkiigs(NewDispatcher.src) with reformatted header
@@ -18,17 +17,16 @@ Build recipe (from GS.OS/MakeFiles/make.os and GS.OS/Scripts/linkOS):
   SCM: see kernelcheck._build_scm_segments()
   GS.OS.Dev: linkiigs -t $bc NewDispatcher.Obj -> GS.OS.Dev
 
-Known residuals (precise, not unknown gaps):
-  GS.OS (LENGTH-exact 55395B; 94 content bytes short of byte-exact):
+Status:
+  GS.OS (55395B) is byte-exact:
     - Loader.bin: byte-exact (16590/16590) — built with the load-segment
       placement algorithm from work/loader_placed.py (golden groups by
       SEG/load segment, stores groups contiguously, loads each at its own
       header ORG so relocs resolve against the runtime base).
     - SCM: each content group links at its placed ORG with a kernel-global
-      placed symbol table seeded in.  The remaining 94 bytes reference
-      bank-$E1 vectors (E1_MSG_ADDRESS, ...) defined in no file in the
-      source archive — a proven external floor, not closable from these
-      sources (see docs/RESULTS.md).  Hence no diskcheck flip for GS.OS.
+      placed symbol table seeded in.  The former 94-byte/48-byte residuals
+      were closed by GQuit export seeding plus assembler/linker fixes; see
+      docs/RESULTS.md and work/kernelcheck.py.
   GS.OS.Dev:
     - BYTE-EXACT (2388/2388).  Two general fixes closed it: bare `ds N`
       counts WORDS (asm._ds_size, MPW default width — NewDispatcher's
@@ -40,13 +38,19 @@ import os
 import struct
 import sys
 
-# kernel_os.py lives at work/diskbuilders/kernel_os.py.
-# The project root is three directories up.
-_ROOT = os.path.dirname(                    # worktree/
-         os.path.dirname(                   # work/
-          os.path.dirname(                  # work/diskbuilders/
-           os.path.abspath(__file__))))
-sys.path.insert(0, _ROOT)                   # so `import gsasm` resolves
+_WORK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _WORK not in sys.path:
+    sys.path.insert(0, _WORK)
+
+from _common import (
+    ROOT as _ROOT,
+    ensure_repo_on_path,
+    gsos_incs,
+    gsos_source_root,
+    report_nonignored_asm_errors,
+    work_abs,
+)
+ensure_repo_on_path()
 
 from gsasm import asm      as _asm
 from gsasm import omf      as _omf
@@ -57,16 +61,13 @@ from gsasm import makebin  as _makebin
 # ---------------------------------------------------------------------------
 # Source paths (absolute, derived from project root)
 # ---------------------------------------------------------------------------
-_SRC      = os.path.join(_ROOT, 'ref/GSOS_6/IIGS.601.SRC')
+_SRC      = gsos_source_root(abs_path=True)
 _GS       = os.path.join(_SRC, 'GS.OS')
 _CMN      = os.path.join(_GS,  'Common')
-_INCS_DIR = os.path.join(_ROOT, 'work/includes')
+_INCS_DIR = work_abs('includes')
 
 # Include path: Common first, then every GS.OS subdir, then work/includes.
-_INCS = [_CMN] + [d for d, _, _ in os.walk(_GS)] + [_INCS_DIR]
-
-# Non-fatal pseudo-ops that gsasm doesn't implement (matches kernelcheck.py)
-_IGNORE_OPS = ('pagesize', 'datachk', 'endproc', 'eject', 'writeln', 'codechk')
+_INCS = gsos_incs(_INCS_DIR, src=_SRC)
 
 # kernelcheck.py helper path (for _build_scm_segments())
 _WORK = os.path.join(_ROOT, 'work')
@@ -83,14 +84,7 @@ def _assemble(src_path):
     stderr (do not abort the run, matching kernelcheck.py behaviour).
     """
     a = _asm.assemble(src_path, _INCS)
-    fatal = [e for e in a.errors
-             if not any(x in e.lower() for x in _IGNORE_OPS)]
-    if fatal:
-        name = os.path.basename(src_path)
-        print(f'  [{name}] {len(fatal)} non-ignored errors; first 2:',
-              file=sys.stderr)
-        for e in fatal[:2]:
-            print(f'    {e}', file=sys.stderr)
+    report_nonignored_asm_errors(src_path, a.errors)
     return _omf.emit(a), a
 
 

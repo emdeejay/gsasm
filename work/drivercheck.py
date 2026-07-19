@@ -53,32 +53,36 @@ Source → shipping-name map (from GS.OS/MakeFiles/make.*):
 
 Packaging: all drivers are ExpressLoad'd (KIND 0x8001 leading segment).
 
-Known residuals:
-  * lda #^Label bank-byte immediates resolve to 0 (SUPER type 27 reloc gap).
-    This accounts for some diffs in Console.Driver (277/6297 bytes).
-  * Multi-object drivers (SCSI family, ATalk, SCSI.Manager): sizing drift.
-    Per-segment m65816 instruction-length mismatches cascade through address
-    tables.  Same class as multi-object tool managers — unfixed per-module
-    gsasm-core issue.  NOT a new gap: the ROM effort documented this.
-  * RAM5: size mismatch (1459 gsasm vs 1564 golden).  Separately tracked as
-    OurDIB-RAMDisk = 0x549 vs 0x599 sizing drift; will improve with core fix.
-  * AppleDisk3.5: size mismatch (6381 vs 6984).  Multi-segment sizing drift.
-  * SCC.Manager: small size mismatch (1261 vs 1500).  Same class.
+Status:
+  All 12 mapped shipping drivers are byte-exact (94,948/94,948).  Historical
+  residual classes here — bank-byte SUPER relocations, multi-object sizing
+  drift, SCSIHD include-path loss, RAM5/AppleDisk/SCC length drift — are closed
+  and guarded by this harness plus work/gate.py.
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _common import (
+    byte_match,
+    ensure_repo_on_path,
+    first_existing_path,
+    gsos_incs,
+    gsos_source_root,
+    mismatch_offsets,
+    prefixed_file_candidates,
+    suffixed_file_candidates,
+    work_abs,
+)
+ensure_repo_on_path()
 from gsasm import asm, omf, linkiigs
 from gsasm.expressload import de_express
 
-SRC   = 'ref/GSOS_6/IIGS.601.SRC'
-GSOS  = SRC + '/GS.OS'
-CMN   = GSOS + '/Common'
+SRC   = gsos_source_root()
+GSOS  = os.path.join(SRC, 'GS.OS')
+CMN   = os.path.join(GSOS, 'Common')
 DBIN  = 'ref/GSOS_6/driver_bin'
 
 # Include path: Common first (has common.equ.src / hw.equ.src / driver.equ.src),
 # then every GS.OS subdir (so per-driver equate files are reachable).
-INCS = ([CMN] + [d for d, _, _ in os.walk(GSOS)]
-        + [os.path.join(os.path.dirname(os.path.abspath(__file__)), 'includes')])
+INCS = gsos_incs(work_abs('includes'))
 
 # SCSI shared source files (shared by HD/CD/Scan/Tape with different -d type=N)
 _SCSI_SHARED = [
@@ -183,32 +187,24 @@ DRIVERMAP = {
 def _extract_img(result: bytes) -> bytes:
     """Extract the CONST/LCONST code image from a linked OMF result."""
     img = bytearray()
-    off = 0
-    while off < len(result):
-        h = omf.parse_header(result[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        recs, _ = omf.parse_records(result[off:off + bc], h['DISPDATA'],
-                                    h.get('NUMLEN', 4), h.get('LABLEN', 0))
-        for r in recs:
+    for seg in omf.iter_segments(result):
+        for r in seg['recs']:
             if r[1] in ('CONST', 'LCONST'):
                 img += r[2]
-        off += bc
     return bytes(img)
 
 
 def _packaging(name: str) -> str:
     """Determine packaging type from the golden binary OMF header."""
-    for cand in _golden_candidates(name):
-        if os.path.exists(cand):
-            with open(cand, 'rb') as f:
-                hdr = f.read(256)
-            h = omf.parse_header(hdr)
-            segname = h.get('SEGNAME', b'').rstrip(b'\x00')
-            if segname == b'~ExpressLoad':
-                return 'ExpressLoad'
-            return 'plain-OMF'
+    cand = first_existing_path(_golden_candidates(name))
+    if cand:
+        with open(cand, 'rb') as f:
+            hdr = f.read(256)
+        h = omf.parse_header(hdr)
+        segname = h.get('SEGNAME', b'').rstrip(b'\x00')
+        if segname == b'~ExpressLoad':
+            return 'ExpressLoad'
+        return 'plain-OMF'
     return 'unknown'
 
 
@@ -216,34 +212,18 @@ def _golden_candidates(name: str):
     """Return candidate paths for the golden binary (cadius appends #TTAAAA)."""
     # Drivers are type $BB; aux type varies per make.*
     # cadius preserves original filename + appends #TTAAAA
-    yield f'{DBIN}/{name}#BB0101'
-    yield f'{DBIN}/{name}#BB0104'
-    yield f'{DBIN}/{name}#BB0107'
-    yield f'{DBIN}/{name}#BB0108'
-    yield f'{DBIN}/{name}#BB010E'
-    yield f'{DBIN}/{name}#BB0110'
-    yield f'{DBIN}/{name}#BB013F'
-    yield f'{DBIN}/{name}#BB0140'
-    yield f'{DBIN}/{name}#BB0103'
-    yield f'{DBIN}/{name}'
+    yield from suffixed_file_candidates(
+        DBIN, name,
+        ('#BB0101', '#BB0104', '#BB0107', '#BB0108', '#BB010E',
+         '#BB0110', '#BB013F', '#BB0140', '#BB0103', ''),
+    )
     # Fallback: scan directory for any file starting with the name
-    try:
-        for fn in os.listdir(DBIN):
-            if fn.startswith(name + '#') or fn == name:
-                yield f'{DBIN}/{fn}'
-    except FileNotFoundError:
-        pass
+    yield from prefixed_file_candidates(DBIN, name)
 
 
 def golden(name: str) -> bytes | None:
-    seen = set()
-    for cand in _golden_candidates(name):
-        if cand in seen:
-            continue
-        seen.add(cand)
-        if os.path.exists(cand):
-            return de_express(cand)
-    return None
+    cand = first_existing_path(_golden_candidates(name))
+    return de_express(cand) if cand else None
 
 
 # Drivers that embed the original build timestamp via `dc.b '&Sysdate &SysTime'`
@@ -284,16 +264,16 @@ def check(name: str, verbose: bool = False):
     except Exception as e:
         import traceback
         return name, subdir, None, f'{type(e).__name__}: {e}'
-    n = min(len(mine), len(g))
-    m = sum(1 for i in range(n) if mine[i] == g[i]) if n else 0
+    m, n = byte_match(mine, g)
     pct = (100 * m // n) if n else 0
     pkg = _packaging(name)
     if verbose:
         print(f'{name} ({subdir}): gsasm={len(mine)} gold={len(g)} '
               f'match {m}/{n} ({pct}%)  pkg={pkg}')
-        diffs = [(i, mine[i], g[i]) for i in range(n) if mine[i] != g[i]]
+        diffs = mismatch_offsets(mine, g)
         if diffs:
-            pos, a, b = diffs[0]
+            pos = diffs[0]
+            a, b = mine[pos], g[pos]
             print(f'  first diff @ {pos:#06x}: gsasm={a:02x} gold={b:02x}')
             print(f'    gsasm {bytes(mine[max(0, pos - 4):pos + 8]).hex()}')
             print(f'    gold  {g[max(0, pos - 4):pos + 8].hex()}')

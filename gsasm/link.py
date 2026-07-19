@@ -175,18 +175,10 @@ def link(obj_bytes: bytes) -> bytes:
     This matches the structure ORCA/M produces for a single-file link.
     """
     # ---- 1. Parse all input segments ----
-    segs: list[dict] = []
-    off = 0
-    while off < len(obj_bytes):
-        h = _omf.parse_header(obj_bytes[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        seg_data = obj_bytes[off:off + bc]
-        recs, _ = _omf.parse_records(seg_data, h['DISPDATA'],
-                                     h['NUMLEN'], h['LABLEN'])
-        segs.append({'hdr': h, 'recs': recs})
-        off += bc
+    segs: list[dict] = [
+        {'hdr': seg['hdr'], 'recs': seg['recs']}
+        for seg in _omf.iter_segments(obj_bytes)
+    ]
 
     if not segs:
         return b''

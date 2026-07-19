@@ -4,11 +4,12 @@ Usage: python3 work/objcheck.py [module.asm]   (one module, shows record diff)
        python3 work/objcheck.py                  (whole corpus summary)
 """
 import sys, os, glob
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _common import ensure_repo_on_path, romsrc_incs, romsrc_root
+ensure_repo_on_path()
 from gsasm import asm, omf
 
-ROOT = 'work/romsrc/GS_ROM'
-INCS = ['work/includes'] + [d for d, _, _ in os.walk(ROOT)]
+ROOT = romsrc_root()
+INCS = romsrc_incs(ROOT)
 
 
 def src_for(objf):

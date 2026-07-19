@@ -36,11 +36,13 @@ address (reuse the tested _build_symtab), then concatenate bodies in FLAT
     PLACED base + offset-in-seg.  zloaderLC_end (the Loader_LC end marker) is
     ORG'd by the flow but PLACED at the group's true end; the old code used the
     assembly ORG value.  Byte-neutral for link()/_place (base==org).  2B -> 0.
-The SCM DC.W LEXPR gap (~1731B) is what remains for a byte-exact GS.OS kernel.
+The broader GS.OS kernel is now byte-exact as well; this oracle remains the
+Loader-specific guard.
 Run: `python3 work/loader_placed.py`.
 """
 import sys, os
-sys.path[:0] = ['.', 'work', 'work/diskbuilders']
+from _common import WORK, byte_match, ensure_repo_on_path, mismatch_offsets
+ensure_repo_on_path(WORK, os.path.join(WORK, 'diskbuilders'))
 import kernel_os as k, diskcheck as dc
 from gsasm import omf, link as L, linkiigs as LI
 dc._find_a2til()
@@ -69,11 +71,11 @@ def build(order=ORDER, base0=BASE):
 def main():
     g = golden()
     lb, _ = build(['loader', 'loader_lc'])
-    n = min(len(lb), len(g))
-    diff = [i for i in range(n) if lb[i] != g[i]]
+    m, n = byte_match(lb, g)
+    diff = mismatch_offsets(lb, g)
     ff = sum(1 for i in diff if lb[i] == 0xff)
     print(f'grouped-placed Loader.bin: len={len(lb)} (golden 16590)')
-    print(f'  match {n-len(diff)}/{len(g)} ({100*(n-len(diff))//len(g)}%)  '
+    print(f'  match {m}/{len(g)} ({100*m//len(g)}%)  '
           f'diff={len(diff)}   [current link-order build ~= 64%]')
     if not diff:
         print('  BYTE-EXACT — CASE ON + dc.w char-literal + import-diff EXPR + '

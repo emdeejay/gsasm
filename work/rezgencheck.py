@@ -16,16 +16,14 @@ import collections
 import os
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.dirname(HERE)
-sys.path.insert(0, REPO)
-sys.path.insert(0, HERE)
+from _common import ROOT, WORK, ensure_repo_on_path, rincludes, sysresources_rez
+ensure_repo_on_path(WORK)
 
 from gsasm.rez import lexer, parser, gen  # noqa: E402
 import rezcheck as rc  # noqa: E402
 
-SRC = 'ref/GSOS_6/IIGS.601.SRC/GSToolbox/Sys.Resources/sys.resources.r'
-INCS = ['work/rincludes']
+SRC = sysresources_rez()
+INCS = rincludes()
 
 
 def _hexctx(data, offset, width=16):
@@ -35,7 +33,7 @@ def _hexctx(data, offset, width=16):
 
 
 def main():
-    os.chdir(REPO)
+    os.chdir(ROOT)
     for path in ('work/rincludes/TypesIIGS.r', SRC):
         if not os.path.exists(path):
             print(f'FAIL: corpus file missing: {path}')

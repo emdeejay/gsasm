@@ -3,26 +3,17 @@
 Usage: python3 work/segdiff.py <module.asm> [segindex]
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _common import ensure_repo_on_path, romsrc_incs, romsrc_root
+ensure_repo_on_path()
 from gsasm import asm, omf
 
-ROOT = 'work/romsrc/GS_ROM'
-INCS = ['work/includes'] + [d for d, _, _ in os.walk(ROOT)]
+ROOT = romsrc_root()
+INCS = romsrc_incs(ROOT)
 
 
 def split_segs(d):
     """Split a multi-segment OMF blob into (header, records) per segment."""
-    segs = []
-    i = 0
-    while i < len(d):
-        h = omf.parse_header(d[i:])
-        seg = d[i:i + h['BYTECNT']]
-        recs, _ = omf.parse_records(seg, h['DISPDATA'], h['NUMLEN'], h['LABLEN'])
-        segs.append((h, recs, seg))
-        if h['BYTECNT'] == 0:
-            break
-        i += h['BYTECNT']
-    return segs
+    return [(seg['hdr'], seg['recs'], seg['raw']) for seg in omf.iter_segments(d)]
 
 
 def fmt(rec):

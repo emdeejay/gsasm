@@ -6,6 +6,7 @@ turns that stream into an AST; `gen` (packet R5) evaluates resource bodies
 against type templates into bytes; `emit` (packet R2) packs `(type, id,
 attr, data)` tuples into a resource fork.
 """
+from __future__ import annotations
 
 from .lexer import (
     Token,

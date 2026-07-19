@@ -320,6 +320,7 @@ and every value list element that isn't a string/hex-string/group)
                                   grammar accepts a general
                                   comma-separated list for robustness.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Union

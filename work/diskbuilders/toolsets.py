@@ -47,10 +47,16 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _WORK = os.path.dirname(_HERE)
-_REPO = os.path.dirname(_WORK)
-for _p in (_REPO, _WORK):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+if _WORK not in sys.path:
+    sys.path.insert(0, _WORK)
+
+from _common import (
+    ensure_repo_on_path,
+    firmware_root,
+    toolbox_incs,
+    toolbox_root,
+)
+ensure_repo_on_path()
 
 from gsasm import asm, omf
 from gsasm.expressload import expressload
@@ -59,15 +65,10 @@ from gsasm.expressload import expressload
 # ---------------------------------------------------------------------------
 # Source trees / INCS — mirror toolcheck.INCS exactly (do NOT edit toolcheck)
 # ---------------------------------------------------------------------------
-_SRC = 'ref/GSOS_6/IIGS.601.SRC'
-_TB  = _SRC + '/GSToolbox'
-_FW  = _SRC + '/GSFirmware'
+_TB  = toolbox_root()
+_FW  = firmware_root()
 
-_INCS = (
-    [d for d, _, _ in os.walk(_TB)]
-    + [d for d, _, _ in os.walk(_FW)]
-    + ['work/includes']
-)
+_INCS = toolbox_incs(_TB, _FW)
 
 # Directory shorthands (case as on disk; the fs is case-insensitive but be exact).
 _P2   = f'{_TB}/Patch/Patch2'
@@ -104,16 +105,10 @@ def _assemble(path, defines=None):
 
 def _obj_seg_list(obj_bytes):
     """Return ``[(SEGNAME_upper, seg_bytes), ...]`` in emit order."""
-    out = []
-    off = 0
-    while off < len(obj_bytes):
-        h = omf.parse_header(obj_bytes[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        out.append((h['SEGNAME'].rstrip(b'\x00 ').upper(), obj_bytes[off:off + bc]))
-        off += bc
-    return out
+    return [
+        (seg['hdr']['SEGNAME'].rstrip(b'\x00 ').upper(), seg['raw'])
+        for seg in omf.iter_segments(obj_bytes, records=False)
+    ]
 
 
 def _whole(path, defines=None):

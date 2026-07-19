@@ -15,6 +15,7 @@ Operators (high -> low precedence):
     = <> < > <= >=  (comparisons, yield 1/0)
     AND OR EOR    (keyword forms of the bitwise ops)
 """
+from __future__ import annotations
 
 class Unresolved(Exception):
     """Raised when an expression references a symbol with no known value."""

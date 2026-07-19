@@ -110,7 +110,7 @@ table for the source line of each.
 
 **What the rule does NOT catch (and must not).** `_scan_case_b` restricts
 itself to `(size, shift)` in `{(2, 0), (2, 16)}` — SUPER types 0 and 27, the
-only two the golden corpus ever shows flagged (`work/reloc_survey.py`
+only two the golden corpus ever shows flagged (`work/archive/reloc_survey.py`
 hypothesis test 2). It deliberately excludes the ubiquitous `dc.l routine-1`
 dispatch-table idiom (`(size, shift) = (4, 0)`, SUPER type 1): that idiom's
 "-1" is OMF-encoded as `ADD lit=0xFFFFFFFF` (two's-complement), and if the
@@ -131,21 +131,22 @@ exactly the same `(size, shift)` as an ordinary `lda #Label` / `lda #^Label`
 pair, so it was silently folded into the type-0 / type-27 SUPER groups instead
 of staying standalone.
 
-**Measured effect (`work/reloc_diag.py`, `work/gate.py --full`
+**Measured effect (`work/archive/reloc_diag.py`, `work/gate.py --full`
 `disk_logical_exact`):**
 
 | Tool | Before | After | Notes |
 |---|---|---|---|
 | Tool014 (WindMgr) | 29,998/30,018 B (−20 B, reloc-dict only) | **30,018/30,018 — byte-exact** | sole residual was the far-pointer pair |
-| Tool027 (FontMgr) | 13,009/13,019 B (−10 B reloc dict + 2 code-image bytes) | 13,017/13,019 (2 bytes) | reloc dict now exact; remaining 2 bytes are a pre-existing, unrelated code-image residual (`work/diskbuilders/expressload_files.py`) |
-| Tool023 (StdFile) | 16,970/17,012 B (missing 4 standalone RELOCs) | 17,010/17,012 | one pair now correct (`0x80002a29`); the other pair's *value* is wrong (`0xC0000000` instead of `0xC00022ec`) because `GETFILTER` resolves unresolved in gsasm's merged symbol table — a pre-existing, unrelated linkiigs scoping bug this packet did not fix, present before this rule as one of the tool's documented "4 code-image diffs" |
+| Tool027 (FontMgr) | 13,009/13,019 B (−10 B reloc dict + 2 code-image bytes) | **12,229/12,229 code image — byte-exact** | case-B reloc dictionary and later code-image residuals are closed (`work/toolcheck.py`) |
+| Tool023 (StdFile) | 16,970/17,012 B (missing 4 standalone RELOCs) | **15,942/15,942 code image — byte-exact** | both flagged pairs and the later `DevName` scoping residual are closed (`work/toolcheck.py`) |
 
 `disk_logical_exact` (the full on-disk-file byte-exact count, `work/gate.py
---full`) improved from 16/28 to 17/28 — Tool014 is the one file that flips
-fully exact.
+--full`) improved from 16/28 to 17/28 in that packet — Tool014 was the file
+that flipped fully exact. Later assembler/linker fixes closed Tool023 and
+Tool027 in the code-image gate as shown above.
 
 **What remains out of scope.** TS2/TS3 (`work/diskbuilders/toolsets.py`) and
-the combined Tool.Setup harness (`work/toolsetup_probe.py`) build through
+the combined Tool.Setup harness (`work/archive/toolsetup_probe.py`) build through
 `expressload(..., opts={'multiseg': True})`. That path has never emitted ANY
 standalone reloc record (case A or case B) — it only ever produces SUPER
 groups — a separate, pre-existing gap from the one this packet closes (which
@@ -162,7 +163,7 @@ was WRONG.** The `tool_bytes` residual was 554 B, dominated by **Tool016
 ControlMgr (451 B)**. An earlier draft of this note called Tool016 a
 "link-order/value frontier" where "gsasm computes different addresses than gold
 (e.g. `0x1017 LDX #$30C9` vs gold `#$0000`)." That was a mis-diagnosis. A full
-byte-by-byte decomposition (`work/tool016_diag.py`) proves **every one of the 451
+byte-by-byte decomposition (`work/archive/tool016_diag.py`) proves **every one of the 451
 bytes is a segmentation / harness artifact — not a single value error**. gsasm
 assembles ControlMgr *byte-exact per segment*.
 
@@ -179,17 +180,15 @@ unclassified residue**, into three mechanical causes:
   concatenates while gold keeps them separate (each relocated from its own base 0).
   The `0x1017 LDX #$30C9` the old note cited as a "wrong address" is precisely
   this: `0x30C9` **is** StatText's base — gsasm is right, the comparison was wrong.
-- **~289 B** — the 26-byte `~JumpTable` gsasm doesn't generate (linker output,
-  `docs/TODO.md` §2), plus the 26-byte alignment shift it imposes on all of `Pics`.
+- **~289 B** — historical pre-fix count for the linker-generated 26-byte
+  `~JumpTable` plus the alignment shift it imposed on all of `Pics`.
 
 **Fix (landed): compare Tool016 the way it is actually segmented** — the same
 per-segment methodology `_check_multiseg` already uses for MenuMgr (Tool015).
-Result: `StatText` **1174/1174 byte-exact**, `Pics` **358/358 byte-exact**, `main`
-**12488/12489**. The one `main` byte (`0x1022`) is a far-pointer operand into the
-**dynamic** `Pics` segment, which gold routes through `~JumpTable+0x12` (a
-`cINTERSEG` to segment 4); resolving it requires the `~JumpTable` gsasm doesn't
-generate — the **same TODO §2 gap**, now precisely located. `tool_bytes` bad:
-**554 → 104** (Tool016's share **451 → 1**), all honest.
+That exposed one remaining far-pointer byte into the **dynamic** `Pics` segment,
+which gold routes through `~JumpTable+0x12` (a `cINTERSEG` to segment 4).
+The later `jt_segments` path now generates that `~JumpTable`, routes the
+reference, and gates ControlMgr byte-exact at **14021/14021**.
 
 The `_check_multiseg` "differs at every load-time reloc site by construction"
 worry in the earlier draft was overcautious: intra-segment word relocs are stored
@@ -207,14 +206,13 @@ two byte-exact segments); only genuine inter-segment references (which go throug
   `gsasm/asm.py`; StdFile is byte-exact. See `docs/TODO.md` §1 and
   `tests/fixtures/042-proc-equ-vs-with-record-field`.
 
-Net: Tool016 is **not** a value frontier — gsasm's ControlMgr is correct. The one
-genuine remaining lever for it is `~JumpTable` generation (TODO §2), which would
-also close Tool015/Tool018 and let a *full* multi-segment ExpressLoad Tool016 be
-rebuilt and compared byte-for-byte (the real acceptance test).
+Net: Tool016 was **not** a value frontier — gsasm's ControlMgr code image is
+correct, and the generated `~JumpTable` path is now gated. Full on-disk
+multi-segment ExpressLoad files remain a separate diskbuilder surface.
 
 ### Original (superseded) analysis
 
-An empirical survey (`work/reloc_survey.py`) plus a read of the archived
+An empirical survey (`work/archive/reloc_survey.py`) plus a read of the archived
 converter-side source *appeared* to settle whether the case-B standalone-RELOC
 flag could be derived from the input, concluding it could not.
 

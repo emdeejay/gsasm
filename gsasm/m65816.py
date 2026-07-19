@@ -14,6 +14,7 @@ Addressing-mode keys:
   aind aindx aindl                ( (abs) (abs,x) [abs] )
   rel rell  sr sriy  bmv
 """
+from __future__ import annotations
 
 IMM_A = {'ADC', 'AND', 'BIT', 'CMP', 'EOR', 'LDA', 'ORA', 'SBC'}
 IMM_X = {'CPX', 'CPY', 'LDX', 'LDY'}

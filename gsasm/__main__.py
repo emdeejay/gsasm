@@ -1,4 +1,5 @@
 """CLI entry points for gsasm (assembler) and gslink (linker)."""
+from __future__ import annotations
 
 import argparse
 import os
@@ -100,14 +101,10 @@ def link_main():
         sys.exit(1)
 
     # print segment summary from the output
-    off = 0
-    while off < len(load_bytes):
-        h = omf.parse_header(load_bytes[off:])
-        if h["BYTECNT"] == 0:
-            break
-        nm = h["SEGNAME"].decode("mac_roman", "replace").strip()
+    for seg in omf.iter_segments(load_bytes, records=False):
+        h = seg["hdr"]
+        nm = seg["name"]
         print(f"  {nm:24s}  {h['LENGTH']:#8x}  ({h['LENGTH']} bytes)")
-        off += h["BYTECNT"]
 
     with open(outfile, "wb") as fh:
         fh.write(load_bytes)

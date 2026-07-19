@@ -11,62 +11,40 @@ Recipe for each file:
 Module lists and INCS are taken directly from toolcheck.TOOLMAP/INCS,
 fstcheck.FSTMAP/INCS, and drivercheck.DRIVERMAP/INCS — do NOT edit those files.
 
-Multi-segment wiring (from makefile -lseg directives, confirmed byte-exact vs gold):
+Acceptance split:
+  * work/toolcheck.py compares de-ExpressLoad'd code images and now gates all 11
+    mapped tools byte-exact (150459/150459), including Tool015/016/018
+    ~JumpTable routing and Tool023/027 case-B closures.
+  * This module returns full on-disk ExpressLoad OMF files for work/diskcheck.py.
+    The current logical residuals on the System Disk are Tool015/016/018/034
+    length/content mismatches; Tool014/019/020/021/022/023/025/027/028, the FSTs,
+    drivers, and Resource.Mgr are byte-exact at the full-file surface.
 
-  Tool014 (windmgr): single-seg KIND=0x0000 — residual -20B = ONE case-B far-pointer
-      RELOC pair (see below); >>8 cRELOCs now emitted, code image identical to gold
-
-  Tool015 (menumgr): MainTool(KIND=0x0000, menumgr+wcm) + ~JumpTable(KIND=0x0002,
-      MPW-generated, NOT reproduced) + PopUpProc(KIND=0x8000, popupproc).
-      Residual: ~JumpTable gap prevents byte-exact match.
-
-  Tool016 (controlmgr): main(KIND=0x0000, 6 objects) + StatText(KIND=0x0000,
-      stattextproc; note: makefile has #-lseg:dynamic StatText, i.e. static)
-      + ~JumpTable(KIND=0x0002, NOT reproduced) + Pics(KIND=0x8000, picproc).
-      Residual: ~JumpTable gap prevents byte-exact match.
-
-  Tool018 (qdaux): MAINPart(KIND=0x0000) + CopyBits(KIND=0x0000) + ~JumpTable
-      (KIND=0x0002, NOT reproduced) + Pictures(KIND=0x8000) + SeedFill(KIND=0x8000)
-      + PixelMap2Rgn(KIND=0x8000).  CopyBits uses LOADNAME-filtered copybits.asm.
-      Residual: ~JumpTable gap.
-
-  Tool019 (printmgr): single-seg KIND=0x0000, residual (1 code-image diff, symbol
-      scoping bug: interior label 'PEA' target resolves differently)
-
-  Tool023 (stdfile): single-seg KIND=0x4000 — residual -42B = 4 case-B RELOCs (2 pairs)
-      + 4 code-image diffs; the 3 >>8 cRELOCs are now emitted (was -63B)
-
-  Tool025 (notesynth): single-seg KIND=0x4000 — residual (4 code-image diffs,
-      interior label 'UpDate' in SETUSERUPDATERTN shadows segment name 'UPDATE',
-      linkiigs symbol scoping bug)
-
-  Tool027 (fontmgr): single-seg KIND=0x0000 — residual -10B = ONE case-B RELOC
-      (>>16, top-bit-set relOff) + 2 code-image diffs
-
-  Tool034 (textedit): single-seg KIND=0x0000 — residual (4444-byte code-image
-      shortfall, assembler bug)
-
-CASE A vs CASE B relocations (MPW emits standalone records for both; no SUPER type):
-  CASE A = >>8 high-byte reloc (size=2, shift=8) -> standalone cRELOC.  NOW HANDLED
-      (gsasm.expressload._scan_standalone_relocs; flipped Console.Driver byte-exact).
-  CASE B = far-pointer PEA pair: `PEA Label>>16`(shift-16) at X + `PEA Label`(shift0)
-      at X+3, SAME target; gold emits BOTH as standalone RELOC with relOff = FLAG|off
-      where FLAG (0x80000000 / 0xc0000000) is a per-reloc MPW LinkIIgs/ExpressLoad
-      INTERNAL value NOT derivable from source — PROVEN by the Phase-3 spike: the
-      ExpressLoad *converter* source is absent from the archive, and 0x80 vs 0xc0 has
-      no structural predictor (survey oracle work/reloc_survey.py; docs/design/
-      expressload.md).  We SUPER-ize these instead (type-27 + type-0).
+CASE A vs CASE B relocations:
+  CASE A = >>8 high-byte reloc (size=2, shift=8) -> standalone cRELOC.
+  CASE B = source-flagged far-pointer/high-half addends such as
+      `Label+$80000000` or `Label+$C0000000` -> standalone RELOC/cRELOC.
+  Both classes are handled for the gated single-segment path.  The remaining
+  full-file multi-segment residuals are diskbuilder/ExpressLoad packaging work,
+  not evidence that the mapped tool code images are wrong.
 """
 import os
 import sys
 
-# Ensure gsasm is importable (diskcheck already prepends sys.path, but be safe)
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _WORK = os.path.dirname(_HERE)
-_REPO = os.path.dirname(_WORK)
-for _p in (_REPO, _WORK):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+if _WORK not in sys.path:
+    sys.path.insert(0, _WORK)
+
+from _common import (
+    ensure_repo_on_path,
+    firmware_root,
+    gsos_incs,
+    gsos_source_root,
+    toolbox_incs,
+    toolbox_root,
+)
+ensure_repo_on_path()
 
 from gsasm import asm, omf
 from gsasm.expressload import expressload
@@ -84,40 +62,26 @@ def _filter_omf_by_loadname(obj_bytes: bytes, loadnames: 'set[bytes]') -> bytes:
     contributions, exactly as MPW's -lseg <name> ... file(@SEGname) does.
     """
     out = bytearray()
-    off = 0
-    while off < len(obj_bytes):
-        h = omf.parse_header(obj_bytes[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        ln = h.get('LOADNAME', b'').rstrip(b'\x00 ')
+    for seg in omf.iter_segments(obj_bytes, records=False):
+        ln = seg['hdr'].get('LOADNAME', b'').rstrip(b'\x00 ')
         if ln in loadnames:
-            out += obj_bytes[off:off + bc]
-        off += bc
+            out += seg['raw']
     return bytes(out)
 
 # ---------------------------------------------------------------------------
 # Source trees — mirrors exactly what toolcheck/fstcheck/drivercheck use
 # ---------------------------------------------------------------------------
-_SRC  = 'ref/GSOS_6/IIGS.601.SRC'
-_TB   = _SRC + '/GSToolbox'
-_FW   = _SRC + '/GSFirmware'
-_GSOS = _SRC + '/GS.OS'
-_CMN  = _GSOS + '/Common'
+_SRC  = gsos_source_root()
+_TB   = toolbox_root()
+_FW   = firmware_root()
+_GSOS = os.path.join(_SRC, 'GS.OS')
+_CMN  = os.path.join(_GSOS, 'Common')
 
 # Tool INCS (from toolcheck.INCS)
-_TOOL_INCS = (
-    [d for d, _, _ in os.walk(_TB)]
-    + [d for d, _, _ in os.walk(_FW)]
-    + ['work/includes']
-)
+_TOOL_INCS = toolbox_incs(_TB, _FW)
 
 # FST / Driver INCS (from fstcheck.INCS / drivercheck.INCS)
-_GOS_INCS = (
-    [_CMN]
-    + [d for d, _, _ in os.walk(_GSOS)]
-    + ['work/includes']
-)
+_GOS_INCS = gsos_incs(src=_SRC)
 
 
 def _build_tool(subdir, srcs, defines=None):
@@ -160,9 +124,8 @@ def _build_driver(subdir, srcs, defines=None):
 
 def _build_tool014():
     # WindMgr — single-segment KIND=0x0000 (no -lseg in makefile).
-    # Code image is byte-identical to gold.  Residual -20B = ONE case-B far-pointer
-    # RELOC pair (PEA Label>>16 @0x5073 + PEA Label @0x5076, relOff 0x80005225) that
-    # MPW keeps standalone but we SUPER-ize; case-A >>8 cRELOCs now match (was -34B).
+    # Full on-disk file is byte-exact; the former case-B far-pointer RELOC pair
+    # is now emitted standalone.
     return _build_tool('windmgr', [
         'windmgr.asm', 'task.asm', 'NewCalls.asm', 'WDefProc.asm',
         'WCtlDef.asm', 'WMPatch.asm', '../MenuMgr/wcm.asm',
@@ -174,9 +137,9 @@ def _build_tool015():
     #                     -lseg:dynamic PopUpProc popupproc.asm.obj
     # Gold segments: ~ExpressLoad + MainTool(KIND=0x0000) + ~JumpTable(KIND=0x0002)
     #                + PopUpProc(KIND=0x8000)
-    # ~JumpTable is auto-generated by MPW and NOT reproducible from ASM source.
-    # Residual: ~JumpTable gap prevents byte-exact match.
-    # Code-image sizes: MainTool=14045 ✓  PopUpProc=2735 ✓
+    # toolcheck.py proves the code image and generated ~JumpTable routing
+    # byte-exact. This generic full-file builder still has a diskcheck logical
+    # length residual.
     TB_menumgr = f'{_TB}/menumgr'
     incs = _TOOL_INCS
     combo = b''
@@ -201,8 +164,9 @@ def _build_tool016():
     #              -lseg:dynamic Pics picproc     (KIND=0x8000)
     # Gold segments: ~ExpressLoad + main(KIND=0x0000) + StatText(KIND=0x0000)
     #                + ~JumpTable(KIND=0x0002) + Pics(KIND=0x8000)
-    # ~JumpTable NOT reproducible — residual gap.
-    # Code-image sizes: main=12489 ✓  StatText=1174 ✓  Pics=358 ✓
+    # toolcheck.py proves the code image and generated ~JumpTable routing
+    # byte-exact. This generic full-file builder still has a diskcheck logical
+    # length residual.
     TB16 = f'{_TB}/controlmgr'
     incs = _TOOL_INCS
     main_combo = b''
@@ -233,9 +197,9 @@ def _build_tool018():
     #   -lseg:DYNAMIC PixelMap2Rgn: PixelMap2Rgn.aii
     # Gold: ~ExpressLoad + MAINPart(0x0000) + CopyBits(0x0000) + ~JumpTable(0x0002)
     #       + Pictures(0x8000) + SeedFill(0x8000) + PixelMap2Rgn(0x8000)
-    # ~JumpTable NOT reproducible — residual gap.
-    # Code-image sizes: MAINPart=12105 ✓  CopyBits=1629 ✓  Pictures=7533 ✓
-    #                   SeedFill=3137 ✓   PixelMap2Rgn=1895 ✓
+    # toolcheck.py proves the five code-image segments and 12-entry ~JumpTable
+    # byte-exact. This generic full-file builder still has a diskcheck logical
+    # length residual.
     #
     # copybits.asm uses SEG directives to assign segments to load groups via LOADNAME:
     #   LOADNAME='MAINPart' → goes into MAINPart group (segment ISTDPIXELS, 105 bytes)
@@ -286,10 +250,8 @@ def _build_tool018():
 
 def _build_tool019():
     # PrintMgr — single-segment KIND=0x0000 (no -lseg in makefile).
-    # Residual: 1 code-image diff at offset 0x884 — NSSTARTUP segment of
-    # printmgr.asm contains PEA $0000 in gold vs PEA $001f in our build.
-    # Root cause: assembler/source discrepancy (likely a constant differs
-    # between the exact shipped source and what we have).
+    # Byte-exact. The former pure-literal high-word-shift residual was a
+    # linkiigs bug, not a source mismatch.
     return _build_tool('printmgr', ['printmgr.asm', 'dialogdata.asm'])
 
 
@@ -325,18 +287,13 @@ def _build_tool022():
 
 def _build_tool023():
     # StandardFile — single-segment KIND=0x4000 (no -lseg in makefile).
-    # Residual -42B = 4 case-B far-pointer RELOCs (2 PEA pairs) that MPW keeps
-    # standalone but we SUPER-ize, plus 4 code-image diffs.  The 3 case-A >>8
-    # cRELOCs are now emitted (was -63B).
+    # Byte-exact. The former case-B and DevName scoping residuals are closed.
     return _build_tool('stdfile', ['sfmain.asm', 'sf.asm'])
 
 
 def _build_tool025():
     # NoteSynth — single-segment KIND=0x4000 (no -lseg in makefile).
-    # Residual: 4 code-image diffs due to linkiigs symbol scoping bug:
-    # interior label 'UpDate' in SETUSERUPDATERTN segment shadows the
-    # segment-name 'UPDATE' from update.aii, causing the NSSTARTUP
-    # dispatch table to load the wrong address (0x08be vs gold 0x0639).
+    # Full on-disk file is byte-exact in diskcheck.
     return _build_tool('notesynth', [
         'note.exec.aii', 'alloc.aii', 'noteon.aii', 'noteoff.aii',
         'update.aii', 'freq.aii', 'tables.aii',
@@ -345,9 +302,7 @@ def _build_tool025():
 
 def _build_tool027():
     # FontMgr — single-segment KIND=0x0000 (no -lseg in makefile).
-    # Residual -10B = ONE case-B RELOC (>>16, off=0x1a71, relOff=0x80001cbb,
-    # top bit set) that MPW keeps standalone but we fold into SUPER type-27,
-    # plus 2 code-image diffs.  (Not a case-A >>8 reloc — that class is fixed.)
+    # Byte-exact. The former case-B high-half and code-image residuals are closed.
     return _build_tool('fontmgr', ['fm.asm', 'common.asm', 'scale.asm'])
 
 

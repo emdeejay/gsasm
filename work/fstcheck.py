@@ -37,32 +37,36 @@ Source → shipping-name map (from GS.OS/MakeFiles/make.*.fst):
 
 Packaging: all FSTs are ExpressLoad'd (KIND 0x8001 leading segment).
 
-Known residuals:
-  * lda #^Label bank-byte immediates resolve to 0 (SUPER type 27 reloc gap).
-    Affects Pro.FST (79 diffs), Pascal.FST, and potentially others.
-    These are same-class as the Tool-manager residuals — not a new gsasm gap.
-  * HFS.FST, HS.FST, DOS3.3.FST: sizing drift in multi-segment sources
-    (per-module m65816 instruction-length mismatch, cascades through address
-    tables).  Same class as multi-object tool managers — unfixed, not new.
-  * MSDos.FST: large sizing drift (MSDos.Calls.aii / MSDos.Subs.aii have
-    many segments; multi-segment link produces 17239 vs 10068 golden bytes).
-    Root cause: same multi-object sizing-drift class.
+Status:
+  All 8 buildable shipping FSTs are byte-exact (111,584/111,584), including
+  AppleShare.FST.  The former bank-byte, multi-segment sizing, MSDos library,
+  and AppleShare source-discovery residuals are closed and guarded by this
+  harness plus work/gate.py.
 """
 import sys, os, re, tempfile
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _common import (
+    byte_match,
+    ensure_repo_on_path,
+    first_existing_path,
+    gsos_incs,
+    gsos_source_root,
+    mismatch_offsets,
+    suffixed_file_candidates,
+    work_abs,
+)
+ensure_repo_on_path()
 from gsasm import asm, omf, linkiigs
 from gsasm.asm import read_text
 from gsasm.expressload import de_express
 
-SRC  = 'ref/GSOS_6/IIGS.601.SRC'
-GSOS = SRC + '/GS.OS'
-CMN  = GSOS + '/Common'
+SRC  = gsos_source_root()
+GSOS = os.path.join(SRC, 'GS.OS')
+CMN  = os.path.join(GSOS, 'Common')
 FBIN = 'ref/GSOS_6/fst_bin'
 
 # Include path: Common first (has common.equ.src / hw.equ.src / driver.equ.src),
 # then every GS.OS subdir (so per-FST equate files are reachable).
-INCS = ([CMN] + [d for d, _, _ in os.walk(GSOS)]
-        + [os.path.join(os.path.dirname(os.path.abspath(__file__)), 'includes')])
+INCS = gsos_incs(work_abs('includes'))
 
 # FST shipping-name -> (source-subdir, [source-files], {defines}, packaging)
 # packaging: 'expressload' for all (determined by parsing golden OMF headers)
@@ -174,53 +178,41 @@ def _build_appleshare():
 def _extract_img(result: bytes) -> bytes:
     """Extract the CONST/LCONST code image from a linked OMF result."""
     img = bytearray()
-    off = 0
-    while off < len(result):
-        h = omf.parse_header(result[off:])
-        bc = h['BYTECNT']
-        if bc == 0:
-            break
-        recs, _ = omf.parse_records(result[off:off + bc], h['DISPDATA'],
-                                    h.get('NUMLEN', 4), h.get('LABLEN', 0))
-        for r in recs:
+    for seg in omf.iter_segments(result):
+        for r in seg['recs']:
             if r[1] in ('CONST', 'LCONST'):
                 img += r[2]
-        off += bc
     return bytes(img)
 
 
 def _packaging(name: str) -> str:
     """Determine packaging type from the golden binary OMF header."""
-    for cand in _golden_candidates(name):
-        if os.path.exists(cand):
-            with open(cand, 'rb') as f:
-                hdr = f.read(256)
-            h = omf.parse_header(hdr)
-            segname = h.get('SEGNAME', b'').rstrip(b'\x00')
-            if segname == b'~ExpressLoad':
-                return 'ExpressLoad'
-            return 'plain-OMF'
+    cand = first_existing_path(_golden_candidates(name))
+    if cand:
+        with open(cand, 'rb') as f:
+            hdr = f.read(256)
+        h = omf.parse_header(hdr)
+        segname = h.get('SEGNAME', b'').rstrip(b'\x00')
+        if segname == b'~ExpressLoad':
+            return 'ExpressLoad'
+        return 'plain-OMF'
     return 'unknown'
 
 
 def _golden_candidates(name: str):
     """Return possible paths for the golden binary (cadius appends #TTAAAA)."""
     # Try common suffixes for FSTs (type BD)
-    yield f'{FBIN}/{name}#BD0000'
-    yield f'{FBIN}/{name}'
+    yield from suffixed_file_candidates(FBIN, name, ('#BD0000', ''))
     # cadius may use uppercase or original case
-    yield f'{FBIN}/{name.upper()}#BD0000'
-    yield f'{FBIN}/{name.upper()}'
+    yield from suffixed_file_candidates(FBIN, name.upper(), ('#BD0000', ''))
     # disk 3 ships MSDOS.FST (all-caps) even though source is MSDos
     stem = name.split('.')[0].upper()
-    yield f'{FBIN}/{stem}.FST#BD0000'
+    yield from suffixed_file_candidates(FBIN, f'{stem}.FST', ('#BD0000',))
 
 
 def golden(name: str) -> bytes | None:
-    for cand in _golden_candidates(name):
-        if os.path.exists(cand):
-            return de_express(cand)
-    return None
+    cand = first_existing_path(_golden_candidates(name))
+    return de_express(cand) if cand else None
 
 
 def link_fst(subdir, sources, defines, mode=None):
@@ -252,16 +244,16 @@ def check(name: str, verbose: bool = False):
         mine = link_fst(subdir, sources, defines, mode)
     except Exception as e:
         return name, subdir, None, f'{type(e).__name__}: {e}'
-    n = min(len(mine), len(g))
-    m = sum(1 for i in range(n) if mine[i] == g[i]) if n else 0
+    m, n = byte_match(mine, g)
     pct = (100 * m // n) if n else 0
     pkg = _packaging(name)
     if verbose:
         print(f'{name} ({subdir}): gsasm={len(mine)} gold={len(g)} '
               f'match {m}/{n} ({pct}%)  pkg={pkg}')
-        diffs = [(i, mine[i], g[i]) for i in range(n) if mine[i] != g[i]]
+        diffs = mismatch_offsets(mine, g)
         if diffs:
-            pos, a, b = diffs[0]
+            pos = diffs[0]
+            a, b = mine[pos], g[pos]
             print(f'  first diff @ {pos:#06x}: gsasm={a:02x} gold={b:02x}')
             print(f'    gsasm {bytes(mine[max(0, pos - 4):pos + 8]).hex()}')
             print(f'    gold  {g[max(0, pos - 4):pos + 8].hex()}')
@@ -278,13 +270,13 @@ def main():
             if mine is None:
                 print('AppleShare.FST: no golden binary (run cadius extraction)')
                 return
-            n = min(len(mine), len(g))
-            m = sum(1 for i in range(n) if mine[i] == g[i])
+            m, n = byte_match(mine, g)
             print(f'AppleShare.FST: gsasm={len(mine)} gold={len(g)} '
                   f'match {m}/{n} ({100 * m // n if n else 0}%)')
-            diffs = [(i, mine[i], g[i]) for i in range(n) if mine[i] != g[i]]
+            diffs = mismatch_offsets(mine, g)
             if diffs:
-                pos, a, b = diffs[0]
+                pos = diffs[0]
+                a, b = mine[pos], g[pos]
                 print(f'  first diff @ {pos:#06x}: gsasm={a:02x} gold={b:02x}')
             else:
                 print('  BYTE-EXACT')
@@ -327,8 +319,7 @@ def main():
         mine, g = None, None
         print(f'AppleShare.FST  build error: {type(e).__name__}: {e}')
     if mine is not None:
-        n = min(len(mine), len(g))
-        m = sum(1 for i in range(n) if mine[i] == g[i])
+        m, n = byte_match(mine, g)
         pct = 100 * m // n if n else 0
         tot_m += m
         tot_n += n

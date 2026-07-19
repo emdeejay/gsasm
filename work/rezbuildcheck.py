@@ -34,11 +34,16 @@ import os
 import subprocess
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.dirname(HERE)
-for _p in (REPO, HERE):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+from _common import (
+    ROOT as REPO,
+    WORK as HERE,
+    ensure_repo_on_path,
+    first_diff as _first_diff,
+    rincludes,
+    sysresources_rez,
+    sysresources_root,
+)
+ensure_repo_on_path(HERE)
 
 from gsasm import omf as _omf                      # noqa: E402
 from gsasm.rez import parser, gen, emit, convert    # noqa: E402
@@ -46,10 +51,9 @@ import rezcheck as rc                                # noqa: E402
 import rezemitcheck as rec                           # noqa: E402
 import rezloadcheck as rlc                           # noqa: E402
 
-SRC_DIR = os.path.join(REPO, 'ref', 'GSOS_6', 'IIGS.601.SRC', 'GSToolbox',
-                       'Sys.Resources')
-SRC_R = os.path.join(SRC_DIR, 'sys.resources.r')
-INCS = [os.path.join(REPO, 'work', 'rincludes')]
+SRC_DIR = sysresources_root(abs_path=True)
+SRC_R = sysresources_rez(abs_path=True)
+INCS = rincludes(abs_path=True)
 SYSRES_DISK_PATH = f'{rc.dc.V}/System/System.Setup/Sys.Resources'
 
 
@@ -120,14 +124,6 @@ def _run_cli(load_dir, out_path, meta):
             '--meta', f"creation_mac_ts={meta['creation_mac_ts']}"]
     proc = subprocess.run(argv, cwd=REPO, capture_output=True, text=True)
     return proc
-
-
-def _first_diff(a, b):
-    n = min(len(a), len(b))
-    for i in range(n):
-        if a[i] != b[i]:
-            return i
-    return None if len(a) == len(b) else n
 
 
 def main():

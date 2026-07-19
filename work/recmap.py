@@ -3,12 +3,13 @@
 Usage: python3 work/recmap.py <module> <segidx>
 """
 import sys, os
-sys.path.insert(0, '.')
+from _common import ensure_repo_on_path, romsrc_incs, romsrc_root
+ensure_repo_on_path()
 from gsasm import asm, omf
 from work.segdiff import split_segs
 
-ROOT = 'work/romsrc/GS_ROM'
-INCS = ['work/includes'] + [d for d, _, _ in os.walk(ROOT)]
+ROOT = romsrc_root()
+INCS = romsrc_incs(ROOT)
 
 
 def rec_imglen(name, detail):

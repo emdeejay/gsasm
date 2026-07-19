@@ -100,7 +100,7 @@ fork (`EasyMount.rii`).
           (`multiseg=True`) ExpressLoad output path has NO analogous fix
           -- it never scans for standalone case-A/B records at all (a
           separate, larger gap; docs/TODO.md section 1).
-          `work/toolsetup_probe.py`'s Tool.Setup output is byte-identical
+          `work/archive/toolsetup_probe.py`'s Tool.Setup output is byte-identical
           before and after this fix (confirmed) -- its residual is a
           different wall (reloc-record ENCODING: SUPER vs standalone
           cINTERSEG/cRELOC, not a placement-base error).
@@ -146,11 +146,17 @@ Usage:
 import os
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.dirname(HERE)
-for _p in (REPO, HERE):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
+from _common import (
+    ROOT as REPO,
+    WORK as HERE,
+    easymount_root,
+    ensure_repo_on_path,
+    first_diff as _first_diff,
+    finder_root,
+    rincludes,
+    work_abs,
+)
+ensure_repo_on_path(HERE)
 
 from gsasm import asm, omf                          # noqa: E402
 from gsasm.rez import parser, gen, emit              # noqa: E402
@@ -160,12 +166,11 @@ import rezemitcheck as rec                            # noqa: E402
 import diskcheck as dc                                # noqa: E402
 from a2til.prodos import Volume                       # noqa: E402
 
-EM_SRC_DIR = os.path.join(REPO, 'ref', 'GSOS_6', 'IIGS.601.SRC', 'A.U.G',
-                          'Finder', 'EasyMount')
-FINDER_DIR = os.path.join(REPO, 'ref', 'GSOS_6', 'IIGS.601.SRC', 'A.U.G', 'Finder')
-INC_E16 = os.path.join(REPO, 'work', 'rincludes', 'AIIGSIncludes')
+EM_SRC_DIR = easymount_root(abs_path=True)
+FINDER_DIR = finder_root(abs_path=True)
+INC_E16 = work_abs('rincludes', 'AIIGSIncludes')
 RII_SRC = os.path.join(EM_SRC_DIR, 'EasyMount.rii')
-INCS_REZ = [os.path.join(REPO, 'work', 'rincludes')]
+INCS_REZ = rincludes(abs_path=True)
 ASM_INCS = [EM_SRC_DIR, FINDER_DIR, INC_E16]
 
 EASYMOUNT_DISK_PATH = f'{rc.dc.V}/System/System.Setup/EasyMount'
@@ -234,14 +239,6 @@ def _golden_data():
 # ---------------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------------
-def _first_diff(a, b):
-    n = min(len(a), len(b))
-    for i in range(n):
-        if a[i] != b[i]:
-            return i
-    return None if len(a) == len(b) else n
-
-
 def _check_rsrc():
     golden = _golden_rsrc()
     built = build_easymount_rsrc_fork()

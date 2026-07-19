@@ -12,13 +12,14 @@ bytes differ from the original (cosmetic OMF encoding choices the linker
 collapses).
 """
 import sys, os, glob, subprocess, struct, re
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _common import ensure_repo_on_path, romsrc_incs, romsrc_root, work_rel
+ensure_repo_on_path()
 from gsasm import asm, omf
 from gsasm import link as _gs_link
 
-ROOT = 'work/romsrc/GS_ROM'
-INCS = ['work/includes'] + [d for d, _, _ in os.walk(ROOT)]
-LINKDIR = 'work/link'
+ROOT = romsrc_root()
+INCS = romsrc_incs(ROOT)
+LINKDIR = work_rel('link')
 
 # FinderInfo for ProDOS type OBJ ($B1), creator 'pdos'
 FINFO = bytes([0x70, 0xB1, 0x00, 0x00]) + b'pdos' + b'\x00' * 24
@@ -99,15 +100,8 @@ def gs_link(obj_bytes):
     """Link obj_bytes with the built-in Python OMF linker; return body bytes."""
     linked = _gs_link.link(obj_bytes)
     body = b''
-    off = 0
-    while off < len(linked):
-        h = omf.parse_header(linked[off:])
-        if h['BYTECNT'] == 0:
-            break
-        recs, _ = omf.parse_records(linked[off:off + h['BYTECNT']],
-                                    h['DISPDATA'], h['NUMLEN'], h['LABLEN'])
-        body += b''.join(d for _, nm, d in recs if nm == 'LCONST')
-        off += h['BYTECNT']
+    for seg in omf.iter_segments(linked):
+        body += b''.join(d for _, nm, d in seg['recs'] if nm == 'LCONST')
     return body, ''
 
 
