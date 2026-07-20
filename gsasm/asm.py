@@ -1411,10 +1411,21 @@ class Asm:
                     prior_in_with = self._masking_record_with_active(prior)
                     if not prior_in_with:
                         self.seg_local.setdefault(seg, {})[u] = value
-                # an EQU/SET inside a module (PROC) is local to that module — record
-                # it so a reference within the module resolves to it (as a literal),
-                # shadowing any same-named code label defined in another PROC
-                elif kind == 'equ' and self.in_proc and not name.startswith('@'):
+                # a PROC-local EQU CONSTANT is local to that module — record it so
+                # a reference within the module resolves to it (as a literal),
+                # shadowing any same-named code label defined in another PROC.
+                # A REDEFINABLE (SET) variable is deliberately EXCLUDED: it is a
+                # mutable assembler counter (e.g. all.macros' DefineStack
+                # `DummyPC SET DummyPC+N`), not a proc-local constant, and its
+                # running value already lives in `symbols`.  Caching it here
+                # (keyed by SEGMENT, which module-scope code between one PROC's
+                # ENDP and the next PROC still shares) leaves a STALE shadow that
+                # `resolve()` consults before `symbols`: Finder common.aii reuses
+                # `DummyPC` in COLORMENUDEF (seg_equ[3]=24) then again at module
+                # scope for CardSetUp's ctlPtr/ctlColorPtr/cardPtr block, which
+                # all baked 24 ($18) instead of 1/5/9.
+                elif (kind == 'equ' and self.in_proc and not name.startswith('@')
+                        and not redefinable):
                     self.seg_equ.setdefault(len(self.segs) - 1, {})[u] = value
             # record @-label positions (label OR `@x EQU *`) for nearest-forward,
             # with the defining segment so resolution stays segment-local

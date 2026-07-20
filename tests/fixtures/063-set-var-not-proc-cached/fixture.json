@@ -1,0 +1,3 @@
+{
+  "note": "A redefinable SET variable defined inside a PROC is a mutable assembler counter, not a proc-local constant EQU, so it must be EXCLUDED from the seg_equ proc-local shadow table (asm.py define_label). seg_equ is keyed by OMF segment index, which module-scope code between one PROC's ENDP and the next PROC still shares — a cached SET value goes stale when the counter is later reset at module scope, and resolve() consults seg_equ before symbols. Guards the `not redefinable` guard on the seg_equ write. Finder common.aii DummyPC / CardSetUp ctlPtr block."
+}
