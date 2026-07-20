@@ -16,7 +16,9 @@ the standard library.
 Rebuilt from the original source and verified byte-identical to the shipping
 binaries:
 
-- **ROM 03** — all 262,144 bytes
+- **ROM 03** — the full 262,144-byte image is byte-identical to the real ROM;
+  ~261,377 bytes (99%) are rebuilt byte-exact from source, with the FC/FD/FE
+  Toolbox banks placed from the captured image (~767-byte residual)
 - **The GS/OS kernel** — `prodos`, `GS.OS` (38,805/38,805), `Start.GS.OS`,
   `Error.Msg`, the Loader, and **P8** (ProDOS 8 compatibility kernel,
   17,128/17,128 including its overlay packaging)
@@ -27,14 +29,17 @@ binaries:
   multi-segment ExpressLoad tools (Window/Menu/Control Managers, QDAux,
   TextEdit …) with their linker-generated `~JumpTable` segments and full
   relocation dictionaries
-- **The whole System 6.0.1 System Disk** — every one of the 30 files the
+- **The whole System 6.0.1 System Disk** — every one of the 38 files the
   disk harness rebuilds from source is logically byte-exact, and the packed
   800K disk image matches physically, all 819,264 bytes
-- **Resource forks** (`gsrez`): `Sys.Resources` (24,337 bytes, 143 resources
-  including embedded code resources) and `EasyMount` — the latter byte-exact
-  across **both** forks, code and resources, from source to shipping file
-- **Instruction encoding: 100%** — every instruction in the ~97,000-line
-  corpus encodes to the same bytes as the original listings
+- **Resource forks** (`gsrez`): `Sys.Resources`, `EasyMount`, all **19
+  Control-Panel CDEVs**, the **Finder** (both forks — the 146 KB application
+  itself rebuilds from source), the **Installer**, and **Teach** — the Rez
+  template compilation and fork assembly are byte-exact from source (the CDEVs'
+  embedded code resources, some of them Pascal/C-compiled, are gold-fed)
+- **Instruction encoding: 100%** — every opcode and addressing mode in the
+  ~97,000-line corpus matches (97,202/97,202 opcode bytes); the linked shipping
+  binaries are the byte-exact proof of operand values
 - **61/61 ROM objects link-identical** — for every module, linking `gsasm`'s
   object or Apple's original produces the same load image
 

@@ -44,8 +44,8 @@ individual tool designs assume (OMF primer, golden-binary layout, gotchas).
 | M4 | ExpressLoad relinker | `gsasm/expressload.py` | ✅ **done for the gated code-image corpus** — byte-exact mapped tools/FSTs/drivers; remaining full-file ExpressLoad residuals are tracked by `work/diskcheck.py` |
 | M5 | `System/FSTs/*`, `System/Drivers/*` | gsasm + M2 (+M3) | ✅ **done** — all 8 buildable FSTs and all 12 mapped drivers byte-exact |
 | M6 | `GS.OS`, `Start.GS.OS`, `P8`, `prodos`, `ERROR.MSG` | gsasm + M2 + M3 + M4 | ✅ byte-exact, including GS.OS SCM, Loader, Start.GS.OS, P8, prodos, and Error.Msg |
-| M7 | Finder, Installer, asm CDEVs/NDAs (resource forks) | gsasm + M2 + **Rez** | 🟡 first target done: `design/rez.md` |
-| — | Pascal/C desktop (Ctl-Panel CDEVs, GSCalc, ADU, Teach, Logon) | PascalIIgs / C | ❌ out of scope |
+| M7 | Finder, Installer, Teach, 19 CDEVs/NDAs (resource forks) | gsasm + M2 + **Rez** | ✅ **done** — 19 CDEV forks + Finder (both forks) + Installer + Teach byte-exact; the CDEVs' embedded code resources are gold-fed |
+| — | Pascal/C desktop **code forks** (GSCalc, ADU, VideoMix; Slots/SetStart/FolderPriv CDEV code) | PascalIIgs / C | ❌ out of scope (their **resource** forks ARE byte-exact) |
 
 ## Per-milestone detail
 
@@ -109,17 +109,19 @@ templates), byte-exact from the archived `.r`/`.aii` sources —
 `work/rezbuildcheck.py`, gated via `gate.py`'s `rez_sysresources_bytes_exact`
 metric. `work/diskcheck.py` builds and overlays Sys.Resources' resource fork
 into the reconstructed System Disk image the same way it already does BUILD
-files' data forks. EasyMount, the General CDEV, and Finder (the 52 KB prize)
-remain as follow-on targets — mostly more breadth over the same `type`-
-template grammar, plus Finder's multi-file include structure; the Pascal
-CDEVs/NDA stay out of scope (their code resources are Pascal-compiled).
-Design: `design/rez.md`.
+files' data forks. EasyMount, all 19 Control-Panel CDEVs, the Installer, Teach, and the
+Finder — both its resource fork AND its 146 KB data-fork application — are
+now byte-exact from source. The CDEVs' embedded code resources are gold-fed
+(13 are asm-coded and could graduate to source-built; Slots and SetStart are
+Pascal-linked; FolderPriv is C). Design: `design/rez.md`.
 
 ### Out of scope
-Pascal (`.pii/.p`) and C (`.c`) desktop pieces — Control-Panel CDEVs, GSCalc,
-VideoMix, ADU, Teach, LogonCDEV/FolderPriv. Reproducing these would require
-reimplementing PascalIIgs / a C compiler, which is a different project. They
-are the outer GUI shell, not the system core.
+Pascal (`.pii/.p`) and C (`.c`) desktop **code and data forks** — GSCalc,
+VideoMix, ADU, the Teach editor, and the compiled code resources of the
+Pascal/C CDEVs (Slots, SetStart, FolderPriv). Reproducing these would require
+reimplementing PascalIIgs / a C compiler, a different project. Their
+**resource forks are byte-exact** (built from source via `gsrez`) — only the
+compiled code is out of scope.
 
 ## Future: linker consolidation
 

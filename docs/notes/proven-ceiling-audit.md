@@ -63,12 +63,19 @@ second tree is an ORCA/M *listing dump*, not assembler input. A mirage.
 | Tool019 "source disagrees" | false — byte-exact after a 1-byte linker fix |
 | ~JumpTable (Tool015/16/18) "unclosable" | overstated — the generator is in the MPW image |
 | P8 "includes not in the tree" | overstated — they're likely in the image |
-| SCSIHD.Driver "later source revision" | **holds** — positive differential evidence |
+| SCSIHD.Driver "later source revision" | held on 2026-07-17 — **SUPERSEDED 2026-07-18: also false** |
 
-Four flatly false, two overstated, one solid. SCSIHD is the one backed by a
-*measurement*: the shared `SCSI.Drivers` source builds its three sibling
-drivers byte-exact and only the `type=0` variant diverges, with code inserted
-throughout. That is what an evidence-backed limit looks like.
+Four flatly false, two overstated, one that looked solid on the day.
+
+**SUPERSEDED (2026-07-18):** SCSIHD too was falsified the next day — a gsasm
+include-resolver bug (`INCLUDE 'SCSI Get Vol/Disk'`, the HFS `/` on disk as
+`_`, silently dropped ~1,850 bytes), not a source-revision limit. SCSIHD is
+byte-exact and the driver corpus is 100% (`driver_bytes 94948/0`). So the
+final tally is **seven-for-seven falsified/overstated: NO "absent / external /
+source-disagrees" limit survives.** The only genuine non-targets left are of a
+different kind — Pascal/C compiled code (no front end in the toolchain),
+oracle-absent forks (source exists, no golden to diff — MountImage's rsrc), and
+static runtime data (no producer in any source tree).
 
 ## The lesson (which applies to whoever reads this too)
 
