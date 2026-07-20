@@ -95,9 +95,15 @@ def test_pstring_length_prefix():
 # field's own `[size-expr]` bracket is never evaluated -- the literal's
 # own byte length is authoritative (see gen.py module docstring).
 # --------------------------------------------------------------------------
-def test_hex_string_passthrough_ignores_size_bracket():
+def test_hex_string_passthrough_for_runtime_size_bracket():
+    # A bracket that references a runtime value ($$Word of a label, the
+    # rIcon idiom) cannot resolve during the measure pass, so it keeps
+    # content-length passthrough semantics.  A LITERAL bracket is
+    # authoritative instead (zero-pad/overflow-error) since the Installer
+    # rPicture PnPat golden evidence -- see
+    # test_sized_string_zero_pads_to_declared_width.
     src = (
-        b'type 1 { integer h; hex string [99]; };\r'   # bogus bracket size
+        b'type 1 { h: integer h; hex string [$$Word(h)]; };\r'
         b'resource 1 (1) { 2, $"DEADBEEF" };\r'
     )
     data = _one_resource_data(src)
@@ -399,8 +405,8 @@ def test_forward_label_offset_reference_in_default():
         b'type 1 {\r'
         b'a:\r'
         b'  integer = (b-a)/8 - 2;\r'   # a: at offset 0; b: after this field
-        b'  hex string [1];\r'          # 2 bytes (this field itself, ignored
-        b'                            \r'   # for width purposes) + N image bytes
+        b'  hex string;\r'              # 2 bytes (this field itself) + N
+        b'                            \r'   # image bytes, content-sized
         b'b:\r'
         b'  byte;\r'
         b'};\r'
@@ -804,6 +810,44 @@ def test_bitor_over_named_values():
         b'resource 1 (1) { alpha | beta };\r'
     )
     assert _one_resource_data(src) == struct.pack('<H', 0x41)
+
+
+def test_shift_operators_in_value_expression():
+    # `<<`/`>>` sit between `|` and additive (golden: Installer.r
+    # rPicture's `(ClipEnd[...] - ClipStart[...]) >> 3`).
+    src = (
+        b'type 1 { integer; integer; };\r'
+        b'resource 1 (1) { 1 << 4 | 2, 0x30 >> 2 + 2 };\r'  # additive binds tighter
+    )
+    assert _one_resource_data(src) == struct.pack('<HH', (1 << 4) | 2, 0x30 >> 4)
+
+
+def test_backslash_t_escape_is_tab():
+    # `\t` -> 0x09 (golden: Installer.r keyEquiv `{"\t","",...}` pairs).
+    src = (
+        b'type 1 { char; char; };\r'
+        b'resource 1 (1) { "\\t", "x" };\r'
+    )
+    assert _one_resource_data(src) == b'\x09x'
+
+
+def test_sized_string_zero_pads_to_declared_width():
+    # `hex string [N]` zero-pads shorter content to N bytes (golden:
+    # Installer.r rPicture PnPat, 16 pattern bytes in a [32] field); an
+    # unresolvable runtime bracket keeps content-length semantics (rIcon).
+    src = (
+        b'type 1 { hex string [8]; integer; };\r'
+        b'resource 1 (1) { $"AABB", 7 };\r'
+    )
+    assert _one_resource_data(src) == b'\xaa\xbb' + b'\x00' * 6 + struct.pack('<H', 7)
+
+
+def test_sized_string_overflow_raises():
+    src = (
+        b'type 1 { hex string [2]; };\r'
+        b'resource 1 (1) { $"AABBCC" };\r'
+    )
+    assert 'too small' in _expect_gen_error(src)
 
 
 def test_optional_count_is_per_array_iteration():

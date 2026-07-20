@@ -358,6 +358,14 @@ def _raw_tokenize(text, charlines, filename):
             i = j
             continue
 
+        if c in '<>' and i + 1 < n and text[i + 1] == c:
+            # `<<` / `>>` shift operators (Installer.r rPicture's
+            # `(ClipEnd[...] - ClipStart[...]) >> 3`).  Only the doubled
+            # forms are tokens; a lone '<'/'>' stays an ERROR character.
+            toks.append(Token(PUNCT, c + c, c + c, filename, line_at(i)))
+            i += 2
+            continue
+
         if c in _PUNCT_CHARS:
             toks.append(Token(PUNCT, c, c, filename, line_at(i)))
             i += 1

@@ -895,11 +895,22 @@ class _Parser:
         return self.parse_bitor()
 
     def parse_bitor(self):
-        # Lowest-precedence tier, below additive (C-style): `FileType |
+        # Lowest-precedence tier, below shift (C-style): `FileType |
         # NetworkAccess` ORs two of a field's symbolic constants
         # (Finder icons.rez matchFlags idiom).
-        left = self.parse_additive()
+        left = self.parse_shift()
         while self.check_punct('|'):
+            op_tok = self.advance()
+            right = self.parse_shift()
+            left = BinOp(file=left.file, line=left.line, op=op_tok.value,
+                         left=left, right=right)
+        return left
+
+    def parse_shift(self):
+        # `<<` / `>>` sit between `|` and additive (C-style): Installer.r
+        # rPicture's `(ClipEnd[...] - ClipStart[...]) >> 3`.
+        left = self.parse_additive()
+        while self.check_punct('<<') or self.check_punct('>>'):
             op_tok = self.advance()
             right = self.parse_additive()
             left = BinOp(file=left.file, line=left.line, op=op_tok.value,
