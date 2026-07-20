@@ -1097,6 +1097,8 @@ def _undef_external(asm, name):
     """A symbol that is undefined everywhere in this assembly is an implicit
     external reference (MPW resolves it at link time by name)."""
     u = asm._symkey(name)
+    if asm.resolve(name) is not None:
+        return False
     return (u not in asm.symbols and u not in asm.seed and u not in asm.imports
             and asm.symtype.get(u) is None and asm.seed_type.get(u) is None)
 
@@ -1225,6 +1227,7 @@ def emit_segment(asm, seg, exports):
         ln, barr = it[1], it[2]
         asm._rlg = it[3] if len(it) > 3 else None   # @-label scope for this line
         asm._rlg2 = it[4] if len(it) > 4 else None  # enclosing scope (macro fallback)
+        asm._rwith = it[5] if len(it) > 5 else None # WITH scope for this line
         u = (ln.op or '').upper()
         # branches are PC-relative; a same-segment target is a fixed offset
         # (literal), a cross-segment target needs a RELEXPR (linker computes it)
@@ -1399,6 +1402,7 @@ def emit_segment(asm, seg, exports):
     out = bytearray()
     out += hdr + loadname + segn + body
     out[0:4] = _num(len(out))                    # BYTECNT
+    asm._rwith = None
     return bytes(out)
 
 

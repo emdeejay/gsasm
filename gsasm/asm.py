@@ -447,7 +447,8 @@ def _dump_leaf(spec):
 # --------------------------------------------------------------------------
 class Asm:
     def __init__(self, include_paths, seed=None, seed_type=None, seg_seed=None,
-                 sysdate=None, systime=None, loads=None, symseg_seed=None):
+                 sysdate=None, systime=None, loads=None, symseg_seed=None,
+                 import_wins=None, case_equ_variants=None):
         self.include_paths = include_paths
         # MPW `LOAD 'dumpfile'` support: dump-file name (upper) -> the SOURCE
         # file that generates it via `DUMP 'dumpfile'` (from the makefile rule,
@@ -496,17 +497,23 @@ class Asm:
         self._rseg = None             # current resolution segment (None=global)
         self._rlg = None              # last_global captured for a deferred fixup
         self._rlg2 = None             # enclosing global scope (macro @-ref fallback)
+        self._rwith = None            # WITH stack captured for deferred resolution
         self._defining = False        # True while define_label keys a new symbol
         self.globals = {}             # macro variable name -> value (int|str)
         self.gkind = {}               # name -> 'A'|'C'|'B'
         self.localstack = []          # list of (vars, kind) dicts
         self.macros = {}              # NAME -> Macro
         self.symbols = {}             # asm symbol -> int value
+        self.case_symbols = {}        # exact-spelling file-scope EQU variants
+        self.case_symtype = {}
         self.defcount = {}            # asm symbol -> times defined
         self.entry_seg = {}           # ENTRY/EXPORT name -> seg name of its directive
         self.link_bases = None        # link mode: seg index -> final base address
         self.extern = {}              # link mode: cross-module symbol -> final addr
         self.imports = set()
+        self.seg_imports = {}
+        self.import_wins = set(import_wins or ())
+        self.case_equ_variants = set(case_equ_variants or ())
         self.import_type = {}         # `IMPORT name:Type` — declared record type
                                       #   of an imported instance (typed import)
         self.record_ds_fields = set() # qualified REC.field names allocated by DS
@@ -520,7 +527,7 @@ class Asm:
                                       #   import, RecName.field binds the field)
         self.loc = 0
         self.emit_enabled = True      # False inside RECORD (offsets only)
-        self.fixups = []              # (bytearray, offset, Fixup) to patch later
+        self.fixups = []              # (bytearray, offset, Fixup, scopes...) later
         self.record_stack = []        # saved (loc, emit, name) per RECORD..ENDR
         self._rec_hi_stack = []       # per-RECORD location-counter high-water:
                                       #   [extreme_loc] so a bare ORG (no operand)
@@ -573,6 +580,9 @@ class Asm:
         # for every other module, so this stays byte-neutral. See _fold below and
         # docs/design/CASE_ON.md.
         self.case_sensitive = False
+        self.import_wins = {self._fold(n) for n in self.import_wins}
+        self.case_equ_variants = {
+            self._fold(n) for n in self.case_equ_variants}
         self.out = []                 # expanded primitive lines (text)
         self.emitted = []             # (loc, sline, bytes) for byte validation
         self.labels = []              # (name, loc) in order, for validation
@@ -724,8 +734,12 @@ class Asm:
                 return self.symbols[q]
             if q in self.seed:
                 return self.seed[q]
-        if self.with_stack and '.' not in name and not local_here:
-            for recs in reversed(self.with_stack):
+        with_stack = self.with_stack or self._rwith or []
+        with_lookup = ('.' not in name
+                       or (u not in self.symbols and u not in self.seed
+                           and u not in self.equ_alias))
+        if with_stack and with_lookup and not local_here:
+            for recs in reversed(with_stack):
                 for rec in recs:
                     q = rec + '.' + u
                     if q in self.symbols:
@@ -745,6 +759,9 @@ class Asm:
             sd = self.seg_seed.get(seg)
             if sd and u in sd:
                 return based(sd[u], seg)
+        if (not self.case_sensitive and name in self.case_symbols
+                and self.case_symtype.get(name) == 'equ'):
+            return self.case_symbols[name]
         if u in self.symbols:
             v = self.symbols[u]
             if lb is not None and self.symtype.get(u) == 'label':
@@ -1205,6 +1222,34 @@ class Asm:
                 and (u in self.imports or u in self.exports
                      or u in self.entries))
 
+    def _proc_equ_reuses_import_winner(self, name, kind, u):
+        """A proc-scoped EQU may reuse a declared IMPORT name while another
+        object in the same load segment actually EXPORTs that name.  With the
+        caller-supplied whole-link signal in ``import_wins``, keep the import
+        as the module-visible binding and record the EQU only in the current
+        PROC's seg_equ table.
+
+        This is deliberately opt-in: some sources vestigially IMPORT names that
+        are satisfied by file-scope equates instead (Tool025 NoteSynth
+        GDataReg), and a single-file assembly cannot distinguish those from
+        Finder icons.aii's dragRects stack offsets (deltay/deltax) without
+        whole-link export knowledge."""
+        return (kind == 'equ' and self.in_proc and not name.startswith('@')
+                and u in self.imports and u in self.import_wins)
+
+    def _proc_equ_reuses_visible_equ(self, name, kind, u):
+        """A proc-scoped EQU reusing an existing file-scope EQU is local to the
+        PROC.  Finder DP.equ defines direct-page globals like handle=$CA and
+        ptr=$CE; later Pascal Local macros expand to `Handle equ 4` / `Ptr equ
+        6` inside a PROC.  The stack offsets must win inside that PROC, but must
+        not clobber the visible DP globals for later PROCs."""
+        if not (kind == 'equ' and self.in_proc and not name.startswith('@')
+                and self.symtype.get(u) == 'equ' and u in self.symbols):
+            return False
+        prior = self.symbols.get(u)
+        owners = [eq[u] for eq in self.seg_equ.values() if u in eq]
+        return not any(prior == v for v in owners)
+
     def _masked_by_data_record(self, kind, u, prior, seg):
         """A plain code-PROC label (or proc-interior EQU) duplicating a
         DATA-RECORD label is masked: the record's label is the canonical
@@ -1341,7 +1386,10 @@ class Asm:
             # name which ALREADY has a CODE LABEL must not clobber the label: the
             # label is the real address (for cross-segment address references), the
             # EQU is a per-segment local value (recorded in seg_equ for local refs).
-            if self._proc_equ_reuses_global(name, kind, u):
+            if (self._proc_equ_reuses_global(name, kind, u)
+                    or self._proc_equ_reuses_import_winner(name, kind, u)
+                    or (not redefinable
+                        and self._proc_equ_reuses_visible_equ(name, kind, u))):
                 self.seg_equ.setdefault(len(self.segs) - 1, {})[u] = value
                 self.defcount[u] = self.defcount.get(u, 0) + 1
                 self.labels.append((name, value))
@@ -1372,6 +1420,11 @@ class Asm:
                 if not keep_prior and not foreign_entry_dup and not prior_modscope:
                     self.symbols[u] = value
                     self.symtype[u] = kind
+                    if (kind == 'equ' and not self.in_proc
+                            and u in self.case_equ_variants
+                            and not name.startswith('@')):
+                        self.case_symbols[name] = value
+                        self.case_symtype[name] = kind
                 self.defcount[u] = self.defcount.get(u, 0) + 1
                 self.labels.append((name, value))
                 if kind == 'label' and not keep_prior:
@@ -1440,8 +1493,6 @@ class Asm:
         seg = self._rseg
         for ident in re.findall(r'[A-Za-z_~@?.][\w~@?.$]*', expr):
             u = self._symkey(ident)
-            if u in self.imports:
-                return True
             # an EQU that aliases a relocatable label is itself relocatable (it is a
             # second name for that address). Checked before the seg_equ `continue`
             # below: an in-PROC alias is recorded in seg_equ too, but unlike a plain
@@ -1459,6 +1510,8 @@ class Asm:
             # a PROC-local equate is an absolute value -> never relocated
             if seg is not None and u in self.seg_equ.get(seg, {}):
                 continue
+            if u in self.imports:
+                return True
             t = self.symtype.get(u)
             si = self.symseg.get(u)
             if t is None:
@@ -1497,6 +1550,16 @@ class Asm:
             return None
         tgt = m.group(1)
         u = self._symkey(tgt)
+        seg = None
+        if self.emit_enabled and self.segs:
+            seg = len(self.segs) - 1
+        # Under import_wins, a proc-local stack offset can intentionally shadow
+        # a same-named import within its own PROC.  A sibling EQU like
+        # `deltax equ deltay+2` must inherit that local constant, not become an
+        # alias of the external import DELTAY.
+        if (seg is not None and u in self.import_wins
+                and u in self.seg_equ.get(seg, {})):
+            return None
         if u in self.imports:
             # An EQU whose RHS is a DECLARED IMPORT with no local definition is
             # a second name for that external — alias it so refs relocate
@@ -1550,6 +1613,9 @@ class Asm:
             return 'label'
         # a PROC-local equate shadows a same-named code label in another PROC
         if seg is not None and u in self.seg_equ.get(seg, {}):
+            return 'equ'
+        if (not self.case_sensitive and name in self.case_symtype
+                and self.case_symtype.get(name) == 'equ'):
             return 'equ'
         # a local definition overrides an IMPORT declaration of the same name
         # (modules sometimes IMPORT a symbol they also define locally)
@@ -1650,15 +1716,18 @@ class Asm:
             self.emitted.append((at, ln, barr))
             seg = len(self.segs) - 1
             atscope = self.local_ctx or self.last_global    # @-label scope
+            withscope = tuple(tuple(recs) for recs in self.with_stack)
             # also capture the enclosing global (for a macro body that references
             # a @-label defined in the calling routine)
-            self.segs[-1].items.append(('code', ln, barr, atscope, self.last_global))
+            self.segs[-1].items.append(
+                ('code', ln, barr, atscope, self.last_global, withscope))
             # capture this instruction's file:line now (while _cur_file/_cur_line
             # are accurate) so a later apply_fixups/relink range error can still
             # report the real source location instead of wherever assembly ended.
             floc = (self._cur_file, self._cur_line)
             for off, fx in fixups:
-                self.fixups.append((barr, off, fx, seg, atscope, self.last_global, floc))
+                self.fixups.append(
+                    (barr, off, fx, seg, atscope, self.last_global, withscope, floc))
         self.loc += len(barr)
 
     def reserve(self, n):
@@ -1689,10 +1758,11 @@ class Asm:
         self._cur_file, self._cur_line = save_f, save_l
 
     def apply_fixups(self):
-        for barr, off, fx, seg, lg, lg2, floc in self.fixups:
+        for barr, off, fx, seg, lg, lg2, withscope, floc in self.fixups:
             self._rseg = seg          # resolve local labels in the fixup's segment
             self._rlg = lg            # ...and @-labels in the fixup's @-scope
             self._rlg2 = lg2          # ...enclosing scope (macro @-ref fallback)
+            self._rwith = withscope
             self._ref_loc = fx.pc     # ...resolving @-labels relative to this ref
             v = self.evaluate(fx.expr, pc=fx.pc)   # `*` -> this instruction's loc
             if v is None:
@@ -1719,6 +1789,7 @@ class Asm:
         self._rseg = None
         self._rlg = None
         self._rlg2 = None
+        self._rwith = None
 
     def relink(self, seg_bases, extern):
         """LINK pass: re-resolve every fixup to its FINAL address. `seg_bases`
@@ -1728,10 +1799,11 @@ class Asm:
         the assembly-time apply_fixups). `*` and branch math use the final pc."""
         self.link_bases = seg_bases
         self.extern = extern
-        for barr, off, fx, seg, lg, lg2, floc in self.fixups:
+        for barr, off, fx, seg, lg, lg2, withscope, floc in self.fixups:
             self._rseg = seg
             self._rlg = lg
             self._rlg2 = lg2
+            self._rwith = withscope
             base = seg_bases.get(seg, 0)
             self._ref_loc = fx.pc       # @-nearest-def vs seg-relative at_defs
             final_pc = base + fx.pc      # `*` and branch math in final address space
@@ -1757,7 +1829,7 @@ class Asm:
                 barr[off:off+fx.nbytes] = bytes((vv >> (8 * i)) & 0xFF
                                                 for i in range(fx.nbytes))
         self.link_bases = None
-        self._rseg = self._rlg = self._ref_loc = None
+        self._rseg = self._rlg = self._rlg2 = self._ref_loc = self._rwith = None
 
     # ----------------------------------------------------------------
     # Conditionals
@@ -2686,6 +2758,8 @@ class Asm:
             if nm:
                 f = self._fold(nm)
                 self.imports.add(f)
+                if self.segs:
+                    self.seg_imports.setdefault(len(self.segs) - 1, set()).add(f)
                 # `IMPORT name:Type` — remember the declared type; WITH on
                 # the import binds the type's fields to name+offset, and a
                 # QUALIFIED `name.field` reference is the same external
@@ -2990,8 +3064,10 @@ class Asm:
         prefix = self._fold(rec) + '.'
         for sname, sval in list(self.symbols.items()):
             if isinstance(sval, int) and sname.startswith(prefix):
-                self.define_label(label + '.' + sname[len(prefix):],
-                                  base + sval, kind=kind)
+                suffix = sname[len(prefix):]
+                self.define_label(label + '.' + suffix, base + sval, kind=kind)
+                if kind == 'equ' and sname in self.record_ds_fields:
+                    self.record_ds_fields.add(self._fold(label + '.' + suffix))
 
     def _ds_size(self, u, operand):
         w = self._width(u)
@@ -3231,10 +3307,12 @@ def _find_ci(base, relpath):
 
 def _run_once(path, include_paths, seed, seed_type, seg_seed=None, defines=None,
               at_seed=None, at_seg_seed=None, sysdate=None, systime=None,
-              loads=None, symseg_seed=None):
+              loads=None, symseg_seed=None, import_wins=None,
+              case_equ_variants=None):
     asm = Asm(include_paths, seed=seed, seed_type=seed_type, seg_seed=seg_seed,
               sysdate=sysdate, systime=systime, loads=loads,
-              symseg_seed=symseg_seed)
+              symseg_seed=symseg_seed, import_wins=import_wins,
+              case_equ_variants=case_equ_variants)
     # the prior pass's COMPLETE @-label positions must be available DURING this
     # pass (a forward @-ref is resolved while assembling, before its definition)
     asm.at_seed = at_seed or {}
@@ -3253,7 +3331,8 @@ def _run_once(path, include_paths, seed, seed_type, seg_seed=None, defines=None,
 
 
 def assemble(path, include_paths, passes=3, defines=None, sysdate=None,
-             systime=None, loads=None):
+             systime=None, loads=None, import_wins=None,
+             case_equ_variants=None):
     """Multi-pass assembly: later passes seed symbol values AND kinds from
     earlier ones so forward references size correctly. Symbol kinds make this
     safe: only equates drive direct-page sizing; relocatable labels stay
@@ -3263,6 +3342,10 @@ def assemble(path, include_paths, passes=3, defines=None, sysdate=None,
     makefile's dump rule); see Asm.do_load for the replay semantics.
     `sysdate`/`systime` override the &sysdate/&systime builtins (used by
     source that embeds the original build date for byte-exact reproduction).
+    `import_wins` is an opt-in whole-link hint: proc-local EQU names in this
+    set do not clobber same-named IMPORT declarations outside their own PROC.
+    `case_equ_variants` is an opt-in set of folded names whose file-scope EQU
+    definitions retain exact-spelling variants (Finder DP handle/Ptr collision).
 
     Three passes are needed for correct @-label forward-reference sizing when a
     PROC-local EQU (e.g. a stack-frame offset) shares a name with a code label
@@ -3273,14 +3356,17 @@ def assemble(path, include_paths, passes=3, defines=None, sysdate=None,
     The ROM corpus is fully converged at two passes, so the extra pass is a
     no-op for those files."""
     a = _run_once(path, include_paths, seed=None, seed_type=None, defines=defines,
-                  sysdate=sysdate, systime=systime, loads=loads)
+                  sysdate=sysdate, systime=systime, loads=loads,
+                  import_wins=import_wins,
+                  case_equ_variants=case_equ_variants)
     for _ in range(passes - 1):
         prev = a
         a = _run_once(path, include_paths, seed=prev.symbols, seed_type=prev.symtype,
                       seg_seed=prev.seg_local, defines=defines,
                       at_seed=prev.at_defs, at_seg_seed=prev.at_seg,
                       sysdate=sysdate, systime=systime, loads=loads,
-                      symseg_seed=prev.symseg)
+                      symseg_seed=prev.symseg, import_wins=import_wins,
+                      case_equ_variants=case_equ_variants)
     return a
 
 
