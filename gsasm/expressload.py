@@ -717,21 +717,25 @@ def _het_entries(
         spill_i = 42 - partial[i - 1]
         spill.append(spill_i)
         if i < N - 1:
-            # Intermediate entry (1-based: entry_{i+1})
-            kind_i = segs[i]['hdr']['KIND']
-            prev_kind = segs[i - 1]['hdr']['KIND']
-            # Entry size 59, +2 when THIS segment is the ~JumpTable (KIND
-            # 0x0002 — Tool015/016/018 golden), and -4 when the PREVIOUS
-            # segment is an INIT segment (KIND 0x2000).  The -4 is invisible
-            # in the byte stream (the SegHeaderEntry template suffix flows
-            # contiguously across the entry boundary; only the split point
-            # moves) but it shifts this entry's END and the NEXT entry's
-            # chain pointer: TS2 (INIT/MAIN/BIGONLY) golden HET stores
-            # entry-3 ptr 140 = 85 + 55, not 85 + 59 — the sole golden case
-            # with an intermediate entry after a KIND-0x2000 segment (TS3 has
-            # no intermediate entry; the tools have no INIT segments).
-            entry_size = (59 + 2 * (kind_i == 0x0002)
-                          - 4 * (prev_kind == 0x2000))
+            # Intermediate entry (1-based: entry_{i+1}).
+            # The recorded entry length is the UNIVERSAL rule
+            #   entry_size = 51 + len(this segment's own SEGNAME)
+            # (SPIKE-3, FINDER_PLAN B.2 — decoded byte-for-byte against gold's
+            # 13-entry Finder HET, where every intermediate/first entry length
+            # equals 51 + own-name-len exactly). The entry length only fixes
+            # the entry-body POINTER (extra_block chain offset); the emitted
+            # byte STREAM is invariant to where the split falls, because each
+            # 42-byte SegHeaderEntry template flows contiguously across the
+            # entry boundary (partial head in this entry, spill tail in the
+            # next). This one rule subsumes the earlier hand-fit constant 59
+            # and its two "special cases", which were merely coincidental name
+            # lengths: the ~JumpTable's "+2" is len('~JumpTable')=10 (51+10=61),
+            # and TS2's "-4 when prev is INIT" is len('MAIN')=4 (51+4=55). It
+            # is byte-identical for every previously byte-exact build (tools
+            # 015/016/018/020, TS2/TS3) because gold == 51+own-name-len there
+            # too, and it is what finally closes the Finder's N=13 chain.
+            own_name_len = len(segs[i]['hdr']['SEGNAME'].rstrip(b'\x00'))
+            entry_size = 51 + own_name_len
             name_len_prev = len(prev_names[i - 1])
             partial_i = entry_size - spill_i - 1 - name_len_prev - 16
             partial.append(partial_i)
@@ -761,9 +765,20 @@ def _het_entries(
     entry1 += struct.pack('<I', reloc_size1)             # [18..21]
     entry1 += templates[0][:partial[0]]                  # partial suffix
 
+    # The extra_block POINTER for each entry is the running sum of the
+    # *intended* entry length (51 + own-name-len), NOT len(entry_body_parts[i]).
+    # These are equal whenever the partial/spill split stays in [0, 42] (every
+    # tool / TS2 / TS3 build), but the split-point recurrence CANNOT physically
+    # realize a short entry once a preceding template's spill grows past it
+    # (the Finder's N=13 chain drives partial negative at MATCH). That only
+    # relabels where a part slice begins — the concatenated byte stream is
+    # invariant to it (templates[i][:p] + templates[i][p:] == templates[i] for
+    # ANY p) — so the flat entry bytes stay byte-exact; only the recorded chain
+    # pointer must be advanced by the intended length to match gold. See
+    # _build_het_lconst (total/write use the actual concatenation).
     body_start_offsets.append(cur_offset)
     entry_body_parts.append(bytes(entry1))
-    cur_offset += len(entry1)
+    cur_offset += 51 + len(prev_names[0])
 
     # ---- Entries 2..N-1 (intermediate) ----
     for i in range(1, N - 1):
@@ -788,7 +803,7 @@ def _het_entries(
 
         body_start_offsets.append(cur_offset)
         entry_body_parts.append(bytes(entry_i))
-        cur_offset += len(entry_i)
+        cur_offset += 51 + len(prev_names[i])   # intended length (segs[i]'s own name)
 
     # ---- Entry N (last) ----
     spill_last = spill[N - 1]
@@ -963,8 +978,13 @@ def _build_het_lconst(
     # happens to equal entry1's segnums leading zeros, so both are zeros and
     # there is no actual conflict.  We write everything into a flat buffer.
 
-    # Compute total HET size.
-    total = body_start_offsets[-1] + len(entry_body_parts[-1])
+    # Compute total HET size from the ACTUAL concatenated entry bytes (written
+    # contiguously from body_start_offsets[0] = 10*N below).  body_start_offsets
+    # now carries the gold *chain pointers* (running sum of intended entry
+    # lengths), which for the Finder's N=13 chain are decoupled from the physical
+    # slice lengths — so the total must come from the real byte concatenation,
+    # not body_start_offsets[-1] + len(last part).
+    total = body_start_offsets[0] + sum(len(p) for p in entry_body_parts)
     lconst = bytearray(total)
 
     # Write header.
@@ -989,10 +1009,18 @@ def _build_het_lconst(
     return bytes(lconst)
 
 
-def _build_express_seg(lconst_payload: bytes) -> bytes:
-    """Build the complete ~ExpressLoad directory segment."""
+def _build_express_seg(lconst_payload: bytes, loadfile_name: bytes | None = None) -> bytes:
+    """Build the complete ~ExpressLoad directory segment.
+
+    ``loadfile_name`` (FINDER_PLAN B.3): when given, the directory header's
+    LOADNAME field (header[44:54]) carries the load file's own name,
+    space-padded to 10 bytes (gold Finder: ``b'Finder    '``).  Absent (every
+    tool build) — the field stays ``b'\\x00'*10`` (unchanged)."""
     segname   = b'~ExpressLoad'
-    loadname  = b'\x00' * 10
+    if loadfile_name:
+        loadname = (b'%-10s' % loadfile_name)[:10]
+    else:
+        loadname = b'\x00' * 10
     sname_field = bytes([len(segname)]) + segname  # 13 bytes
     dispname  = 44
     dispdata  = dispname + 10 + len(sname_field)   # 44 + 10 + 13 = 67
@@ -1201,6 +1229,13 @@ def expressload(
     seg_images_opt: dict | None = opts.get('seg_images')
     reloc_dicts_opt: dict | None = opts.get('reloc_dicts')
 
+    # ~ExpressLoad directory LOADNAME (FINDER_PLAN B.3): the load file's own
+    # name, space-padded to 10 bytes in the directory header.  Absent (every
+    # tool build) -> the field stays b'\x00'*10 (unchanged).
+    _lfn = opts.get('loadfile_name')
+    loadfile_name: bytes | None = (
+        _lfn.encode() if isinstance(_lfn, str) else _lfn)
+
     # ------------------------------------------------------------------
     # Pass 1: parse inputs and place segments
     # ------------------------------------------------------------------
@@ -1351,9 +1386,9 @@ def expressload(
 
         # Two-pass to fix up file offset.
         lconst_payload0 = _build_het_lconst(het_input, [0])
-        express_bc      = len(_build_express_seg(lconst_payload0))
+        express_bc      = len(_build_express_seg(lconst_payload0, loadfile_name))
         lconst_payload  = _build_het_lconst(het_input, [express_bc])
-        express_seg     = _build_express_seg(lconst_payload)
+        express_seg     = _build_express_seg(lconst_payload, loadfile_name)
 
         assert len(express_seg) == express_bc, (
             f'~ExpressLoad size changed: {len(express_seg)} != {express_bc}')
@@ -2065,7 +2100,7 @@ def expressload(
     # The output segments follow ~ExpressLoad in order.
     placeholder_offsets = [0] * N
     lconst0   = _build_het_lconst(out_groups, placeholder_offsets)
-    express0  = _build_express_seg(lconst0)
+    express0  = _build_express_seg(lconst0, loadfile_name)
     express_bc = len(express0)
 
     # Compute actual file offsets: express_seg | out_groups[0] | out_groups[1] | ...
@@ -2076,7 +2111,7 @@ def expressload(
         cum += len(g['seg_bytes'])
 
     lconst    = _build_het_lconst(out_groups, file_offsets)
-    express_seg = _build_express_seg(lconst)
+    express_seg = _build_express_seg(lconst, loadfile_name)
 
     assert len(express_seg) == express_bc, (
         f'~ExpressLoad size changed: {len(express_seg)} != {express_bc}')

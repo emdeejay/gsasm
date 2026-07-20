@@ -423,6 +423,7 @@ def build_finder_data():
         'jt_entries': jt_entries,
         'seg_images': seg_images,
         'reloc_dicts': dicts,
+        'loadfile_name': 'Finder',
     })
 
 
@@ -535,6 +536,16 @@ def main():
         print(f'finderdatacheck: FINDER_RELOC_SEGS_EXACT {good}/{total}')
     except Exception as e:                                   # noqa: BLE001
         print(f'finderdatacheck: FINDER_RELOC_SEGS_EXACT 0/13  ({type(e).__name__}: {e})')
+    # Full-fork ratchet: the entire 146,924-byte ExpressLoad'd data fork
+    # byte-exact (Stage 4 closed the ~ExpressLoad directory).
+    try:
+        full = build_finder_data()
+        ok = full == raw
+        print(f'finderdatacheck: FINDER_DATA_BYTES_EXACT '
+              f'{len(raw) if ok else 0}/{len(raw)}')
+    except Exception as e:                                   # noqa: BLE001
+        print(f'finderdatacheck: FINDER_DATA_BYTES_EXACT 0/146924  '
+              f'({type(e).__name__}: {e})')
 
 
 if __name__ == '__main__':
