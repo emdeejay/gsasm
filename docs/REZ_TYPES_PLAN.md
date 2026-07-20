@@ -314,3 +314,30 @@ golden bytes:
       reference-site heuristic (`,s` stack-relative → local).
   Then: full-file multiseg ExpressLoad assembly + diskcheck wiring for
   Start+Finder dual-fork.
+
+  **Leg 3 (cheap-subagent diagnosis → serialized fixes):** two Sonnet
+  read-only agents root-caused the residual. Landed:
+    - CONTROL 108→3 B: `SET` counters (DefineStack `DummyPC`) excluded from
+      the proc-local `seg_equ` shadow table (`not redefinable`) — they are
+      mutable globals, and `seg_equ` is segment-keyed so a stale value
+      leaked into module-scope code between one PROC's ENDP and the next.
+      Fixture 063.
+    - linkiigs ENTRY-vs-EXPORT: an ENTRY shadowed by a same-named EXPORT in
+      the same multi-object link is now private (matches the GLOBAL-record
+      pass); harness expmap switched to exports-only.  Full-gate-safe;
+      finder 97,505→97,508.  (The Finder `GetFileInfo` case is really
+      cross-SEGMENT — Misc.aii ENTRYs a local copy, GSOS.aii in the CODE
+      segment EXPORTs the real one — so the harness still needs to force
+      cross-segment-exported names external in a segment's own link even
+      when a sibling ENTRYs them; not yet done.)
+  Attempted + REVERTED (important negative result): scoping `seg_equ` to
+  PROC lifetime (clear each PROC's entries at ENDP) to fix `deltay`'s leak.
+  It regressed VERIFY/FINDER because it CONFLICTS with
+  `_foreign_proc_equ_masks_label` (fixture 060), which *relies* on
+  `seg_equ` RETAINING cross-proc entries to detect a foreign proc-equ
+  shadowing a segment's own forward label.  So the naive clear-at-ENDP is
+  wrong; `deltay` needs the whole-link signal (is the name genuinely
+  EXPORTed-as-an-address by another object? → import wins) rather than a
+  scope change.  Current residual ~2000 B: FINDER −12 (icons.aii, driven by
+  the deltay leak + TICONOBJ/EXTCOPY/ACCESSPRIV cross-module data refs),
+  VERIFY/FINDER GetFileInfo cross-segment, CONTROL 3 B (CTLRECT WITH-scope).
