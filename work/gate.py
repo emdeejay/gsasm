@@ -116,6 +116,14 @@ CHECKS = [
     ('mountimagecheck', ['mountimagecheck.py'], [
         ('mountimage_data_bytes_exact',
          r'MOUNTIMAGE_DATA_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
+    # Four A.U.G data forks (CDRemote/Pioneer2000/EasyAccess/Pioneer4200) —
+    # pure assembler oracles built byte-exact through the existing
+    # expressload()/linkiigs.link() machinery (Disks 3/4, not the System
+    # Disk, so — like cdevcheck — this contributes only its own metric,
+    # NOT diskcheck).  See work/appdatacheck.py.
+    ('appdatacheck', ['appdatacheck.py'], [
+        ('app_data_bytes_exact',
+         r'APP_DATA_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
 ]
 
 FULL_CHECKS = [
