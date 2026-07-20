@@ -111,3 +111,70 @@ language; the peek confirmed which of them Apple's file exercised.
   they must stay byte-identical with the new include in the path.
 - Every derivation surprise (a padding rule, a string-kind quirk) gets a
   corpus-free fixture in `tests/` per the standing rule.
+
+## Phase 2 — proving out the rest (plan set 2026-07-19, CDEV tier DONE 2026-07-20)
+
+Coverage grows only with oracles, in three tiers:
+
+1. **Shipping-fork oracles** (same discipline): archived `.r`/`.rez`/`.rii`
+   source + golden fork off the System 6.0.1 disk images.  The census
+   (session log 2026-07-19; NB the first pass missed `.rez` extensions —
+   re-check globs when hunting sources) found 31+ sources.
+2. **Forks without archived sources**: `DeRezIIGS` from the MPW-GM image as
+   a decompilation cross-check while deriving from bytes.
+3. **No shipping usage at all**: the real `RezIIGS` binary under SheepShaver
+   as a controlled oracle (author original bodies, compile with Apple's
+   tool, byte-compare).  Templates with NO oracle stay OUT of the include.
+
+### CDEV sweep — DONE (2026-07-20, commits fa8ec8e + 6cc7072)
+
+All 17 CtlPanel resource forks byte-exact (143,782 B; gate metric
+`cdev_rsrc_bytes_exact`; `work/cdevcheck.py`, disk-parametrized over Disks
+1/2/3/4).  `disk_logical_exact` 30 → 36 (five CDEVs + ControlPanel NDA
+wired as diskcheck REZ builders).  `rCDEVCode`/`rCodeResource` reads are
+extraction-fed from the golden forks (the Pascal-code wall; the whole Rez
+layer around them is what is proven).  Template growth: rCDEVFlags
+(fixed-capacity pstrings 16/33/9), rTwoRects, rTaggedStrings, rListRef
+(empty case), and five rControlTemplate cases — checkControl $82000000,
+scrollControl $86000000, popUpControl $87000000, listControl $89000000,
+rectangleControl $87FF0003 — 10 of 14 known cases now golden-proven.
+
+Dialect discoveries (each unit-guarded in tests/test_rez_lexer.py /
+test_rez_gen.py; all corpus-neutral by full gate):
+
+- An unterminated `/*` on a `#`-directive line ends AT the newline
+  (AppleShare.r:782 vs its golden rWindParam1(60)).
+- Preprocessor macro names are CASE-INSENSITIVE (fCtlProcNotPtr /
+  FctlProcNotPtr; rPString spelling variants).
+- Single-quoted char constants are big-endian-packed NUMBERs
+  (FolderPriv `'GB'` → id 0x4742).
+- A string-literal run absorbs adjacent `$"…"` hex segments (FolderPriv
+  rAlertString trailing NUL).
+- `$$optionalCount` counts FIELDS EMITTED including defaulted constants,
+  not values consumed (listControl pCount=15 with defaulted listDraw).
+- Resource attribute `noCrossBank` = 0x0010; `pstring[N]` = capacity,
+  storage N+1 (rCDEVFlags author/version are pstring[32]/[8]).
+
+Method notes: the token-stream diff for recovering `#define` values has a
+blind spot when a definition expands to multiple tokens (zip alignment
+shifts) — probe-file lexing (`#include` + bare identifiers, read the folded
+numbers) is the reliable form; a build→catch-unresolved→probe→append loop
+automates constant recovery.
+
+### Next targets (tier 1, sources + goldens both confirmed on hand)
+
+- **Finder** — `A.U.G/Finder/*.rez` (master `Finder.rez` + 8 parts; the
+  first census missed them).  Golden: `/SystemTools1/System/Finder`
+  (Disk 3).  Unlocks rBundle, rFinderPath, rRectList, rText, rCString,
+  rToolStartup, rFinderExtension — most of the former "tier 2" list.
+- **Installer** — `A.U.G/Installer/Installer.r` (15 types incl rMenuBar,
+  rPicture, rInstallScript, rDiskNames).  Golden: `/Install/Installer`
+  (Disk 1, 17,895 B rsrc, read confirmed).
+- **Teach** — `ToolBoxMisc/Teach/teach.r` (12 types incl rStyleBlock?).
+  Golden: `/SystemTools2/Teach` (Disk 4).
+- **MountImage** — `MountImageGS/MountImage.r` (7 types).  Golden location
+  TBD (not on disks 1–4 walked so far; check 5–7 / the MountImage release).
+
+Dead end recorded: **Start** (`/System.Disk/System/Start`, 52 KB, 381
+resources — rToolStartup, rText, rCString, $802B/$802C…) has NO archived
+Rez source anywhere in IIGS.601.SRC; it stays a diskcheck substitute.
