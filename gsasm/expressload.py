@@ -502,7 +502,18 @@ def _scan_case_b(
                 ops = d[1]
                 if _has_sym_ref(ops):
                     shift = _get_shift(ops)
-                    if _SUPER_TYPE.get((size, shift)) in (0, 27):
+                    sup = _SUPER_TYPE.get((size, shift))
+                    # size-4 case-B (FINDER_PLAN B.1a / SPIKE-2): a `dc.l`
+                    # (size==4, shift==0) that carries a genuine bit-31/bit-30
+                    # flag addend (`Label+$80000000` / `+$C0000000`) — INFO's
+                    # single off=0xb3 record — is also standalone RELOC/E2.
+                    # The plain (0,27) low/bank halves keep the val>0xFFFFFF
+                    # test; the size-4 path is STRICTER (accept ONLY the
+                    # 0x80000000/0xC0000000 family, top byte exactly 0x80/0xC0)
+                    # so the ordinary `dc.l Label-1`/`Label-2` dispatch idiom
+                    # (0xFFFFFFFF/0xFFFFFFFE) stays a normal cross reference.
+                    is_size4 = (size == 4 and shift == 0)
+                    if sup in (0, 27) or is_size4:
                         ops_wo = ops
                         if (shift and len(ops) >= 4 and ops[-1] == 'end'
                                 and ops[-2] == ('op', 7)
@@ -512,7 +523,10 @@ def _scan_case_b(
                         site = seg_base + body_off
                         local_sym['__LOC__'] = site
                         val = _omf._eval(ops_wo, local_sym) & 0xFFFFFFFF
-                        if val > 0xFFFFFF:
+                        if sup in (0, 27):
+                            if val > 0xFFFFFF:
+                                out.append((site, size, shift, val))
+                        elif (val & 0x80000000) and (val & 0x3F000000) == 0:
                             out.append((site, size, shift, val))
                 body_off += size
             elif nm == 'RELEXPR':
@@ -1174,6 +1188,19 @@ def expressload(
     super_classes: frozenset = frozenset(
         opts.get('super_classes') or _ALL_SUPER_CLASSES)
 
+    # Opt-gated injection (docs/EXPRESSLOAD_FINDER_PLAN.md B.0/B.1): when the
+    # caller has externally resolved each load segment's LCONST image and its
+    # complete relocation-record stream (the Finder builder does, via
+    # work/finderdatacheck.py's link_finder site enumeration), it passes them
+    # here keyed by output segment name.  For any group whose name is present
+    # in ``reloc_dicts``, expressload() SKIPS its own body-build + reloc
+    # classification and uses the injected image + record stream verbatim,
+    # while still running the shared framing / ~JumpTable insertion / HET
+    # directory tail.  Both are None for every other caller (all the tools),
+    # so their code path is byte-identical by construction.
+    seg_images_opt: dict | None = opts.get('seg_images')
+    reloc_dicts_opt: dict | None = opts.get('reloc_dicts')
+
     # ------------------------------------------------------------------
     # Pass 1: parse inputs and place segments
     # ------------------------------------------------------------------
@@ -1501,279 +1528,452 @@ def expressload(
         group_base = group_placed[0][2]  # absolute base of this group's first segment
         group_g    = group_out_idx       # 0-based group index (= position in out_groups)
 
-        # Build bodies with group-base symbol adjustment.
-        # Segments in group G (G > 0) have their seg_base in the joint address space,
-        # but the loader will load group G at its own base 0.  Subtract group_base from
-        # all symbol values so within-group EXPRs evaluate to group-relative addresses.
-        if group_base > 0:
-            # Only PLACED addresses (inside the joint span of the placed
-            # groups) are group-rebased.  A symbol that resolved to an
-            # ABSOLUTE equate value outside every group's span (TS2's
-            # `UserDummyTable equ $FE01EF`, `OENDCALL4 equ $feffc2` --
-            # Patch2 `export NAME:equ`) must keep its absolute value: gold
-            # stores it verbatim with no reloc.  Before this guard those
-            # equates were rebased by -group_base, storing e.g.
-            # $FFC2-$403 = $FBBF in TS2's MAIN body.
-            _joint_end = group_ends[-1] if group_ends else 0
-            def _adj(v: Any, gb: int = group_base, je: int = _joint_end) -> Any:
-                return (v - gb) if (isinstance(v, int) and 0 <= v < je) else v
-            adj_sym = {k: _adj(v) for k, v in sym.items()}
+        # ---- opt-gated injection (FINDER_PLAN B.1): reuse an externally-
+        # ---- built LCONST image + relocation-record stream verbatim. -----
+        if group_out_idx < len(segnames_opt):
+            _inj_name = segnames_opt[group_out_idx]
         else:
-            adj_sym = sym
-            def _adj(v: Any) -> Any:
-                return v
-
-        # A group may span SEVERAL per-file objects (opts['obj_group']) — each
-        # placed segment's own object's private/public table (obj_globals[oi])
-        # must overlay adj_sym, not one table shared by the whole group (that
-        # would let one file's private segment name leak into another file's
-        # references — exactly the MPW-divergent "binding" bug this per-file
-        # restructure fixes).  Cache per-object adjustment since several
-        # segments in the group commonly share the same owning object.
-        _adj_og_cache: dict[int, dict | None] = {}
-
-        def _adj_og(oi_seg: int) -> dict | None:
-            if oi_seg not in _adj_og_cache:
-                og = obj_globals[oi_seg]
-                _adj_og_cache[oi_seg] = (
-                    {k: _adj(v) for k, v in og.items()} if og else None)
-            return _adj_og_cache[oi_seg]
-
-        group_bodies: list[bytes] = []
-        for placed_i in indices:
-            _segname, recs, seg_base, _hdr, _asm = placed[placed_i]
-            recs2, _srels = _linkiigs._defer_shifts(recs)
-            oi_seg = placed_obj_idx[placed_i]
-            adj_og = _adj_og(oi_seg)
-            local_sym = adj_sym if not adj_og else {**adj_sym, **adj_og}
-            # Adjust seg_base to be group-relative (subtract group_base).
-            adj_seg_base = seg_base - group_base
-            group_bodies.append(_omf._build_body(recs2, local_sym, adj_seg_base))
-
-        merged = b''.join(group_bodies)
-        merged_arr = bytearray(merged)   # mutable — may be patched for type-2 relocs
-
-        # Collect raw relocs (absolute joint addresses) for this group's segments.
-        # _scan_relocs returns joint absolute offsets; we need group-relative offsets.
-        # Also detect cross-group interseg references (type-2) from type-1 relocs.
-        # And correct bank-byte SUPER type (type-27/28/...) based on target group.
-        group_relocs_raw = _scan_relocs(group_placed)
-
-        # Case-A standalone relocs (size,shift) with NO SUPER encoding at all —
-        # e.g. the ">>8 high byte" idiom (_scan_standalone_relocs's docstring).
-        # Same-segment: emit standalone cRELOC/RELOC exactly like the single-
-        # segment path. Cross-group: MUST be a standalone cINTERSEG/INTERSEG (a
-        # 2-byte field can't self-describe a target segment); measured against
-        # gold (Tool016 ControlMgr): the pre-patch placeholder is 0 (fully
-        # loader-computed from the record's own segno/segoff), and when the
-        # target is DYNAMIC it routes through the ~JumpTable exactly like a
-        # 3-byte far pointer (docs/EXPRESSLOAD_TIER2_PLAN.md E1). Runs for
-        # every multi-group build (not just jt_enabled ones): a no-JT build
-        # (e.g. TS2/TS3, docs/EXPRESSLOAD_TIER2_PLAN.md E2) still has cross-
-        # group case-A references among its purely-resident groups; only
-        # DYNAMIC targets need jt_entries, and dyn_flags is all-False whenever
-        # there is no dynamic group, so the jt-routing branch below is simply
-        # never taken in that case.
-        # (site_offset, record_bytes) pairs — flushed SORTED BY SITE OFFSET
-        # (golden rule: gold's standalone records are ordered by ascending
-        # patch offset regardless of record type — TS3 INIT emits the size-4
-        # dc.l cINTERSEGs @0x6e..0x106 before the >>8 case-A ones @0x10e+,
-        # and TS3 MAIN emits the case-B RELOC pair @10514 before the cRELOCs
-        # @12243+; the old category-grouped order matched gold only when the
-        # categories happened to be offset-ordered).
-        standalone_group: list[tuple[int, bytes]] = []
-        # Per-SEGMENT symbol table (absolute/joint address space, unlike the
-        # group-relative adj_sym/adj_og pair used for body-building above):
-        # each segment's overlay is its OWN owning object's table, not one
-        # table shared by the whole group — see the ``_adj_og`` comment
-        # above for why a whole-group table would let a private name from
-        # one file incorrectly shadow another file's reference.
-        grp_body_syms: list[dict] = []
-        for placed_i in indices:
-            og_seg = obj_globals[placed_obj_idx[placed_i]]
-            grp_body_syms.append(
-                _fallback_sym if not og_seg else {**_fallback_sym, **og_seg})
-
-        # abs_off -> (size, ops, seg_i) for every EXPR-family record in this
-        # group, in the SAME (un-deferred) record basis _scan_relocs itself
-        # scans — lets the stype==0/1 cross-group branches below RE-EVALUATE
-        # an expression's true joint-space target directly (robust against
-        # the 16-bit wraparound a "read the group-adjusted stored bytes back"
-        # trick suffers when the target group's base and the calling group's
-        # base straddle a 64K boundary, or the field is a `dc.l routine-1`
-        # dispatch-table entry, e.g. Tool018 SeedFill/Pictures -> PixelMap2Rgn).
-        expr_at: dict[int, tuple[int, list, int]] = {}
-        for seg_i, placed_i in enumerate(indices):
-            _sn, recs_e, sb_e, _hdr_e, _a_e = placed[placed_i]
-            body_off_e = 0
-            for _, nm_e, d_e in recs_e:
-                if nm_e == 'END':
-                    break
-                if nm_e in ('CONST', 'LCONST'):
-                    body_off_e += len(d_e)
-                elif nm_e in ('LEXPR', 'BEXPR', 'EXPR'):
-                    expr_at[sb_e + body_off_e] = (d_e[0], d_e[1], seg_i)
-                    body_off_e += d_e[0]
-                elif nm_e == 'RELEXPR':
-                    body_off_e += d_e[0]
-                elif nm_e == 'DS':
-                    body_off_e += d_e
-
-        for offset, size, shift, ops, seg_i in _scan_standalone_relocs(group_placed):
-            rel_off = offset - group_base
-            ops_wo = ops
-            if (shift and len(ops) >= 4 and ops[-1] == 'end'
-                    and ops[-2] == ('op', 7)
-                    and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
-                ops_wo = ops[:-3] + ['end']
-            raw_target = _omf._eval(ops_wo, grp_body_syms[seg_i]) & 0xFFFFFFFF
-            tgt_group = _group_of(raw_target)
-            if tgt_group is None:
-                # Absolute target (exported-equate import, outside every
-                # group's span): gold emits NO standalone record — the body
-                # already holds the resolved absolute value.
-                continue
-            if tgt_group == group_g:
-                # Intra: merged_arr already holds the correct group-relative
-                # (already-shifted) placeholder value, built via adj_sym
-                # exactly like the single-segment path — reuse it directly.
-                if size >= 2:
-                    rel_val = int.from_bytes(
-                        merged_arr[rel_off:rel_off + size], 'little')
-                else:
-                    rel_val = raw_target & ((1 << (8 * size)) - 1)
-                if rel_off < 0x10000 and rel_val < 0x10000:
-                    standalone_group.append((rel_off, emit_creloc(size, shift, rel_off, rel_val)))
-                else:
-                    standalone_group.append((rel_off, emit_reloc(size, shift, rel_off, rel_val)))
+            _inj_name = (group_placed[0][3]['SEGNAME'].rstrip(b'\x00')
+                         or b'main')
+        if reloc_dicts_opt is not None and bytes(_inj_name) in reloc_dicts_opt:
+            merged = seg_images_opt[bytes(_inj_name)]
+            super_records = bytearray(reloc_dicts_opt[bytes(_inj_name)])
+        else:
+            # Build bodies with group-base symbol adjustment.
+            # Segments in group G (G > 0) have their seg_base in the joint address space,
+            # but the loader will load group G at its own base 0.  Subtract group_base from
+            # all symbol values so within-group EXPRs evaluate to group-relative addresses.
+            if group_base > 0:
+                # Only PLACED addresses (inside the joint span of the placed
+                # groups) are group-rebased.  A symbol that resolved to an
+                # ABSOLUTE equate value outside every group's span (TS2's
+                # `UserDummyTable equ $FE01EF`, `OENDCALL4 equ $feffc2` --
+                # Patch2 `export NAME:equ`) must keep its absolute value: gold
+                # stores it verbatim with no reloc.  Before this guard those
+                # equates were rebased by -group_base, storing e.g.
+                # $FFC2-$403 = $FBBF in TS2's MAIN body.
+                _joint_end = group_ends[-1] if group_ends else 0
+                def _adj(v: Any, gb: int = group_base, je: int = _joint_end) -> Any:
+                    return (v - gb) if (isinstance(v, int) and 0 <= v < je) else v
+                adj_sym = {k: _adj(v) for k, v in sym.items()}
             else:
-                off_in_tgt = raw_target - group_bases[tgt_group]
-                merged_arr[rel_off:rel_off + size] = b'\x00' * size
-                if dyn_flags[tgt_group]:
-                    key = (_final_segnum(tgt_group), off_in_tgt)
-                    idx = jt_index.get(key)
-                    if idx is None:
-                        raise ValueError(
-                            "expressload(): opts['jt_entries'] has no entry "
-                            f"for dynamic target segnum={key[0]} "
-                            f"offset={key[1]:#x}")
-                    tgt_segnum = jt_segnum
-                    tgt_segoff = jt_jsl_offset(idx)
-                else:
-                    tgt_segnum = _final_segnum(tgt_group)
-                    tgt_segoff = off_in_tgt
-                if rel_off < 0x10000 and tgt_segoff < 0x10000:
-                    standalone_group.append((rel_off, emit_cinterseg(
-                        size, shift, rel_off, tgt_segnum, tgt_segoff)))
-                else:
-                    standalone_group.append((rel_off, emit_interseg(
-                        size, shift, rel_off, tgt_segnum, tgt_segoff)))
+                adj_sym = sym
+                def _adj(v: Any) -> Any:
+                    return v
 
-        # Case-B: a relocation whose target expression carries a source-level
-        # flagged addend (``Label+$80000000`` / ``Label+$C0000000`` — the
-        # ModalDialog filterProc/hook-pointer convention, same rule as the
-        # single-segment path's ``_scan_case_b``). TS3's MAIN group re-
-        # assembles WindMgr/NewCalls.asm, which carries exactly this pattern
-        # (``myEventFilter+$80000000``, docs/EXPRESSLOAD_TIER2_PLAN.md E2) —
-        # the same record class that closed Tool014. Not gated on jt_enabled:
-        # the single-segment rule never depended on ~JumpTable either, and
-        # the golden corpus shows no case-B site outside the OWNING group (a
-        # cross-group flagged addend is unobserved and unsupported — raise
-        # rather than silently mis-encode it).
-        case_b_group = _scan_case_b(group_placed, grp_body_syms)
-        case_b_abs_offsets = {site for site, _sz, _sh, _val in case_b_group}
-        for site, b_size, b_shift, b_val in case_b_group:
-            rel_off = site - group_base
-            flag = b_val & 0xFF000000
-            clean = b_val & 0x00FFFFFF
-            tgt_group = _group_of(clean)
-            if tgt_group != group_g:
-                raise ValueError(
-                    "expressload(): cross-group case-B (flagged addend) "
-                    f"relocation unsupported — offset {rel_off:#x}")
-            rel_val = flag | ((clean - group_base) & 0x00FFFFFF)
-            if rel_off < 0x10000 and rel_val < 0x10000:
-                standalone_group.append((rel_off, emit_creloc(b_size, b_shift, rel_off, rel_val)))
-            else:
-                standalone_group.append((rel_off, emit_reloc(b_size, b_shift, rel_off, rel_val)))
+            # A group may span SEVERAL per-file objects (opts['obj_group']) — each
+            # placed segment's own object's private/public table (obj_globals[oi])
+            # must overlay adj_sym, not one table shared by the whole group (that
+            # would let one file's private segment name leak into another file's
+            # references — exactly the MPW-divergent "binding" bug this per-file
+            # restructure fixes).  Cache per-object adjustment since several
+            # segments in the group commonly share the same owning object.
+            _adj_og_cache: dict[int, dict | None] = {}
 
-        if case_b_abs_offsets:
-            for stype in list(group_relocs_raw):
-                group_relocs_raw[stype] = [
-                    o for o in group_relocs_raw[stype] if o not in case_b_abs_offsets]
-                if not group_relocs_raw[stype]:
-                    del group_relocs_raw[stype]
+            def _adj_og(oi_seg: int) -> dict | None:
+                if oi_seg not in _adj_og_cache:
+                    og = obj_globals[oi_seg]
+                    _adj_og_cache[oi_seg] = (
+                        {k: _adj(v) for k, v in og.items()} if og else None)
+                return _adj_og_cache[oi_seg]
 
-        final_relocs: dict[int, list[int]] = {}
-        for stype, abs_offs in group_relocs_raw.items():
-            for abs_off in abs_offs:
-                rel_off = abs_off - group_base   # group-relative offset
+            group_bodies: list[bytes] = []
+            for placed_i in indices:
+                _segname, recs, seg_base, _hdr, _asm = placed[placed_i]
+                recs2, _srels = _linkiigs._defer_shifts(recs)
+                oi_seg = placed_obj_idx[placed_i]
+                adj_og = _adj_og(oi_seg)
+                local_sym = adj_sym if not adj_og else {**adj_sym, **adj_og}
+                # Adjust seg_base to be group-relative (subtract group_base).
+                adj_seg_base = seg_base - group_base
+                group_bodies.append(_omf._build_body(recs2, local_sym, adj_seg_base))
 
-                if stype == 1:
-                    # 3-byte (type-1) reloc: check if target is in a different group.
-                    if jt_enabled:
-                        # Re-evaluate the expression directly against the joint
-                        # symbol table rather than reading the group-adjusted
-                        # stored bytes back — robust against 16-bit wraparound
-                        # when the calling and target groups' bases straddle a
-                        # 64K boundary, and against the `dc.l routine-1`
-                        # dispatch-table idiom (the literal -1 evaluates along
-                        # with the symbol, giving exactly the value that must
-                        # be stored relative to whichever base applies).
-                        _esz, _eops, _eseg_i = expr_at[abs_off]
-                        joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
-                        field_size = _esz
+            merged = b''.join(group_bodies)
+            merged_arr = bytearray(merged)   # mutable — may be patched for type-2 relocs
+
+            # Collect raw relocs (absolute joint addresses) for this group's segments.
+            # _scan_relocs returns joint absolute offsets; we need group-relative offsets.
+            # Also detect cross-group interseg references (type-2) from type-1 relocs.
+            # And correct bank-byte SUPER type (type-27/28/...) based on target group.
+            group_relocs_raw = _scan_relocs(group_placed)
+
+            # Case-A standalone relocs (size,shift) with NO SUPER encoding at all —
+            # e.g. the ">>8 high byte" idiom (_scan_standalone_relocs's docstring).
+            # Same-segment: emit standalone cRELOC/RELOC exactly like the single-
+            # segment path. Cross-group: MUST be a standalone cINTERSEG/INTERSEG (a
+            # 2-byte field can't self-describe a target segment); measured against
+            # gold (Tool016 ControlMgr): the pre-patch placeholder is 0 (fully
+            # loader-computed from the record's own segno/segoff), and when the
+            # target is DYNAMIC it routes through the ~JumpTable exactly like a
+            # 3-byte far pointer (docs/EXPRESSLOAD_TIER2_PLAN.md E1). Runs for
+            # every multi-group build (not just jt_enabled ones): a no-JT build
+            # (e.g. TS2/TS3, docs/EXPRESSLOAD_TIER2_PLAN.md E2) still has cross-
+            # group case-A references among its purely-resident groups; only
+            # DYNAMIC targets need jt_entries, and dyn_flags is all-False whenever
+            # there is no dynamic group, so the jt-routing branch below is simply
+            # never taken in that case.
+            # (site_offset, record_bytes) pairs — flushed SORTED BY SITE OFFSET
+            # (golden rule: gold's standalone records are ordered by ascending
+            # patch offset regardless of record type — TS3 INIT emits the size-4
+            # dc.l cINTERSEGs @0x6e..0x106 before the >>8 case-A ones @0x10e+,
+            # and TS3 MAIN emits the case-B RELOC pair @10514 before the cRELOCs
+            # @12243+; the old category-grouped order matched gold only when the
+            # categories happened to be offset-ordered).
+            standalone_group: list[tuple[int, bytes]] = []
+            # Per-SEGMENT symbol table (absolute/joint address space, unlike the
+            # group-relative adj_sym/adj_og pair used for body-building above):
+            # each segment's overlay is its OWN owning object's table, not one
+            # table shared by the whole group — see the ``_adj_og`` comment
+            # above for why a whole-group table would let a private name from
+            # one file incorrectly shadow another file's reference.
+            grp_body_syms: list[dict] = []
+            for placed_i in indices:
+                og_seg = obj_globals[placed_obj_idx[placed_i]]
+                grp_body_syms.append(
+                    _fallback_sym if not og_seg else {**_fallback_sym, **og_seg})
+
+            # abs_off -> (size, ops, seg_i) for every EXPR-family record in this
+            # group, in the SAME (un-deferred) record basis _scan_relocs itself
+            # scans — lets the stype==0/1 cross-group branches below RE-EVALUATE
+            # an expression's true joint-space target directly (robust against
+            # the 16-bit wraparound a "read the group-adjusted stored bytes back"
+            # trick suffers when the target group's base and the calling group's
+            # base straddle a 64K boundary, or the field is a `dc.l routine-1`
+            # dispatch-table entry, e.g. Tool018 SeedFill/Pictures -> PixelMap2Rgn).
+            expr_at: dict[int, tuple[int, list, int]] = {}
+            for seg_i, placed_i in enumerate(indices):
+                _sn, recs_e, sb_e, _hdr_e, _a_e = placed[placed_i]
+                body_off_e = 0
+                for _, nm_e, d_e in recs_e:
+                    if nm_e == 'END':
+                        break
+                    if nm_e in ('CONST', 'LCONST'):
+                        body_off_e += len(d_e)
+                    elif nm_e in ('LEXPR', 'BEXPR', 'EXPR'):
+                        expr_at[sb_e + body_off_e] = (d_e[0], d_e[1], seg_i)
+                        body_off_e += d_e[0]
+                    elif nm_e == 'RELEXPR':
+                        body_off_e += d_e[0]
+                    elif nm_e == 'DS':
+                        body_off_e += d_e
+
+            for offset, size, shift, ops, seg_i in _scan_standalone_relocs(group_placed):
+                rel_off = offset - group_base
+                ops_wo = ops
+                if (shift and len(ops) >= 4 and ops[-1] == 'end'
+                        and ops[-2] == ('op', 7)
+                        and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
+                    ops_wo = ops[:-3] + ['end']
+                raw_target = _omf._eval(ops_wo, grp_body_syms[seg_i]) & 0xFFFFFFFF
+                tgt_group = _group_of(raw_target)
+                if tgt_group is None:
+                    # Absolute target (exported-equate import, outside every
+                    # group's span): gold emits NO standalone record — the body
+                    # already holds the resolved absolute value.
+                    continue
+                if tgt_group == group_g:
+                    # Intra: merged_arr already holds the correct group-relative
+                    # (already-shifted) placeholder value, built via adj_sym
+                    # exactly like the single-segment path — reuse it directly.
+                    if size >= 2:
+                        rel_val = int.from_bytes(
+                            merged_arr[rel_off:rel_off + size], 'little')
                     else:
-                        # No ~JumpTable in play (E2): same robust re-evaluation
-                        # as the jt_enabled branch — reading the group-adjusted
-                        # stored bytes back (the old approach here) silently
-                        # resolves an unresolved cross-object symbol (a "combo"
-                        # group's private export, see _fallback_sym's docstring)
-                        # to 0 instead of raising, misclassifying it as same-
-                        # group (measured against TS2 INIT's QDCALLTABLE2/
-                        # ORIGBELLVECTOR refs — docs/EXPRESSLOAD_TIER2_PLAN.md E2).
+                        rel_val = raw_target & ((1 << (8 * size)) - 1)
+                    if rel_off < 0x10000 and rel_val < 0x10000:
+                        standalone_group.append((rel_off, emit_creloc(size, shift, rel_off, rel_val)))
+                    else:
+                        standalone_group.append((rel_off, emit_reloc(size, shift, rel_off, rel_val)))
+                else:
+                    off_in_tgt = raw_target - group_bases[tgt_group]
+                    merged_arr[rel_off:rel_off + size] = b'\x00' * size
+                    if dyn_flags[tgt_group]:
+                        key = (_final_segnum(tgt_group), off_in_tgt)
+                        idx = jt_index.get(key)
+                        if idx is None:
+                            raise ValueError(
+                                "expressload(): opts['jt_entries'] has no entry "
+                                f"for dynamic target segnum={key[0]} "
+                                f"offset={key[1]:#x}")
+                        tgt_segnum = jt_segnum
+                        tgt_segoff = jt_jsl_offset(idx)
+                    else:
+                        tgt_segnum = _final_segnum(tgt_group)
+                        tgt_segoff = off_in_tgt
+                    if rel_off < 0x10000 and tgt_segoff < 0x10000:
+                        standalone_group.append((rel_off, emit_cinterseg(
+                            size, shift, rel_off, tgt_segnum, tgt_segoff)))
+                    else:
+                        standalone_group.append((rel_off, emit_interseg(
+                            size, shift, rel_off, tgt_segnum, tgt_segoff)))
+
+            # Case-B: a relocation whose target expression carries a source-level
+            # flagged addend (``Label+$80000000`` / ``Label+$C0000000`` — the
+            # ModalDialog filterProc/hook-pointer convention, same rule as the
+            # single-segment path's ``_scan_case_b``). TS3's MAIN group re-
+            # assembles WindMgr/NewCalls.asm, which carries exactly this pattern
+            # (``myEventFilter+$80000000``, docs/EXPRESSLOAD_TIER2_PLAN.md E2) —
+            # the same record class that closed Tool014. Not gated on jt_enabled:
+            # the single-segment rule never depended on ~JumpTable either, and
+            # the golden corpus shows no case-B site outside the OWNING group (a
+            # cross-group flagged addend is unobserved and unsupported — raise
+            # rather than silently mis-encode it).
+            case_b_group = _scan_case_b(group_placed, grp_body_syms)
+            case_b_abs_offsets = {site for site, _sz, _sh, _val in case_b_group}
+            for site, b_size, b_shift, b_val in case_b_group:
+                rel_off = site - group_base
+                flag = b_val & 0xFF000000
+                clean = b_val & 0x00FFFFFF
+                tgt_group = _group_of(clean)
+                if tgt_group != group_g:
+                    raise ValueError(
+                        "expressload(): cross-group case-B (flagged addend) "
+                        f"relocation unsupported — offset {rel_off:#x}")
+                rel_val = flag | ((clean - group_base) & 0x00FFFFFF)
+                if rel_off < 0x10000 and rel_val < 0x10000:
+                    standalone_group.append((rel_off, emit_creloc(b_size, b_shift, rel_off, rel_val)))
+                else:
+                    standalone_group.append((rel_off, emit_reloc(b_size, b_shift, rel_off, rel_val)))
+
+            if case_b_abs_offsets:
+                for stype in list(group_relocs_raw):
+                    group_relocs_raw[stype] = [
+                        o for o in group_relocs_raw[stype] if o not in case_b_abs_offsets]
+                    if not group_relocs_raw[stype]:
+                        del group_relocs_raw[stype]
+
+            final_relocs: dict[int, list[int]] = {}
+            for stype, abs_offs in group_relocs_raw.items():
+                for abs_off in abs_offs:
+                    rel_off = abs_off - group_base   # group-relative offset
+
+                    if stype == 1:
+                        # 3-byte (type-1) reloc: check if target is in a different group.
+                        if jt_enabled:
+                            # Re-evaluate the expression directly against the joint
+                            # symbol table rather than reading the group-adjusted
+                            # stored bytes back — robust against 16-bit wraparound
+                            # when the calling and target groups' bases straddle a
+                            # 64K boundary, and against the `dc.l routine-1`
+                            # dispatch-table idiom (the literal -1 evaluates along
+                            # with the symbol, giving exactly the value that must
+                            # be stored relative to whichever base applies).
+                            _esz, _eops, _eseg_i = expr_at[abs_off]
+                            joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
+                            field_size = _esz
+                        else:
+                            # No ~JumpTable in play (E2): same robust re-evaluation
+                            # as the jt_enabled branch — reading the group-adjusted
+                            # stored bytes back (the old approach here) silently
+                            # resolves an unresolved cross-object symbol (a "combo"
+                            # group's private export, see _fallback_sym's docstring)
+                            # to 0 instead of raising, misclassifying it as same-
+                            # group (measured against TS2 INIT's QDCALLTABLE2/
+                            # ORIGBELLVECTOR refs — docs/EXPRESSLOAD_TIER2_PLAN.md E2).
+                            _esz, _eops, _eseg_i = expr_at[abs_off]
+                            joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
+                            field_size = _esz
+                        tgt_group = _group_of(joint_target)
+                        if tgt_group is None:
+                            # Absolute target (e.g. TS2 `OENDCALL4 equ $feffc2`
+                            # reached via a by-name import): gold drops the reloc
+                            # record entirely and keeps the absolute body bytes.
+                            continue
+                        if tgt_group != group_g:
+                            tgt_group_base = group_bases[tgt_group]
+                            off_in_tgt = joint_target - tgt_group_base
+                            if not jt_enabled and field_size >= 4:
+                                # A full 4-byte `dc.l Label` cross-group pointer (as
+                                # opposed to the 3-byte `dc.l Label-1` dispatch-table
+                                # idiom) cannot ride the compressed 3-byte SUPER
+                                # type-2 patch — MPW emits a standalone cINTERSEG/
+                                # INTERSEG instead, exactly like a case-A far pointer
+                                # (measured against TS2/TS3 INIT's TLCALLTABLE-style
+                                # `dc.l` dispatch entries, docs/EXPRESSLOAD_TIER2_PLAN.md
+                                # E2). Scoped to the no-JT path: this pattern is
+                                # unobserved in the jt-gated tools' golden corpus, so
+                                # that path is left untouched.
+                                tgt_segnum = _final_segnum(tgt_group)
+                                merged_arr[rel_off:rel_off + field_size] = b'\x00' * field_size
+                                if rel_off < 0x10000 and off_in_tgt < 0x10000:
+                                    standalone_group.append((rel_off, emit_cinterseg(
+                                        field_size, 0, rel_off, tgt_segnum, off_in_tgt)))
+                                else:
+                                    standalone_group.append((rel_off, emit_interseg(
+                                        field_size, 0, rel_off, tgt_segnum, off_in_tgt)))
+                                continue
+                            # Cross-group: encode as SUPER type-2 (INTERSEG, FileNum=1,
+                            # SegNum = target group's output segnum).
+                            tgt_segnum = tgt_group + 2   # segnum 2 = first load seg
+                            if jt_enabled:
+                                if dyn_flags[tgt_group]:
+                                    # A reference into a DYNAMIC (on-demand) group cannot
+                                    # point at the group directly — it routes through the
+                                    # ~JumpTable's per-routine JSL thunk instead (the
+                                    # target's own final segnum/offset is the jt_entries
+                                    # lookup key, matching _link_jt_tool's derivation).
+                                    key = (_final_segnum(tgt_group), off_in_tgt)
+                                    idx = jt_index.get(key)
+                                    if idx is None:
+                                        raise ValueError(
+                                            "expressload(): opts['jt_entries'] has no "
+                                            f"entry for dynamic target segnum={key[0]} "
+                                            f"offset={key[1]:#x}")
+                                    off_in_tgt = jt_jsl_offset(idx)
+                                    tgt_segnum = jt_segnum
+                                else:
+                                    tgt_segnum = _final_segnum(tgt_group)
+                            else:
+                                tgt_segnum = _final_segnum(tgt_group)
+                            # Patch the 3 bytes in the merged code image.
+                            merged_arr[rel_off]     = off_in_tgt & 0xFF
+                            merged_arr[rel_off + 1] = (off_in_tgt >> 8) & 0xFF
+                            merged_arr[rel_off + 2] = tgt_segnum
+                            final_relocs.setdefault(2, []).append(rel_off)
+                        else:
+                            final_relocs.setdefault(1, []).append(rel_off)
+
+                    elif stype == 27:
+                        # Bank-byte reloc: type = 25 + target_output_segnum.
+                        # Determine which segment's bank byte this references by looking
+                        # up the EXPR's symbol value in the joint symbol table.
+                        # The body has been group-adjusted, so the stored 2-byte value is
+                        # (sym_joint_value - group_base) >> 16 — usually 0 for relocs
+                        # within the address space.  We need the JOINT value to classify.
+                        # Walk the records to find the EXPR at abs_off.
+                        sym_joint: int | None = None
+                        for placed_i in indices:
+                            _sn2, recs2_raw, sb2, _h2, _a2 = placed[placed_i]
+                            recs2_d, _ = _linkiigs._defer_shifts(recs2_raw)
+                            body_off2 = 0
+                            for _, nm2, d2 in recs2_d:
+                                if nm2 == 'END':
+                                    break
+                                if nm2 in ('CONST', 'LCONST'):
+                                    body_off2 += len(d2)
+                                elif nm2 in ('LEXPR', 'BEXPR', 'EXPR'):
+                                    if sb2 + body_off2 == abs_off:
+                                        # Evaluate expression WITHOUT shift to get joint addr
+                                        ops2 = d2[1]
+                                        # Extract symbol name and look up in joint sym
+                                        for op2 in ops2:
+                                            if isinstance(op2, tuple) and op2[0].startswith('sym'):
+                                                sname2 = op2[1]
+                                                # Try joint sym then obj_globals; a
+                                                # "combo" group's private export
+                                                # (see _fallback_sym's docstring)
+                                                # is in neither, so fall further
+                                                # back to _fallback_sym rather
+                                                # than silently leaving sym_joint
+                                                # unresolved (measured against TS2
+                                                # INIT's ORIGBELLVECTOR bank-byte
+                                                # ref, docs/EXPRESSLOAD_TIER2_PLAN.md
+                                                # E2). Scoped to the no-JT path —
+                                                # jt_enabled tools already resolve
+                                                # correctly via sym/obj_globals[oi]
+                                                # alone. ``oi`` here is THIS
+                                                # segment's OWN owning object
+                                                # (placed_obj_idx[placed_i]) — a
+                                                # group may span several per-file
+                                                # objects (opts['obj_group']), so
+                                                # the outer group loop's ``g`` is
+                                                # not an object index.
+                                                jv = sym.get(sname2)
+                                                if jv is None:
+                                                    og2 = obj_globals[placed_obj_idx[placed_i]]
+                                                    jv = og2.get(sname2) if og2 else None
+                                                if jv is None and not jt_enabled:
+                                                    jv = _fallback_sym.get(sname2)
+                                                if isinstance(jv, int):
+                                                    sym_joint = jv
+                                                break
+                                    body_off2 += d2[0]
+                                elif nm2 == 'RELEXPR':
+                                    body_off2 += d2[0]
+                                elif nm2 == 'DS':
+                                    body_off2 += d2
+                            if sym_joint is not None:
+                                break
+
+                        if sym_joint is not None:
+                            tgt_group = _group_of(sym_joint)
+                            if tgt_group is None:
+                                # Absolute target (exported equate, e.g. TS2's
+                                # `UserDummyTable equ $FE01EF` / `SystemFont equ
+                                # $FE77E0` high-word `#^X` immediates): drop the
+                                # record AND apply the deferred >>16 here — the
+                                # body still holds the unshifted low word (the
+                                # _defer_shifts placeholder that the SUPER-27
+                                # loader patch would normally overwrite), but with
+                                # no record the final absolute high word must be
+                                # baked: gold stores $00FE with no reloc.
+                                merged_arr[rel_off:rel_off + 2] = (
+                                    ((sym_joint >> 16) & 0xFFFF).to_bytes(2, 'little'))
+                                continue
+                            if jt_enabled and dyn_flags[tgt_group]:
+                                # A bank-byte (high-word) field can't carry a DYNAMIC
+                                # group's bank directly (it isn't loaded yet, so its
+                                # bank is unknown at link time, and a lone 2-byte
+                                # field has no companion offset to redirect through a
+                                # ~JumpTable thunk the way a 3-byte far pointer does).
+                                # Measured against gold (docs/EXPRESSLOAD_TIER2_PLAN.md
+                                # E1): it is emitted as the CALLING group's own bank
+                                # instead — type 25+own_segnum, same formula as a
+                                # genuine intra-segment bank-byte reference (which
+                                # this reduces to when tgt_group == group_g, e.g.
+                                # PopUpProc/Pictures/SeedFill's own bank-byte refs).
+                                corrected_type = 25 + _final_segnum(group_g)
+                            else:
+                                tgt_segnum = _final_segnum(tgt_group) if jt_enabled else (tgt_group + 2)
+                                corrected_type = 25 + tgt_segnum
+                                # A CROSS-group type-(25+segnum) site's STORED 2-byte
+                                # value must be TARGET-group-relative (the loader adds
+                                # the target segment's own runtime base).  The body
+                                # builder's group-adjust subtracted only the CALLING
+                                # group's base, leaving joint-space values — TS3
+                                # INIT's 15 SUPER-t28 patch-table entries each read
+                                # +662 (= MAIN's joint base) over gold until rebased.
+                                # Scoped to the no-JT path: the jt tools' golden
+                                # corpus has no static cross-group bank-word site
+                                # (dynamic targets take the own-bank branch above),
+                                # and they are byte-exact without this.
+                                if not jt_enabled and tgt_group != group_g:
+                                    _stored = int.from_bytes(
+                                        merged_arr[rel_off:rel_off + 2], 'little')
+                                    _stored = (_stored + group_bases[group_g]
+                                               - group_bases[tgt_group]) & 0xFFFF
+                                    merged_arr[rel_off:rel_off + 2] = \
+                                        _stored.to_bytes(2, 'little')
+                        else:
+                            corrected_type = 27  # fallback
+                        final_relocs.setdefault(corrected_type, []).append(rel_off)
+
+                    elif stype == 0:
+                        # 2-byte (type-0) low-word reloc: check if target is in a
+                        # different group. Re-evaluate against the joint symbol
+                        # table (same robustness reasoning as stype==1, above). A
+                        # 2-byte field can't self-describe its target segment the
+                        # way a 3-byte far pointer's own 3rd byte can, so each
+                        # cross target segnum gets its own SUPER type — measured
+                        # against gold (Tool016/018): 13 + the target's own final
+                        # segnum (JT-routed the same way as stype==1 when the
+                        # target is DYNAMIC). Not gated on jt_enabled: the same
+                        # correction applies whenever there IS a cross-group
+                        # target, dynamic or not (TS2/TS3, docs/
+                        # EXPRESSLOAD_TIER2_PLAN.md E2 — dyn_flags is all-False
+                        # there, so the jt-routing sub-branch below is inert).
                         _esz, _eops, _eseg_i = expr_at[abs_off]
                         joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
-                        field_size = _esz
-                    tgt_group = _group_of(joint_target)
-                    if tgt_group is None:
-                        # Absolute target (e.g. TS2 `OENDCALL4 equ $feffc2`
-                        # reached via a by-name import): gold drops the reloc
-                        # record entirely and keeps the absolute body bytes.
-                        continue
-                    if tgt_group != group_g:
-                        tgt_group_base = group_bases[tgt_group]
-                        off_in_tgt = joint_target - tgt_group_base
-                        if not jt_enabled and field_size >= 4:
-                            # A full 4-byte `dc.l Label` cross-group pointer (as
-                            # opposed to the 3-byte `dc.l Label-1` dispatch-table
-                            # idiom) cannot ride the compressed 3-byte SUPER
-                            # type-2 patch — MPW emits a standalone cINTERSEG/
-                            # INTERSEG instead, exactly like a case-A far pointer
-                            # (measured against TS2/TS3 INIT's TLCALLTABLE-style
-                            # `dc.l` dispatch entries, docs/EXPRESSLOAD_TIER2_PLAN.md
-                            # E2). Scoped to the no-JT path: this pattern is
-                            # unobserved in the jt-gated tools' golden corpus, so
-                            # that path is left untouched.
-                            tgt_segnum = _final_segnum(tgt_group)
-                            merged_arr[rel_off:rel_off + field_size] = b'\x00' * field_size
-                            if rel_off < 0x10000 and off_in_tgt < 0x10000:
-                                standalone_group.append((rel_off, emit_cinterseg(
-                                    field_size, 0, rel_off, tgt_segnum, off_in_tgt)))
-                            else:
-                                standalone_group.append((rel_off, emit_interseg(
-                                    field_size, 0, rel_off, tgt_segnum, off_in_tgt)))
+                        tgt_group = _group_of(joint_target)
+                        if tgt_group is None:
+                            # Absolute target (exported equate, e.g. TS2
+                            # `UserDummyTable equ $FE01EF` low-word site): drop
+                            # the record, keep the absolute body bytes.
                             continue
-                        # Cross-group: encode as SUPER type-2 (INTERSEG, FileNum=1,
-                        # SegNum = target group's output segnum).
-                        tgt_segnum = tgt_group + 2   # segnum 2 = first load seg
-                        if jt_enabled:
+                        if tgt_group != group_g:
+                            tgt_group_base = group_bases[tgt_group]
+                            off_in_tgt = joint_target - tgt_group_base
                             if dyn_flags[tgt_group]:
-                                # A reference into a DYNAMIC (on-demand) group cannot
-                                # point at the group directly — it routes through the
-                                # ~JumpTable's per-routine JSL thunk instead (the
-                                # target's own final segnum/offset is the jt_entries
-                                # lookup key, matching _link_jt_tool's derivation).
                                 key = (_final_segnum(tgt_group), off_in_tgt)
                                 idx = jt_index.get(key)
                                 if idx is None:
@@ -1785,185 +1985,23 @@ def expressload(
                                 tgt_segnum = jt_segnum
                             else:
                                 tgt_segnum = _final_segnum(tgt_group)
+                            merged_arr[rel_off]     = off_in_tgt & 0xFF
+                            merged_arr[rel_off + 1] = (off_in_tgt >> 8) & 0xFF
+                            final_relocs.setdefault(13 + tgt_segnum, []).append(rel_off)
                         else:
-                            tgt_segnum = _final_segnum(tgt_group)
-                        # Patch the 3 bytes in the merged code image.
-                        merged_arr[rel_off]     = off_in_tgt & 0xFF
-                        merged_arr[rel_off + 1] = (off_in_tgt >> 8) & 0xFF
-                        merged_arr[rel_off + 2] = tgt_segnum
-                        final_relocs.setdefault(2, []).append(rel_off)
+                            final_relocs.setdefault(0, []).append(rel_off)
+
                     else:
-                        final_relocs.setdefault(1, []).append(rel_off)
+                        final_relocs.setdefault(stype, []).append(rel_off)
 
-                elif stype == 27:
-                    # Bank-byte reloc: type = 25 + target_output_segnum.
-                    # Determine which segment's bank byte this references by looking
-                    # up the EXPR's symbol value in the joint symbol table.
-                    # The body has been group-adjusted, so the stored 2-byte value is
-                    # (sym_joint_value - group_base) >> 16 — usually 0 for relocs
-                    # within the address space.  We need the JOINT value to classify.
-                    # Walk the records to find the EXPR at abs_off.
-                    sym_joint: int | None = None
-                    for placed_i in indices:
-                        _sn2, recs2_raw, sb2, _h2, _a2 = placed[placed_i]
-                        recs2_d, _ = _linkiigs._defer_shifts(recs2_raw)
-                        body_off2 = 0
-                        for _, nm2, d2 in recs2_d:
-                            if nm2 == 'END':
-                                break
-                            if nm2 in ('CONST', 'LCONST'):
-                                body_off2 += len(d2)
-                            elif nm2 in ('LEXPR', 'BEXPR', 'EXPR'):
-                                if sb2 + body_off2 == abs_off:
-                                    # Evaluate expression WITHOUT shift to get joint addr
-                                    ops2 = d2[1]
-                                    # Extract symbol name and look up in joint sym
-                                    for op2 in ops2:
-                                        if isinstance(op2, tuple) and op2[0].startswith('sym'):
-                                            sname2 = op2[1]
-                                            # Try joint sym then obj_globals; a
-                                            # "combo" group's private export
-                                            # (see _fallback_sym's docstring)
-                                            # is in neither, so fall further
-                                            # back to _fallback_sym rather
-                                            # than silently leaving sym_joint
-                                            # unresolved (measured against TS2
-                                            # INIT's ORIGBELLVECTOR bank-byte
-                                            # ref, docs/EXPRESSLOAD_TIER2_PLAN.md
-                                            # E2). Scoped to the no-JT path —
-                                            # jt_enabled tools already resolve
-                                            # correctly via sym/obj_globals[oi]
-                                            # alone. ``oi`` here is THIS
-                                            # segment's OWN owning object
-                                            # (placed_obj_idx[placed_i]) — a
-                                            # group may span several per-file
-                                            # objects (opts['obj_group']), so
-                                            # the outer group loop's ``g`` is
-                                            # not an object index.
-                                            jv = sym.get(sname2)
-                                            if jv is None:
-                                                og2 = obj_globals[placed_obj_idx[placed_i]]
-                                                jv = og2.get(sname2) if og2 else None
-                                            if jv is None and not jt_enabled:
-                                                jv = _fallback_sym.get(sname2)
-                                            if isinstance(jv, int):
-                                                sym_joint = jv
-                                            break
-                                body_off2 += d2[0]
-                            elif nm2 == 'RELEXPR':
-                                body_off2 += d2[0]
-                            elif nm2 == 'DS':
-                                body_off2 += d2
-                        if sym_joint is not None:
-                            break
+            merged = bytes(merged_arr)
 
-                    if sym_joint is not None:
-                        tgt_group = _group_of(sym_joint)
-                        if tgt_group is None:
-                            # Absolute target (exported equate, e.g. TS2's
-                            # `UserDummyTable equ $FE01EF` / `SystemFont equ
-                            # $FE77E0` high-word `#^X` immediates): drop the
-                            # record AND apply the deferred >>16 here — the
-                            # body still holds the unshifted low word (the
-                            # _defer_shifts placeholder that the SUPER-27
-                            # loader patch would normally overwrite), but with
-                            # no record the final absolute high word must be
-                            # baked: gold stores $00FE with no reloc.
-                            merged_arr[rel_off:rel_off + 2] = (
-                                ((sym_joint >> 16) & 0xFFFF).to_bytes(2, 'little'))
-                            continue
-                        if jt_enabled and dyn_flags[tgt_group]:
-                            # A bank-byte (high-word) field can't carry a DYNAMIC
-                            # group's bank directly (it isn't loaded yet, so its
-                            # bank is unknown at link time, and a lone 2-byte
-                            # field has no companion offset to redirect through a
-                            # ~JumpTable thunk the way a 3-byte far pointer does).
-                            # Measured against gold (docs/EXPRESSLOAD_TIER2_PLAN.md
-                            # E1): it is emitted as the CALLING group's own bank
-                            # instead — type 25+own_segnum, same formula as a
-                            # genuine intra-segment bank-byte reference (which
-                            # this reduces to when tgt_group == group_g, e.g.
-                            # PopUpProc/Pictures/SeedFill's own bank-byte refs).
-                            corrected_type = 25 + _final_segnum(group_g)
-                        else:
-                            tgt_segnum = _final_segnum(tgt_group) if jt_enabled else (tgt_group + 2)
-                            corrected_type = 25 + tgt_segnum
-                            # A CROSS-group type-(25+segnum) site's STORED 2-byte
-                            # value must be TARGET-group-relative (the loader adds
-                            # the target segment's own runtime base).  The body
-                            # builder's group-adjust subtracted only the CALLING
-                            # group's base, leaving joint-space values — TS3
-                            # INIT's 15 SUPER-t28 patch-table entries each read
-                            # +662 (= MAIN's joint base) over gold until rebased.
-                            # Scoped to the no-JT path: the jt tools' golden
-                            # corpus has no static cross-group bank-word site
-                            # (dynamic targets take the own-bank branch above),
-                            # and they are byte-exact without this.
-                            if not jt_enabled and tgt_group != group_g:
-                                _stored = int.from_bytes(
-                                    merged_arr[rel_off:rel_off + 2], 'little')
-                                _stored = (_stored + group_bases[group_g]
-                                           - group_bases[tgt_group]) & 0xFFFF
-                                merged_arr[rel_off:rel_off + 2] = \
-                                    _stored.to_bytes(2, 'little')
-                    else:
-                        corrected_type = 27  # fallback
-                    final_relocs.setdefault(corrected_type, []).append(rel_off)
-
-                elif stype == 0:
-                    # 2-byte (type-0) low-word reloc: check if target is in a
-                    # different group. Re-evaluate against the joint symbol
-                    # table (same robustness reasoning as stype==1, above). A
-                    # 2-byte field can't self-describe its target segment the
-                    # way a 3-byte far pointer's own 3rd byte can, so each
-                    # cross target segnum gets its own SUPER type — measured
-                    # against gold (Tool016/018): 13 + the target's own final
-                    # segnum (JT-routed the same way as stype==1 when the
-                    # target is DYNAMIC). Not gated on jt_enabled: the same
-                    # correction applies whenever there IS a cross-group
-                    # target, dynamic or not (TS2/TS3, docs/
-                    # EXPRESSLOAD_TIER2_PLAN.md E2 — dyn_flags is all-False
-                    # there, so the jt-routing sub-branch below is inert).
-                    _esz, _eops, _eseg_i = expr_at[abs_off]
-                    joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
-                    tgt_group = _group_of(joint_target)
-                    if tgt_group is None:
-                        # Absolute target (exported equate, e.g. TS2
-                        # `UserDummyTable equ $FE01EF` low-word site): drop
-                        # the record, keep the absolute body bytes.
-                        continue
-                    if tgt_group != group_g:
-                        tgt_group_base = group_bases[tgt_group]
-                        off_in_tgt = joint_target - tgt_group_base
-                        if dyn_flags[tgt_group]:
-                            key = (_final_segnum(tgt_group), off_in_tgt)
-                            idx = jt_index.get(key)
-                            if idx is None:
-                                raise ValueError(
-                                    "expressload(): opts['jt_entries'] has no "
-                                    f"entry for dynamic target segnum={key[0]} "
-                                    f"offset={key[1]:#x}")
-                            off_in_tgt = jt_jsl_offset(idx)
-                            tgt_segnum = jt_segnum
-                        else:
-                            tgt_segnum = _final_segnum(tgt_group)
-                        merged_arr[rel_off]     = off_in_tgt & 0xFF
-                        merged_arr[rel_off + 1] = (off_in_tgt >> 8) & 0xFF
-                        final_relocs.setdefault(13 + tgt_segnum, []).append(rel_off)
-                    else:
-                        final_relocs.setdefault(0, []).append(rel_off)
-
-                else:
-                    final_relocs.setdefault(stype, []).append(rel_off)
-
-        merged = bytes(merged_arr)
-
-        super_records = bytearray()
-        for _soff, _srec in sorted(standalone_group, key=lambda p: p[0]):
-            super_records += _srec
-        for stype in sorted(final_relocs):
-            super_records += emit_super(stype, sorted(final_relocs[stype]))
-        super_records += b'\x00'   # END
+            super_records = bytearray()
+            for _soff, _srec in sorted(standalone_group, key=lambda p: p[0]):
+                super_records += _srec
+            for stype in sorted(final_relocs):
+                super_records += emit_super(stype, sorted(final_relocs[stype]))
+            super_records += b'\x00'   # END
 
         reloc_size_val = len(super_records) - 1
 
