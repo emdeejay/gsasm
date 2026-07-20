@@ -278,19 +278,39 @@ golden bytes:
 ### Next targets
 
 - **Finder data fork** — IN PROGRESS (2026-07-20, work/finderdatacheck.py;
-  ratchet gate metric `finder_data_code_bytes`, currently 96,757/135,432
-  with BUFFERS/DATA/FIFIFIONE segments byte-exact and every segment
-  size-correct except FINDER at -12).  All 22 modules assemble with zero
-  errors (three needed E16.LineEdit/M16.Util etc. — 52 more AIIGSIncludes
-  extracted from system500.hfv into work/rincludes/AIIGSIncludes).  Three
-  assembler fixes landed (fixtures 058-060, gate green, ROM byte-identical):
-  `STRING GSOS` word-length prefix; template-record courtesy claims yield
-  to a prior pass's real-label kind (+ needs_reloc seed-kind fallback,
-  symseg seeded across passes); foreign-PROC-local equates don't
-  direct-page-size a segment's own forward label.  Known remaining work:
-  cross-load-segment `lda #^extern` sites must store the UNSHIFTED offset
-  with the shift deferred to the interseg reloc (gold `nullStrg` evidence;
-  the harness's abs_extra currently link-resolves the shift); ~JumpTable
-  has 8/10 entries (two refs into dynamic segments unscanned); FINDER
-  segment -12 bytes; then the full-file multiseg ExpressLoad assembly and
-  diskcheck wiring for Start+Finder dual-fork.
+  ratchet gate metric `finder_data_code_bytes`).  Leg 2: **9 of 12 load
+  segments byte-exact** (BUFFERS/MATCH/ALERT/CODE/DATA/ABOUT/Help/FIFIFIONE
+  + the 10-entry ~JumpTable), 97,400/135,432 code bytes, all segment
+  lengths correct.  Fixes this leg (fixtures 058-060, 062; gate green, ROM
+  byte-identical, disk 37/37):
+    - image-side inter-segment conventions in the harness: size-4 pointer
+      slots zero-filled (value in the dictionary reloc), size-2 `#^extern`
+      stores the unshifted offset, dynamic targets route through the JT;
+    - ~JumpTable now 10/10 — a routine referenced as `routine+N` gets its
+      OWN entry (addend-keyed allocation);
+    - link-time-constant externs: exported EQUATES and qualified
+      typed-import fields (`INFOWINPARAM.WPOSITION.*`) seeded as absolute
+      externs; a `dc.l A-B` of two pure externals emits the OMF by-name
+      difference (omf `_reloc_elem`, fixture 062) instead of the FF
+      sentinel (alert.aii write-request byte counts).
+  All 22 modules assemble clean (52 more AIIGSIncludes pulled from
+  system500.hfv into work/rincludes/AIIGSIncludes, gitignored).
+  Remaining ~2,044 code bytes, all in three segments:
+    - **CONTROL (108 B)**: every `b7 01` vs `b7 18` — a systematic
+      wrong-value pattern (Common.asm), likely a mis-seeded extern;
+    - **VERIFY (16 B) / FINDER (some)**: bank-$E1 hardware register refs
+      (`ca`/`cc`/`e8`/`e6` families) sizing 16-bit where gold is long, and
+      the `d9 09 09` / `52 6e` `dc.l`-style far pointers.
+    - **The deferred deltay/GDataReg conflict**: Finder's stack-frame
+      `deltay equ 7` (shadowing a genuine imported DP cell — import should
+      win, absolute) and NoteSynth's `GDataReg equ $E1C03D` in a shared
+      `ns.equ` (vestigial import — equate should win, long) are both
+      "unexported proc-EQU reusing a pure IMPORT" with OPPOSITE correct
+      resolution and no per-module signal separating them.  A first attempt
+      (make the import win) took FINDER from 26k→63.8k match but shrank
+      NoteSynth's `adc >GDataReg` from long to 16-bit (Tool025 −1 byte,
+      disk regression) — reverted.  Needs a whole-link signal (is the name
+      genuinely exported/defined as an address by ANOTHER object?) or a
+      reference-site heuristic (`,s` stack-relative → local).
+  Then: full-file multiseg ExpressLoad assembly + diskcheck wiring for
+  Start+Finder dual-fork.

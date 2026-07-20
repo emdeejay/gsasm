@@ -1189,7 +1189,17 @@ class Asm:
         """A proc-scoped EQU reusing a name that already has a cross-module
         GLOBAL code label (IMPORT/EXPORT/ENTRY) is module-local: it must not
         clobber the global binding (GS.OS bank0.dispatcher `a_reg` EXPORTed
-        ds.b vs lc_dispatcher's local `a_reg equ dir_reg+2`).  Fixture 036."""
+        ds.b vs lc_dispatcher's local `a_reg equ dir_reg+2`).  Fixture 036.
+
+        (An UNEXPORTED proc-EQU reusing a PURE declared IMPORT — Finder
+        icons.aii dragRects' stack-frame `deltay equ 7` vs `IMPORT deltay`
+        — is NOT handled here: it collides with shared-.equ file-scope
+        constants that are also vestigially imported (NoteSynth ns.equ
+        `GDataReg equ $E1C03D` + `IMPORT GDataReg`, a bank-$E1 register the
+        golden `adc >GDataReg` sizes LONG off the equate, not the import).
+        The two cases need opposite resolution and no per-module signal
+        separates them; deferred — see docs/REZ_TYPES_PLAN.md Finder-data
+        notes.)"""
         return (kind == 'equ' and self.in_proc and not name.startswith('@')
                 and self.symtype.get(u) == 'label'
                 and (u in self.imports or u in self.exports

@@ -322,6 +322,22 @@ def _has_sym_ref(ops: list) -> bool:
     return any(isinstance(op, tuple) and op[0].startswith('sym') for op in ops)
 
 
+def _addend_of(ops: list) -> int:
+    """The constant addend ADDed to the symbol in *ops* (0 if none).
+
+    Recognises the ``sym, lit(N), ADD`` shape (ignoring a trailing
+    ``lit(-shift), SHL`` pair) that both AsmIIgs-style `label+N` operands
+    and a flat single-object link's SEGNAME+N collapse produce."""
+    tail = ops
+    if (len(tail) >= 4 and tail[-1] == 'end' and tail[-2] == ('op', 7)
+            and isinstance(tail[-3], tuple) and tail[-3][0] == 'lit'):
+        tail = tail[:-3] + ['end']
+    if (len(tail) >= 4 and tail[-1] == 'end' and tail[-2] == ('op', 1)
+            and isinstance(tail[-3], tuple) and tail[-3][0] == 'lit'):
+        return tail[-3][1]
+    return 0
+
+
 _ALL_SUPER_CLASSES = frozenset(_SUPER_TYPE)
 
 
