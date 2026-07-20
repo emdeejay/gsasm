@@ -228,6 +228,7 @@ REZ_BUILDERS = {
     f'{V}/System/CDevs/RAM': _build_cdev('RAM'),
     f'{V}/System/CDevs/Slots': _build_cdev('Slots'),
     f'{V}/System/CDevs/Time': _build_cdev('Time'),
+    f'{V}/System/Desk.Accs/ControlPanel': _build_cdev('ControlPanel'),
 }
 
 

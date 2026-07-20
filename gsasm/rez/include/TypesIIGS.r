@@ -31,6 +31,7 @@
 #define rCodeResource       0x8017
 #define rCDEVCode           0x8018
 #define rCDEVFlags          0x8019
+#define rTwoRects           0x801A
 #define rListRef            0x801C
 #define rErrorString        0x8020
 #define rVersion            0x8029
@@ -44,6 +45,10 @@
 #define CtlInactive          0xFF00
 #define DefaultButton        1
 #define ResourceToResource   9
+#define refIsPtr             0
+#define refIsHandle          1
+#define refIsResource        2
+#define singlePtr            0
 #define FctlProcNotPtr       0x1000
 #define fType2PopUp          0x0040
 #define fSubTextIsPascal     0x0001
@@ -51,6 +56,11 @@
 #define fBlastText           0x0004
 #define fCtlTie              0x0008
 #define fAlert               0x2000
+#define fCtlIsMultiPart      0x0400
+#define fCtlTellAboutSize    0x0800
+#define fCtlWantEvents       0x2000
+#define fCtlWantsEvents      0x2000
+#define fCtlCanBeTarget      0x4000
 
 /* --- Plain string resources ------------------------------------------- */
 /* Raw text, no length prefix, no implicit terminator (rErrorString bodies
@@ -223,6 +233,44 @@ type rControlTemplate {
                     integer;
                 };
             };
+        case checkControl:
+            key unsigned hex longint = 0x82000000;
+            optional ctlParams {
+                integer;                        /* flags                  */
+                integer;                        /* moreFlags              */
+                longint;                        /* refCon                 */
+                longint;                        /* title ref              */
+                integer;                        /* initial value          */
+                longint;                        /* color table ref        */
+                array {                         /* key equivalent         */
+                    char;
+                    char;
+                    integer;
+                    integer;
+                };
+            };
+        case scrollControl:
+            key unsigned hex longint = 0x86000000;
+            optional ctlParams {
+                integer;                        /* flags                  */
+                integer;                        /* moreFlags              */
+                longint;                        /* refCon                 */
+                integer;                        /* max size               */
+                integer;                        /* view size              */
+                integer;                        /* initial value          */
+                longint;                        /* color table ref        */
+            };
+        case popUpControl:
+            key unsigned hex longint = 0x87000000;
+            optional ctlParams {
+                integer;                        /* flags                  */
+                integer;                        /* moreFlags              */
+                longint;                        /* refCon                 */
+                integer;                        /* title width            */
+                longint;                        /* menu ref               */
+                integer;                        /* initial value          */
+                longint;                        /* color table ref        */
+            };
         case statTextControl:
             key unsigned hex longint = 0x81000000;
             optional ctlParams {
@@ -242,6 +290,33 @@ type rControlTemplate {
                 integer;                        /* max text length        */
                 longint;                        /* default text ref       */
                 integer;                        /* password char          */
+            };
+        case listControl:
+            key unsigned hex longint = 0x89000000;
+            optional ctlParams {
+                integer;                        /* flags                  */
+                integer;                        /* moreFlags              */
+                longint;                        /* refCon                 */
+                integer;                        /* list size              */
+                integer;                        /* list view              */
+                integer;                        /* list type              */
+                integer;                        /* list start             */
+                longint = 0;                    /* list draw routine      */
+                integer;                        /* member height          */
+                integer;                        /* member size            */
+                longint;                        /* list ref               */
+                longint;                        /* color table ref        */
+            };
+        case rectangleControl:
+            key unsigned hex longint = 0x87FF0003;
+            optional ctlParams {
+                integer;                        /* flags                  */
+                integer;                        /* moreFlags              */
+                longint;                        /* refCon                 */
+                integer;                        /* pen height             */
+                integer;                        /* pen width              */
+                hex string;                     /* pen mask               */
+                hex string;                     /* pen pattern            */
             };
         case iconButtonControl:
             key unsigned hex longint = 0x07FF0001;
@@ -318,4 +393,26 @@ type rCDEVFlags {
     pstring[15];           /* name    (16-byte field)                     */
     pstring[32];           /* author  (33-byte field — golden width)      */
     pstring[8];            /* version ( 9-byte field — golden width)      */
+};
+
+type rTwoRects {           /* window position pair: 320- and 640-mode rects */
+    rect;
+    rect;
+};
+
+type rTaggedStrings {      /* Sound CDEV: leading pair count, then
+                              (tag word, pstring) pairs in body order */
+    integer = $$Countof(tags);
+    wide array tags {
+        integer;           /* tag                                         */
+        pstring;           /* string                                      */
+    };
+};
+
+type rListRef {            /* List Manager member list.  Only the EMPTY
+                              list is oracle-proven (AppleShare ZoneList,
+                              0 golden bytes); member shape is doc-derived. */
+    array {
+        pstring;
+    };
 };

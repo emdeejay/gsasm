@@ -229,6 +229,31 @@ def test_unrecognized_character_becomes_error_token_not_an_exception():
     ]
 
 
+def test_char_constant_packs_big_endian():
+    # FolderPriv.r `#define myCtrlList 'GB'` -> resource id 0x4742 in the
+    # golden fork: single-quoted char constants are NUMBERs, bytes packed
+    # big-endian (first char in the high byte).
+    toks = _toks(b"'GB' 'A';\r")
+    assert toks[0].kind == lexer.NUMBER and toks[0].value == 0x4742
+    assert toks[1].kind == lexer.NUMBER and toks[1].value == 0x41
+
+
+def test_macro_names_case_insensitive():
+    # SetStart.r uses fCtlProcNotPtr for the include's FctlProcNotPtr (and
+    # ADU/Installer spell rPString three ways); the golden forks prove real
+    # Rez resolves them all.
+    toks = _toks(b'#define FooBar 7\rfoobar FOOBAR;\r')
+    assert [t.value for t in toks] == [7, 7, ';']
+
+
+def test_directive_line_block_comment_ends_at_eol():
+    # AppleShare.r:782 `#define rVPText3 67 /* "Password:"` — unterminated
+    # /* on a #-directive line ends AT the newline; the resource statement
+    # on the next line must survive (its golden resource exists).
+    toks = _toks(b'#define X 9 /* dangling\rX;\r')
+    assert [t.value for t in toks] == [9, ';']
+
+
 _TESTS = [(n, f) for n, f in sorted(globals().items())
           if n.startswith('test_') and callable(f)]
 

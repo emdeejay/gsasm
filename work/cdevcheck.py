@@ -32,32 +32,61 @@ from gsasm.rez import parser, gen, emit
 INC = ['gsasm/rez/include']
 SRC_ROOT = 'ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel'
 
-# CDEV name (as shipped in System/CDevs) -> archived Rez source.
+# Shipped file -> (disk image, absolute volume path, archived Rez source).
+# The ControlPanel NDA rides along: same CtlPanel tree, pure-Rez fork (no
+# rCDEVCode), one extra template (rTwoRects) + the listControl case.
+# CDEVs shipping on several disks are checked against ONE canonical copy.
+D1 = f'{dc.DISKS}/Disk 1 of 7 Install.2mg'
+D2 = None                                   # the default System Disk
+D3 = f'{dc.DISKS}/Disk 3 of 7 SystemTools1.2mg'
+D4 = f'{dc.DISKS}/Disk 4 of 7 SystemTools2.2mg'
+
 CDEVMAP = {
-    'General': 'GeneralCDEV/General.r',
-    'Printer': 'PrinterCDEV/Printer.r',
-    'RAM':     'RamDiskCDEV/RAMDisk.r',
-    'Slots':   'SlotsCDEV/Slots.r',
-    'Time':    'TimeCDEV/Time.r',
+    'General': (D2, f'{dc.V}/System/CDevs/General',  'GeneralCDEV/General.r'),
+    'Printer': (D2, f'{dc.V}/System/CDevs/Printer',  'PrinterCDEV/Printer.r'),
+    'RAM':     (D2, f'{dc.V}/System/CDevs/RAM',      'RamDiskCDEV/RAMDisk.r'),
+    'Slots':   (D2, f'{dc.V}/System/CDevs/Slots',    'SlotsCDEV/Slots.r'),
+    'Time':    (D2, f'{dc.V}/System/CDevs/Time',     'TimeCDEV/Time.r'),
+    'ControlPanel': (D2, f'{dc.V}/System/Desk.Accs/ControlPanel',
+                     'CtlPanelNDA/CtlPanel.rez'),
+    'DirectConnect': (D3, '/SystemTools1/System/CDevs/DirectConnect',
+                      'DirectConnectCDEV/DIRECTCONNECT.R'),
+    'Keyboard': (D3, '/SystemTools1/System/CDevs/Keyboard',
+                 'KeyboardCDEV/Keyboard.r'),
+    'Modem':   (D3, '/SystemTools1/System/CDevs/Modem',   'ModemCDEV/Modem.r'),
+    'Monitor': (D3, '/SystemTools1/System/CDevs/Monitor', 'MonitorCDEV/Monitor.r'),
+    'Sound':   (D3, '/SystemTools1/System/CDevs/Sound',   'SoundCDEV/Sound.r'),
+    'AppleShare': (D4, '/SystemTools2/System/CDevs/AppleShare',
+                   'AppleShareCDEV/AppleShare.r'),
+    'FolderPriv': (D4, '/SystemTools2/System/CDevs/FolderPriv',
+                   'FolderPrivCDEV/FolderPriv.r'),
+    'Namer':   (D4, '/SystemTools2/System/CDevs/Namer',   'NamerCDEV/namer.r'),
+    'NetPrinter': (D4, '/SystemTools2/System/CDevs/NetPrinter',
+                   'NetPrinterCDEV/netprinter.r'),
+    'Network': (D4, '/SystemTools2/System/CDevs/Network', 'NetworkCDEV/network.r'),
+    'SetStart': (D1, '/Install/System/CDevs/SetStart',    'SetStartCDEV/SetStart.r'),
 }
 
 R_CDEVCODE = 0x8018
+R_CODERESOURCE = 0x8017
 
 
 def golden(name):
-    return rc.golden_fork(f'{dc.V}/System/CDevs/{name}')
+    disk, path, _src = CDEVMAP[name]
+    return rc.golden_fork(path, disk)
 
 
 def build_cdev_fork(name):
     """Build one CDEV's full resource fork; returns bytes."""
     gold = golden(name)
-    src = os.path.join(SRC_ROOT, CDEVMAP[name])
+    src = os.path.join(SRC_ROOT, CDEVMAP[name][2])
     stmts = parser.parse(src, include_dirs=INC, predefined={'RezIIGS': 1})
     entries = gen.generate(stmts)
-    # rCDEVCode is a `read` of the linked CDEV code: opaque bytes, supplied
-    # from the golden fork (see module docstring).
+    # rCDEVCode / rCodeResource are `read`s of linked code: opaque bytes,
+    # supplied from the golden fork (see module docstring).
     read_data = {(e.type, e.id): gold.raw[e.offset:e.offset + e.size]
-                 for e in gold.used if e.type == R_CDEVCODE}
+                 for e in gold.used
+                 if e.type in (R_CDEVCODE, R_CODERESOURCE)}
     tuples = gen.to_emit_tuples(entries, read_data)
     meta = rec._meta_from_golden(gold)
     return emit.emit_fork(tuples, meta)
