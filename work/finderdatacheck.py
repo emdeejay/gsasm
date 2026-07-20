@@ -27,7 +27,8 @@ import easymountcheck as em
 import toolcheck as tc
 from a2til.prodos import Volume
 from gsasm import asm, omf, linkiigs
-from gsasm.expressload import expressload, encode_jumptable, jt_jsl_offset
+from gsasm.expressload import (expressload, encode_jumptable, jt_jsl_offset,
+                               _get_shift, _addend_of)
 
 FD = 'ref/GSOS_6/IIGS.601.SRC/A.U.G/Finder'
 DEFINES = {'DEBUGSYMBOLS': 0, 'AllowServerCopies': 0, 'AllowSmartDesktop': 0}
@@ -52,6 +53,32 @@ SEGS = [
 ]
 
 _ASM_CACHE = {}
+
+
+def _scan_refs_shift(objs):
+    """Like toolcheck._scan_refs but also yields the expression's tail
+    right-shift (0 when unshifted) and constant addend:
+    (abs_off, size, shift, symbol_upper, addend).  The addend matters for
+    jump-table allocation: gold gives `routine+2` its OWN ~JumpTable entry
+    (Finder ABOUT refs at +0x2bc/+0x2be and +0x2c4/+0x2c6)."""
+    placed, _osb, _poi = linkiigs._place(objs, 0)
+    for _sn, recs, sb, _hdr, _a in placed:
+        boff = 0
+        for _at, nm, d in recs:
+            if nm in ('CONST', 'LCONST'):
+                boff += len(d)
+            elif nm in ('LEXPR', 'BEXPR', 'EXPR'):
+                size, ops = d[0], d[1]
+                syms = [op[1].upper() for op in ops
+                        if isinstance(op, tuple) and str(op[0]).startswith('sym')]
+                if syms:
+                    yield (sb + boff, size, _get_shift(ops),
+                           syms[0], _addend_of(ops), len(syms))
+                boff += size
+            elif nm == 'RELEXPR':
+                boff += d[0]
+            elif nm == 'DS':
+                boff += d
 
 
 def _assemble(fname):
@@ -105,12 +132,23 @@ def link_finder():
             return None
         return tgt
 
+    # exported EQUATES are link-time constants too (INFO's absolute refs to
+    # DP-area globals like $00B7 — exported equ values, not labels)
+    for name, _kind, _srcs in SEGS:
+        for _ob, a in seg_objs[name]:
+            for e in list(a.exports) + list(a.entries):
+                u = e.upper()
+                if u not in expmap and a.symtype.get(u) == 'equ':
+                    v = a.symbols.get(u)
+                    if isinstance(v, int):
+                        expmap[u] = ('=equ', v)
+
     jt_entries, jt_index = [], {}
     for name, _kind, _srcs in SEGS:
-        for _aoff, _size, symu in tc._scan_refs(seg_objs[name], None):
+        for _aoff, _size, _shift, symu, addend, _n in _scan_refs_shift(seg_objs[name]):
             tgt = _cross_target(name, symu)
-            if tgt and (kind_of[tgt[0]] & 0x8000):
-                key = (segnum[tgt[0]], tgt[1])
+            if tgt and tgt[0] != '=equ' and (kind_of[tgt[0]] & 0x8000):
+                key = (segnum[tgt[0]], tgt[1] + addend)
                 if key not in jt_index:
                     jt_index[key] = len(jt_entries)
                     jt_entries.append(key)
@@ -118,10 +156,24 @@ def link_finder():
     images = {}
     for name, _kind, _srcs in SEGS:
         externs = {}
+        # Qualified typed-import field refs (IMPORT name:Type -> emitted as
+        # 'NAME.FIELD...' by-name ops): the referencing module's equ_alias
+        # table maps the dotted name to (base_import, offset) — seed the
+        # extern as the base's link value + offset (GetInfo's
+        # INFOWINPARAM.WPOSITION.* -> absolute $B7/$B9/... DP-record fields).
+        for _ob, a in seg_objs[name]:
+            for alias, (base, off) in getattr(a, 'equ_alias', {}).items():
+                bu = str(base).upper()
+                tgt = expmap.get(bu)
+                if tgt and tgt[0] != name and not (
+                        tgt[0] != '=equ' and (kind_of[tgt[0]] & 0x8000)):
+                    externs[str(alias).upper()] = tgt[1] + off
         for symu, (tname, toff) in expmap.items():
             if tname == name or symu in seg_sym[name]:
                 continue
-            if kind_of[tname] & 0x8000:
+            if tname == '=equ':
+                externs[symu] = toff
+            elif kind_of[tname] & 0x8000:
                 key = (segnum[tname], toff)
                 if key not in jt_index:
                     continue
@@ -132,11 +184,42 @@ def link_finder():
         result = linkiigs.link(objs, opts={'merge': True, 'extern': externs,
                                            'abs_extra': list(externs.keys())})
         img = bytearray(tc._lconst_image(result))
-        for aoff, size, symu in tc._scan_refs(objs, None):
+        # In-image conventions for inter-segment sites (golden Finder
+        # evidence, matching MPW LinkIIGS's INTERSEG record family):
+        #   size 3 (jsl/far code ref): offset word + file segnum bank byte
+        #     (the cINTERSEG convention; toolcheck's established patch).
+        #   size 2, shift 16 (lda #^extern): the UNSHIFTED offset word —
+        #     the shift is deferred to the interseg reloc (gold nullStrg
+        #     $0613 at VERIFYMEDIUM+31, not $0000).
+        #   size 4 (dc.l pointer table): ZERO image bytes — the value
+        #     lives entirely in the dictionary's INTERSEG record (gold's
+        #     zero-filled dispatch tables at FINDER+0x428).
+        for aoff, size, shift, symu, addend, nsyms in _scan_refs_shift(objs):
             tgt = _cross_target(name, symu)
-            if tgt and size >= 3 and aoff + 2 < len(img):
-                img[aoff + 2] = (jt_segnum if (kind_of[tgt[0]] & 0x8000)
-                                 else segnum[tgt[0]]) & 0xFF
+            if not tgt or tgt[0] == '=equ' or nsyms > 1:
+                # equ targets are absolute constants the linker already
+                # resolved; multi-symbol expressions (extern differences)
+                # are link-time constants, not address relocations.
+                continue
+            dyn_tgt = bool(kind_of[tgt[0]] & 0x8000)
+            if dyn_tgt:
+                # A dynamic-segment target routes through its OWN JT entry
+                # (per distinct target address incl. addend); the extern-
+                # based value the linker wrote (base entry + addend) is
+                # wrong for addended refs — overwrite uniformly.
+                val = jt_jsl_offset(jt_index[(segnum[tgt[0]], tgt[1] + addend)])
+            else:
+                val = tgt[1] + addend
+            if size == 4 and aoff + 4 <= len(img):
+                img[aoff:aoff + 4] = b'\x00\x00\x00\x00'
+            elif size == 3 and aoff + 3 <= len(img):
+                img[aoff:aoff + 2] = (val & 0xFFFF).to_bytes(2, 'little')
+                img[aoff + 2] = (jt_segnum if dyn_tgt else segnum[tgt[0]]) & 0xFF
+            elif size == 2 and aoff + 2 <= len(img):
+                if shift == 16 or dyn_tgt:
+                    # shifted: store the UNSHIFTED offset (deferred shift);
+                    # plain dynamic: the JT jsl offset word.
+                    img[aoff:aoff + 2] = (val & 0xFFFF).to_bytes(2, 'little')
         images[name] = bytes(img)
 
     return images, jt_entries, jt_segnum, segnum

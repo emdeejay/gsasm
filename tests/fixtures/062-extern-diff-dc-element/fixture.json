@@ -1,0 +1,3 @@
+{
+  "note": "A DC address-table element that is A-B where A and B are two pure externals (declared IMPORT, no local value) is a link-time layout constant: emit the OMF by-name difference expression (the linker computes it) instead of baking the FF unresolved sentinel. Guards omf.py _reloc_elem's _extern_diff_expr branch. Finder alert.aii dc.L endTextAlertStr-textAlertStr."
+}

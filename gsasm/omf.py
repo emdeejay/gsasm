@@ -1339,6 +1339,12 @@ def emit_segment(asm, seg, exports):
                 # `DC.W zloader_end-zloader_start` -> a LINK-time value, emit by name.
                 if _ext_plus_const(asm, it) is not None:
                     return True
+                # a difference of two EXTERNALS (both declared IMPORTs with no
+                # local value) — a link-time constant _expr_for emits by name
+                # (alert.aii `dc.L endTextAlertStr-textAlertStr`, golden 0x126;
+                # previously baked the $FF unresolved sentinel).
+                if _extern_diff_expr(asm, it) is not None:
+                    return True
                 return False
             w = asm._width(u)
             no_str = not any(it[:1] in "'\"" for it in items if it)
