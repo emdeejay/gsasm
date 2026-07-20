@@ -2,9 +2,16 @@
 
 > Produced 2026-07-20 by a read-only multi-agent reverse-engineering workflow
 > (7 decode agents -> synthesize -> 3 adversarial critics -> finalize, Opus 4.8/1M).
-> Status: PLAN ONLY, not implemented. The code images + ~JumpTable are already
-> byte-exact (work/finderdatacheck.py, FINDER_DATA_CODE_BYTES 135444/135444);
-> this plan closes the per-segment RELOCATION DICTIONARIES + full-fork packaging.
+>
+> **STATUS: EXECUTED — DONE (commits 5663328..166e4ad).** All five stages landed
+> byte-exact: build_finder_data() reproduces the full 146,924-byte fork against
+> both golden copies (FINDER_DATA_BYTES_EXACT 293848/293848); Start is dual-fork
+> logical-exact (disk_logical_exact 37->38); ROM byte-identical; corpus untouched.
+> The BankRel rule (§A.4) and the `_het_entries` entry-body rule turned out
+> exactly as derived — the latter simplified to `51 + len(SEGNAME)` (§B.2), which
+> subsumes the prior hand-fit constant. Corpus-free guards:
+> tests/test_expressload_finder.py. Executed via supervised Opus implement->verify
+> workflows with gate+commit between stages.
 
 ---
 
