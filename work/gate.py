@@ -107,7 +107,9 @@ CHECKS = [
         ('finder_data_code_bytes',
          r'FINDER_DATA_CODE_BYTES\s+(\d+)/(\d+)', 'frac'),
         ('finder_reloc_segs_exact',
-         r'FINDER_RELOC_SEGS_EXACT\s+(\d+)/(\d+)', 'frac')]),
+         r'FINDER_RELOC_SEGS_EXACT\s+(\d+)/(\d+)', 'frac'),
+        ('finder_data_bytes_exact',
+         r'FINDER_DATA_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
     # MountImageGS NDA data fork — assembler oracle from the archived
     # 30-Apr-93 build (older LinkIIGS SUPER coverage; no rsrc oracle
     # survives, so MountImage.r stays a non-target — see the harness).
