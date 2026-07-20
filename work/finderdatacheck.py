@@ -118,10 +118,16 @@ def link_finder():
         seg_objs[name] = objs
         seg_sym[name] = tc._seg_symbols(objs)
 
+    # Cross-SEGMENT visibility is EXPORT-only: an ENTRY is an intra-object
+    # (here, intra-load-segment) private entry point, so a module's `ENTRY
+    # GetFileInfo` (Misc.aii's own local proc) must NOT shadow the real
+    # program-wide `EXPORT GetFileInfo` (GSOS.aii, in the CODE segment) that
+    # other segments IMPORT.  (The same exports-vs-entries distinction the
+    # linkiigs GLOBAL-record path already makes.)
     expmap = {}
     for name, _kind, _srcs in SEGS:
         for _ob, a in seg_objs[name]:
-            for e in list(a.exports) + list(a.entries):
+            for e in list(a.exports):
                 v = seg_sym[name].get(e.upper())
                 if isinstance(v, int):
                     expmap.setdefault(e.upper(), (name, v))

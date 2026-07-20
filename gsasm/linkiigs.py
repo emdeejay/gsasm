@@ -284,6 +284,20 @@ def _build_symtab(
     for pi, oi in enumerate(placed_obj_idx):
         per_obj_placed[oi].append(pi)
 
+    # Names EXPORTed by ANY object in this link.  An ENTRY is a PRIVATE
+    # (intra-object) entry point, so it must not shadow the program-wide
+    # EXPORT of the same name that other objects IMPORT — the same
+    # exports-win-over-entries rule the GLOBAL-record pass (c) below applies
+    # (a `priv` ENTRY GLOBAL is skipped there).  A name that is ONLY ever
+    # ENTRYed (no EXPORT anywhere) stays link-visible, unchanged.  Finder:
+    # Misc.aii `ENTRY GetFileInfo` (its own local proc) vs GSOS.aii
+    # `EXPORT GetFileInfo` (the real one) — every IMPORTer must bind the
+    # export, gold `22 d9 09 09`.
+    _all_exports = set()
+    for _ob, _a in objects:
+        if _a is not None:
+            _all_exports.update(_a.exports)
+
     for obj_idx, (obj_bytes, asm_obj) in enumerate(objects):
         bases_this_obj = obj_seg_bases[obj_idx]
 
@@ -362,8 +376,12 @@ def _build_symtab(
                 # flow yet placed at the group's true end) — uses its real placed base.
                 abs_val = (seg_placed_base + v - seg_own_org) & 0xFFFFFF
 
-                # Global table: only ENTRY/EXPORT labels (unless single-object)
-                is_public = lab in asm_obj.entries or lab in asm_obj.exports
+                # Global table: only ENTRY/EXPORT labels (unless single-object).
+                # An ENTRY shadowed by a same-named EXPORT elsewhere in the link
+                # stays PRIVATE (intra-object) — see `_all_exports` above.
+                is_public = (lab in asm_obj.exports
+                             or (lab in asm_obj.entries
+                                 and lab not in _all_exports))
                 if is_single_obj or is_public:
                     sym.setdefault(lab, abs_val)
 
