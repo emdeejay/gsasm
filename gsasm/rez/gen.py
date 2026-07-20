@@ -315,18 +315,24 @@ so which values get consumed by which fields is guaranteed identical
 between them — confirmed empirically (`work/rezgencheck.py`) by the fact
 that every corpus resource's measured width matches its emitted length.
 
-`$$ArrayIndex`/`Subscript` (best-effort, NOT golden-verified)
+`$$ArrayIndex`/`Subscript` (golden-verified by the Finder sweep)
 ===============================================================
-`rBundle`/`rFinderPath` (the only templates using `$$ArrayIndex(name)` and
-`label[$$ArrayIndex(name)]`-style subscripted label references) are never
-instantiated anywhere in the 6.0.1 corpus (`rBundle`'s typeid, $802B, never
-appears among the 138 resource statements), so this behavior cannot be
-golden-diffed. A reasonable implementation is provided (current iteration
-index of the innermost named array a `$$ArrayIndex` call appears inside;
-subscripted label offsets recorded per iteration of the innermost enclosing
-named array) and pinned by a hand-written test in `tests/test_rez_gen.py`,
-but — unlike everything else in this module — it is *not* backed by a
-golden-byte comparison and should be treated as speculative.
+`rBundle`/`rFinderPath` are the only templates using `$$ArrayIndex(name)`
+and `label[$$ArrayIndex(name)]`-style subscripted label references.
+Originally absent from the Sys.Resources corpus (rBundle's typeid, $802B,
+never appears among its 138 resource statements) the implementation here
+(current iteration index of the innermost named array a `$$ArrayIndex`
+call appears inside; subscripted label offsets recorded per iteration of
+the innermost enclosing named array) was speculative; the Finder-fork
+sweep (work/findercheck.py, 2026-07-20) now backs it with a golden byte
+comparison: the Finder rBundle's 54 OneDoc records each carry a
+self-inclusive size word and a matchFlags-offset word computed from
+subscripted label differences, all byte-exact.  The same sweep exposed
+and fixed the one real bug in the originally speculative machinery:
+`$$optionalCount`/`$$Countof` of a group nested inside an array iteration
+read the plain `ctx.counts` slot, which by emit-pass time held the LAST
+iteration's count — per-iteration `indexed_counts` (mirroring
+`indexed_offsets`) now serve those lookups.
 """
 from __future__ import annotations
 
@@ -490,6 +496,11 @@ class _Ctx:
         self.values = {}           # label name -> written scalar value (backward refs)
         self.array_stack = []      # [(array_name, iter_index), ...], innermost last
         self.indexed_offsets = {}  # (label_name, iter_index) -> bit offset (speculative)
+        self.indexed_counts = {}   # (group_name, iter_index) -> consumed count, for
+                                   # groups nested inside an array iteration (rBundle's
+                                   # per-OneDoc `optional Launch`: the plain counts slot
+                                   # holds only the LAST iteration's count by the time
+                                   # the emit pass evaluates iteration 0's count field)
 
 
 def _mask(width):
@@ -540,6 +551,8 @@ def _eval_expr(expr, ctx):
             if right == 0:
                 raise GenError(f"{expr.file}:{expr.line}: division by zero")
             return _cdiv(left, right)
+        if expr.op == '|':
+            return left | right
         raise GenError(f"{expr.file}:{expr.line}: unsupported operator {expr.op!r}")
     if isinstance(expr, parser.Name):
         # A bare label reference: the label's BIT OFFSET from the start of
@@ -583,17 +596,18 @@ def _eval_call(call, ctx):
                             f"to a field not yet written (forward references are "
                             f"not supported for $$Word/$$Byte/$$Long)")
         return ctx.values[_key(label)]
-    if fn == '$$countof':
+    if fn in ('$$countof', '$$optionalcount'):
         name = _call_name_arg(call)
+        if ctx.array_stack:
+            # A count field inside an array iteration reads the count its
+            # OWN iteration's group produced (populated by the measure
+            # pass; see `_record_indexed_count`).
+            _, idx = ctx.array_stack[-1]
+            if (_key(name), idx) in ctx.indexed_counts:
+                return ctx.indexed_counts[(_key(name), idx)]
         if _key(name) not in ctx.counts:
-            raise GenError(f"{call.file}:{call.line}: $$Countof({name}) refers to "
-                            f"an unknown array/optional group")
-        return ctx.counts[_key(name)]
-    if fn == '$$optionalcount':
-        name = _call_name_arg(call)
-        if _key(name) not in ctx.counts:
-            raise GenError(f"{call.file}:{call.line}: $$optionalCount({name}) "
-                            f"refers to an unknown optional/array group")
+            raise GenError(f"{call.file}:{call.line}: {call.func}({name}) "
+                            f"refers to an unknown array/optional group")
         return ctx.counts[_key(name)]
     if fn == '$$arrayindex':
         # Best-effort / not golden-verified -- see module docstring.
@@ -642,7 +656,31 @@ def _resolve_named_value(named_values, val, ctx, file, line):
             raise GenError(f"{file}:{line}: {val.name!r} is not one of this "
                             f"field's named values ({sorted(table)})")
         return table[_key(val.name)]
-    return _eval_expr(val, ctx)
+    return _eval_in_scope(val, table, ctx)
+
+
+def _eval_in_scope(expr, table, ctx):
+    # An operator expression over a field's symbolic constants
+    # (`FileType|NetworkAccess`, Finder icons.rez): the field's named
+    # values are in scope for bare Names throughout the expression, with
+    # everything else deferred to the ordinary evaluator.
+    if isinstance(expr, parser.Name) and _key(expr.name) in table:
+        return table[_key(expr.name)]
+    if isinstance(expr, parser.UnaryOp):
+        inner = parser.UnaryOp(file=expr.file, line=expr.line, op=expr.op,
+                               operand=parser.Num(file=expr.file,
+                                                  line=expr.line,
+                                                  value=_eval_in_scope(
+                                                      expr.operand, table, ctx)))
+        return _eval_expr(inner, ctx)
+    if isinstance(expr, parser.BinOp):
+        left = _eval_in_scope(expr.left, table, ctx)
+        right = _eval_in_scope(expr.right, table, ctx)
+        num = lambda v: parser.Num(file=expr.file, line=expr.line, value=v)  # noqa: E731
+        return _eval_expr(parser.BinOp(file=expr.file, line=expr.line,
+                                       op=expr.op, left=num(left),
+                                       right=num(right)), ctx)
+    return _eval_expr(expr, ctx)
 
 
 # ==========================================================================
@@ -925,6 +963,7 @@ def _emit_array_field(f, cursor, ctx, writer):
                         f"{f.name or ''!r}")
     if f.name:
         ctx.counts[_key(f.name)] = count
+        _record_indexed_count(ctx, f.name, count)
 
 
 def _emit_optional_field(f, cursor, ctx, writer):
@@ -953,6 +992,18 @@ def _emit_optional_field(f, cursor, ctx, writer):
     else:
         count = 0
     ctx.counts[_key(f.name)] = count
+    _record_indexed_count(ctx, f.name, count)
+
+
+def _record_indexed_count(ctx, name, count):
+    # Inside an array iteration, also record the count under the innermost
+    # iteration index (same shape as `indexed_offsets`), so a count field
+    # in iteration N reads ITS OWN iteration's count during the emit pass
+    # instead of whatever the last-run iteration left in the plain slot
+    # (golden: rBundle's 54 per-OneDoc launch counts).
+    if ctx.array_stack:
+        _, idx = ctx.array_stack[-1]
+        ctx.indexed_counts[(_key(name), idx)] = count
 
 
 def _emit_switch_field(f, cursor, ctx, writer):

@@ -27,16 +27,22 @@
 #define rCtlDefProc         0x800C
 #define rWindParam1         0x800E
 #define rWindColor          0x8010
+#define rToolStartup        0x8013
 #define rAlertString        0x8015
+#define rText               0x8016
 #define rCodeResource       0x8017
 #define rCDEVCode           0x8018
 #define rCDEVFlags          0x8019
 #define rTwoRects           0x801A
 #define rListRef            0x801C
+#define rCString            0x801D
 #define rErrorString        0x8020
 #define rVersion            0x8029
 #define rComment            0x802A
+#define rBundle             0x802B
+#define rFinderPath         0x802C
 #define rTaggedStrings      0x802E
+#define rRectList           0xC001
 
 /* Control/alert convenience constants used by CDEV sources (values via
  * the token oracle over the 19 CtlPanel .r sources). */
@@ -84,6 +90,14 @@ type rErrorString {        /* SysBeep2/error text, explicit \0x00 tail */
 
 type rComment {            /* free-text comment */
     string;
+};
+
+type rText {               /* plain text (TextEdit/help bodies) */
+    string;
+};
+
+type rCString {            /* C string: text plus implicit trailing NUL */
+    cstring;
 };
 
 /* --- QuickDraw icon ---------------------------------------------------- */
@@ -335,6 +349,39 @@ type rControlTemplate {
                     integer;
                 };
             };
+        case editTextControl:
+            key unsigned hex longint = 0x85000000;
+            optional ctlParams {
+                integer;                        /* flags                  */
+                integer;                        /* moreFlags              */
+                longint;                        /* refCon                 */
+                longint;                        /* textFlags              */
+                rect;                           /* indent rect            */
+                longint;                        /* vertical bar ref       */
+                integer;                        /* vertical amount        */
+                longint;                        /* horizontal bar ref     */
+                integer;                        /* horizontal amount      */
+                longint;                        /* style ref              */
+                integer;                        /* text descriptor        */
+                longint;                        /* text ref               */
+                longint;                        /* text length            */
+                longint;                        /* max chars              */
+                longint;                        /* max lines              */
+                integer;                        /* max chars per line     */
+                integer;                        /* max height             */
+                longint;                        /* color table ref        */
+                integer;                        /* draw mode              */
+                longint;                        /* filter proc ptr        */
+            };
+        case thermometerControl:
+            key unsigned hex longint = 0x87FF0002;
+            optional ctlParams {
+                integer;                        /* flags                  */
+                integer;                        /* moreFlags              */
+                longint;                        /* refCon                 */
+                integer;                        /* value                  */
+                integer;                        /* scale                  */
+            };
     };
 };
 
@@ -415,4 +462,188 @@ type rListRef {            /* List Manager member list.  Only the EMPTY
     array {
         pstring;
     };
+};
+
+/* --- Tool startup ------------------------------------------------------- */
+/* rToolStartup (Toolbox Ref Vol 3, StartUpTools): flags, video mode, then
+ * a resFileID word and dPageHandle long that the Tool Locator fills in at
+ * run time (stored as zeros), a tool count, and (toolNum, minVersion)
+ * pairs.  All words little-endian; settled against the Finder golden
+ * instance (68 bytes, 14 tools). */
+
+type rToolStartup {
+    integer = 0;           /* flags                                       */
+    hex integer;           /* video mode                                  */
+    integer = 0;           /* resFileID   (filled in at run time)         */
+    longint = 0;           /* dPageHandle (filled in at run time)         */
+    integer = $$Countof(Tools);
+    array Tools {
+        integer;           /* tool set number                             */
+        hex integer;       /* minimum version                             */
+    };
+};
+
+/* --- Finder ------------------------------------------------------------- */
+/* rRectList (System 6.0 Finder: default window positions et al.): a
+ * count word then 8-byte QuickDraw rects.  Oracle: the Finder instance
+ * (114 bytes = 2 + 14 rects). */
+
+type rRectList {
+    integer = $$Countof(Rects);
+    array Rects {
+        rect;
+    };
+};
+
+/* rBundle (System 6.0 Finder icon matching; Finder chapter of the System 6
+ * docs).  Compiled shape settled against the Finder golden instance (3623
+ * bytes, 54 OneDocs): an 18-byte header (version, byte offset of the doc
+ * count, the Finder rIcon ID, this rBundle's ID, a reserved long, count),
+ * then per OneDoc a size word (self-inclusive), the byte offset of the
+ * match-flags long within the doc, the launch element count, the launch
+ * group (flag word, 8-byte path/big-icon/small-icon refs — long ID plus a
+ * reserved zero long — and an optional document-name pstring; the small
+ * ref and the name may be omitted), the match-flags long, and twelve match
+ * sections.  Each section is a two-armed switch: `empty` stores a zero
+ * key word; a match case stores its 1-based section number as the key
+ * word, then its payload.  matchFlags bit n-1 announces section n.  Only
+ * the corpus-exercised cases are defined (coverage policy): sections
+ * 4/5/6/8/11/12 (create date, mod date, local access, extended, option
+ * list, EOF) appear only as `empty` in the oracle. */
+
+/* Launch flag word bits (values from the golden launch words $11/$31/$F1
+ * against the source's symbolic combinations). */
+#define DontLaunch        0x0000
+#define LaunchThis        0x0001
+#define reads             0x0010
+#define writes            0x0020
+#define native            0x0040
+#define creator           0x0080
+
+/* matchFlags bits: bit n-1 <-> match section n (golden $41/$03/$05/$0300
+ * against the source's symbolic combinations). */
+#define FileType          0x0001
+#define AuxType           0x0002
+#define FileName          0x0004
+#define NetworkAccess     0x0040
+#define HFSFileType       0x0100
+#define HFSCreator        0x0200
+
+type rBundle {
+  bundleStart:
+    integer = 0;                              /* version                   */
+    integer = (docList - bundleStart) / 8;    /* byte offset of doc count  */
+    longint;                                  /* Finder rIcon ID           */
+    longint;                                  /* this rBundle's ID         */
+    longint = 0;                              /* reserved                  */
+  docList:
+    integer = $$Countof(OneDoc);
+    array OneDoc {
+      docStart:
+        integer = (docEnd[$$ArrayIndex(OneDoc)]
+                   - docStart[$$ArrayIndex(OneDoc)]) / 8;
+        integer = (matchOff[$$ArrayIndex(OneDoc)]
+                   - docStart[$$ArrayIndex(OneDoc)]) / 8;
+        integer = $$optionalCount(Launch);
+        optional Launch {
+            integer;                          /* launch flags              */
+            array [1] {                       /* rFinderPath ref           */
+                longint;
+                longint = 0;
+            };
+            array [1] {                       /* big rIcon ref             */
+                longint;
+                longint = 0;
+            };
+            array [1] {                       /* small rIcon ref           */
+                longint;
+                longint = 0;
+            };
+            pstring;                          /* document name             */
+        };
+      matchOff:
+        longint;                              /* matchFlags                */
+        switch {                              /* 1: file type              */
+            case MatchFileType:
+                integer = 1;
+                array [1] { integer; };
+            case empty:
+                integer = 0;
+        };
+        switch {                              /* 2: aux type               */
+            case MatchAuxType:
+                integer = 2;
+                array [1] { longint; longint; };   /* mask, value          */
+            case empty:
+                integer = 0;
+        };
+        switch {                              /* 3: file name              */
+            case MatchFileName:
+                integer = 3;
+                array [1] { pstring; };
+            case empty:
+                integer = 0;
+        };
+        switch {                              /* 4: create date            */
+            case empty:
+                integer = 0;
+        };
+        switch {                              /* 5: mod date               */
+            case empty:
+                integer = 0;
+        };
+        switch {                              /* 6: local access           */
+            case empty:
+                integer = 0;
+        };
+        switch {                              /* 7: network access         */
+            case MatchNetworkAccess:
+                integer = 7;
+                array [1] { longint; longint; };   /* mask, value          */
+            case empty:
+                integer = 0;
+        };
+        switch {                              /* 8: extended (storage)     */
+            case empty:
+                integer = 0;
+        };
+        switch {                              /* 9: HFS file type          */
+            case MatchHFSFileType:
+                integer = 9;
+                array [1] { longint; };
+            case empty:
+                integer = 0;
+        };
+        switch {                              /* 10: HFS creator           */
+            case MatchHFSCreator:
+                integer = 10;
+                array [1] { longint; };
+            case empty:
+                integer = 0;
+        };
+        switch {                              /* 11: option list           */
+            case empty:
+                integer = 0;
+        };
+        switch {                              /* 12: EOF                   */
+            case empty:
+                integer = 0;
+        };
+      docEnd:
+    };
+};
+
+/* rFinderPath (System 6.0 Finder icon matching: launch path): a version
+ * word, the byte offset of the pathname within the resource, and a
+ * word-length GS/OS pathname.  The array between them is EMPTY in all 5
+ * oracle instances (element shape doc-derived, same policy as rListRef). */
+
+type rFinderPath {
+    integer = 0;           /* version                                     */
+    longint = PathName / 8; /* byte offset of the pathname                */
+    array {
+        integer;
+    };
+  PathName:
+    wstring;               /* GS/OS pathname                              */
 };

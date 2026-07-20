@@ -110,7 +110,7 @@ _NEWLINE = 'NEWLINE'
 # '#' only ever appears as a directive introducer (consumed by the
 # preprocessor) and '!' only inside a `#if` expression, but both are cheap
 # to recognize uniformly here; anything else falls through to ERROR.
-_PUNCT_CHARS = '(){}[];,:=*+-/#!'
+_PUNCT_CHARS = '(){}[];,:=*+-/#!|'
 
 _HEXDIGITS = '0123456789abcdefABCDEF'
 

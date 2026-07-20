@@ -783,6 +783,57 @@ def test_negative_fill_count_raises():
     assert 'negative fill count' in msg
 
 
+# --------------------------------------------------------------------------
+# Finder-fork discoveries (docs/REZ_TYPES_PLAN.md phase-2, Finder sweep).
+# --------------------------------------------------------------------------
+def test_bitor_operator_in_value_expression():
+    # `|` is a value-expression operator, lowest tier below additive
+    # (golden: icons.rez `FileType|NetworkAccess` matchFlags idiom).
+    src = (
+        b'type 1 { integer; };\r'
+        b'resource 1 (1) { 0x41 | 0x02 + 1 };\r'   # additive binds tighter
+    )
+    assert _one_resource_data(src) == struct.pack('<H', 0x41 | 3)
+
+
+def test_bitor_over_named_values():
+    # A field's symbolic constants stay in scope through an operator
+    # expression, not just as a lone bare name.
+    src = (
+        b'type 1 { integer alpha=0x01, beta=0x40; };\r'
+        b'resource 1 (1) { alpha | beta };\r'
+    )
+    assert _one_resource_data(src) == struct.pack('<H', 0x41)
+
+
+def test_optional_count_is_per_array_iteration():
+    # A count field inside an array iteration must read its OWN
+    # iteration's optional-group count, not the last-run iteration's
+    # (golden: rBundle's 54 per-OneDoc launch counts -- before the
+    # indexed_counts fix, iteration 0 read iteration N-1's count during
+    # the emit pass).
+    src = (
+        b'type 1 {\r'
+        b'  integer = $$Countof(Items);\r'
+        b'  array Items {\r'
+        b'    integer = $$optionalCount(Opt);\r'
+        b'    optional Opt {\r'
+        b'      integer;\r'
+        b'      integer;\r'
+        b'      integer;\r'
+        b'    };\r'
+        b'  };\r'
+        b'};\r'
+        b'resource 1 (1) { { {1}, {2, 3}, {4, 5, 6} } };\r'
+    )
+    data = _one_resource_data(src)
+    want = struct.pack('<H', 3)                    # outer count
+    want += struct.pack('<H', 1) + struct.pack('<H', 1)
+    want += struct.pack('<H', 2) + struct.pack('<H', 2) + struct.pack('<H', 3)
+    want += struct.pack('<H', 3) + struct.pack('<H', 4) + struct.pack('<H', 5) + struct.pack('<H', 6)
+    assert data == want, data.hex()
+
+
 _TESTS = [(n, f) for n, f in sorted(globals().items())
           if n.startswith('test_') and callable(f)]
 

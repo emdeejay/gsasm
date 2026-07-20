@@ -892,7 +892,19 @@ class _Parser:
         return e
 
     def parse_expr(self):
-        return self.parse_additive()
+        return self.parse_bitor()
+
+    def parse_bitor(self):
+        # Lowest-precedence tier, below additive (C-style): `FileType |
+        # NetworkAccess` ORs two of a field's symbolic constants
+        # (Finder icons.rez matchFlags idiom).
+        left = self.parse_additive()
+        while self.check_punct('|'):
+            op_tok = self.advance()
+            right = self.parse_additive()
+            left = BinOp(file=left.file, line=left.line, op=op_tok.value,
+                         left=left, right=right)
+        return left
 
     def parse_additive(self):
         left = self.parse_multiplicative()

@@ -78,6 +78,13 @@ CHECKS = [
     ('cdevcheck', ['cdevcheck.py'], [
         ('cdev_rsrc_bytes_exact',
          r'CDEV_RSRC_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
+    # Rez tier-1 Finder fork (clean-room include; fully source-built, incl.
+    # the assembled KeyboardNav read payload — see work/findercheck.py).
+    # Checked against BOTH shipped copies (Disk 3 Finder + System Disk
+    # Start, byte-identical).
+    ('findercheck', ['findercheck.py'], [
+        ('finder_rsrc_bytes_exact',
+         r'FINDER_RSRC_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
 ]
 
 FULL_CHECKS = [

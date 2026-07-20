@@ -220,9 +220,18 @@ def _build_cdev(name):
     return _b
 
 
+def _build_finder_rsrc():
+    import findercheck                  # Rez tier-1: the Finder fork, which
+    return findercheck.build_finder_fork()   # ALSO ships as System:Start --
+                                        # fully source-built, incl. the
+                                        # assembled KeyboardNav read payload
+                                        # (see work/findercheck.py)
+
+
 REZ_BUILDERS = {
     f'{V}/System/System.Setup/Sys.Resources': _build_sysresources_rsrc,
     f'{V}/System/System.Setup/EasyMount': _build_easymount_rsrc,
+    f'{V}/System/Start': _build_finder_rsrc,
     f'{V}/System/CDevs/General': _build_cdev('General'),
     f'{V}/System/CDevs/Printer': _build_cdev('Printer'),
     f'{V}/System/CDevs/RAM': _build_cdev('RAM'),

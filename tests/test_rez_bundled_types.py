@@ -56,6 +56,40 @@ resource rCDEVFlags (6) {
     {0, 0, 10, 20},
     "Nm", "Au", "V1"
 };
+
+resource rToolStartup (10) {
+    $C080, { 3, $0302, 34, $0103 }
+};
+
+resource rRectList (11) {
+    { {1, 2, 3, 4}, {5, 6, 7, 8} }
+};
+
+resource rFinderPath (12) {
+    {}, "*:X"
+};
+
+resource rCString (13) { "Hi" };
+
+resource rText (14) { "Hi" };
+
+resource rBundle (15) {
+    1, 15,
+    {
+        { DontLaunch, {0}, {2}, {3} },
+        FileType|NetworkAccess,
+        MatchFileType {{ $0f }},
+        empty{}, empty{}, empty{}, empty{}, empty{},
+        matchNetworkAccess {{ 7, 4 }},
+        empty{}, empty{}, empty{}, empty{}, empty{}
+    }
+};
+
+resource rControlTemplate (16) {
+    3,
+    {35, 14, 44, 294},
+    thermometerControl {{ 1, $1000, 0, 0, 100 }}
+};
 '''
 
 
@@ -99,6 +133,47 @@ def test_bundled_types_compile():
                        + b'\x02Nm' + b'\x00' * 13
                        + b'\x02Au' + b'\x00' * 30
                        + b'\x02V1' + b'\x00' * 6)
+    # rToolStartup: flags 0, video mode, resFileID 0, dPageHandle 0,
+    # count, (tool, minVersion) pairs — all little-endian (golden Finder
+    # instance layout)
+    assert data[10] == (b'\x00\x00' b'\x80\xc0' b'\x00\x00'
+                        b'\x00\x00\x00\x00' b'\x02\x00'
+                        b'\x03\x00\x02\x03' b'\x22\x00\x03\x01')
+    # rRectList: count word + 8-byte rects
+    assert data[11] == (b'\x02\x00'
+                        b'\x01\x00\x02\x00\x03\x00\x04\x00'
+                        b'\x05\x00\x06\x00\x07\x00\x08\x00')
+    # rFinderPath: version 0, byte offset of the pathname (6), empty
+    # array, then a word-length GS/OS pathname
+    assert data[12] == b'\x00\x00' b'\x06\x00\x00\x00' b'\x03\x00' b'*:X'
+    # rCString adds the trailing NUL; rText does not
+    assert data[13] == b'Hi\x00'
+    assert data[14] == b'Hi'
+    # rBundle: 18-byte header; the OneDoc reproduces the golden 70-byte
+    # shape (size word self-inclusive, matchFlags offset 32, launch count
+    # 4, 8-byte refs, matchFlags long, tagged sections with zero-word
+    # empties)
+    assert data[15] == (
+        b'\x00\x00' b'\x10\x00'                       # version, count offset
+        b'\x01\x00\x00\x00' b'\x0f\x00\x00\x00'       # finder icon, bundle ID
+        b'\x00\x00\x00\x00' b'\x01\x00'               # reserved, doc count
+        b'\x46\x00' b'\x20\x00' b'\x04\x00'           # size, matchOff, nElems
+        b'\x00\x00'                                   # DontLaunch
+        b'\x00\x00\x00\x00\x00\x00\x00\x00'           # path ref
+        b'\x02\x00\x00\x00\x00\x00\x00\x00'           # big icon ref
+        b'\x03\x00\x00\x00\x00\x00\x00\x00'           # small icon ref
+        b'\x41\x00\x00\x00'                           # FileType|NetworkAccess
+        b'\x01\x00' b'\x0f\x00'                       # sec 1: file type $0F
+        + b'\x00\x00' * 5                             # secs 2-6 empty
+        + b'\x07\x00'                                 # sec 7 tag
+        b'\x07\x00\x00\x00' b'\x04\x00\x00\x00'       # mask, value
+        + b'\x00\x00' * 5)                            # secs 8-12 empty
+    # thermometerControl: procRef $87FF0002, value + scale params
+    assert data[16] == (b'\x08\x00' b'\x03\x00\x00\x00'
+                        b'\x23\x00\x0e\x00\x2c\x00\x26\x01'
+                        b'\x02\x00\xff\x87'
+                        b'\x01\x00' b'\x00\x10' b'\x00\x00\x00\x00'
+                        b'\x00\x00' b'\x64\x00')
 
 
 if __name__ == '__main__':
