@@ -233,6 +233,34 @@ def test_optional_partial_fill_stops_at_nested_array_field():
     assert data == struct.pack('<H', 10) + struct.pack('<H', 20)
 
 
+def test_optional_count_includes_defaulted_fields():
+    # ControlPanel NDA listControl: pCount=15 counts the DEFAULTED listDraw
+    # long inside the optional (12 fields emitted, 11 values consumed).
+    src = ("type 0x9999 { integer = $$optionalCount(p); "
+           "optional p { integer; longint = 0; integer; }; };\n"
+           "resource 0x9999 (1) { { 5, 7 } };\n")
+    data = _one_resource_data(src)
+    assert data == (b'\x03\x00' b'\x05\x00'
+                    b'\x00\x00\x00\x00' b'\x07\x00'), data.hex()
+
+
+def test_mixed_string_hexstring_concatenation():
+    # FolderPriv rAlertString: `"text" $"00"` is ONE literal run.
+    src = ('type 0x9998 { string; };\n'
+           'resource 0x9998 (1) { "AB" $"00" "C" };\n')
+    data = _one_resource_data(src)
+    assert data == b'AB\x00C', data.hex()
+
+
+def test_nocrossbank_attribute_bit():
+    # SetStart rPString(75, noCrossBank): golden attr word 0x0010.
+    src = ('type 0x9997 { byte; };\n'
+           'resource 0x9997 (1, noCrossBank) { 1 };\n')
+    entries = _gen(src)
+    res = [e for e in entries if e.kind == 'resource'][0]
+    assert res.attr == 0x0010, hex(res.attr)
+
+
 def test_optional_absent_yields_zero_count():
     src = (
         b'type 1 {\r'

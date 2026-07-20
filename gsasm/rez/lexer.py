@@ -181,6 +181,8 @@ def _raw_tokenize(text, charlines, filename):
         return charlines[pos] if pos < n else charlines[-1]
 
     i = 0
+    line_first = True       # next token is the first on its line
+    directive_line = False  # current line began with '#'
     while i < n:
         c = text[i]
 
@@ -191,11 +193,26 @@ def _raw_tokenize(text, charlines, filename):
         if c == '\n':
             toks.append(Token(_NEWLINE, None, '\n', filename, line_at(i)))
             i += 1
+            line_first = True
+            directive_line = False
             continue
+
+        if line_first:
+            directive_line = (c == '#')
+            line_first = False
 
         if c == '/' and i + 1 < n and text[i + 1] == '*':
             start_line = line_at(i)
             j = text.find('*/', i + 2)
+            # On a '#'-directive line, a block comment with no terminator
+            # before the newline ends AT the newline (real-Rez evidence:
+            # AppleShare.r:782 `#define rVPText3 67 /* "Password:"` — the
+            # golden fork still contains the rWindParam1(60) declared on
+            # the line after the "comment", so RezIIGS did not swallow it).
+            nl = text.find('\n', i + 2)
+            if directive_line and nl != -1 and (j == -1 or j > nl):
+                i = nl
+                continue
             if j == -1:
                 raise LexError(f"{filename}:{start_line}: unterminated /* comment")
             i = j + 2
@@ -204,6 +221,21 @@ def _raw_tokenize(text, charlines, filename):
         if c == '/' and i + 1 < n and text[i + 1] == '/':
             j = text.find('\n', i + 2)
             i = n if j == -1 else j
+            continue
+
+        if c == "'":
+            start_line = line_at(i)
+            j = text.find("'", i + 1)
+            if j == -1 or j == i + 1 or j - (i + 1) > 4 or '\n' in text[i+1:j]:
+                toks.append(Token(ERROR, c, c, filename, start_line))
+                i += 1
+                continue
+            raw = text[i + 1:j].encode('mac_roman')
+            v = 0
+            for b in raw:
+                v = (v << 8) | b
+            toks.append(Token(NUMBER, v, text[i:j + 1], filename, start_line))
+            i = j + 1
             continue
 
         if c == '"':
@@ -381,7 +413,7 @@ class _Preprocessor:
             # short — missing the trailing `longint = 0;` — without it).
             for name, value in predefined.items():
                 tok = Token(NUMBER, value, str(value), '<predefined>', 0)
-                self.macros[name] = [tok]
+                self.macros[name.lower()] = [tok]
         self.output = []
         self._include_depth = 0
 
@@ -393,13 +425,18 @@ class _Preprocessor:
     def _expand_tokens(self, tokens, active):
         out = []
         for t in tokens:
-            if t.kind == IDENT and t.value in self.macros and t.value not in active:
-                body = self.macros[t.value]
+            # Macro names are CASE-INSENSITIVE (SetStart.r uses
+            # fCtlProcNotPtr for the include's FctlProcNotPtr; ADU/Installer
+            # spell rPString three ways — the golden forks prove real Rez
+            # resolves them all).  Keys are stored folded.
+            if t.kind == IDENT and t.value.lower() in self.macros \
+                    and t.value.lower() not in active:
+                body = self.macros[t.value.lower()]
                 # Retag with the invocation site's location (see module
                 # docstring: expanded tokens are charged to where they're
                 # used, not where the macro was #defined).
                 retagged = [Token(b.kind, b.value, b.text, t.file, t.line) for b in body]
-                out.extend(self._expand_tokens(retagged, active | {t.value}))
+                out.extend(self._expand_tokens(retagged, active | {t.value.lower()}))
             else:
                 out.append(t)
         return out
@@ -486,7 +523,7 @@ class _Preprocessor:
                 return
             if not args or args[0].kind != IDENT:
                 raise LexError(f"{path}:{dline}: #define expects a macro name")
-            self.macros[args[0].value] = args[1:]
+            self.macros[args[0].value.lower()] = args[1:]
             return
 
         if name in ('if', 'ifdef', 'ifndef'):
@@ -496,7 +533,7 @@ class _Preprocessor:
                 cond = bool(self._eval_expr(args, path, dline))
             else:
                 target = self._single_ident(args, path, dline)
-                cond = (target in self.macros) == (name == 'ifdef')
+                cond = (target.lower() in self.macros) == (name == 'ifdef')
             stack.append(_CondFrame(active=cond, taken=cond, file=path, line=dline))
             return
 
@@ -606,13 +643,13 @@ class _ExprParser:
                 self._expect_punct(')')
             else:
                 name = self._expect_ident()
-            return 1 if name in self.pp.macros else 0
+            return 1 if name.lower() in self.pp.macros else 0
         if t.kind == IDENT:
             self._advance()
-            body = self.pp.macros.get(t.value)
+            body = self.pp.macros.get(t.value.lower())
             if body is None:
                 return 0
-            expanded = self.pp._expand_tokens(body, frozenset({t.value}))
+            expanded = self.pp._expand_tokens(body, frozenset({t.value.lower()}))
             if len(expanded) == 1 and expanded[0].kind == NUMBER:
                 return expanded[0].value
             return 0

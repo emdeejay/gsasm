@@ -857,7 +857,11 @@ class _Parser:
     def parse_string_run(self):
         t = self.peek()
         parts = []
-        while self.check(STRING):
+        # A string-first literal run absorbs adjacent HEXSTRING segments too:
+        # FolderPriv.r's rAlertString ends `"...text/^#6" $"00"` — real Rez
+        # concatenates the mixed run into one literal (golden fork carries
+        # the trailing NUL inside the string resource).
+        while self.check(STRING) or self.check(HEXSTRING):
             parts.append(self.advance().value)
         if not parts:
             raise ParseError(f"{t.file}:{t.line}: expected a string literal, "

@@ -351,6 +351,7 @@ ATTR_BITS = {
     'fixed': 0x4000,
     'preload': 0x0040,
     'nospecialmemory': 0x0008,
+    'nocrossbank': 0x0010,   # SetStart rPString(75): golden attr word 0x0010
     'convert': 0x0800,   # only ever seen on `read` statements in this corpus
 }
 
@@ -939,8 +940,12 @@ def _emit_optional_field(f, cursor, ctx, writer):
         # group's own resource value may supply fewer values than its
         # template declares fields for (editLineControl's trailing
         # passwordChar field; EasyMount's iconButtonControl KeyEquiv array).
-        _emit_field_list(f.fields, inner, ctx, writer, allow_partial=True)
-        count = inner.i
+        # count = FIELDS EMITTED (not values consumed): a defaulted field
+        # inside the optional emits without a body value and still counts
+        # toward $$optionalCount (golden: listControl pCount=15 = 3 + 12
+        # fields, with listDraw defaulted; consumed values = 11).
+        count = _emit_field_list(f.fields, inner, ctx, writer,
+                                 allow_partial=True)
         if inner.i != len(inner.values):
             raise GenError(f"{f.file}:{f.line}: {len(inner.values) - inner.i} "
                             f"unconsumed value(s) left over in optional "
@@ -1041,6 +1046,11 @@ def _emit_field_list(fields, cursor, ctx, writer, allow_partial=False):
     integer; }; resource 1(1) { 7 };` used to silently emit only one
     integer instead of raising)."""
     pending_label = None
+    emitted_fields = 0    # FIELD items processed (incl. defaulted constants;
+                          # excl. labels/fill/align) -- the count the golden
+                          # $$optionalCount reflects (ControlPanel NDA's
+                          # listControl pCount=15 counts its defaulted
+                          # listDraw long even though no body value fed it)
     for item in fields:
         if isinstance(item, parser.Label):
             pos = writer.bit_pos
@@ -1055,6 +1065,7 @@ def _emit_field_list(fields, cursor, ctx, writer, allow_partial=False):
             if needs_value and allow_partial and not cursor.has_next():
                 break
             v = _emit_typed_field(item, cursor, ctx, writer)
+            emitted_fields += 1
             if pending_label is not None and v is not None:
                 ctx.values[pending_label] = v
             pending_label = None
@@ -1087,15 +1098,18 @@ def _emit_field_list(fields, cursor, ctx, writer, allow_partial=False):
                 _emit_switch_field(item, cursor, ctx, writer)
             else:
                 _emit_group_field(item, cursor, ctx, writer)
+            emitted_fields += 1
             continue
         if isinstance(item, parser.OptionalField):
             _emit_optional_field(item, cursor, ctx, writer)
+            emitted_fields += 1
         elif isinstance(item, parser.FillField):
             _emit_fill_field(item, ctx, writer)
         elif isinstance(item, parser.AlignField):
             _emit_align_field(item, writer)
         else:
             raise GenError(f"unhandled field kind {type(item).__name__}")
+    return emitted_fields
 
 
 def _generate_resource_data(tmpl, values, file, line):
