@@ -33,6 +33,7 @@ from gsasm.expressload import (expressload, encode_jumptable, jt_jsl_offset,
 FD = 'ref/GSOS_6/IIGS.601.SRC/A.U.G/Finder'
 DEFINES = {'DEBUGSYMBOLS': 0, 'AllowServerCopies': 0, 'AllowSmartDesktop': 0}
 INCS = [FD] + em.ASM_INCS
+CASE_EQU_VARIANTS = {'HANDLE', 'PTR'}
 
 # Finder.make's -lseg layout (gold segment table confirms names/kinds/order).
 SEGS = [
@@ -55,14 +56,16 @@ SEGS = [
 _ASM_CACHE = {}
 
 
-def _scan_refs_shift(objs):
+def _scan_refs_shift(objs, with_owner=False):
     """Like toolcheck._scan_refs but also yields the expression's tail
     right-shift (0 when unshifted) and constant addend:
     (abs_off, size, shift, symbol_upper, addend).  The addend matters for
     jump-table allocation: gold gives `routine+2` its OWN ~JumpTable entry
     (Finder ABOUT refs at +0x2bc/+0x2be and +0x2c4/+0x2c6)."""
-    placed, _osb, _poi = linkiigs._place(objs, 0)
-    for _sn, recs, sb, _hdr, _a in placed:
+    placed, osb, poi = linkiigs._place(objs, 0)
+    for pi, (_sn, recs, sb, _hdr, _a) in enumerate(placed):
+        oi = poi[pi]
+        si = next((i for i, base in enumerate(osb[oi]) if base == sb), None)
         boff = 0
         for _at, nm, d in recs:
             if nm in ('CONST', 'LCONST'):
@@ -72,8 +75,9 @@ def _scan_refs_shift(objs):
                 syms = [op[1].upper() for op in ops
                         if isinstance(op, tuple) and str(op[0]).startswith('sym')]
                 if syms:
-                    yield (sb + boff, size, _get_shift(ops),
-                           syms[0], _addend_of(ops), len(syms))
+                    item = (sb + boff, size, _get_shift(ops),
+                            syms[0], _addend_of(ops), len(syms))
+                    yield item + (oi, si) if with_owner else item
                 boff += size
             elif nm == 'RELEXPR':
                 boff += d[0]
@@ -81,14 +85,41 @@ def _scan_refs_shift(objs):
                 boff += d
 
 
-def _assemble(fname):
-    if fname not in _ASM_CACHE:
-        a = asm.assemble(os.path.join(FD, fname), INCS, defines=dict(DEFINES))
+def _assemble(fname, import_wins=None):
+    wins = frozenset(import_wins or ())
+    key = (fname, tuple(sorted(wins)))
+    if key not in _ASM_CACHE:
+        a = asm.assemble(os.path.join(FD, fname), INCS, defines=dict(DEFINES),
+                         import_wins=wins,
+                         case_equ_variants=CASE_EQU_VARIANTS)
         if a.errors:
             raise RuntimeError(f'{fname}: {len(a.errors)} assembly errors; '
                                f'first: {a.errors[0]}')
-        _ASM_CACHE[fname] = (omf.emit(a), a)
-    return _ASM_CACHE[fname]
+        _ASM_CACHE[key] = (omf.emit(a), a)
+    return _ASM_CACHE[key]
+
+
+def _finder_import_wins(prelim):
+    """Names where a Finder object IMPORT collides with its own proc-local EQU,
+    while another Finder object EXPORTs that same name.  Those imports need to
+    stay module-visible outside the defining PROC (icons.aii deltay/deltax)."""
+    exporters = {}
+    for src, (_ob, a) in prelim.items():
+        for e in a.exports:
+            exporters.setdefault(e.upper(), set()).add(src)
+
+    wins = {}
+    for src, (_ob, a) in prelim.items():
+        proc_eq = set()
+        for eq in a.seg_equ.values():
+            proc_eq.update(eq)
+        names = {
+            u for u in a.imports & proc_eq
+            if any(owner != src for owner in exporters.get(u.upper(), set()))
+        }
+        if names:
+            wins[src] = frozenset(names)
+    return wins
 
 
 def golden():
@@ -99,6 +130,14 @@ def golden():
 def link_finder():
     """The _link_jt_tool algorithm (work/toolcheck.py) over the Finder's
     segment spec.  Returns (images, jt_entries, jt_segnum, segnum)."""
+    all_srcs = []
+    for _name, _kind, srcs in SEGS:
+        for src in srcs:
+            if src not in all_srcs:
+                all_srcs.append(src)
+    prelim = {src: _assemble(src) for src in all_srcs}
+    import_wins = _finder_import_wins(prelim)
+
     nondyn = [s for s in SEGS if not (s[1] & 0x8000)]
     dyn    = [s for s in SEGS if (s[1] & 0x8000)]
     jt_segnum = (2 + len(nondyn)) if dyn else None
@@ -114,7 +153,7 @@ def link_finder():
 
     seg_objs, seg_sym = {}, {}
     for name, _kind, srcs in SEGS:
-        objs = [_assemble(f) for f in srcs]
+        objs = [_assemble(f, import_wins.get(f)) for f in srcs]
         seg_objs[name] = objs
         seg_sym[name] = tc._seg_symbols(objs)
 
@@ -132,9 +171,14 @@ def link_finder():
                 if isinstance(v, int):
                     expmap.setdefault(e.upper(), (name, v))
 
-    def _cross_target(name, symu):
+    def _cross_target(name, symu, ref_asm=None, ref_seg=None):
         tgt = expmap.get(symu)
-        if tgt is None or tgt[0] == name or symu in seg_sym[name]:
+        scoped_import = (
+            ref_asm is not None and ref_seg is not None
+            and symu in getattr(ref_asm, 'seg_imports', {}).get(ref_seg, set()))
+        if tgt is None:
+            return None
+        if not scoped_import and (tgt[0] == name or symu in seg_sym[name]):
             return None
         return tgt
 
@@ -200,12 +244,19 @@ def link_finder():
         #   size 4 (dc.l pointer table): ZERO image bytes — the value
         #     lives entirely in the dictionary's INTERSEG record (gold's
         #     zero-filled dispatch tables at FINDER+0x428).
-        for aoff, size, shift, symu, addend, nsyms in _scan_refs_shift(objs):
-            tgt = _cross_target(name, symu)
+        for aoff, size, shift, symu, addend, nsyms, oi, si in \
+                _scan_refs_shift(objs, with_owner=True):
+            ref_asm = objs[oi][1] if oi is not None else None
+            tgt = _cross_target(name, symu, ref_asm, si)
+            scoped_import = (
+                ref_asm is not None and si is not None
+                and symu in getattr(ref_asm, 'seg_imports', {}).get(si, set()))
             if not tgt or tgt[0] == '=equ' or nsyms > 1:
                 # equ targets are absolute constants the linker already
                 # resolved; multi-symbol expressions (extern differences)
                 # are link-time constants, not address relocations.
+                continue
+            if scoped_import and tgt[0] == name and size != 2:
                 continue
             dyn_tgt = bool(kind_of[tgt[0]] & 0x8000)
             if dyn_tgt:
@@ -225,6 +276,8 @@ def link_finder():
                 if shift == 16 or dyn_tgt:
                     # shifted: store the UNSHIFTED offset (deferred shift);
                     # plain dynamic: the JT jsl offset word.
+                    img[aoff:aoff + 2] = (val & 0xFFFF).to_bytes(2, 'little')
+                elif scoped_import and tgt[0] == name:
                     img[aoff:aoff + 2] = (val & 0xFFFF).to_bytes(2, 'little')
         images[name] = bytes(img)
 
