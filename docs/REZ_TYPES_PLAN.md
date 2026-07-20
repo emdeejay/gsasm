@@ -161,12 +161,53 @@ shifts) — probe-file lexing (`#include` + bare identifiers, read the folded
 numbers) is the reliable form; a build→catch-unresolved→probe→append loop
 automates constant recovery.
 
+### Finder sweep — DONE (2026-07-20; work/findercheck.py)
+
+The Finder resource fork is byte-exact AND fully source-built — the only
+non-Rez ingredient, the `read rFinderExtension(1)` payload, is gsasm-
+assembled+linked+ExpressLoad'd from `KeyboardNav/KeyboardNav.aii`
+(byte-exact on the first try; defines: Finder.make AOPTIONS +
+`InitVersion=0`).  Gate metric `finder_rsrc_bytes_exact` 104790/104790;
+`disk_logical_exact` 36 → 37.
+
+**The Start dead end was wrong**: `/System.Disk/System/Start` IS the
+Finder — its resource fork is byte-identical to Disk 3's
+`/SystemTools1/System/Finder` (the Finder ships renamed as the boot
+program).  findercheck checks BOTH golden copies; Start's rsrc fork is a
+diskcheck REZ builder now.  (Start's DATA fork — the ~150 KB Finder OMF
+executable built from the eleven `.aii` sources per Finder.make — is a
+separate, large assembler target; unattempted.)
+
+New templates (oracle: the 381-resource Finder fork): rToolStartup,
+rRectList, rFinderPath, rCString, rText, rBundle (the 54-OneDoc icon-
+matching beast: per-doc self-inclusive size word + matchFlags-offset word
+from subscripted label differences, `$$optionalCount` launch element
+count, 8-byte icon/path refs, tagged match sections as twelve two-armed
+switches keyed 1..12 with `empty` storing a zero word; matchFlags bit n-1
+<-> section n), plus rControlTemplate cases editTextControl ($85000000,
+20 optional params) and thermometerControl ($87FF0002, value+scale) and
+the launch/match `#define` sets (LaunchThis/reads/writes/native/creator =
+$01/$10/$20/$40/$80; FileType/AuxType/FileName/NetworkAccess/HFSFileType/
+HFSCreator = bit(section-1)).  rFinderExtension needs no template (the
+source `#define`s it 0x0042 and only `read`s it).
+
+Dialect discoveries (corpus-free fixtures in tests/test_rez_gen.py +
+test_rez_bundled_types.py):
+
+- `|` is a value-expression operator (lowest tier, below additive), and a
+  field's symbolic named values stay in scope through such an expression
+  (`FileType|NetworkAccess`) — lexer punct + parser tier + gen eval added.
+- The speculative `$$ArrayIndex`/subscripted-label machinery is now
+  GOLDEN-VERIFIED (rBundle), and its one real bug found+fixed:
+  `$$optionalCount`/`$$Countof` of a group inside an array iteration must
+  read per-iteration counts (`indexed_counts`, mirroring
+  `indexed_offsets`) — the plain slot holds the last iteration's count by
+  emit-pass time.
+- 380/381 resources were byte-exact on the FIRST full-fork build; the 11
+  differing bytes were all that per-iteration count bug.
+
 ### Next targets (tier 1, sources + goldens both confirmed on hand)
 
-- **Finder** — `A.U.G/Finder/*.rez` (master `Finder.rez` + 8 parts; the
-  first census missed them).  Golden: `/SystemTools1/System/Finder`
-  (Disk 3).  Unlocks rBundle, rFinderPath, rRectList, rText, rCString,
-  rToolStartup, rFinderExtension — most of the former "tier 2" list.
 - **Installer** — `A.U.G/Installer/Installer.r` (15 types incl rMenuBar,
   rPicture, rInstallScript, rDiskNames).  Golden: `/Install/Installer`
   (Disk 1, 17,895 B rsrc, read confirmed).
@@ -174,7 +215,6 @@ automates constant recovery.
   Golden: `/SystemTools2/Teach` (Disk 4).
 - **MountImage** — `MountImageGS/MountImage.r` (7 types).  Golden location
   TBD (not on disks 1–4 walked so far; check 5–7 / the MountImage release).
-
-Dead end recorded: **Start** (`/System.Disk/System/Start`, 52 KB, 381
-resources — rToolStartup, rText, rCString, $802B/$802C…) has NO archived
-Rez source anywhere in IIGS.601.SRC; it stays a diskcheck substitute.
+- **Finder data fork** — the eleven-module AsmIIgs/LinkIIgs build
+  (`-lseg` load segments incl. three dynamic ones, `-at $DB03`); would
+  flip Start+Finder to dual-fork logical-exact.

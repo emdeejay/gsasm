@@ -4,11 +4,15 @@
     0
   ],
   "disk_logical_exact": [
-    36,
+    37,
     0
   ],
   "driver_bytes": [
     94948,
+    0
+  ],
+  "finder_rsrc_bytes_exact": [
+    104790,
     0
   ],
   "fst_bytes": [
