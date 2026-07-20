@@ -447,7 +447,7 @@ def _dump_leaf(spec):
 # --------------------------------------------------------------------------
 class Asm:
     def __init__(self, include_paths, seed=None, seed_type=None, seg_seed=None,
-                 sysdate=None, systime=None, loads=None):
+                 sysdate=None, systime=None, loads=None, symseg_seed=None):
         self.include_paths = include_paths
         # MPW `LOAD 'dumpfile'` support: dump-file name (upper) -> the SOURCE
         # file that generates it via `DUMP 'dumpfile'` (from the makefile rule,
@@ -463,6 +463,7 @@ class Asm:
         self.sysdate = sysdate or ''
         self.systime = systime or ''
         self.seed_type = seed_type or {}   # symbol kinds from a prior pass
+        self.symseg_seed = symseg_seed or {}  # symbol segments from a prior pass
         self.symtype = {}             # name -> 'equ' | 'label' | 'import'
         self.symseg = {}              # label name -> defining segment index
         # per-segment code labels: a plain (non-exported) label is LOCAL to its
@@ -1173,8 +1174,16 @@ class Asm:
         else owns it — an existing symbol or a declared IMPORT is the
         canonical bare binding (MSDos `stz newline_len` sizes absolute
         against the imported data record, not the fcr template field).
+        A prior pass's final REAL LABEL also owns it: each pass starts with
+        a fresh symbol table, so without the seed check the field re-claims
+        the bare name (typed 'equ') every pass and a forward reference to a
+        later same-file code label sizes direct-page off the stale field
+        offset in every pass (Finder verify.aii: DoRead's `sta bytes`
+        against its own trailing `bytes dc.L 0` — the GSOS.equ recFileInfo
+        field claimed the name; gold `8d 79 0b`, not `85 69`).
         Fixtures 012, 042, 048."""
-        return u not in self.symbols and u not in self.imports
+        return (u not in self.symbols and u not in self.imports
+                and self.seed_type.get(u) != 'label')
 
     def _proc_equ_reuses_global(self, name, kind, u):
         """A proc-scoped EQU reusing a name that already has a cross-module
@@ -1429,8 +1438,22 @@ class Asm:
             # a PROC-local equate is an absolute value -> never relocated
             if seg is not None and u in self.seg_equ.get(seg, {}):
                 continue
-            if self.symtype.get(u) == 'label':
-                si = self.symseg.get(u)
+            t = self.symtype.get(u)
+            si = self.symseg.get(u)
+            if t is None:
+                # Not yet defined THIS pass: the prior pass's final kind is
+                # the truth (a forward reference to a later code label must
+                # size absolute even when its seeded value is < $100 — the
+                # multi-pass "kinds make this safe" contract, see
+                # assemble()'s docstring and _field_owns_bare's seed check).
+                # The prior pass's segment index is only usable if that
+                # segment already exists this pass (indices are stable for
+                # the same file); otherwise fall through unchanged.
+                t = self.seed_type.get(u)
+                si = self.symseg_seed.get(u)
+                if si is not None and si >= len(self.segs):
+                    si = None
+            if t == 'label':
                 # a label in a temporg segment is an absolute literal (addr+offset),
                 # like an ORG'd segment's — not relocated.
                 if si is not None and self.segs[si].org is None \
@@ -1516,10 +1539,28 @@ class Asm:
         # equate `ctlPart EQU $21` that the module also IMPORTs must size direct-
         # page, not absolute).
         if self.symtype.get(u) == 'equ':
+            if self._foreign_proc_equ_masks_label(u, seg):
+                return 'label'
             return 'equ'
         if u in self.imports:
             return 'import'
         return self.symtype.get(u) or self.seed_type.get(u)
+
+    def _foreign_proc_equ_masks_label(self, u, seg):
+        """The current global 'equ' kind for `u` came ONLY from a PROC-local
+        equate in a DIFFERENT segment, while the prior pass's final kind is
+        'label' — MPW keeps proc-interior equates module-local, so a forward
+        reference to the current segment's own later code label must size
+        absolute, not direct-page off the foreign equate (Finder verify.aii:
+        GetVerifyInfo's `sLen1 equ 9` vs GetValidInfo's own trailing
+        `sLen1 dc.w 0` — gold `8d ef 0f`, not `85 e7`)."""
+        if self.seed_type.get(u) != 'label':
+            return False
+        if seg is not None and (u in self.seg_equ.get(seg, {})
+                                or u in self.seg_local.get(seg, {})):
+            return False
+        owners = [s for s, eq in self.seg_equ.items() if u in eq]
+        return bool(owners) and (seg is None or seg not in owners)
 
     def is_reloc(self, expr):
         """True if the expression references a relocatable label or import
@@ -2894,6 +2935,11 @@ class Asm:
                         s = bytes([len(s) & 0xFF]) + s
                     elif self.string_mode in ('C', 'CSTRING'):
                         s = s + b'\x00'
+                    elif self.string_mode == 'GSOS':
+                        # GS/OS input string: little-endian WORD length
+                        # prefix (golden: Finder Strings.aii `string GSOS`
+                        # block — `06 00 'SYSTEM'` etc.)
+                        s = len(s).to_bytes(2, 'little') + s
                     out += s
                 else:
                     # A string in a width>1 DC lays down its bytes, zero-padded to
@@ -2965,6 +3011,8 @@ class Asm:
                     s = bytes([len(s) & 0xFF]) + s
                 elif self.string_mode in ('C', 'CSTRING'):
                     s = s + b'\x00'
+                elif self.string_mode == 'GSOS':
+                    s = len(s).to_bytes(2, 'little') + s
             elif len(s) % w:
                 s += b'\x00' * (w - len(s) % w)
             unit = bytes(s)
@@ -3162,9 +3210,10 @@ def _find_ci(base, relpath):
 
 def _run_once(path, include_paths, seed, seed_type, seg_seed=None, defines=None,
               at_seed=None, at_seg_seed=None, sysdate=None, systime=None,
-              loads=None):
+              loads=None, symseg_seed=None):
     asm = Asm(include_paths, seed=seed, seed_type=seed_type, seg_seed=seg_seed,
-              sysdate=sysdate, systime=systime, loads=loads)
+              sysdate=sysdate, systime=systime, loads=loads,
+              symseg_seed=symseg_seed)
     # the prior pass's COMPLETE @-label positions must be available DURING this
     # pass (a forward @-ref is resolved while assembling, before its definition)
     asm.at_seed = at_seed or {}
@@ -3209,7 +3258,8 @@ def assemble(path, include_paths, passes=3, defines=None, sysdate=None,
         a = _run_once(path, include_paths, seed=prev.symbols, seed_type=prev.symtype,
                       seg_seed=prev.seg_local, defines=defines,
                       at_seed=prev.at_defs, at_seg_seed=prev.at_seg,
-                      sysdate=sysdate, systime=systime, loads=loads)
+                      sysdate=sysdate, systime=systime, loads=loads,
+                      symseg_seed=prev.symseg)
     return a
 
 
