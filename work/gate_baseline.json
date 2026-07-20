@@ -15,6 +15,10 @@
     135444,
     0
   ],
+  "finder_reloc_segs_exact": [
+    13,
+    0
+  ],
   "finder_rsrc_bytes_exact": [
     104790,
     0

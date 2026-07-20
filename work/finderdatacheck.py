@@ -28,7 +28,8 @@ import toolcheck as tc
 from a2til.prodos import Volume
 from gsasm import asm, omf, linkiigs
 from gsasm.expressload import (expressload, encode_jumptable, jt_jsl_offset,
-                               _get_shift, _addend_of)
+                               _get_shift, _addend_of, _scan_case_b,
+                               emit_super, emit_cinterseg, emit_reloc)
 
 FD = 'ref/GSOS_6/IIGS.601.SRC/A.U.G/Finder'
 DEFINES = {'DEBUGSYMBOLS': 0, 'AllowServerCopies': 0, 'AllowSmartDesktop': 0}
@@ -281,14 +282,227 @@ def link_finder():
                     img[aoff:aoff + 2] = (val & 0xFFFF).to_bytes(2, 'little')
         images[name] = bytes(img)
 
-    return images, jt_entries, jt_segnum, segnum
+    # -----------------------------------------------------------------
+    # Per-load-segment RELOCATION DICTIONARIES (FINDER_PLAN A.3/A.4/A.6),
+    # derived from the SAME site enumeration that produced the byte-exact
+    # images above — injected into expressload() via opts['reloc_dicts'].
+    #
+    # Per site (base-0 offset within the load segment):
+    #   * link-time constants (nsyms>1, absolute equ, dotted equ_alias field
+    #     refs) emit NO record;
+    #   * CROSS  (target in another segment): (2,0)->SUPER 13+T [BankRel-
+    #     suppressed if T bank-aligned], (2,16)->SUPER 25+T, (3,0)->SUPER 2,
+    #     (4,0)->standalone cINTERSEG (image already zeroed); dynamic targets
+    #     route through the ~JumpTable (T=jt_segnum, segoff=jt jsl offset);
+    #   * SAME-SEG: (2,0)->SUPER 0 [suppressed if own seg bank-aligned],
+    #     (3,0)/(4,0)->SUPER 1, (2,16)->SUPER 25+S;
+    #   * case-B flagged (+$80000000/+$C0000000) -> standalone RELOC/E2
+    #     (the shift-0 lo half is BankRel-suppressed for a bank-aligned seg).
+    # Order: standalone (ascending offset, interleaved) -> SUPER (ascending
+    # subtype) -> single END.
+    # -----------------------------------------------------------------
+    reloc_dicts = {}
+    for name, kind, _srcs in SEGS:
+        objs = seg_objs[name]
+        own_bankrel = bool(kind & 0x0100)
+        own_seg = segnum[name]
+
+        # case-B standalone RELOC/E2 sites.  _scan_case_b's size-2 path accepts
+        # any value > 0xFFFFFF, which in this per-segment context also catches a
+        # `Label-2` whose symbol is CROSS (resolves to 0 here -> 0xFFFFFFFE) —
+        # SPIKE-2's false-positive trap.  Keep ONLY the genuine bit-31/bit-30
+        # flag family (top byte exactly 0x80/0xC0); a real cross low-word ref is
+        # then classified normally by the SUPER loop below.
+        placed_cb, _ocb, _pcb = linkiigs._place(objs, 0)
+        cb_syms = [dict(seg_sym[name]) for _ in placed_cb]
+        case_b = [(s, sz, sh, v) for (s, sz, sh, v) in _scan_case_b(placed_cb, cb_syms)
+                  if (v & 0x80000000) and (v & 0x3F000000) == 0]
+        cb_offsets = {site for site, _cs, _csh, _cv in case_b}
+
+        standalone = []          # (offset, record_bytes)
+        for site, csize, cshift, cval in case_b:
+            if cshift == 0 and own_bankrel:
+                continue         # BankRel drops the shift-0 (lo) case-B half
+            standalone.append((site, emit_reloc(csize, cshift, site, cval)))
+
+        supers = {}              # subtype -> [offsets]
+        for aoff, size, shift, symu, addend, nsyms, oi, si in \
+                _scan_refs_shift(objs, with_owner=True):
+            if aoff in cb_offsets or nsyms > 1:
+                continue
+            ref_asm = objs[oi][1] if oi is not None else None
+            tgt = _cross_target(name, symu, ref_asm, si)
+            if tgt is not None and tgt[0] == '=equ':
+                continue                     # absolute exported equate
+            if tgt is None and '.' in symu:
+                continue                     # dotted equ_alias field -> absolute
+
+            if tgt is not None and tgt[0] != name:
+                # ---- CROSS-SEGMENT ----
+                tname = tgt[0]
+                if kind_of[tname] & 0x8000:
+                    T = jt_segnum
+                    tgt_bankrel = False
+                    segoff = jt_jsl_offset(jt_index[(segnum[tname], tgt[1] + addend)])
+                else:
+                    T = segnum[tname]
+                    tgt_bankrel = bool(kind_of[tname] & 0x0100)
+                    segoff = tgt[1] + addend
+                if (size, shift) == (2, 0):
+                    if tgt_bankrel:
+                        continue             # BankRel cross low-word suppression
+                    supers.setdefault(13 + T, []).append(aoff)
+                elif (size, shift) == (2, 16):
+                    supers.setdefault(25 + T, []).append(aoff)
+                elif size == 3 and shift == 0:
+                    supers.setdefault(2, []).append(aoff)
+                elif size == 4 and shift == 0:
+                    standalone.append(
+                        (aoff, emit_cinterseg(4, 0, aoff, T, segoff)))
+                else:
+                    standalone.append(
+                        (aoff, emit_cinterseg(size, shift, aoff, T, segoff)))
+            else:
+                # ---- SAME-SEGMENT relocatable label ----
+                if (size, shift) == (2, 0):
+                    if own_bankrel:
+                        continue             # BankRel same-seg subtype-0 kill
+                    supers.setdefault(0, []).append(aoff)
+                elif (size, shift) == (2, 16):
+                    supers.setdefault(25 + own_seg, []).append(aoff)
+                elif shift == 0 and size in (3, 4):
+                    supers.setdefault(1, []).append(aoff)
+                # any other same-seg (size,shift) is left unrecorded; --segdiff
+                # will surface it if the Finder actually exercises one.
+
+        rec = bytearray()
+        for _off, b in sorted(standalone, key=lambda p: p[0]):
+            rec += b
+        for st in sorted(supers):
+            rec += emit_super(st, sorted(supers[st]))
+        rec += b'\x00'           # END
+        reloc_dicts[name] = bytes(rec)
+
+    return images, jt_entries, jt_segnum, segnum, reloc_dicts
+
+
+def _finder_objects():
+    """Per-load-segment OMF object combos + names/kinds for expressload(),
+    in SEGS order (mirrors work/diskbuilders/expressload_files.py tool
+    builders — one combined object per output load segment)."""
+    all_srcs = []
+    for _n, _k, srcs in SEGS:
+        for s in srcs:
+            if s not in all_srcs:
+                all_srcs.append(s)
+    prelim = {src: _assemble(src) for src in all_srcs}
+    import_wins = _finder_import_wins(prelim)
+    objects, segnames, segkinds = [], [], []
+    for name, kind, srcs in SEGS:
+        combo = b''.join(_assemble(f, import_wins.get(f))[0] for f in srcs)
+        objects.append((combo, None))
+        segnames.append(name.encode())
+        segkinds.append(kind)
+    return objects, segnames, segkinds
+
+
+def build_finder_data():
+    """Assemble + link + ExpressLoad-package the whole Finder DATA fork,
+    injecting link_finder()'s byte-exact per-segment images AND relocation
+    dictionaries (FINDER_PLAN B.5).  NOTE: the ~ExpressLoad directory segment
+    is still built by expressload()'s own machinery (Stage 4 work), so the
+    full fork is NOT yet byte-exact — the load segments are."""
+    images, jt_entries, jt_segnum, _segnum, reloc_dicts = link_finder()
+    objects, segnames, segkinds = _finder_objects()
+    seg_images = {name.encode(): images[name] for name, _k, _s in SEGS}
+    dicts = {name.encode(): reloc_dicts[name] for name, _k, _s in SEGS}
+    return expressload(objects, opts={
+        'multiseg': True,
+        'segnames': segnames,
+        'segkinds': segkinds,
+        'jt_entries': jt_entries,
+        'seg_images': seg_images,
+        'reloc_dicts': dicts,
+    })
+
+
+def _split_seg(raw_seg):
+    """Split one raw OMF segment into (header, lconst_image, reloc_bytes)
+    assuming the single-$F2-LCONST body layout every gold load segment uses.
+    reloc_bytes INCLUDES the trailing END (0x00)."""
+    h = omf.parse_header(raw_seg)
+    dd = h['DISPDATA']
+    hdr = raw_seg[:dd]
+    if raw_seg[dd] != 0xF2:
+        return hdr, None, raw_seg[dd:]
+    lcsz = int.from_bytes(raw_seg[dd + 1:dd + 5], 'little')
+    lconst = raw_seg[dd + 5:dd + 5 + lcsz]
+    reloc = raw_seg[dd + 5 + lcsz:]
+    return hdr, lconst, reloc
+
+
+def _named_segs(fork):
+    """name -> raw segment bytes, in file order (list of (name, raw))."""
+    out = []
+    for seg in omf.iter_segments(fork):
+        nm = (seg['hdr']['SEGNAME'].decode('mac_roman', 'replace')
+              .strip().rstrip('\x00'))
+        out.append((nm, seg['raw']))
+    return out
+
+
+def _reloc_seg_rows(built=None):
+    """Per-load-segment (name, hdr_ok, lconst_ok, reloc_ok, dRELOC, e2e) rows
+    plus (good, total) reloc-dict tally, comparing build_finder_data() to gold.
+    Shared by main()'s ratchet line and the --segdiff view."""
+    raw = golden()
+    if built is None:
+        built = build_finder_data()
+    built_map = dict(_named_segs(built))
+    load_names = {n for n, _k, _s in SEGS} | {'~JumpTable'}
+    rows = []
+    good = total = 0
+    for nm, graw in _named_segs(raw):
+        braw = built_map.get(nm)
+        if braw is None:
+            rows.append((nm, None, None, None, None, None))
+            continue
+        gh, gl, gr = _split_seg(graw)
+        bh, bl, br = _split_seg(braw)
+        if nm in load_names and nm != '~ExpressLoad':
+            total += 1
+            if br == gr:
+                good += 1
+        rows.append((nm, bh == gh, bl == gl, br == gr,
+                     len(br) - len(gr), braw == graw))
+    return rows, good, total
+
+
+def segdiff():
+    """Per-segment end2end/hdr/lconst/reloc booleans + reloc byte-delta,
+    comparing build_finder_data() to gold (FINDER_PLAN D.2)."""
+    rows, good, total = _reloc_seg_rows()
+    print(f'{"segment":14} {"e2e":>4} {"hdr":>4} {"lcon":>4} {"reloc":>5} '
+          f'{"dRELOC":>7}   note')
+    for nm, hdr, lcon, reloc, drel, e2e in rows:
+        if hdr is None:
+            print(f'{nm:14} {"MISS":>4}')
+            continue
+        note = '' if reloc else f'reloc len delta {drel}'
+        print(f'{nm:14} {str(e2e):>4} {str(hdr):>4} {str(lcon):>4} '
+              f'{str(reloc):>5} {drel:>7}   {note}')
+    print(f'\nFINDER_RELOC_SEGS_EXACT {good}/{total}')
+    return good, total
 
 
 def main():
+    if '--segdiff' in sys.argv:
+        segdiff()
+        return
     verbose = '-v' in sys.argv
     raw = golden()
     try:
-        images, jt_entries, jt_segnum, _segnum = link_finder()
+        images, jt_entries, jt_segnum, _segnum, _reloc = link_finder()
     except Exception as e:                                   # noqa: BLE001
         print(f'FAIL link: {type(e).__name__}: {e}')
         sys.exit(1)
@@ -314,6 +528,13 @@ def main():
           f'{len(jt_entries)} entries mine={len(mine_jt)} gold={len(gold_jt)}')
 
     print(f'\nfinderdatacheck: FINDER_DATA_CODE_BYTES {tot_m}/{tot_n}')
+    # Interim ratchet: every load-segment reloc dictionary byte-exact (Stages
+    # 0-3). The ~ExpressLoad directory (Stage 4) is excluded from this tally.
+    try:
+        _rows, good, total = _reloc_seg_rows()
+        print(f'finderdatacheck: FINDER_RELOC_SEGS_EXACT {good}/{total}')
+    except Exception as e:                                   # noqa: BLE001
+        print(f'finderdatacheck: FINDER_RELOC_SEGS_EXACT 0/13  ({type(e).__name__}: {e})')
 
 
 if __name__ == '__main__':

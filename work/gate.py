@@ -98,9 +98,16 @@ CHECKS = [
     # Finder DATA fork (work-in-progress: per-segment code images via the
     # jump-table-aware multi-seg link; ratchet metric — see
     # work/finderdatacheck.py).
+    # ...plus the per-segment RELOCATION DICTIONARIES (interim ratchet; every
+    # load segment's reloc records byte-exact via the injected BankRel/case-B
+    # builder — docs/EXPRESSLOAD_FINDER_PLAN.md Stages 0-3). Superseded by a
+    # full-fork finder_data_bytes_exact once the ~ExpressLoad directory
+    # (Stage 4) lands.
     ('finderdatacheck', ['finderdatacheck.py'], [
         ('finder_data_code_bytes',
-         r'FINDER_DATA_CODE_BYTES\s+(\d+)/(\d+)', 'frac')]),
+         r'FINDER_DATA_CODE_BYTES\s+(\d+)/(\d+)', 'frac'),
+        ('finder_reloc_segs_exact',
+         r'FINDER_RELOC_SEGS_EXACT\s+(\d+)/(\d+)', 'frac')]),
     # MountImageGS NDA data fork — assembler oracle from the archived
     # 30-Apr-93 build (older LinkIIGS SUPER coverage; no rsrc oracle
     # survives, so MountImage.r stays a non-target — see the harness).
