@@ -95,6 +95,12 @@ CHECKS = [
     ('teachcheck', ['teachcheck.py'], [
         ('teach_rsrc_bytes_exact',
          r'TEACH_RSRC_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
+    # Finder DATA fork (work-in-progress: per-segment code images via the
+    # jump-table-aware multi-seg link; ratchet metric — see
+    # work/finderdatacheck.py).
+    ('finderdatacheck', ['finderdatacheck.py'], [
+        ('finder_data_code_bytes',
+         r'FINDER_DATA_CODE_BYTES\s+(\d+)/(\d+)', 'frac')]),
     # MountImageGS NDA data fork — assembler oracle from the archived
     # 30-Apr-93 build (older LinkIIGS SUPER coverage; no rsrc oracle
     # survives, so MountImage.r stays a non-target — see the harness).

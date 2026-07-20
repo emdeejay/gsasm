@@ -1,0 +1,3 @@
+{
+  "note": "A template-record field may claim an unclaimed BARE name (typed 'equ' for DP sizing, the AppleShare math_temp behavior) but the claim must yield to a prior pass's final REAL LABEL: without the seed check the field re-claims the name each fresh pass and a forward reference to a later same-file code label sizes direct-page off the stale field offset (Finder verify.aii DoRead `sta bytes`). Guards asm.py _field_owns_bare's seed_type gate + needs_reloc's seed-kind fallback."
+}

@@ -1,0 +1,3 @@
+{
+  "note": "STRING GSOS prefixes DC.B string literals with a little-endian WORD length (Finder Strings.aii golden: 06 00 'SYSTEM'); PASCAL (length byte) and ASIS (raw) modes are unaffected. Guards asm.py's string_mode GSOS branch in _dc_bytes/_dcb_bytes."
+}

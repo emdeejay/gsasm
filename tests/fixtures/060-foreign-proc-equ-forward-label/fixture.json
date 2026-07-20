@@ -1,0 +1,3 @@
+{
+  "note": "A PROC-local equate leaks its global 'equ' kind; a DIFFERENT segment's forward reference to its OWN later code label of the same name must still size 16-bit absolute (the equate is module-local under MPW). Gated on the prior pass's final kind being 'label' and the equate living only in a foreign segment's seg_equ. Guards asm.py _foreign_proc_equ_masks_label (sym_kind + needs_reloc). Finder verify.aii sLen1/sLen2/width."
+}

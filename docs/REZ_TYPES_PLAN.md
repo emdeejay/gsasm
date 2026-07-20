@@ -277,6 +277,20 @@ golden bytes:
 
 ### Next targets
 
-- **Finder data fork** — the ~25-module AsmIIgs/LinkIIgs build
-  (`-lseg` load segments incl. three dynamic ones, `-at $DB03`); would
-  flip Start+Finder to dual-fork logical-exact.
+- **Finder data fork** — IN PROGRESS (2026-07-20, work/finderdatacheck.py;
+  ratchet gate metric `finder_data_code_bytes`, currently 96,757/135,432
+  with BUFFERS/DATA/FIFIFIONE segments byte-exact and every segment
+  size-correct except FINDER at -12).  All 22 modules assemble with zero
+  errors (three needed E16.LineEdit/M16.Util etc. — 52 more AIIGSIncludes
+  extracted from system500.hfv into work/rincludes/AIIGSIncludes).  Three
+  assembler fixes landed (fixtures 058-060, gate green, ROM byte-identical):
+  `STRING GSOS` word-length prefix; template-record courtesy claims yield
+  to a prior pass's real-label kind (+ needs_reloc seed-kind fallback,
+  symseg seeded across passes); foreign-PROC-local equates don't
+  direct-page-size a segment's own forward label.  Known remaining work:
+  cross-load-segment `lda #^extern` sites must store the UNSHIFTED offset
+  with the shift deferred to the interseg reloc (gold `nullStrg` evidence;
+  the harness's abs_extra currently link-resolves the shift); ~JumpTable
+  has 8/10 entries (two refs into dynamic segments unscanned); FINDER
+  segment -12 bytes; then the full-file multiseg ExpressLoad assembly and
+  diskcheck wiring for Start+Finder dual-fork.
