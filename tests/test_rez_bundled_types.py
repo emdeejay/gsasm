@@ -90,6 +90,20 @@ resource rControlTemplate (16) {
     {35, 14, 44, 294},
     thermometerControl {{ 1, $1000, 0, 0, 100 }}
 };
+
+resource rMenuBar (17) {
+    { 1, 2 }
+};
+
+resource rAlertString (18) {
+    "40/A" TBEndOfLine TBStyleOutline "B"
+};
+
+resource rWindParam1 (19) {
+    fTitle+fClose,
+    0, 0, {0,0,0,0}, 0, {0,0}, {0,0}, {0,0}, {0,0}, {0,0},
+    0, 0, {1,2,3,4}, infront, 0, 0
+};
 '''
 
 
@@ -174,6 +188,16 @@ def test_bundled_types_compile():
                         b'\x02\x00\xff\x87'
                         b'\x01\x00' b'\x00\x10' b'\x00\x00\x00\x00'
                         b'\x00\x00' b'\x64\x00')
+    # rMenuBar: version 0, $8000 flag word, refs, zero-long terminator
+    # (golden: Teach's 6-menu bar, 32 bytes)
+    assert data[17] == (b'\x00\x00' b'\x00\x80'
+                        b'\x01\x00\x00\x00' b'\x02\x00\x00\x00'
+                        b'\x00\x00\x00\x00')
+    # TB* LETextBox2 escape defines (golden: Teach's about box)
+    assert data[18] == b'40/A' b'\x0d' b'\x01S\x08\x00' b'B'
+    # wFrameBits defines (golden: Teach's rWindParam1 bodies):
+    # fTitle+fClose = $C000
+    assert data[19][2:4] == b'\x00\xc0'
 
 
 if __name__ == '__main__':

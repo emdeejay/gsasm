@@ -21,6 +21,7 @@
 #define rControlList        0x8003
 #define rControlTemplate    0x8004
 #define rPString            0x8006
+#define rMenuBar            0x8008
 #define rMenu               0x8009
 #define rMenuItem           0x800A
 #define rTextForLETextBox2  0x800B
@@ -72,6 +73,15 @@
 /* Raw text, no length prefix, no implicit terminator (rErrorString bodies
  * write their trailing NUL explicitly as \0x00 — oracle: 90 instances). */
 
+/* LETextBox2 embedded formatting codes (Toolbox Ref Vol 3, LineEdit
+ * LETextBox2: $01 + 'J'/'S' + a 2-byte parameter selects justification /
+ * style; names+values via the token oracle, byte-proven by Teach's
+ * rAlertString bodies). */
+#define TBEndOfLine       "\n"
+#define TBStylePlain      "\$01S\$00\$00"
+#define TBStyleOutline    "\$01S\$08\$00"
+#define TBCenterJust      "\$01J\$01\$00"
+
 type rPString {            /* length-byte Pascal string (oracle: 10) */
     pstring;
 };
@@ -118,6 +128,14 @@ type rIcon {
 };
 
 /* --- Window Manager ----------------------------------------------------- */
+
+/* NewWindow wFrameBits (Toolbox Ref Vol 2; values via the token oracle,
+ * byte-proven by Teach's rWindParam1 bodies). */
+#define fVis              0x0020
+#define fMove             0x0080
+#define fZoom             0x0100
+#define fClose            0x4000
+#define fTitle            0x8000
 
 type rWindColor {          /* NewWindow2 color table: 5 LE words */
     integer;               /* frameColor  */
@@ -170,7 +188,26 @@ type rWindParam1 {
 #define MenuTitleRefShift 0x4000   /* menuFlag: title-ref type field shift */
 #define fXOR              0x0020   /* itemFlag: XOR highlighting           */
 #define fAllowCache       0x0008   /* menuFlag: allow menu caching         */
+#define rmAllowCache      0x0008   /* (Teach spelling)                     */
+#define rmDisabled        0x0080   /* menuFlag: menu disabled              */
+#define rMIBold           0x0001   /* menu-item itemFlag: bold style       */
 #define rMIItalic         0x0002   /* menu-item itemFlag: italic style     */
+#define rMIUnderline      0x0004   /* menu-item itemFlag: underline style  */
+#define rMIOutline        0x0800   /* menu-item itemFlag: outline style    */
+#define rMIShadow         0x1000   /* menu-item itemFlag: shadow style     */
+
+type rMenuBar {            /* SetMenuBar list: rMenu refs.  The $8000 word
+                              and the zero-long terminator are template-
+                              supplied (terminator per the same RezIIGS
+                              configuration as rMenu/rControlList; oracle:
+                              Teach's 6-menu bar, 32 bytes).              */
+    integer = 0;           /* version                                     */
+    integer = 0x8000;      /* refs-are-resource-IDs flag                  */
+    array {
+        longint;           /* rMenu refs                                  */
+    };
+    longint = 0;           /* list terminator                             */
+};
 
 type rMenu {
     integer = 0;           /* version                                     */

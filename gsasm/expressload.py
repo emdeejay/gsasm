@@ -322,10 +322,28 @@ def _has_sym_ref(ops: list) -> bool:
     return any(isinstance(op, tuple) and op[0].startswith('sym') for op in ops)
 
 
+_ALL_SUPER_CLASSES = frozenset(_SUPER_TYPE)
+
+
+# Per-build SUPER coverage (see `expressload(opts={'super_classes': ...})`):
+# the encoder integrated in the 30-Apr-93 LinkIIGS that built the archived
+# MountImageGS folds ONLY the (2, 0) low-word class into a SUPER record —
+# its 20 size-4 relocs (NDA header long pointers, `dc.l` handler slots) and
+# 10 (2,16) bank-byte relocs are all standalone $F5 cRELOCs.  The System
+# Disk artifacts (EasyMount, tools, drivers, FSTs — all byte-exact under
+# the FULL class set) were produced by a later toolchain whose encoder
+# supers every `_SUPER_TYPE` class; EasyMount's golden SUPER-27 record
+# falsified an attempted content-based discriminator (addended bank-byte
+# sites), pinning this as a toolchain-VERSION property, recorded per
+# target like the `sysdate` builtin.
+SUPER_CLASSES_APR93 = frozenset({(2, 0)})
+
+
 
 
 def _scan_relocs(
         placed: list[tuple[str, list, int, dict, Any]],
+        super_classes: frozenset = _ALL_SUPER_CLASSES,
 ) -> dict[int, list[int]]:
     """Scan LEXPR/BEXPR/EXPR records in all placed segments and return
     ``{super_type: sorted_list_of_absolute_byte_offsets}``
@@ -348,7 +366,7 @@ def _scan_relocs(
                 if _has_sym_ref(ops):
                     shift = _get_shift(ops)
                     stype = _SUPER_TYPE.get((size, shift))
-                    if stype is not None:
+                    if stype is not None and (size, shift) in super_classes:
                         relocs.setdefault(stype, []).append(seg_base + body_off)
                 body_off += size
             elif nm == 'RELEXPR':
@@ -363,6 +381,7 @@ def _scan_relocs(
 
 def _scan_standalone_relocs(
         placed: list[tuple[str, list, int, dict, Any]],
+        super_classes: frozenset = _ALL_SUPER_CLASSES,
 ) -> list[tuple[int, int, int, list, int]]:
     """Relocations MPW ExpressLoad emits as individual cRELOC/RELOC records
     rather than folding into a SUPER record.
@@ -397,7 +416,8 @@ def _scan_standalone_relocs(
                 ops = d[1]
                 if _has_sym_ref(ops):
                     shift = _get_shift(ops)
-                    if (size, shift) not in _SUPER_TYPE:
+                    if ((size, shift) not in _SUPER_TYPE
+                            or (size, shift) not in super_classes):
                         out.append((seg_base + body_off, size, shift, ops, seg_i))
                 body_off += size
             elif nm == 'RELEXPR':
@@ -1130,6 +1150,14 @@ def expressload(
 
     multiseg: bool = opts.get('multiseg', False)
 
+    # (size, shift) classes the emitting toolchain's encoder folds into
+    # SUPER records; everything else with a symbol ref goes standalone.
+    # Default: every class in _SUPER_TYPE (the System Disk toolchain).
+    # SUPER_CLASSES_APR93 reproduces the older 30-Apr-93 LinkIIGS
+    # (MountImageGS) — see that constant's comment.
+    super_classes: frozenset = frozenset(
+        opts.get('super_classes') or _ALL_SUPER_CLASSES)
+
     # ------------------------------------------------------------------
     # Pass 1: parse inputs and place segments
     # ------------------------------------------------------------------
@@ -1198,8 +1226,21 @@ def expressload(
         #            ride a SUPER page list; relOffset is the FULL 32-bit
         #            flagged value (see _scan_case_b).
         combined: list[tuple[int, int, int, int]] = []
-        for offset, size, shift, ops, seg_i in _scan_standalone_relocs(placed):
-            if size >= 2:
+        for offset, size, shift, ops, seg_i in _scan_standalone_relocs(
+                placed, super_classes):
+            if (size, shift) == (2, 16):
+                # A forced-standalone bank-byte site: the image word holds
+                # the SHIFTED value (the bank), but the golden $F5 record's
+                # relOffset is the full UNSHIFTED target (MountImageGS:
+                # `f5 02 f0 0081 00f9` for image word 0x0000, target
+                # NDAHEADER+249) — evaluate the expression sans shift.
+                ops_wo = ops
+                if (len(ops) >= 4 and ops[-1] == 'end'
+                        and ops[-2] == ('op', 7)
+                        and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
+                    ops_wo = ops[:-3] + ['end']
+                rel_off = _omf._eval(ops_wo, body_syms[seg_i]) & 0xFFFFFF
+            elif size >= 2:
                 rel_off = int.from_bytes(merged_body[offset:offset + size],
                                          'little')
             else:
@@ -1231,7 +1272,7 @@ def expressload(
         # Scan relocs over ALL placed segments, excluding any site case-B
         # already claimed as standalone (it cannot ALSO ride a SUPER page
         # list — that is the whole point of the flag).
-        relocs_by_type = _scan_relocs(placed)
+        relocs_by_type = _scan_relocs(placed, super_classes)
         case_b_offsets = {r[0] for r in case_b}
         if case_b_offsets:
             for stype in list(relocs_by_type):
