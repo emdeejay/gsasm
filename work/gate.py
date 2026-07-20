@@ -124,6 +124,15 @@ CHECKS = [
     ('appdatacheck', ['appdatacheck.py'], [
         ('app_data_bytes_exact',
          r'APP_DATA_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
+    # Five small A.U.G/ToolBoxMisc resource forks (FindFile DA, Apple.Bowl,
+    # MediaControl NDA, VideoMix NDA, Pioneer4200 rsrc) — same clean-room
+    # Rez pipeline as cdevcheck/findercheck, no `read`/code gold-feed
+    # needed for any of the five.  Disks 3/4/5, not the System Disk, so —
+    # like cdevcheck/appdatacheck — this contributes only its own metric,
+    # NOT diskcheck.  See work/rezforkcheck.py.
+    ('rezforkcheck', ['rezforkcheck.py'], [
+        ('rezfork_bytes_exact',
+         r'REZFORK_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
 ]
 
 FULL_CHECKS = [
