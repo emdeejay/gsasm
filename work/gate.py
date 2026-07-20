@@ -90,6 +90,17 @@ CHECKS = [
     ('installercheck', ['installercheck.py'], [
         ('installer_rsrc_bytes_exact',
          r'INSTALLER_RSRC_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
+    # Rez tier-1 Teach fork (clean-room include; Pascal code stays a wall,
+    # the Rez layer is proven — see work/teachcheck.py).
+    ('teachcheck', ['teachcheck.py'], [
+        ('teach_rsrc_bytes_exact',
+         r'TEACH_RSRC_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
+    # MountImageGS NDA data fork — assembler oracle from the archived
+    # 30-Apr-93 build (older LinkIIGS SUPER coverage; no rsrc oracle
+    # survives, so MountImage.r stays a non-target — see the harness).
+    ('mountimagecheck', ['mountimagecheck.py'], [
+        ('mountimage_data_bytes_exact',
+         r'MOUNTIMAGE_DATA_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
 ]
 
 FULL_CHECKS = [

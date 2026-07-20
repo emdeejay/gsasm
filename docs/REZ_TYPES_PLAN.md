@@ -231,11 +231,52 @@ were two dialect gaps (corpus-free fixtures in tests/test_rez_gen.py):
 - Already supported, exercised for the first time: `0b` literals,
   `#if defined NAME`.
 
-### Next targets (tier 1, sources + goldens both confirmed on hand)
-- **Teach** — `ToolBoxMisc/Teach/teach.r` (12 types incl rStyleBlock?).
-  Golden: `/SystemTools2/Teach` (Disk 4).
-- **MountImage** — `MountImageGS/MountImage.r` (7 types).  Golden location
-  TBD (not on disks 1–4 walked so far; check 5–7 / the MountImage release).
-- **Finder data fork** — the eleven-module AsmIIgs/LinkIIgs build
+### Teach sweep — DONE (2026-07-20; work/teachcheck.py)
+
+Byte-exact 7,333/7,333 (133 resources; gate metric
+`teach_rsrc_bytes_exact`).  Teach's code is Pascal (a wall, like the
+Pascal CDEVs) but its `teach.r` goes through `#include "typesiigs.r"`, so
+it exercised previously-unproven include surface, all recovered via the
+token oracle and byte-proven: the rMenuBar template (version 0, $8000
+flag word, rMenu refs, zero-long terminator per the same RezIIGS
+configuration as rMenu — Installer's terminator-LESS local variant
+confirms the conditional), the TB* LETextBox2 escape defines
+(TBEndOfLine/"\n", TBStylePlain/Outline, TBCenterJust — $01+'S'/'J'
+control codes), the five wFrameBits defines (fVis/fMove/fZoom/fClose/
+fTitle), and six menu flag constants (rmAllowCache, rmDisabled, rMIBold,
+rMIUnderline, rMIOutline, rMIShadow).  Zero pipeline changes — the fork
+was byte-exact on the first full build once the constants existed.
+NB: one recovery probe printed more of the recovered include's token
+stream than the four defines requested; only the probed define values
+were used (templates were NOT taken from that output — rMenuBar was
+derived from the Teach/Installer byte evidence above).
+
+### MountImage — data fork DONE, rsrc a permanent non-target (2026-07-20)
+
+No resource-fork oracle exists: MountImage is on none of the seven disks
+(nor French/German), and the archive kept no AppleDouble sidecar for the
+built binary — `MountImage.r` stays OUT per the house rule (tier-3
+RezIIGS-under-SheepShaver could revive it).  But the archived
+`MountImageGS` file IS the built binary's 5,750-byte DATA fork (an
+ExpressLoad'd NDA, real build log in `MountImageGS.makeout`), i.e. an
+assembler oracle (work/mountimagecheck.py, gate metric
+`mountimage_data_bytes_exact`).  Two per-build facts recovered from the
+golden bytes:
+
+- sysdate/systime `30-Apr-93`/`18:33:59` (embedded version string).
+- **The Apr-93 LinkIIGS's integrated ExpressLoad encoder supers only the
+  (2,0) low-word class** — its 20 size-4 relocs (NDA header longs,
+  `dc.l` handler slots) and 10 bank-byte relocs are standalone $F5
+  cRELOCs (relOffset = full unshifted target).  A content-based rule
+  ("addended bank-byte sites go standalone") was tried first and
+  FALSIFIED by EasyMount's golden SUPER-27 — pinning this as a
+  toolchain-VERSION property, now the `super_classes` expressload option
+  (default = full class set, unchanged for the whole corpus;
+  `SUPER_CLASSES_APR93` for this target; corpus-free guard
+  tests/test_expressload_super_classes.py).
+
+### Next targets
+
+- **Finder data fork** — the ~25-module AsmIIgs/LinkIIgs build
   (`-lseg` load segments incl. three dynamic ones, `-at $DB03`); would
   flip Start+Finder to dual-fork logical-exact.
