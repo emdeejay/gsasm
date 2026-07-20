@@ -128,6 +128,19 @@ def golden():
     return vol.read_file(f'{dc.V}/System/Start', fork='data')
 
 
+def _goldens():
+    """Both shipped copies of the Finder data fork — the System Disk boot
+    program /System/Start and Disk 3's /SystemTools1/System/Finder — which
+    are byte-identical (the Finder ships renamed as Start).  Returned as
+    [(label, bytes), ...] so the full-fork metric guards both."""
+    out = [('Start', golden())]
+    d3 = f'{dc.DISKS}/Disk 3 of 7 SystemTools1.2mg'
+    v3 = Volume(bytearray(open(d3, 'rb').read()))
+    out.append(('Finder(Disk3)',
+                v3.read_file('/SystemTools1/System/Finder', fork='data')))
+    return out
+
+
 def link_finder():
     """The _link_jt_tool algorithm (work/toolcheck.py) over the Finder's
     segment spec.  Returns (images, jt_entries, jt_segnum, segnum)."""
@@ -537,14 +550,16 @@ def main():
     except Exception as e:                                   # noqa: BLE001
         print(f'finderdatacheck: FINDER_RELOC_SEGS_EXACT 0/13  ({type(e).__name__}: {e})')
     # Full-fork ratchet: the entire 146,924-byte ExpressLoad'd data fork
-    # byte-exact (Stage 4 closed the ~ExpressLoad directory).
+    # byte-exact against BOTH shipped copies (Start + Disk-3 Finder, which
+    # must stay byte-identical).  Stage 4 closed the ~ExpressLoad directory.
     try:
         full = build_finder_data()
-        ok = full == raw
-        print(f'finderdatacheck: FINDER_DATA_BYTES_EXACT '
-              f'{len(raw) if ok else 0}/{len(raw)}')
+        golds = _goldens()
+        good = sum(len(g) for _l, g in golds if full == g)
+        total = sum(len(g) for _l, g in golds)
+        print(f'finderdatacheck: FINDER_DATA_BYTES_EXACT {good}/{total}')
     except Exception as e:                                   # noqa: BLE001
-        print(f'finderdatacheck: FINDER_DATA_BYTES_EXACT 0/146924  '
+        print(f'finderdatacheck: FINDER_DATA_BYTES_EXACT 0/293848  '
               f'({type(e).__name__}: {e})')
 
 
