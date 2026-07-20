@@ -8,7 +8,7 @@ committed regression baseline (`work/gate.py`; `work/gate_baseline.json`).
 
 | Target | Size | Verified by |
 |---|---|---|
-| ROM 03 firmware (all three banks) | 262,144 bytes | `work/buildrom.py` |
+| ROM 03 firmware (all three banks) — full image byte-identical; 261,377 B (99%) source-built, Toolbox banks from the captured image | 262,144 bytes | `work/buildrom.py` |
 | All 8 buildable FSTs (Pro, HFS, Char, HS, DOS3.3, Pascal, MSDos, AppleShare) | 111,584 bytes | `work/fstcheck.py` |
 | All 12 drivers (AppleDisk 3.5/5.25, UniDisk, SCSI HD/CD/Scan/Tape + Manager, RAM5, SCC, Console, ATalk) | 94,948 bytes | `work/drivercheck.py` |
 | All 12 mapped toolbox toolsets (WindMgr, MenuMgr, ControlMgr, QDAux, PrintMgr, LineEdit, DialogMgr, Scrap, StdFile, FontMgr, ListMgr, TextEdit) | 186,110 bytes | `work/toolcheck.py` |
@@ -18,7 +18,7 @@ committed regression baseline (`work/gate.py`; `work/gate_baseline.json`).
 | `Error.Msg` | 5,407 bytes | `work/kernelcheck.py` |
 | GS.OS kernel (SCM portion) | 38,805 bytes | `work/kernelcheck.py` |
 | GS/OS Loader | 16,590 bytes | `work/loader_placed.py` |
-| **ALL 30** System 6.0.1 logical files the disk harness rebuilds (2026-07-19, E3: Tool034/TextEdit was the last); physical image byte-match 819,264/819,264 | — | `work/diskcheck.py` |
+| **ALL 38** System 6.0.1 logical files the disk harness rebuilds (grew 30→38 as the CDEV / Finder(Start) / EasyMount rez-fork builders were wired in); physical image byte-match 819,264/819,264 | — | `work/diskcheck.py` |
 
 Close but not exact:
 
@@ -157,7 +157,8 @@ E2 (2026-07-19, commit 8df2a45): the multiseg path now emits the full
 standalone/case-B/SUPER dictionary and TS2 (36,665/36,665) and TS3
 (41,700/41,700) are byte-exact on disk. Tool034/TextEdit followed in E3
 (commits d951821/bc37f8d) — code image AND full on-disk file (38,242/38,242)
-— completing `disk_logical_exact` 30/30. See `docs/design/expressload.md` and
+— reaching `disk_logical_exact` 30/30 at E3 (since grown to 38/38 as the
+rez-fork builders were wired). See `docs/design/expressload.md` and
 `docs/EXPRESSLOAD_TIER2_PLAN.md`.
 
 **SCSIHD.Driver — CLOSED (2026-07-18): byte-exact (15,690/15,690).** This was

@@ -365,9 +365,10 @@ overturned the "at the proven ceiling" framing. Remaining follow-ups:
   repro needs the exact defer-triggering construct (a `pushlong`/`#` immediate
   over a same-segment label difference that the assembler emits as a deferred
   `EXPR`, not the folded `dc.w` form).
-- **SCSIHD.Driver** — the one genuinely evidence-backed limit (shared
-  `SCSI.Drivers` source builds its 3 siblings byte-exact; only `type=0`
-  diverges, code inserted throughout). Worth a `de_express` + block-align diff
+- **SCSIHD.Driver** — CLOSED byte-exact 2026-07-18 (see the 2026-07-18 update
+  at the top of this file): it was a gsasm include-resolver bug (`/`→`_`), not
+  a source-revision limit. The driver corpus is 100% (`driver_bytes 94948/0`).
+  No "absent/external/source-disagrees" limit now survives.
   vs golden someday to characterize the revision delta precisely (à la the
   HFS.FST 6.0.4 analysis) rather than leave it asserted.
 - **P8 (§3)** — DONE, byte-exact (`work/p8check.py`, 17128/17128); the "missing
