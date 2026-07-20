@@ -256,6 +256,19 @@ def _build_easymount_data():
 SOURCE_BUILDERS[f'{V}/System/System.Setup/EasyMount'] = _build_easymount_data
 
 
+# Start is the Finder (byte-identical fork): its RESOURCE fork builds via the
+# REZ builder above (_build_finder_rsrc); its DATA fork is the full 146,924-byte
+# ExpressLoad'd Finder application, wired here as a dual-fork SOURCE_BUILDERS
+# entry exactly like EasyMount.  Byte-exact as of the reloc-dictionary work
+# (docs/EXPRESSLOAD_FINDER_PLAN.md); the dual-fork branch in check() overlays it.
+def _build_finder_data():
+    import finderdatacheck
+    return finderdatacheck.build_finder_data()
+
+
+SOURCE_BUILDERS[f'{V}/System/Start'] = _build_finder_data
+
+
 def build_and_overlay(vol, f):
     """The Phase-2 builder contract for one manifest BUILD file. Returns
     (built_ok, note)."""
