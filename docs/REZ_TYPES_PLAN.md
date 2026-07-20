@@ -206,11 +206,32 @@ test_rez_bundled_types.py):
 - 380/381 resources were byte-exact on the FIRST full-fork build; the 11
   differing bytes were all that per-iteration count bug.
 
-### Next targets (tier 1, sources + goldens both confirmed on hand)
+### Installer sweep — DONE (2026-07-20; work/installercheck.py)
 
-- **Installer** — `A.U.G/Installer/Installer.r` (15 types incl rMenuBar,
-  rPicture, rInstallScript, rDiskNames).  Golden: `/Install/Installer`
-  (Disk 1, 17,895 B rsrc, read confirmed).
+Byte-exact 17,895/17,895 (90 resources; gate metric
+`installer_rsrc_bytes_exact`).  Installer.r turned out to be fully
+SELF-CONTAINED — it declares all fifteen of its own templates
+(rInstallScript, rDiskNames, rPicture, rMenuBar, rCtlColorTbl, …) and
+includes nothing, so nothing was added to the bundled include
+(corpus-local policy, the rMyCursor precedent); the target proves the
+DIALECT.  The shipped variant compiles with `-d SystemSoftware` (MakeFile;
+Easy Update).  87/90 resources were exact on the first build; the rest
+were two dialect gaps (corpus-free fixtures in tests/test_rez_gen.py):
+
+- `<<`/`>>` shift operators — two-char lexer tokens, a precedence tier
+  between `|` and additive, gen eval (rPicture's Clip case
+  `(ClipEnd[i]-ClipStart[i]) >> 3`; more subscripted-label machinery
+  golden-proven, incl. `hex string [$$Word(ClipStart[i]) - 10]`).
+- `\t` → 0x09 (keyEquiv `{"\t","",…}` pairs).
+- `string [N]`/`hex string [N]` with a CONSTANT-FOLDABLE bracket
+  zero-pads content to N (PnPat: 16 pattern bytes in a [32] field);
+  a runtime bracket ($$Word…) keeps the rIcon content-length semantics —
+  two prior fixtures that over-generalized "bracket ignored" to literal
+  brackets were corrected against the new golden evidence.
+- Already supported, exercised for the first time: `0b` literals,
+  `#if defined NAME`.
+
+### Next targets (tier 1, sources + goldens both confirmed on hand)
 - **Teach** — `ToolBoxMisc/Teach/teach.r` (12 types incl rStyleBlock?).
   Golden: `/SystemTools2/Teach` (Disk 4).
 - **MountImage** — `MountImageGS/MountImage.r` (7 types).  Golden location

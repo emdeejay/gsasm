@@ -553,6 +553,10 @@ def _eval_expr(expr, ctx):
             return _cdiv(left, right)
         if expr.op == '|':
             return left | right
+        if expr.op == '<<':
+            return left << right
+        if expr.op == '>>':
+            return left >> right
         raise GenError(f"{expr.file}:{expr.line}: unsupported operator {expr.op!r}")
     if isinstance(expr, parser.Name):
         # A bare label reference: the label's BIT OFFSET from the start of
@@ -697,8 +701,9 @@ def decode_string_escapes(raw: bytes) -> bytes:
     """Decode the backslash escapes this corpus actually uses inside a
     `StrLit`'s raw bytes (see module docstring for the evidence): `\\0xHH`
     (one byte, hex value HH), `\\$HH` (one byte, hex value HH -- see below),
-    `\\n` (one byte, 0x0D -- Mac CR, not 0x0A), and `\\<anything else>`
-    (that literal byte, backslash dropped).
+    `\\n` (one byte, 0x0D -- Mac CR, not 0x0A), `\\t` (one byte, 0x09 --
+    golden: Installer.r's `{"\\t","",...}` keyEquiv pairs), and
+    `\\<anything else>` (that literal byte, backslash dropped).
 
     `\\$HH`: EasyMount's `EasyMount.rii` (M7 follow-on target) uses this
     form for real, in the `simpleButtonControl`/`radioControl` `KeyEquiv`
@@ -730,6 +735,10 @@ def decode_string_escapes(raw: bytes) -> bytes:
                 continue
             if raw[i + 1] == 0x6E:   # 'n' -> Mac CR
                 out.append(0x0D)
+                i += 2
+                continue
+            if raw[i + 1] == 0x74:   # 't' -> TAB (golden: Installer.r's
+                out.append(0x09)     # keyEquiv "\t" pairs store 0x09)
                 i += 2
                 continue
             out.append(raw[i + 1])
@@ -801,6 +810,26 @@ def _write_string_like(f, data, writer):
     bt = f.basetype
     if bt == 'string':
         writer.write_bytes(data)
+        if f.size is not None:
+            # `string [N]` / `hex string [N]`: N is the field's declared
+            # byte width -- shorter content is ZERO-PADDED to N (golden:
+            # Installer.r rPicture PnPat `hex string [32]` with a 16-byte
+            # pattern body stores 16 pattern + 16 zero bytes).  Only a
+            # size expression that CONSTANT-FOLDS with a bare context
+            # participates: a runtime-value bracket like rIcon's
+            # `[$$Word(image)]` or rPicture Clip's `[$$Word(...)-10]`
+            # cannot resolve during the measure pass, so those keep the
+            # established content-length semantics (module docstring's
+            # rIcon evidence) -- identically in both passes.
+            try:
+                total = _eval_expr(f.size, _Ctx())
+            except GenError:
+                total = None
+            if total is not None:
+                if len(data) > total:
+                    raise GenError(f"{f.file}:{f.line}: string[{total}] too "
+                                    f"small for {len(data)} bytes of content")
+                writer.write_bits(0, (total - len(data)) * 8)
     elif bt == 'pstring':
         if len(data) > 255:
             raise GenError(f"{f.file}:{f.line}: pstring content exceeds 255 "

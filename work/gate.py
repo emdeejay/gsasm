@@ -85,6 +85,11 @@ CHECKS = [
     ('findercheck', ['findercheck.py'], [
         ('finder_rsrc_bytes_exact',
          r'FINDER_RSRC_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
+    # Rez tier-1 Installer fork (self-contained Installer.r — corpus-local
+    # templates; proves the dialect, see work/installercheck.py).
+    ('installercheck', ['installercheck.py'], [
+        ('installer_rsrc_bytes_exact',
+         r'INSTALLER_RSRC_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
 ]
 
 FULL_CHECKS = [
