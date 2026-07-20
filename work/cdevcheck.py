@@ -40,6 +40,7 @@ D1 = f'{dc.DISKS}/Disk 1 of 7 Install.2mg'
 D2 = None                                   # the default System Disk
 D3 = f'{dc.DISKS}/Disk 3 of 7 SystemTools1.2mg'
 D4 = f'{dc.DISKS}/Disk 4 of 7 SystemTools2.2mg'
+D6 = f'{dc.DISKS}/Disk 6 of 7 synthLAB.2mg'
 
 CDEVMAP = {
     'General': (D2, f'{dc.V}/System/CDevs/General',  'GeneralCDEV/General.r'),
@@ -65,6 +66,11 @@ CDEVMAP = {
                    'NetPrinterCDEV/netprinter.r'),
     'Network': (D4, '/SystemTools2/System/CDevs/Network', 'NetworkCDEV/network.r'),
     'SetStart': (D1, '/Install/System/CDevs/SetStart',    'SetStartCDEV/SetStart.r'),
+    # MediaControl's source lives outside the CtlPanel SRC_ROOT (its own
+    # A.U.G/MediaCtl tree) — hence the `../` escape.
+    'MediaControl': (D4, '/SystemTools2/System/CDevs/MediaControl',
+                     '../MediaCtl/MediaCtlCDev/MediaCtrl.r'),
+    'MIDI':    (D6, '/synthLAB/MIDI',                     'MIDICDEV/midi.r'),
 }
 
 R_CDEVCODE = 0x8018
