@@ -18,7 +18,7 @@ committed regression baseline (`work/gate.py`; `work/gate_baseline.json`).
 | `Error.Msg` | 5,407 bytes | `work/kernelcheck.py` |
 | GS.OS kernel (SCM portion) | 38,805 bytes | `work/kernelcheck.py` |
 | GS/OS Loader | 16,590 bytes | `work/loader_placed.py` |
-| **ALL 38** System 6.0.1 logical files the disk harness rebuilds (grew 30→38 as the CDEV / Finder(Start) / EasyMount rez-fork builders were wired in); physical image byte-match 819,264/819,264 | — | `work/diskcheck.py` |
+| **ALL 39** System 6.0.1 logical files the disk harness rebuilds (grew 30→39 as the CDEV / Finder(Start) / EasyMount rez-fork builders and BASIC.System were wired in — no out-of-scope file remains on the System Disk); physical image byte-match 819,264/819,264 | — | `work/diskcheck.py` |
 
 Close but not exact:
 

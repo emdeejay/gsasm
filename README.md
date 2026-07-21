@@ -29,7 +29,7 @@ binaries:
   multi-segment ExpressLoad tools (Window/Menu/Control Managers, QDAux,
   TextEdit …) with their linker-generated `~JumpTable` segments and full
   relocation dictionaries
-- **The whole System 6.0.1 System Disk** — every one of the 38 files the
+- **The whole System 6.0.1 System Disk** — every one of the 39 files the
   disk harness rebuilds from source is logically byte-exact, and the packed
   800K disk image matches physically, all 819,264 bytes
 - **Resource forks** (`gsrez`): `Sys.Resources`, `EasyMount`, all **19
@@ -37,6 +37,10 @@ binaries:
   itself rebuilds from source), the **Installer**, and **Teach** — the Rez
   template compilation and fork assembly are byte-exact from source (the CDEVs'
   embedded code resources, some of them Pascal/C-compiled, are gold-fed)
+- **Desktop apps, drivers & NDAs beyond the System Disk** (Disks 3–5): the
+  `BASIC.System` P8 command interpreter, four data forks (CDRemote, EasyAccess,
+  Pioneer2000/4200), five more resource forks (FindFile, Apple.Bowl, MediaControl
+  & VideoMix NDAs), and two more toolsets (NoteSeq, VideoMix) — all byte-exact
 - **Instruction encoding: 100%** — every opcode and addressing mode in the
   ~97,000-line corpus matches (97,202/97,202 opcode bytes); the linked shipping
   binaries are the byte-exact proof of operand values
