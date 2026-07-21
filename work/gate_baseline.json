@@ -3,12 +3,16 @@
     29019,
     0
   ],
+  "basic_system_bytes_exact": [
+    2,
+    0
+  ],
   "cdev_rsrc_bytes_exact": [
     156917,
     0
   ],
   "disk_logical_exact": [
-    38,
+    39,
     0
   ],
   "driver_bytes": [
