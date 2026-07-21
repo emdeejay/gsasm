@@ -182,8 +182,21 @@ TOOLMAP = {
     # _defer_shifts). The archived source in IIGS.601.SRC IS the shipping
     # revision -- there is no source/binary disagreement.
     '019': ('PrintMgr',   ['printmgr.asm', 'dialogdata.asm']),
+    # NoteSeq: single-object flat link per NoteSeq/makefile
+    # (LINKIIGS tool.aii.obj -o tool026 -t tol).  tool.aii INCLUDEs Data.aii +
+    # DirPage.aii (makefile {Defines}); only tool.aii is a linked object.  The
+    # WHOLE on-disk ExpressLoad file is byte-exact (4074/4074), not merely the
+    # de-ExpressLoad'd code image (3634/3634) — verified via
+    # gsasm.expressload.expressload against the Disk-3 SystemTools1 gold.
+    '026': ('NoteSeq',    ['tool.aii']),
     '027': ('FontMgr',    ['fm.asm', 'common.asm', 'scale.asm']),
     '028': ('ListMgr',    ['ListMgr.asm']),
+    # VideoMix: single-object flat link per VideoMix/makefile
+    # (Linkiigs VD.asm.obj -o Tool033 -t TOL).  VD.asm INCLUDEs Equates.asm.
+    # The WHOLE on-disk ExpressLoad file is byte-exact (4177/4177), not merely
+    # the de-ExpressLoad'd code image (3613/3613) — verified via
+    # gsasm.expressload.expressload against the Disk-4 SystemTools2 gold.
+    '033': ('VideoMix',   ['VD.asm']),
     # TextEdit (GSTextEdit): 19-object flat link per TextEdit/MakeFile
     # (LinkIIGS {ToolObjects} -t TOL -o Tool034; gold = ~ExpressLoad + one
     # KIND-0 'main' segment).  Every module INCLUDEs GlobalIncludes, which
