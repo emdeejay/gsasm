@@ -39,6 +39,13 @@ CHECKS = [
         ('kernel_bytes', r'TOTAL\s+(\d+)/(\d+)', 'frac')]),
     ('p8check', ['p8check.py'], [
         ('p8_bytes', r'P8 raw code-image match:\s*(\d+)/(\d+)', 'frac')]),
+    # BASIC.System — the ProDOS-8 command interpreter (pure ASM; Applesoft is
+    # in ROM, not here). makebin_segments over Loader/Main/Globals @ $2000 +
+    # temporg, byte-exact against BOTH shipping copies (Disk 2 System Disk +
+    # Disk 3 SystemTools1). See work/basiccheck.py; also counted in diskcheck.
+    ('basiccheck', ['basiccheck.py'], [
+        ('basic_system_bytes_exact',
+         r'BASIC_SYSTEM_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
     ('fstcheck', ['fstcheck.py'], [
         ('fst_bytes', r'CORPUS raw code-image match:\s*(\d+)/(\d+)', 'frac')]),
     ('drivercheck', ['drivercheck.py'], [

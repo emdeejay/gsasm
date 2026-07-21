@@ -56,7 +56,7 @@ SYSTEM_DISK = f'{DISKS}/Disk 2 of 7 System Disk.2mg'
 #   BUILD       clean-room ASM we build from source (data fork)
 #   REZ         has a resource fork -> needs Rez (M7); substitute whole for now
 #   SUBSTITUTE  data/Pascal/GUI — kept from the original image
-#   OOS         out of scope (e.g. ProDOS-8 Applesoft BASIC.System)
+#   OOS         out of scope (currently none — every on-disk file has an owner)
 # A file whose name is `Finder.Data` is SUBSTITUTE by rule. Any other on-disk
 # file not listed here FAILS the inventory (so new files can't slip through).
 # ---------------------------------------------------------------------------
@@ -87,7 +87,9 @@ MANIFEST = {
     # data / config / fonts / icons — substitute
     f'{V}/System/Fonts/Font.Lists': SUBSTITUTE, f'{V}/System/Fonts/Times.10': SUBSTITUTE,
     f'{V}/Icons/FType.Apple': SUBSTITUTE,
-    f'{V}/BASIC.System': OOS,
+    # ProDOS-8 command interpreter — PURE 6502/65C02 ASM (the Applesoft
+    # *language* is in ROM, NOT here), built byte-exact via work/basiccheck.py.
+    f'{V}/BASIC.System': BUILD,
 }
 
 
@@ -180,8 +182,15 @@ def _build_prodos():
     return probootcheck.build_prodos()
 
 
+def _build_basic_system():
+    import basiccheck                       # ProDOS-8 command interpreter (pure ASM;
+    return basiccheck.build_basic_system()  # makebin_segments @ $2000/temporg — see
+                                            # work/basiccheck.py). Byte-exact 10,240 B.
+
+
 SOURCE_BUILDERS = {
     f'{V}/ProDOS': _build_prodos,           # 1668/1668 exact — first disk-ready file
+    f'{V}/BASIC.System': _build_basic_system,   # 10240/10240 exact
 }
 # Per-category builders live in the diskbuilders/ package (auto-discovered), one
 # module per category, so they can be developed in parallel without colliding on
