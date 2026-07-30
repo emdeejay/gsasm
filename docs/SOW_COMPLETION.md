@@ -70,12 +70,11 @@ inside a 100% image). Completion is not "everything is source-built"; it is
 - **Tier D — Capstone:** self-hosting (`gsasm816` assembles gsasm; fixed-point proof).
 
 ### Explicit non-goals (permanent, documented)
-Pascal/C-compiled code & data forks (the **8 enumerated files in A.4** — Teach,
-FindFile, Calculator, ADU, MediaControl, VideoMix, Apple.Bowl, CLOCK.PATCH; their
-resource forks *are* byte-exact); the extraction-fed CDEV `rCDEVCode` payloads
-(A.5); `MountImage.r` resource fork (no oracle); static runtime data with no
-producing source; localized disks under Tier A. Each such file is a
-**substitute**, never an `oos`.
+Pascal/C-compiled code & data forks (the three-bucket breakdown in **A.4** — 7
+whole-fork Pascal apps/DAs/NDAs whose resource forks *are* byte-exact, plus the
+extraction-fed CDEV `rCDEVCode` payloads); `MountImage.r` resource fork (no
+oracle); static runtime data with no producing source; localized disks under
+Tier A. Each such file is a **substitute**, never an `oos`.
 
 ---
 
@@ -262,31 +261,58 @@ a ProDOS `Volume`. This is the one genuinely-different disk.
 - **Fonts (Disk 5):** 28/30 no-source (bitmap fonts, Finder.Data) → substitutes;
   Apple.Bowl (rsrc built, code is BASIC-compiled-by-a-Pascal-tool). Trivial disk.
 
-### A.4 Pascal/C non-targets — the true set (8 files, evidence-cited)
+### A.4 Pascal/C breakdown — three buckets (evidence-cited)
 
-Note: `.pii` (Pascal IIgs) is the real extension — an earlier `.p`-only grep
-undercounted. For every one, the **resource fork is already byte-exact**; only
-the compiled code/data fork is the non-target substitute.
+Raw source in the archive is Pascal 54 files / ~21.8K lines + C 57 / ~11.9K —
+but that count is misleading. Cross-referencing against what actually *ships*
+(the disk census) and against dead/stub files splits it three ways. `.pii` is
+the real Pascal-IIgs extension (an earlier `.p`-only grep undercounted).
 
-| File | Disk | Lang | rsrc status |
-|------|------|------|-------------|
-| Teach | 4 | Pascal | rsrc ✅ (teachcheck) |
-| FindFile (DA) | 3 | Pascal | rsrc ✅ (rezforkcheck) |
-| Calculator (GSCalc NDA) | 3 | Pascal (`.pii`) | — |
-| Adv.Disk.Util (ADU, 11 `.pii`) | 3 | Pascal | rsrc ✅ |
-| MediaControl (NDA) | 4 | Pascal | rsrc ✅ (rezforkcheck) |
-| VideoMix (NDA) | 4 | Pascal | rsrc ✅ (rezforkcheck) |
-| Apple.Bowl | 5 | BASIC/asm | rsrc ✅ (rezforkcheck) |
-| CLOCK.PATCH | 4 | Applesoft (no source) | — → really a no-source substitute |
+**Bucket A — whole-fork Pascal non-targets (7 shipping apps/DAs/NDAs).** The
+entire code/data fork is Pascal; for every one the **resource fork is already
+byte-exact**, so only the compiled code/data is a substitute.
 
-### A.5 Honesty caveat surfaced by the census
+| Component | Disk | Pascal lines | rsrc fork |
+|-----------|------|-------------:|-----------|
+| Adv.Disk.Util (ADU, 11 `.pii`) | 3 | 5,485 | ✅ |
+| Teach | 4 | 4,776 | ✅ teachcheck |
+| Apple.Bowl | 5 | 3,791 | ✅ rezforkcheck |
+| VideoMix NDA | 4 | 2,161 | ✅ rezforkcheck |
+| MediaControl NDA | 4 | 2,041 | ✅ rezforkcheck |
+| Calculator (GSCalc NDA) | 3 | 1,316 | — |
+| FindFile DA | 3 | 626 | ✅ rezforkcheck |
 
-The "built" CDEVs (General/Printer/RAM/Slots/Time/SetStart/…) have their
-**resource fork byte-exact from source**, but the embedded `rCDEVCode` code
-resource is **extraction-fed from gold**, not source-assembled (the Pascal/C
-wall again). The Rez *shell* is proven; the compiled code payload inside is a
-substitute. The completion accounting must count these as "rsrc-built,
-code-substituted," not fully source-built.
+~20,200 Pascal lines. (`CLOCK.PATCH`, loosely tagged Pascal/C by the census, is
+actually Applesoft with no source → a plain no-source substitute.)
+
+**Bucket B — CDEV code-resource payloads.** The Rez *shell* is byte-exact from
+source; the embedded `rCDEVCode` is compiled Pascal/C, **extraction-fed** from
+gold, not source-assembled. Count these as "rsrc-built, code-substituted."
+
+| CDEV | Lang | lines | | CDEV | Lang | lines |
+|------|------|------:|-|------|------|------:|
+| SetStart | Pascal | 286 | | FolderPriv | C | 709 |
+| Slots | Pascal | 332 | | Namer | C | 280 |
+| Monitor | Pascal | 98 | | NetPrinter | C | 280 |
+| | | | | Network | C | 150 |
+| | | | | MIDI (cdev) | C | 132 |
+| | | | | DirectConnect | C | 70 |
+
+~716 Pascal + ~1,600 C, plus shared CtlPanel interface units (~1.3K).
+
+**Bucket C — NOT shipping (excluded from the completion scope):**
+- **Logon CDEV — 8,665 lines of C** — the single largest Pascal/C component, but
+  it is **on no disk** (unused/never-shipped). This is why raw C looked large.
+- **7 dead `.pii` stubs** (34 bytes each, literally *"This sourcefile is no
+  longer used"*): General / Keyboard / Time / Modem / Printer / RamDisk / Sound
+  CDEV — those CDEVs are **not** Pascal.
+- **Build-host tools** (~1K C, run on the Mac at build time, never IIgs
+  binaries): `NetBoot/AristotlePatch`, `MakeImage`, `GQuit/MakeSource`,
+  `NuMustang`, `TABASCO`, `SD.ODDS`.
+
+**Net shipping Pascal/C non-target scope: ~15 artifacts, ~23K lines (~21K Pascal
++ ~1.9K C)** — every Bucket-A one already has a byte-exact resource fork, so what
+gets substituted is only the compiled code/data.
 
 ### A.6 needs-investigation — RESOLVED (2026-07-30, both → buildable-asm)
 
