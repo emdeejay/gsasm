@@ -38,13 +38,13 @@ individual tool designs assume (OMF primer, golden-binary layout, gotchas).
 | # | Target images | Tools needed | Status |
 |---|---|---|---|
 | M0 | ROM 03 firmware (256K, 3 banks) | gsasm + `linkrom` + ROM makebin | ✅ **byte-exact** (`work/buildrom.py`); objcheck 40/61 obj-identical, linkcheck 61/61 link-identical |
-| M1 | `System/Tools/ToolNNN` mapped code images (12 toolsets) | gsasm + M2 + M4 | ✅ **byte-exact** (`work/toolcheck.py`, 186,110/186,110 incl. Tool034/TextEdit); full on-disk ExpressLoad files ALSO byte-exact — diskcheck logical-exact is 30/30 (E0–E3 closed Tool015/016/018, TS2/TS3, Tool034) |
+| M1 | `System/Tools/ToolNNN` mapped code images (14 toolsets) | gsasm + M2 + M4 | ✅ **byte-exact** (`work/toolcheck.py`, 193,357/193,357 incl. Tool034/TextEdit + NoteSeq/VideoMix); full on-disk ExpressLoad files ALSO byte-exact — diskcheck logical-exact is 39/39 (E0–E3 closed Tool015/016/018, TS2/TS3, Tool034) |
 | M2 | general OMF load-file linker | `gsasm/linkiigs.py` | ✅ **done** — tools, FSTs, drivers and the kernel all link through it |
 | M3 | MakeBin/Overlay/catenate | `gsasm/makebin.py` | ✅ **done** — `prodos` byte-exact (`work/probootcheck.py`) |
 | M4 | ExpressLoad relinker | `gsasm/expressload.py` | ✅ **done for the gated code-image corpus** — byte-exact mapped tools/FSTs/drivers; remaining full-file ExpressLoad residuals are tracked by `work/diskcheck.py` |
 | M5 | `System/FSTs/*`, `System/Drivers/*` | gsasm + M2 (+M3) | ✅ **done** — all 8 buildable FSTs and all 12 mapped drivers byte-exact |
 | M6 | `GS.OS`, `Start.GS.OS`, `P8`, `prodos`, `ERROR.MSG` | gsasm + M2 + M3 + M4 | ✅ byte-exact, including GS.OS SCM, Loader, Start.GS.OS, P8, prodos, and Error.Msg |
-| M7 | Finder, Installer, Teach, 19 CDEVs/NDAs (resource forks) | gsasm + M2 + **Rez** | ✅ **done** — 19 CDEV forks + Finder (both forks) + Installer + Teach byte-exact; the CDEVs' embedded code resources are gold-fed |
+| M7 | Finder, Installer, Teach, 19 CDEVs/NDAs (resource forks) | gsasm + M2 + **Rez** | ✅ **done** — 19 CDEV forks (156,917 B) + Finder (both forks, 104,790 B rsrc) + Installer (17,895 B) + Teach (7,333 B) byte-exact; the CDEVs' embedded code resources are gold-fed |
 | — | Pascal/C desktop **code forks** (GSCalc, ADU, VideoMix; Slots/SetStart/FolderPriv CDEV code) | PascalIIgs / C | ❌ out of scope (their **resource** forks ARE byte-exact) |
 
 ## Per-milestone detail
@@ -61,8 +61,9 @@ byte-compares against the shipping (de-ExpressLoad'd) `ToolNNN`. The
 cross-segment dispatch-table problem, source-level ExpressLoad case-B flags,
 `~JumpTable` routing, Tool018's QDAux segmentation, Tool019's pure-literal
 shift, and Tool034/TextEdit's LOAD/DUMP + record-ORG + shift-defer classes are
-all closed: 12 tools, 186,110 bytes. The full on-disk ExpressLoad files are
-byte-exact too — `work/diskcheck.py` logical-exact is 30/30 (E0–E3, 2026-07-19).
+all closed: 14 tools, 193,357 bytes (NoteSeq/VideoMix added since). The full
+on-disk ExpressLoad files are byte-exact too — `work/diskcheck.py`
+logical-exact is 39/39 (E0–E3 plus the rez-fork and BASIC.System builders).
 
 ### M2 — General `LinkIIgs` ✅ (`gsasm/linkiigs.py`)
 The general OMF v2 load-file linker: N input objects (multi-segment, APW/OMF),

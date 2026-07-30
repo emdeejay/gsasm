@@ -60,11 +60,12 @@ STATUS — logical residual, NOT byte-exact (see RESIDUAL note below):
       later) — natural order predicts 0x3388 instead (230 bytes off, the
       exact size of those six segments), which is wrong.
   So the true MPW rule depends on something not yet identified (not simply
-  natural order, not simply filter-list order) and is the majority
-  contributor to the remaining TS2/TS3 byte residual. See the git history
-  around the "E2c" commit for the analysis; `_part`'s filter-list order is
-  left AS IS pending a real reverse-engineered rule (changing it blind
-  regresses the confirmed-correct ControlMgr.asm case).
+  natural order, not simply filter-list order).  `_part`'s filter-list order
+  is what makes TS2/TS3 byte-exact today (they are — tool_bytes 193,357, all
+  14 mapped tools 100%), so it is left AS IS: it is empirically correct for
+  the whole mapped corpus but not yet reverse-engineered into a stated rule,
+  and changing it blind regresses the confirmed-correct ControlMgr.asm case.
+  See the git history around the "E2c" commit for the analysis.
 
 Object lists + -lseg groupings are transcribed verbatim from the linkiigs sections
 of ``GSToolbox/Patch/Patch2/makefile`` (TS2) and ``.../Patch3/makefile`` (TS3).

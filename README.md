@@ -25,13 +25,15 @@ binaries:
 - **All 8 buildable FSTs** (ProDOS, HFS, Char, High Sierra, DOS 3.3, Pascal,
   MS-DOS, AppleShare — 111,584/111,584 bytes) and **all 12 device drivers**
   (94,948/94,948)
-- **All 12 mapped toolbox toolsets** (186,110/186,110 bytes) — including the
+- **All 14 mapped toolbox toolsets** (193,357/193,357 bytes) — including the
   multi-segment ExpressLoad tools (Window/Menu/Control Managers, QDAux,
   TextEdit …) with their linker-generated `~JumpTable` segments and full
   relocation dictionaries
 - **The whole System 6.0.1 System Disk** — every one of the 39 files the
-  disk harness rebuilds from source is logically byte-exact, and the packed
-  800K disk image matches physically, all 819,264 bytes
+  disk harness rebuilds from source is logically byte-exact; the remaining
+  data/font/desktop-database files (which have no assembler source) are
+  carried verbatim from the original, so the packed 800K disk image matches
+  physically, all 819,264 bytes
 - **Resource forks** (`gsrez`): `Sys.Resources`, `EasyMount`, all **19
   Control-Panel CDEVs**, the **Finder** (both forks — the 146 KB application
   itself rebuilds from source), the **Installer**, and **Teach** — the Rez
@@ -40,7 +42,8 @@ binaries:
 - **Desktop apps, drivers & NDAs beyond the System Disk** (Disks 3–5): the
   `BASIC.System` P8 command interpreter, four data forks (CDRemote, EasyAccess,
   Pioneer2000/4200), five more resource forks (FindFile, Apple.Bowl, MediaControl
-  & VideoMix NDAs), and two more toolsets (NoteSeq, VideoMix) — all byte-exact
+  & VideoMix NDAs), and the NoteSeq & VideoMix toolsets (two of the 14 above,
+  which ship out here on Disks 3–5) — all byte-exact
 - **Instruction encoding: 100%** — every opcode and addressing mode in the
   ~97,000-line corpus matches (97,202/97,202 opcode bytes); the linked shipping
   binaries are the byte-exact proof of operand values
