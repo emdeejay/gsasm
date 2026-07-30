@@ -8,9 +8,10 @@ Wires builders for two kernel files on the System Disk, both logical-exact:
 
 Other kernel/setup files live in sibling builder modules: GS.OS and GS.OS.Dev
 in kernel_os.py, Resource.Mgr in expressload_files.py, TS2/TS3 in toolsets.py.
-Not buildable from the archive: CDev.Data (binary data, no source), P8 (needs
-the OverlayIIgs driver-overlay build), Tool.Setup (blocked on the ExpressLoad
-case-B encoding — see docs/RESULTS.md).
+Not buildable from the archive: CDev.Data (binary data, no source), Tool.Setup
+(blocked on the ExpressLoad case-B encoding — see docs/RESULTS.md).  (P8 IS
+byte-exact now — built via the OverlayIIgs-equivalent overlay path and gated by
+work/p8check.py, 17,128/17,128; it was on this list historically.)
 
 The 'Error.Msg header reformat' technique: the OMF header format that gsasm's
 linker emits (SEGNAME=proc-name, LOADNAME=b'main') differs from the shipping

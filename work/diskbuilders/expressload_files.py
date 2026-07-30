@@ -12,21 +12,23 @@ Module lists and INCS are taken directly from toolcheck.TOOLMAP/INCS,
 fstcheck.FSTMAP/INCS, and drivercheck.DRIVERMAP/INCS — do NOT edit those files.
 
 Acceptance split:
-  * work/toolcheck.py compares de-ExpressLoad'd code images and now gates all 11
-    mapped tools byte-exact (150459/150459), including Tool015/016/018
+  * work/toolcheck.py compares de-ExpressLoad'd code images and now gates all 14
+    mapped tools byte-exact (193357/193357), including Tool015/016/018
     ~JumpTable routing and Tool023/027 case-B closures.
   * This module returns full on-disk ExpressLoad OMF files for work/diskcheck.py.
-    The current logical residuals on the System Disk are Tool015/016/018/034
-    length/content mismatches; Tool014/019/020/021/022/023/025/027/028, the FSTs,
-    drivers, and Resource.Mgr are byte-exact at the full-file surface.
+    Every wired ExpressLoad'd file is now byte-exact at the full-file surface
+    (diskcheck logical-exact 39/39) — Tool015/016/018/034, TS2/TS3, the FSTs,
+    drivers, and Resource.Mgr all match.  The lone remaining full-file
+    ExpressLoad residual is Tool.Setup, deliberately left unwired (case-B
+    converter wall — see docs/RESULTS.md).
 
 CASE A vs CASE B relocations:
   CASE A = >>8 high-byte reloc (size=2, shift=8) -> standalone cRELOC.
   CASE B = source-flagged far-pointer/high-half addends such as
       `Label+$80000000` or `Label+$C0000000` -> standalone RELOC/cRELOC.
-  Both classes are handled for the gated single-segment path.  The remaining
-  full-file multi-segment residuals are diskbuilder/ExpressLoad packaging work,
-  not evidence that the mapped tool code images are wrong.
+  Both classes are handled.  The former full-file multi-segment residuals are
+  now closed (diskcheck logical-exact 39/39); Tool.Setup is the one deliberate
+  unwired exception (case-B converter wall).
 """
 import os
 import sys
@@ -155,8 +157,8 @@ def _build_tool015():
     # Gold segments: ~ExpressLoad + MainTool(KIND=0x0000) + ~JumpTable(KIND=0x0002)
     #                + PopUpProc(KIND=0x8000)
     # toolcheck.py proves the code image and generated ~JumpTable routing
-    # byte-exact. This generic full-file builder still has a diskcheck logical
-    # length residual.
+    # byte-exact, and this builder is byte-exact on disk too (diskcheck
+    # logical-exact 39/39).
     TB_menumgr = f'{_TB}/menumgr'
     incs = _TOOL_INCS
     combo = b''
@@ -183,8 +185,8 @@ def _build_tool016():
     # Gold segments: ~ExpressLoad + main(KIND=0x0000) + StatText(KIND=0x0000)
     #                + ~JumpTable(KIND=0x0002) + Pics(KIND=0x8000)
     # toolcheck.py proves the code image and generated ~JumpTable routing
-    # byte-exact. This generic full-file builder still has a diskcheck logical
-    # length residual.
+    # byte-exact, and this builder is byte-exact on disk too (diskcheck
+    # logical-exact 39/39).
     TB16 = f'{_TB}/controlmgr'
     incs = _TOOL_INCS
     main_combo = b''
@@ -217,8 +219,8 @@ def _build_tool018():
     # Gold: ~ExpressLoad + MAINPart(0x0000) + CopyBits(0x0000) + ~JumpTable(0x0002)
     #       + Pictures(0x8000) + SeedFill(0x8000) + PixelMap2Rgn(0x8000)
     # toolcheck.py proves the five code-image segments and 12-entry ~JumpTable
-    # byte-exact. This generic full-file builder still has a diskcheck logical
-    # length residual.
+    # byte-exact, and this builder is byte-exact on disk too (diskcheck
+    # logical-exact 39/39).
     #
     # copybits.asm uses SEG directives to assign segments to load groups via LOADNAME:
     #   LOADNAME='MAINPart' → goes into MAINPart group (segment ISTDPIXELS, 105 bytes)
