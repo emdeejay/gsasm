@@ -238,12 +238,12 @@
     {
      "path": "/Install/System/Start",
      "forks": "data",
-     "classification": "needs-investigation",
+     "classification": "buildable-asm",
      "language": "asm",
-     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SetStartCDEV/{SetStart.aii,SetStart.p}",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SetStartCDEV/Startup.Aii",
      "proven_by": null,
-     "evidence": "565B ExpressLoad'd S16 launcher (segment name 'SetStart'), NOT the Finder. It is a SetStart-CDEV-GENERATED, parameterized launcher (embeds the ':Install:Installer' target from SetStart.data). SetStart runtime source is mixed Pascal (SetStart.p) + asm (SetStart.aii); reproduction path for the generated stub is unproven and no harness targets it.",
-     "confidence": "medium"
+     "evidence": "RESOLVED 2026-07-30: 565B asm boot-launcher, not the Finder. SetStart.make \"Added dependencies for START\"; Startup.Aii is a 65816 launcher PROC (MessageCenter boot path -> _quitGS, Finder fallback). Buildable-asm, build-verify pending (SOW P4).",
+     "confidence": "high"
     },
     {
      "path": "/Install/System/SetStart.data",
@@ -1163,12 +1163,12 @@
     {
      "path": "/SystemTools1/System/Drivers/A2.RAMCard",
      "forks": "data",
-     "classification": "needs-investigation",
-     "language": "asm?",
-     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/Slinky/slinky.aii (candidate, unconfirmed)",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/Slinky/slinky.aii",
      "proven_by": "",
-     "evidence": "Apple II RAM-card (RamFactor/Slinky) driver. slinky.aii source EXISTS in GS.OS/Drivers/Slinky, but drivercheck.py explicitly states '(Slinky not shipped on 6.0.1 disks)' and does NOT build A2.RAMCard \u2014 direct name mapping A2.RAMCard->Slinky is unconfirmed (no installer-script or makefile links the name). Build.SysTools1 only Duplicates the prebuilt file. Conflict: source-present vs harness-declared-out-of-scope. Human decision needed.",
-     "confidence": "low"
+     "evidence": "RESOLVED 2026-07-30: slinky.aii = \"Slinky (RAM card) Driver\" (asm, v1.01). A2.RAMCard (aux $107) ships on SystemTools1/Disk 3 -> drivercheck comment \"Slinky not shipped\" was WRONG (fixed). Buildable-asm, build-verify pending (SOW P4).",
+     "confidence": "high"
     },
     {
      "path": "/SystemTools1/System/Drivers/RAM5",
@@ -3072,5 +3072,6 @@
     }
    ]
   }
- }
+ },
+ "needs_investigation_resolved": "2026-07-30: both -> buildable-asm"
 }

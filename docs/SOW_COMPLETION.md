@@ -167,7 +167,7 @@ rough wall-clock of automated sessions, not human days.
 | **P3** | Disks 5 (Fonts) & 6 (synthLAB) to 100% — data disks, ~28/30 and ~23/25 substitute + 1 buildable each (A.3) | one loop pass | confirm the data files are genuinely no-source | Disks 5,6 100% physical, oos:0 |
 | **P4** | Disks 1, 3, 4 to 100% — wire the ~48 buildable files; **most are new instances of proven builder types** (printer/AppleTalk/MIDI drivers, Tool025/029/032/038, Printer/Slots/Time CDEVs, 12 Sound rez) | per-disk loop; CRACK only for genuinely-new dialects | confirm substitutes + the 8 Pascal/C non-targets (A.4) | Disks 1,3,4 100% |
 | **P5** | Disk 7 (Apple II Setup) to 100% — **HFS net-boot disk** (A.2); 7 buildable (Basic.System, p8, ProDOS16 boot blocks + image, IWEm), 5 substitute | HFS overlay loop + CRACK for boot infra | confirm substitutes | Disk 7 100% |
-| **P6** | needs-investigation (A.6): resolve `/Install/System/Start` (SetStart launcher) and `A2.RAMCard` (slinky.aii) | investigation agents | classification decision | both classified |
+| **P6** | ✅ **DONE** — needs-investigation resolved: both → buildable-asm (A.6); `drivercheck` "Slinky not shipped" stale claim fixed | — | — | census 0 unknown |
 | **P7** | W3 residual: retry `Tool.Setup` case-B via CRACK; finalize the one documented exception | CRACK workflow | accept exception if it resists | Tool.Setup byte-exact OR documented |
 | **P8** | **Tier A COMPLETE**: `disk_physical_exact` 7/7, tag a release | scripted | approve release (outward-facing) | all 7 disks 100%, oos:0 |
 | **P9** | Tier C: R10 assembly cache + deep-dive D1 (`_common.py`), D5 (asm internals) | gate-identical refactor commits | review each packet | gate byte-identical each step |
@@ -231,7 +231,9 @@ in this doc (notably the synthLAB and Pascal/C guesses).
 | 5 Fonts | 30 | 0 | 1 | 1 | 28 | 0 |
 | 6 synthLAB | 25 | 1 | 1 | 0 | 23 | 0 |
 | 7 Apple II Setup | 12 | 0 | 7 | 0 | 5 | 0 |
-| **TOTAL** | **355** | **105** | **57** | **8** | **183** | **2** |
+| **TOTAL** | **355** | **105** | **59** | **8** | **183** | **0** |
+
+*(Updated 2026-07-30: the 2 needs-investigation items resolved to buildable-asm — see A.6. Census now fully classified, 0 unknown.)*
 
 **The remaining reproduction work is 57 buildable files** — and most are new
 *instances of already-proven builder types*: printer/AppleTalk/MIDI drivers (the
@@ -286,11 +288,15 @@ wall again). The Rez *shell* is proven; the compiled code payload inside is a
 substitute. The completion accounting must count these as "rsrc-built,
 code-substituted," not fully source-built.
 
-### A.6 needs-investigation (2 — human decision)
+### A.6 needs-investigation — RESOLVED (2026-07-30, both → buildable-asm)
 
-- `/Install/System/Start` (Disk 1) — a 565 B ExpressLoad'd launcher named
-  `SetStart` (SetStart-CDEV-generated), **not** the Finder (unlike the System
-  Disk's `Start`). Decide: is there a source path, or substitute?
-- `/SystemTools1/System/Drivers/A2.RAMCard` (Disk 3) — `slinky.aii` source
-  exists in `GS.OS/Drivers/Slinky` but drivercheck doesn't wire it. Likely
-  buildable; confirm.
+- `/Install/System/Start` (Disk 1) — a 565 B asm boot-launcher, **not** the
+  Finder (the System Disk's `Start` is the Finder; this one is ~565 B). Source =
+  `SetStartCDEV/Startup.Aii` (a 65816 launcher PROC: reads the SetStart boot
+  path from MessageCenter → `_quitGS`, Finder fallback); `SetStart.make` "Added
+  dependencies for START". → **buildable-asm** (build-verify in P4).
+- `/SystemTools1/System/Drivers/A2.RAMCard` (Disk 3) — source =
+  `GS.OS/Drivers/Slinky/slinky.aii` ("Slinky (RAM card) Driver", asm v1.01).
+  This corrected a **stale wrong claim** in `drivercheck` ("Slinky not shipped on
+  6.0.1 disks") — it ships as `A2.RAMCard` on Disk 3. → **buildable-asm**
+  (build-verify in P4).

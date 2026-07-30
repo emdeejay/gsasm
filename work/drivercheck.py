@@ -49,7 +49,9 @@ Source → shipping-name map (from GS.OS/MakeFiles/make.*):
   SCSITape.Driver — same shared sources × 13  (-d type=2)  (at $0103)
   SCSI.Manager  — SupervisoryDrivers/SCSI.Manager(1meg)/SCSIM.{Header,...} × 11
   SCC.Manager   — SupervisoryDrivers/SCCManager/Driver.aii
-  (Slinky not shipped on 6.0.1 disks; ETalk / ATBoot / ATRam / ATRom not in scope)
+  (Slinky IS shipped — as A2.RAMCard on SystemTools1/Disk 3, source
+   Drivers/Slinky/slinky.aii; buildable-asm, not yet wired (build-verify pending,
+   SOW P4). ETalk / ATBoot / ATRam / ATRom not in scope)
 
 Packaging: all drivers are ExpressLoad'd (KIND 0x8001 leading segment).
 
@@ -318,7 +320,8 @@ def main():
         print(f'CORPUS raw code-image match: {tot_m}/{tot_n} ({100 * tot_m // tot_n}%)')
     print()
     print('Packaging note: all drivers are ExpressLoad\'d (KIND 0x8001 leading segment).')
-    print('Slinky, ETalk/ATBoot/ATRam/ATRom not on any 6.0.1 disk or skipped.')
+    print('Slinky ships as A2.RAMCard on SystemTools1 (buildable, not yet wired);'
+          ' ETalk/ATBoot/ATRam/ATRom not on any 6.0.1 disk or skipped.')
 
 
 if __name__ == '__main__':
