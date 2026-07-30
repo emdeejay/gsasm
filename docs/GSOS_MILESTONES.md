@@ -41,7 +41,7 @@ individual tool designs assume (OMF primer, golden-binary layout, gotchas).
 | M1 | `System/Tools/ToolNNN` mapped code images (14 toolsets) | gsasm + M2 + M4 | ✅ **byte-exact** (`work/toolcheck.py`, 193,357/193,357 incl. Tool034/TextEdit + NoteSeq/VideoMix); full on-disk ExpressLoad files ALSO byte-exact — diskcheck logical-exact is 39/39 (E0–E3 closed Tool015/016/018, TS2/TS3, Tool034) |
 | M2 | general OMF load-file linker | `gsasm/linkiigs.py` | ✅ **done** — tools, FSTs, drivers and the kernel all link through it |
 | M3 | MakeBin/Overlay/catenate | `gsasm/makebin.py` | ✅ **done** — `prodos` byte-exact (`work/probootcheck.py`) |
-| M4 | ExpressLoad relinker | `gsasm/expressload.py` | ✅ **done for the gated code-image corpus** — byte-exact mapped tools/FSTs/drivers; remaining full-file ExpressLoad residuals are tracked by `work/diskcheck.py` |
+| M4 | ExpressLoad relinker | `gsasm/expressload.py` | ✅ **byte-exact** — mapped tools/FSTs/drivers AND full on-disk ExpressLoad files (diskcheck 39/39). The one remaining full-file ExpressLoad residual is `Tool.Setup` (code image exact, reloc-encoding not byte-exact — the case-B converter wall; deliberately unwired, the 40th builder) |
 | M5 | `System/FSTs/*`, `System/Drivers/*` | gsasm + M2 (+M3) | ✅ **done** — all 8 buildable FSTs and all 12 mapped drivers byte-exact |
 | M6 | `GS.OS`, `Start.GS.OS`, `P8`, `prodos`, `ERROR.MSG` | gsasm + M2 + M3 + M4 | ✅ byte-exact, including GS.OS SCM, Loader, Start.GS.OS, P8, prodos, and Error.Msg |
 | M7 | Finder, Installer, Teach, 19 CDEVs/NDAs (resource forks) | gsasm + M2 + **Rez** | ✅ **done** — 19 CDEV forks (156,917 B) + Finder (both forks, 104,790 B rsrc) + Installer (17,895 B) + Teach (7,333 B) byte-exact; the CDEVs' embedded code resources are gold-fed |
@@ -80,10 +80,15 @@ byte-exact `prodos` boot file. Design record: `design/makebin.md`.
 ### M4 — ExpressLoad relinker ✅ (`gsasm/expressload.py`)
 Converts a plain OMF load file into the ExpressLoad fast-load format (the
 `~ExpressLoad` directory segment, reorganized segments, compressed `SUPER`
-relocation dictionaries). The gated code-image corpus is byte-exact; the old
-case-B "not a function of input" claim was overturned by source-level flagged
-addends. Full on-disk ExpressLoad mismatches that remain in `work/diskcheck.py`
-are tracked separately from the code-image gate.
+relocation dictionaries). Both the code-image corpus AND the full on-disk
+ExpressLoad files are byte-exact (diskcheck `logical-exact` 39/39, incl. the
+Finder application's own 146 KB dual-fork build); the old case-B "not a
+function of input" claim was overturned by source-level flagged addends. The
+one remaining full-file ExpressLoad residual is `Tool.Setup` — its two code
+segments are byte-exact, but gsasm SUPER-izes relocations the golden keeps as
+standalone `cINTERSEG`/`cRELOC` (the case-B ExpressLoad-converter wall,
+`docs/design/expressload.md`), so it is deliberately left unwired from
+diskcheck rather than overlaid non-exact.
 
 ### M5 — FSTs + Drivers ✅
 `work/fstcheck.py` / `work/drivercheck.py`. All eight buildable FSTs with source

@@ -11,7 +11,7 @@ ea7ea5f), R6 (dispatch split, cebad22), and R7 (define_label predicates,
 6731bb4) landed post-E3, each verified gate-stdout byte-identical.  R9 is
 now COMPLETE: E0 extracted the per-table builders (_het_entries,
 _seg_conversion_table, _seg_header_block, _pathname_block); the remaining
-half (commit e2126dd) split the ~994-line `expressload()` into a thin
+half (commit 3ec5eb4) split the ~994-line `expressload()` into a thin
 dispatcher plus `_build_single_output_seg()` and `_build_multiseg_output()`,
 gate-stdout byte-identical.  R10 (opt-in assembly cache) is the last open
 packet.  Keep this guide as the spec the landed commits were reviewed
@@ -26,9 +26,9 @@ GS.OS, P8, tools, drivers, and FSTs byte-for-byte from the original source.
 Refactoring here means **changing the shape of the code without changing a
 single output byte**. The safety net already exists and is non-negotiable:
 
-- `python3 tests/run_fixtures.py` — 53 corpus-free fixtures (~seconds).
+- `python3 tests/run_fixtures.py` — 62 corpus-free fixtures (~seconds).
 - `python3 work/gate.py` — the full golden gate (~2 min, needs `ref/`).
-  13 metrics, all currently at 100% except `obj_identical` (40/61, cosmetic —
+  24 metrics, all currently at 100% except `obj_identical` (40/61, cosmetic —
   the 21 remainder are link-identical) and `operand_values` (745 known-benign
   relocation-base deltas).
 - `python3 work/buildrom.py` — the shipping ROM 03 must stay byte-identical.
@@ -49,7 +49,7 @@ single output byte**. The safety net already exists and is non-negotiable:
 ### Verification recipe (run for every packet)
 
 ```sh
-python3 tests/run_fixtures.py                 # 53/53, fast inner loop
+python3 tests/run_fixtures.py                 # 62/62, fast inner loop
 python3 work/gate.py                          # PASS, all metrics AT baseline
 python3 work/buildrom.py | tail -3            # "verified byte-identical"
 git diff --stat                               # only the files your packet names
@@ -189,14 +189,20 @@ that reference them (`grep -rn "tool016_diag\|jumptable_probe" docs/`).
 allowed to bit-rot. Gate scripts (`gate.py` table) must all remain in `work/`
 proper. ~half a day.
 
-### R4. Annotation + Python-floor hygiene
+### R4. Annotation + Python-floor hygiene (floor bumped to 3.10, commit 56aebf3)
 
-**Problem.** `pyproject.toml` pins `requires-python = ">=3.9"` and CI runs a
-3.9/3.12/3.14 matrix — but annotation style is inconsistent: 4 files have
-`from __future__ import annotations`, 5 use bare PEP-585 generics without it
-(safe on 3.9, but only accidentally), and nothing guards against someone
-adding a PEP-604 `X | None` annotation to a file without the future import
-(runtime `TypeError` on 3.9 that CI would catch late).
+**Update (2026-07-30):** the floor is now `requires-python = ">=3.10"` with a
+`3.10/3.12/3.14` CI matrix (commit 56aebf3) — Python 3.9 reached EOL in Oct
+2025, so the 3.9-specific hazard below is moot: PEP-604 `X | None` runtime
+annotations are safe from 3.10 on. The annotation-hygiene fix still stands as
+good practice; the floor concern is resolved.
+
+**Problem (historical, pre-3.10 floor).** `pyproject.toml` pinned
+`requires-python = ">=3.9"` and CI ran a 3.9/3.12/3.14 matrix — but annotation
+style is inconsistent: 4 files have `from __future__ import annotations`, 5 use
+bare PEP-585 generics without it (safe on 3.9, but only accidentally), and
+nothing guards against someone adding a PEP-604 `X | None` annotation to a file
+without the future import (runtime `TypeError` on 3.9 that CI would catch late).
 
 **Fix.** Add `from __future__ import annotations` as line 2 of every
 `gsasm/**/*.py` (after the docstring). Zero behavioral risk. While there,
@@ -285,7 +291,7 @@ PR: mechanically update the 8+8+3+2 call sites, leaving `link.link()` alone
 (it's the fixtures' `"link": true` oracle — renaming it would dirty blessed
 fixture metadata for no gain). ~1 day + review.
 
-### R9. Decompose `expressload()` (DONE — commit e2126dd)
+### R9. Decompose `expressload()` (DONE — commit 3ec5eb4)
 
 Original packet: extract the directory-segment per-table builders and split
 `expressload()` before the multi-segment packaging feature.  The first half
@@ -296,7 +302,7 @@ half then happened anyway: the E1/E2 multi-segment packaging feature grew
 `expressload()` to ~994 lines (single-segment path + multiseg group path +
 standalone/case-B/SUPER emission inline).
 
-The remaining half landed in commit e2126dd: `expressload()` is now a thin
+The remaining half landed in commit 3ec5eb4: `expressload()` is now a thin
 dispatcher (opts parse -> place -> symtab -> dispatch) over two extracted
 builders — `_build_single_output_seg()` (the single-segment path, carrying
 its Passes 3/4 body-build) and `_build_multiseg_output()` (the multiseg-group
@@ -372,7 +378,7 @@ behavior, not style.
 | 6 | R8 link.py utils → omf | med | 1d |
 | 7 | R6 dispatch split | med | 2d |
 | 8 | R7 define_label predicates | med | 1-2d |
-| 9 | R9 expressload decomposition (remaining half) | med | ✅ e2126dd |
+| 9 | R9 expressload decomposition (remaining half) | med | ✅ 3ec5eb4 |
 | 10 | R10 assembly cache | med (opt-in) | 1d |
 
 Each packet independently shippable; stop anywhere.  (R9's "land before the
