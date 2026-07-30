@@ -277,8 +277,12 @@ golden bytes:
 
 ### Next targets
 
-- **Finder data fork** — IN PROGRESS (2026-07-20, work/finderdatacheck.py;
-  ratchet gate metric `finder_data_code_bytes`).  Leg 2: **9 of 12 load
+- **Finder data fork** — ✅ **DONE** (2026-07-20, commits 5663328→166e4ad;
+  the whole 146,924-byte fork is byte-exact, gated by `finder_data_bytes_exact`
+  293,848/293,848 — see `docs/EXPRESSLOAD_FINDER_PLAN.md`, marked EXECUTED).
+  The leg-by-leg log below is HISTORICAL — the residuals it describes are all
+  closed.
+  Leg 2: **9 of 12 load
   segments byte-exact** (BUFFERS/MATCH/ALERT/CODE/DATA/ABOUT/Help/FIFIFIONE
   + the 10-entry ~JumpTable), 97,400/135,432 code bytes, all segment
   lengths correct.  Fixes this leg (fixtures 058-060, 062; gate green, ROM

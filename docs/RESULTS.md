@@ -11,7 +11,7 @@ committed regression baseline (`work/gate.py`; `work/gate_baseline.json`).
 | ROM 03 firmware (all three banks) — full image byte-identical; 261,377 B (99%) source-built, Toolbox banks from the captured image | 262,144 bytes | `work/buildrom.py` |
 | All 8 buildable FSTs (Pro, HFS, Char, HS, DOS3.3, Pascal, MSDos, AppleShare) | 111,584 bytes | `work/fstcheck.py` |
 | All 12 drivers (AppleDisk 3.5/5.25, UniDisk, SCSI HD/CD/Scan/Tape + Manager, RAM5, SCC, Console, ATalk) | 94,948 bytes | `work/drivercheck.py` |
-| All 12 mapped toolbox toolsets (WindMgr, MenuMgr, ControlMgr, QDAux, PrintMgr, LineEdit, DialogMgr, Scrap, StdFile, FontMgr, ListMgr, TextEdit) | 186,110 bytes | `work/toolcheck.py` |
+| All 14 mapped toolbox toolsets (WindMgr, MenuMgr, ControlMgr, QDAux, PrintMgr, LineEdit, DialogMgr, Scrap, StdFile, FontMgr, ListMgr, TextEdit, NoteSeq, VideoMix) | 193,357 bytes | `work/toolcheck.py` |
 | P8 (ProDOS 8 compatibility kernel, incl. overlay packaging) | 17,128 bytes | `work/p8check.py` |
 | `prodos` (boot loader) | 1,668 bytes | `work/kernelcheck.py` |
 | `Start.GS.OS` | 13,169 bytes | `work/kernelcheck.py` |
@@ -19,6 +19,7 @@ committed regression baseline (`work/gate.py`; `work/gate_baseline.json`).
 | GS.OS kernel (SCM portion) | 38,805 bytes | `work/kernelcheck.py` |
 | GS/OS Loader | 16,590 bytes | `work/loader_placed.py` |
 | **ALL 39** System 6.0.1 logical files the disk harness rebuilds (grew 30→39 as the CDEV / Finder(Start) / EasyMount rez-fork builders and BASIC.System were wired in — no out-of-scope file remains on the System Disk); physical image byte-match 819,264/819,264 | — | `work/diskcheck.py` |
+| Resource forks (`gsrez`): 19 Control-Panel CDEVs (156,917 B), Finder both forks (104,790 B rsrc + 293,848 B data), Installer (17,895 B), Teach (7,333 B), Sys.Resources (24,337 B), EasyMount (2,500 B rsrc + 9,221 B data), plus 5 misc rsrc forks (4,515 B) | — | `work/cdevcheck.py`, `findercheck.py`, `installercheck.py`, `teachcheck.py`, … |
 
 Close but not exact:
 
@@ -157,8 +158,8 @@ E2 (2026-07-19, commit 8df2a45): the multiseg path now emits the full
 standalone/case-B/SUPER dictionary and TS2 (36,665/36,665) and TS3
 (41,700/41,700) are byte-exact on disk. Tool034/TextEdit followed in E3
 (commits d951821/bc37f8d) — code image AND full on-disk file (38,242/38,242)
-— reaching `disk_logical_exact` 30/30 at E3 (since grown to 38/38 as the
-rez-fork builders were wired). See `docs/design/expressload.md` and
+— reaching `disk_logical_exact` 30/30 at E3 (since grown to 39/39 as the
+rez-fork builders and BASIC.System were wired). See `docs/design/expressload.md` and
 `docs/EXPRESSLOAD_TIER2_PLAN.md`.
 
 **SCSIHD.Driver — CLOSED (2026-07-18): byte-exact (15,690/15,690).** This was

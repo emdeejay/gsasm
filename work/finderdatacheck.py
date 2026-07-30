@@ -422,9 +422,10 @@ def _finder_objects():
 def build_finder_data():
     """Assemble + link + ExpressLoad-package the whole Finder DATA fork,
     injecting link_finder()'s byte-exact per-segment images AND relocation
-    dictionaries (FINDER_PLAN B.5).  NOTE: the ~ExpressLoad directory segment
-    is still built by expressload()'s own machinery (Stage 4 work), so the
-    full fork is NOT yet byte-exact — the load segments are."""
+    dictionaries (FINDER_PLAN B.5).  The whole 146,924-byte fork — including
+    the ~ExpressLoad directory segment (closed via the LOADNAME opt +
+    _het_entries entry_len rule) — is byte-exact; gated by
+    finder_data_bytes_exact (293,848/293,848, both golden copies)."""
     images, jt_entries, jt_segnum, _segnum, reloc_dicts = link_finder()
     objects, segnames, segkinds = _finder_objects()
     seg_images = {name.encode(): images[name] for name, _k, _s in SEGS}
