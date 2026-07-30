@@ -42,39 +42,56 @@ not reconstructed end-to-end."*
 
 ## 2. Definition of Complete (the acceptance predicate)
 
-> **CHOSEN SCOPE (locked 2026-07-30): Tier A + Tier C.** Complete =
-> all 7 English disks at 100% physical byte-match (`oos:0`) **and** the refactor
-> quality backlog closed (R10 + deep-dive D1–D8). Tiers B (localized) and D
-> (self-hosting) are out of scope for "complete" but remain future options.
+> **CHOSEN SCOPE (locked 2026-07-30): Tier A + Tier C.** Tier A = all 7 English
+> disks *fully accounted for and builder-exact* (below). Tier C = **R10 + D1 + D3
+> + D4 + D5** (D2/D6/D7/D8 explicitly deferred — see §5). Tiers B (localized) and
+> D (self-hosting) out of scope.
 
-> **Core completion:** every disk `D` in the canonical 7-disk English System
-> 6.0.1 set satisfies `diskcheck.check(D)` = **100% physical byte-match**, where
-> every file on `D` is classified as exactly one of:
-> - **built** — reconstructed byte-exact from archived source, or
-> - **substitute** — no archived source exists (verified, not assumed), carried
->   verbatim from the golden image with a documented reason,
->
-> and **`oos` (unclassified/out-of-scope) = 0** on every disk.
+**Completion is NOT physical byte-match alone.** `work/diskcheck.py`'s own
+DISCIPLINE note is explicit: *physical image equality is not a builder-correctness
+gate — a no-builder run is trivially 100%* (substitute/unbuilt files sit in the
+overlay as golden bytes). So the acceptance predicate is a **set of
+builder-correctness metrics**, with physical match as a necessary-but-not-
+sufficient secondary check. For every disk `D`:
 
-This is deliberately a **single boolean an agent can evaluate**: `gate.py` green
-**and** `diskcheck.check(D)` physical == 100% with `oos:0` for all `D ∈ 1..7`.
-Non-targets (Pascal/C code forks, static runtime data, no-source data/fonts) are
-*compatible* with 100% physical match — Disk 2 already proves it (13 substitutes
-inside a 100% image). Completion is not "everything is source-built"; it is
-"every image is reproduced, and every file is honestly accounted for."
+| Metric | Meaning | Tier-A bar |
+|--------|---------|-----------|
+| `disk_inventory_classified` | every on-disk **fork** has a manifest owner | `oos:0`, all 7 |
+| `disk_required_builders_wired` | every fork owned `BUILT` has a callable builder | 100% |
+| `disk_required_builders_exact` | every required builder's **logical** bytes == golden **before overlay** | 100% |
+| `disk_substitutes_confirmed` | every `SUBSTITUTE`/non-target has recorded evidence | 100% |
+| `disk_physical_exact` | whole-image byte-match (secondary) | 7/7 |
 
-### Completion tiers (pick the bar in §8)
-- **Tier A — Core:** the 7 English disks, 100% physical, `oos:0`. *(recommended target)*
-- **Tier B — Localized:** + German/French variants (`…/German/`, `…/French/`).
-- **Tier C — Quality:** + refactor backlog closed (R10 + deep-dive D1–D8).
-- **Tier D — Capstone:** self-hosting (`gsasm816` assembles gsasm; fixed-point proof).
+### Manifest ownership is fork/payload-level, with explicit states
 
-### Explicit non-goals (permanent, documented)
-Pascal/C-compiled code & data forks (the three-bucket breakdown in **A.4** — 7
-whole-fork Pascal apps/DAs/NDAs whose resource forks *are* byte-exact, plus the
-extraction-fed CDEV `rCDEVCode` payloads); `MountImage.r` resource fork (no
-oracle); static runtime data with no producing source; localized disks under
-Tier A. Each such file is a **substitute**, never an `oos`.
+A file is "fully accounted for" as a **composition of forks/payloads**, each in
+one state (Codex review 2026-07-30 — the project is already fork-level: CDEVs are
+rsrc-built + code-substituted; Finder/Start/EasyMount are dual-fork):
+
+- **`BUILT(builder, evidence)`** — bytes actually reproduced by source/tools.
+- **`TODO_BUILDABLE(kind, source_path, evidence)`** — source exists, no
+  byte-exact builder wired yet. Keeps `oos:0` but **blocks Tier A** until
+  promoted to `BUILT` (or human-downgraded).
+- **`SUBSTITUTE(reason, evidence)`** — no producing source (verified across all
+  trees); carried verbatim. Includes "gold-fed / extraction-fed" embedded
+  payloads (CDEV `rCDEVCode`) — labelled as substitute, never "built."
+- **`TECHNICAL_EXCEPTION(reason, evidence, golden_bytes=True)`** — source
+  present but not byte-exact (only `Tool.Setup` today: case-B wall). **Human-
+  gated and rare.** Tier A **allows** it only as a named exception, making the
+  Tier-A statement *"100% physical AND 100% accounted for, with `Tool.Setup` the
+  one documented technical exception"* — unless P7 cracks it, promoting to
+  `BUILT`.
+
+### Completion tiers
+- **Tier A — Core:** 7 English disks, all metrics above satisfied.
+- **Tier B — Localized:** + German/French variants. (out of scope)
+- **Tier C — Quality:** R10 + D1 + D3 + D4 + D5. (D2/D6/D7/D8 deferred, §5)
+- **Tier D — Capstone:** self-hosting `gsasm816`. (out of scope)
+
+### Explicit non-goals (permanent, documented — all `SUBSTITUTE`, never `oos`)
+Pascal/C-compiled code & data forks (three-bucket breakdown in **A.4**); the
+extraction-fed CDEV `rCDEVCode` payloads; `MountImage.r` resource fork (no
+oracle); static runtime data with no producing source; localized disks.
 
 ---
 
@@ -121,15 +138,20 @@ for each f:
 until diskcheck.check(D) == 100% physical AND oos(D) == 0
 ```
 
-**Guardrails (non-negotiable, enforced in every automated step):**
-- Every code-touching change must keep `gate.py` stdout **byte-identical to
-  baseline** (byte-exact discipline; a metric that *improves* means behavior
-  changed — stop).
+**Guardrails (non-negotiable) — but the gate discipline differs by change type
+(Codex review 2026-07-30): `gate.py` is direction-aware, not stdout-pinned.**
+- **Refactor packets (P9/P10):** metrics **unchanged**, no stdout/reporting
+  drift (unless the packet explicitly targets reporting). A metric that
+  *improves* means behavior changed — stop.
+- **Expansion packets (P2–P7):** these *add* coverage, so reviewed metric
+  **improvements are the goal**; require **no regressions**, and update
+  `work/gate_baseline.json` in the same accepted packet. A **new metric fails
+  until its baseline is committed**.
 - **Never `--bless` to make red green.** Re-derive against gold.
 - Every **new** behavior gains a corpus-free fixture in the same commit.
-- Every **"non-target / no-source"** claim is adversarially verified (source
-  search) before acceptance — this is the one place the project has historically
-  been wrong, so it is a hard gate, not a comment.
+- Every **`SUBSTITUTE`/`TECHNICAL_EXCEPTION`** claim is adversarially verified
+  (source search across all trees) before acceptance — this is the one place the
+  project has historically been wrong, so it is a hard gate, not a comment.
 
 ---
 
@@ -144,9 +166,10 @@ until diskcheck.check(D) == 100% physical AND oos(D) == 0
 - **W3 — Residual single-file gaps.** Notably `Tool.Setup` (code-exact,
   blocked on case-B reloc encoding). Attempt via the CRACK workflow; if it
   resists, document as the one deliberate exception (already is).
-- **W4 — Quality/refactor (Tier C).** R10 cache; deep-dive D1 (`_common.py`),
-  D3 (multiseg phase-split), D4 (OMF classifier), D5 (asm internals). All
-  gate-identical.
+- **W4 — Quality/refactor (Tier C = R10 + D1 + D3 + D4 + D5).** R10 cache;
+  deep-dive D1 (`_common.py`), D3 (multiseg phase-split), D4 (OMF classifier),
+  D5 (asm internals). All gate-identical. **D2, D6, D7, D8 explicitly deferred**
+  (see `docs/REFACTORING_DEEP_DIVE_2026-07-30.md`) — not part of "complete."
 - **W5 — Release & hygiene.** Per-milestone version bumps (the 0.4.0 release
   path is proven); optional copyright history scrub decision.
 
@@ -158,17 +181,20 @@ Each phase is sized to a supervised automated run: a workflow (or agent fan-out)
 does the work, the orchestrator gate-checks and commits between phases. Effort =
 rough wall-clock of automated sessions, not human days.
 
+> Per-phase **acceptance detail and the phys-vs-builder-exact arithmetic** are
+> authoritative in `docs/IMPLEMENTATION_PLAN.md` §4; this table is the summary.
+
 | Phase | Goal | Automation | Human gate | Acceptance |
 |-------|------|------------|------------|------------|
-| **P0** | W1 infra: per-disk manifest + `disk_physical_exact` gate metric over 7 disks; **incl. an HFS whole-image overlay path for Disk 7** (see A.2) | scripted (mechanical) | review the metric wiring | gate green; Disk 2 still 100% |
-| **P1** | ✅ **DONE** — evidence-based census (Appendix A): 355 files classified, 57 buildable, 8 Pascal/C, 183 substitute, 2 needs-investigation | (workflow wf_986133b2-1c2) | confirm substitute lists | every file classified; 0 unknown |
-| **P2** | Wire all **already-proven** forks into their disk manifests (105 built files: Finder, 19 CDEVs, Installer, Teach, drivers, FSTs, kernel, app/misc forks) | mechanical wiring agent per disk | — | those files flip to byte-exact on their disks |
+| **P0** | W1 infra: per-disk manifest (fork-level states) + the **5 builder-correctness metrics** (§2) + census-validation + the HFS split — see IMPL §1 | scripted (mechanical) | review metric wiring | metrics baselined; Disk 2 still 100%; `oos:0` all 7 |
+| **P1** | ✅ **DONE** — evidence-based census (Appendix A, rev2): 355 files, 104 built, 58 buildable, 8 Pascal/C, 183 substitute, 2 technical-exception; 0 unknown | (workflow wf_986133b2-1c2 + Codex-review fixes) | confirm substitute lists | every fork classified; `oos:0` |
+| **P2** | Wire all **already-built** forks into their disk manifests (104 built forks: Finder, 19 CDEVs, Installer, Teach, drivers, FSTs, kernel, app/misc forks) | mechanical wiring agent per disk | — | builders-wired/exact climb to expected-built (IMPL §2) |
 | **P3** | Disks 5 (Fonts) & 6 (synthLAB) to 100% — data disks, ~28/30 and ~23/25 substitute + 1 buildable each (A.3) | one loop pass | confirm the data files are genuinely no-source | Disks 5,6 100% physical, oos:0 |
 | **P4** | Disks 1, 3, 4 to 100% — wire the ~48 buildable files; **most are new instances of proven builder types** (printer/AppleTalk/MIDI drivers, Tool025/029/032/038, Printer/Slots/Time CDEVs, 12 Sound rez) | per-disk loop; CRACK only for genuinely-new dialects | confirm substitutes + the 8 Pascal/C non-targets (A.4) | Disks 1,3,4 100% |
 | **P5** | Disk 7 (Apple II Setup) to 100% — **HFS net-boot disk** (A.2); 7 buildable (Basic.System, p8, ProDOS16 boot blocks + image, IWEm), 5 substitute | HFS overlay loop + CRACK for boot infra | confirm substitutes | Disk 7 100% |
 | **P6** | ✅ **DONE** — needs-investigation resolved: both → buildable-asm (A.6); `drivercheck` "Slinky not shipped" stale claim fixed | — | — | census 0 unknown |
 | **P7** | W3 residual: retry `Tool.Setup` case-B via CRACK; finalize the one documented exception | CRACK workflow | accept exception if it resists | Tool.Setup byte-exact OR documented |
-| **P8** | **Tier A COMPLETE**: `disk_physical_exact` 7/7, tag a release | scripted | approve release (outward-facing) | all 7 disks 100%, oos:0 |
+| **P8** | **Tier A COMPLETE**: all 5 metrics satisfied for 7 disks (Tool.Setup built or human-gated exception), tag a release | scripted | approve release (outward-facing) + the Tool.Setup exception if unresolved | 5 metrics green |
 | **P9** | Tier C: R10 assembly cache + deep-dive D1 (`_common.py`), D5 (asm internals) | gate-identical refactor commits | review each packet | gate byte-identical each step |
 | **P10** | Tier C: deep-dive D3 (multiseg phase-split), D4 (OMF classifier) — the high-risk structural pieces | supervised, byte-identity-gated | review | gate byte-identical; **Tier A+C COMPLETE** |
 
@@ -197,7 +223,8 @@ infrastructure).
 ## 8. Decisions (locked 2026-07-30)
 
 1. **Completion tier → Tier A + C.** Complete = 7 English disks at 100% physical
-   (`oos:0`) plus the refactor quality backlog (R10 + D1–D8). B/D deferred.
+   (all 5 metrics) plus the refactor subset **R10 + D1 + D3 + D4 + D5**
+   (D2/D6/D7/D8 deferred). B/D out of scope.
 2. **Autonomy → Supervised workflows.** Each phase runs as agent/workflow
    fan-out; the orchestrator gate-checks and commits between phases and surfaces
    substitute lists + hard-nut decisions at phase boundaries. Human is in the
@@ -205,9 +232,9 @@ infrastructure).
 3. **`Tool.Setup` → attempt the case-B crack (P7).** If it resists, fall back to
    the documented exception.
 
-**Next action:** P0 (per-disk manifest infra + `disk_physical_exact` gate metric
-over 7 disks). **P1 census is DONE** — see Appendix A (evidence-based, not
-inference).
+**Next action:** P0 (per-disk manifest infra + the 5 builder-correctness metrics
+above + census-validation + the HFS split — see `docs/IMPLEMENTATION_PLAN.md`
+§1). **P1 census is DONE** (Appendix A, rev2).
 
 ---
 
@@ -219,27 +246,32 @@ and the `work/*check.py` harnesses, with adversarial "no-source" checks. Raw
 data: workflow `wf_986133b2-1c2`. This **supersedes** the inferences elsewhere
 in this doc (notably the synthLAB and Pascal/C guesses).
 
-### A.1 Classification — all 7 disks (354 files)
+### A.1 Classification — all 7 disks (355 files, authoritative rev2)
 
-| Disk | files | built | buildable | Pascal/C | no-source sub | needs-invest |
-|------|------:|------:|----------:|---------:|--------------:|-------------:|
+Data: `docs/disk_census_2026-07-30.json` (rev2 — Codex review fixes: +Disk 2,
++Disk 5 `/Fonts/Icons/Finder.Data`, Disk 7 key cleaned, `Tool.Setup` ×2 →
+technical-exception).
+
+| Disk | files | built | buildable | Pascal/C | substitute | tech-exc |
+|------|------:|------:|----------:|---------:|-----------:|---------:|
 | 1 Install | 97 | 33 | 3 | 0 | 60 | 1 |
-| 2 System Disk *(done)* | 50 | 38 | 0 | 0 | 12 | 0 |
-| 3 SystemTools1 | 79 | 19 | 15 | 3 | 41 | 1 |
+| 2 System Disk | 50 | 37 | 0 | 0 | 12 | 1 |
+| 3 SystemTools1 | 79 | 19 | 16 | 3 | 41 | 0 |
 | 4 SystemTools2 | 62 | 14 | 30 | 4 | 14 | 0 |
 | 5 Fonts | 30 | 0 | 1 | 1 | 28 | 0 |
 | 6 synthLAB | 25 | 1 | 1 | 0 | 23 | 0 |
 | 7 Apple II Setup | 12 | 0 | 7 | 0 | 5 | 0 |
-| **TOTAL** | **355** | **105** | **59** | **8** | **183** | **0** |
+| **TOTAL** | **355** | **104** | **58** | **8** | **183** | **2** |
 
-*(Updated 2026-07-30: the 2 needs-investigation items resolved to buildable-asm — see A.6. Census now fully classified, 0 unknown.)*
+`tech-exc` = `Tool.Setup` on Disks 1 & 2 (source present, not byte-exact; P7
+crack target). 0 unknown (`oos:0`).
 
-**The remaining reproduction work is 57 buildable files** — and most are new
+**The remaining reproduction work is 58 buildable files** — most are new
 *instances of already-proven builder types*: printer/AppleTalk/MIDI drivers (the
-driver builder already proves 12), Tool025/029/032/035/038 (the tool builder
-proves 14), the Printer/Slots/Time CDEVs and 12 Sound resources (the Rez
-pipeline proves 19 CDEVs + Sys.Resources). So P4 is largely "point the existing
-builder at more of the same," not new dialect cracking.
+driver builder proves 12), Tool025/029/032/035/038 (the tool builder proves 14),
+the Printer/Slots/Time CDEVs and 12 Sound resources (the Rez pipeline proves 19
+CDEVs + Sys.Resources). So P4 is largely "point the existing builder at more of
+the same," not new dialect cracking.
 
 ### A.2 Correction: Disk 7 is HFS-inside-2IMG, not ProDOS
 

@@ -1,5 +1,5 @@
 {
- "generated": "2026-07-30",
+ "generated": "2026-07-30 (rev2: +Disk2, +Disk5 Finder.Data, Disk7 key fixed, Tool.Setup=technical-exception; Codex review)",
  "workflow": "wf_986133b2-1c2",
  "disks": {
   "Disk 1 of 7 Install.2mg": {
@@ -138,11 +138,11 @@
     {
      "path": "/Install/System/System.Setup/Tool.Setup",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "technical-exception",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS toolset-bundle objects (same family as TS2/TS3)",
      "proven_by": null,
-     "evidence": "ASM toolset bundle. NOT yet byte-exact: the one deliberately-unwired ExpressLoad residual (case-B converter wall) per diskbuilders/expressload_files.py + kernel_setup.py docstrings. Disk1 copy (19232B) cmp-identical to System-Disk copy, which diskcheck leaves un-overlaid (no builder wired).",
+     "evidence": "Tool.Setup: asm toolset bundle, code segments byte-exact but full-file ExpressLoad case-B reloc encoding is NOT byte-exact (the converter wall); deliberately unwired, golden bytes carried. SOW P7 crack target -> promote to BUILT if cracked, else remains the one documented technical exception.",
      "confidence": "high"
     },
     {
@@ -2689,6 +2689,16 @@
      "proven_by": null,
      "evidence": "Finder desktop database (binary, 1 block). diskcheck.py owner_for() rule maps basename 'Finder.Data' -> SUBSTITUTE; runtime-generated, no source.",
      "confidence": "high"
+    },
+    {
+     "path": "/Fonts/Icons/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "ADDED 2026-07-30 (census agent dropped it; Codex review). Finder desktop database, no producing source (same class as the other Finder.Data files).",
+     "confidence": "high"
     }
    ]
   },
@@ -2947,8 +2957,8 @@
     }
    ]
   },
-  "Disk 7 of 7 Apple II Setup.2mg \u2014 FORMAT FINDING: The 2mg is a valid 2IMG (magic '2IMG', creator 'XGS!', header len 0x40, image-format field @0x0C = 1 = ProDOS/logical block order, num_blocks @0x14 = 0x0640 = 1600 blocks = 800K, data offset 0x40, data length 0xC8000 = 819200; file size 819264 = 64+819200 checks out). The a2til ProDOS reader failed (\"header says 8293 blocks but device holds 1600\") because the CONTAINED FILESYSTEM IS HFS, NOT ProDOS: block 2 (image offset 64+1024=1088) begins with 0x4244 = 'BD' = HFS MDB signature. a2til read HFS bytes as a ProDOS volume-directory total_blocks field and got garbage (8293). Boot block starts 4C 4B 60 (JMP $604B). Read cleanly with work/hfs.py after stripping the 64-byte 2mg header: HFS volume with 12 files in 2 dirs (root + 'System Folder'). This is the AppleShare net-boot 'Apple II Setup' disk, built on a Macintosh via MPW (creators MACS/ttxt/bjbc); its build recipe is ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Makefile + build.disk.": {
-   "notes": "FORMAT: the a2til failure was a filesystem misdiagnosis \u2014 the .2mg is a legitimate 800K ProDOS-order 2IMG whose CONTENTS are HFS (MDB 'BD' at image offset 1088). Read with work/hfs.py after stripping the 64-byte header. 12 files, 2 dirs.\n\nBIG UNLOCK: this disk's exact build recipe is in-tree at ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Makefile + build.disk (by Mark Day / D.Lyons, v3.0, 2-Apr-93). It names every file and how it is produced; all six vers/patch .r resource sources are in GS.OS/NetBoot/Installer/ (Apple2GSInstallerScript.r, Basic.r, BootBlocks.r, Bullwinkle.r, Image.r, P8.r). The NetBoot tree (Fizzy, Stub, Boot, IIeBlocks/reloc.aii, Logon, Console, MakeImage, SpoolerIWEM) is essentially untouched by current harnesses and is a whole new asm build target set.\n\nTWO BYTE-LEVEL PROOFS this run:\n1. /System Folder/Basic.System DATA fork is byte-identical (sha ea5a8d1a41cd) to the basiccheck golden -> its code is already reproduced byte-exact; only the tiny vers rsrc fork (Basic.r) remains.\n2. /IWEm DATA fork (28523 B) is byte-identical to the tree's compiled GSToolbox/PrinterDrivers/IWEm/IWEm (buildable-asm from IWEm.Src).\n\nKEY FINDING on p8: /System Folder/p8 differs from the p8check golden in exactly 4 bytes, which decode to an embedded ASCII assembly-DATE ('02-Apr' on this disk vs '06-May' on the System Disk). Same P8 source/recipe p8check already proves byte-exact \u2014 reproduction just needs the date parameter. This is a good example of a near-miss that is NOT a distinct binary.\n\nSURPRISE / HUMAN DECISION: /Installer is a 132 KB compiled MACINTOSH 68k application (CODE/CDEF/LDEF/DLOG/SIZE resources), not a IIgs program \u2014 it is Apple's Mac Installer used on the build Mac. installercheck.py proves an entirely different artifact (the IIgs Installer, A.U.G/Installer, 17,895 B on Disk 1). No 68k Mac Installer source exists in the IIgs trees, so this file is no-source-substitute. Do NOT conflate it with the installercheck target.\n\nSUBSTITUTE LIST (no-source, 5): /Installer (Mac 68k app), /Desktop (Finder desktop DB), /Finder.Data (root), /System Folder/Finder.Data, /Spooler-Read Me (TeachText doc; identical copy exists in NetBoot/SpoolerIWEM but authored, not built).\n\nFORK NOTE: every System Folder file and Apple II Script carries a small HFS RESOURCE fork added by build.disk's Rez/SetVersion steps (vers/BNDL/icons), all buildable-rez from the NetBoot/Installer .r files but embedding the hard-coded build date/version (thisvers=3.0, todayhex). A fully byte-exact disk repro must reproduce those date-stamped vers resources. Consistent with diskcheck's convention, I classified dual-fork files by the hardest still-open fork; none is currently harness-gated as a whole file, hence built=0 even though two data forks are already proven byte-exact.",
+  "Disk 7 of 7 Apple II Setup.2mg": {
+   "notes": "FORMAT FINDING: The 2mg is a valid 2IMG (magic '2IMG', creator 'XGS!', header len 0x40, image-format field @0x0C = 1 = ProDOS/logical block order, num_blocks @0x14 = 0x0640 = 1600 blocks = 800K, data offset 0x40, data length 0xC8000 = 819200; file size 819264 = 64+819200 checks out). The a2til ProDOS reader failed (\"header says 8293 blocks but device holds 1600\") because the CONTAINED FILESYSTEM IS HFS, NOT ProDOS: block 2 (image offset 64+1024=1088) begins with 0x4244 = 'BD' = HFS MDB signature. a2til read HFS bytes as a ProDOS volume-directory total_blocks field and got garbage (8293). Boot block starts 4C 4B 60 (JMP $604B). Read cleanly with work/hfs.py after stripping the 64-byte 2mg header: HFS volume with 12 files in 2 dirs (root + 'System Folder'). This is the AppleShare net-boot 'Apple II Setup' disk, built on a Macintosh via MPW (creators MACS/ttxt/bjbc); its build recipe is ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Makefile + build.disk. | FORMAT: the a2til failure was a filesystem misdiagnosis \u2014 the .2mg is a legitimate 800K ProDOS-order 2IMG whose CONTENTS are HFS (MDB 'BD' at image offset 1088). Read with work/hfs.py after stripping the 64-byte header. 12 files, 2 dirs.\n\nBIG UNLOCK: this disk's exact build recipe is in-tree at ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Makefile + build.disk (by Mark Day / D.Lyons, v3.0, 2-Apr-93). It names every file and how it is produced; all six vers/patch .r resource sources are in GS.OS/NetBoot/Installer/ (Apple2GSInstallerScript.r, Basic.r, BootBlocks.r, Bullwinkle.r, Image.r, P8.r). The NetBoot tree (Fizzy, Stub, Boot, IIeBlocks/reloc.aii, Logon, Console, MakeImage, SpoolerIWEM) is essentially untouched by current harnesses and is a whole new asm build target set.\n\nTWO BYTE-LEVEL PROOFS this run:\n1. /System Folder/Basic.System DATA fork is byte-identical (sha ea5a8d1a41cd) to the basiccheck golden -> its code is already reproduced byte-exact; only the tiny vers rsrc fork (Basic.r) remains.\n2. /IWEm DATA fork (28523 B) is ",
    "files": [
     {
      "path": "/System Folder/Basic.System",
@@ -3071,7 +3081,522 @@
      "confidence": "high"
     }
    ]
+  },
+  "Disk 2 of 7 System Disk.2mg": {
+   "notes": "DONE \u2014 whole-image physical byte-match 819264/819264, logical-exact 39/39. Classified from diskcheck registry.",
+   "files": [
+    {
+     "path": "/System.Disk/ProDOS",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Start.GS.OS",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/GS.OS",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Error.Msg",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/GS.OS.Dev",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/FSTs/Pro.FST",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/FSTs/Char.FST",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Drivers/AppleDisk3.5",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Drivers/AppleDisk5.25",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Drivers/Console.Driver",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/System.Setup/Tool.Setup",
+     "forks": "data",
+     "classification": "technical-exception",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "source exists (asm toolset bundle) but ExpressLoad case-B reloc encoding not byte-exact; deliberately unwired, golden bytes carried. SOW P7 crack target.",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/System.Setup/TS2",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/System.Setup/TS3",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/System.Setup/Resource.Mgr",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/System.Setup/Sys.Resources",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/System.Setup/EasyMount",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Desk.Accs/ControlPanel",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Desk.Accs/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/CDevs/Printer",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/CDevs/Time",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/CDevs/CDev.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/CDevs/General",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/CDevs/RAM",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/CDevs/Slots",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/CDevs/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Start",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool014",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool015",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool016",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool018",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool019",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool020",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool021",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool022",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool023",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool025",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool027",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool028",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Tool034",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Tools/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Fonts/Font.Lists",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Fonts/Times.10",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Fonts/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/P8",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/FinderExtras/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/System/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/Icons/FType.Apple",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/Icons/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/BASIC.System",
+     "forks": "data",
+     "classification": "built",
+     "language": null,
+     "source_path": null,
+     "proven_by": "diskcheck",
+     "evidence": "diskcheck SOURCE_BUILDERS/REZ_BUILDERS (logical-exact 39/39, physical 100%)",
+     "confidence": "high"
+    },
+    {
+     "path": "/System.Disk/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+     "confidence": "high"
+    }
+   ]
   }
  },
- "needs_investigation_resolved": "2026-07-30: both -> buildable-asm"
+ "needs_investigation_resolved": "2026-07-30: both -> buildable-asm",
+ "_totals": {
+  "built": 104,
+  "technical-exception": 2,
+  "no-source-substitute": 183,
+  "buildable-asm": 37,
+  "buildable-rez": 21,
+  "pascal-c-nontarget": 8
+ },
+ "_total_files": 355,
+ "_disks": 7
 }
