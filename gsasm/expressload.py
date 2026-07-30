@@ -2140,5 +2140,3 @@ def expressload(
     return _build_multiseg_output(
         placed, placed_obj_idx, sym, obj_globals, n_objs, opts,
         loadfile_name)
-
-

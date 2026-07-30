@@ -75,7 +75,7 @@ cd gsasm
 pip install -e .
 ```
 
-Requires Python 3.9+. No dependencies outside the standard library.
+Requires Python 3.10+. No dependencies outside the standard library.
 
 ## CLI
 
