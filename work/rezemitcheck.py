@@ -66,6 +66,14 @@ def _meta_from_golden(fork: rc.Fork) -> dict:
     copy2 = bytes(memo[emit.MEMO_COPY2_OFF:emit.MEMO_COPY2_OFF + 8])
     assert copy2 == filetype + creator, (fork.path, copy2, filetype + creator)
 
+    # The 8-byte FInfo tail and the 2-byte post-tail field are read back
+    # from copy 2's fixed offsets (78 / 86) — always present regardless of
+    # name length, and byte-identical to copy 1's tail in every golden fork.
+    # Zero in the RezIIgs forks; real, mirrored values in the `data`-built
+    # System-Sound / TeachText forks (work/rezdatacheck.py's targets).
+    finfo_tail = bytes(memo[emit.MEMO_COPY2_OFF + 8:emit.MEMO_COPY2_OFF + 16])
+    memo_tail2 = bytes(memo[emit.MEMO_TAIL2_OFF:emit.MEMO_TAIL2_OFF + 2])
+
     creation_ts = struct.unpack_from('>I', memo, emit.MEMO_TS_OFF)[0]
     unknown_dword = struct.unpack_from('>I', memo, emit.MEMO_DWORD2_OFF)[0]
     # MEMO_FORKLEN_OFF is derived by emit_fork itself, not read back here.
@@ -79,6 +87,8 @@ def _meta_from_golden(fork: rc.Fork) -> dict:
         'creation_mac_ts': creation_ts,
         'name_pad_byte': pad_byte,
         'memo_const': memo_const,
+        'finfo_tail': finfo_tail,
+        'memo_tail2': memo_tail2,
         'memo_marker': marker,
         'memo_unknown_dword': unknown_dword,
         'version': h.version,

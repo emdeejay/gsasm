@@ -28,6 +28,7 @@
 #define rCtlDefProc         0x800C
 #define rWindParam1         0x800E
 #define rWindColor          0x8010
+#define rStyleBlock         0x8012
 #define rToolStartup        0x8013
 #define rAlertString        0x8015
 #define rText               0x8016

@@ -140,6 +140,16 @@ CHECKS = [
     ('rezforkcheck', ['rezforkcheck.py'], [
         ('rezfork_bytes_exact',
          r'REZFORK_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
+    # 14 template-free `data`-statement resource forks: the 10 System Sounds
+    # + 3 TeachText docs (Disk 4) + Fonts Read.Me (Disk 5), each built
+    # ENTIRELY from `data <typeID>(<id>){ $"hex" }` statements — the R1
+    # packet's new parser/gen/emit path (rResName-type-last data ordering,
+    # verbatim hex body, FInfo-tail memo fields).  Non-System-Disk, so —
+    # like cdevcheck/rezforkcheck/appdatacheck — it feeds only its own
+    # metric, NOT diskcheck.  See work/rezdatacheck.py.
+    ('rezdatacheck', ['rezdatacheck.py'], [
+        ('rez_data_bytes_exact',
+         r'REZ_DATA_BYTES_EXACT\s+(\d+)/(\d+)', 'frac')]),
 ]
 
 FULL_CHECKS = [

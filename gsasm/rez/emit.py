@@ -42,6 +42,14 @@ the fork-absolute offset):
                 defaults to 2.
     [X+4 :X+12] "copy 1" of the file-type/creator field (8 bytes) — see
                 below. Ends at C1E = X + 12.
+    [C1E :C1E+8] "copy 1" of the 8-byte Mac-FInfo tail (fdFlags/fdLocation/
+                fdFldr), completing copy 1's 16-byte File-Manager record.
+                Written only when it fits before offset 70 (dropped, like
+                the marker, for long file names — whose tails are zero in
+                every golden fork anyway). Zero in the 9 RezIIgs forks first
+                decoded; the System-Sound / TeachText `data`-built forks
+                carry real values, byte-identical to copy 2's tail (below).
+                Settable (`finfo_tail`), defaults to 8 zero bytes.
     [C1E+10 : C1E+12]  a 2-byte field, ONLY present when C1E+12 <= 70 (i.e.
                 the name is short enough to leave room before the fixed
                 copy-2 anchor at offset 70). UNEXPLAINED: byte 0 is 0x30 in
@@ -55,7 +63,13 @@ the fork-absolute offset):
     [70  : 78]  "copy 2" of the file-type/creator field (8 bytes),
                 byte-identical to copy 1 in all 9 forks. ALWAYS at this
                 fixed absolute offset regardless of name length.
-    [78  :102]  zero (24 bytes, constant)
+    [78  : 86]  "copy 2" of the 8-byte FInfo tail (`finfo_tail`), always at
+                this fixed offset (byte-identical to copy 1's tail in every
+                fork observed). Zero in the 9 original forks.
+    [86  : 88]  2-byte field just past copy 2's tail. Zero in the 9 original
+                forks and every TeachText doc; b'\x00\x84' in all 10 System
+                Sounds. Settable (`memo_tail2`), defaults to zero.
+    [88  :102]  zero (14 bytes, constant)
     [102 :106]  creation timestamp: Mac epoch (seconds since 1904-01-01),
                 BIG-ENDIAN u32 (unlike everything else in the format,
                 which is little-endian — consistent with this whole memo
@@ -125,6 +139,7 @@ MEMO_TS_OFF = 102                           # creation timestamp (big-endian)
 MEMO_DWORD2_OFF = 106                       # unexplained dword (big-endian)
 MEMO_FORKLEN_OFF = 110                      # fork length (big-endian) — derived
 MEMO_MARKER_REL = 10                        # marker sits copy1_end + 10 (if it fits)
+MEMO_TAIL2_OFF = 86                         # 2-byte field just past copy-2's FInfo tail
 
 # Every recognized `meta` key with its default. Keys not settable here
 # (fork length, header/map sizes) are always derived from `resources`.
@@ -136,6 +151,16 @@ DEFAULT_META = {
                                     # derivable from ProDOS's minute-granularity dates
     'name_pad_byte': 0,             # unexplained pad byte after an even-length name
     'memo_const': 2,                # unexplained-but-constant dword after the name; =2
+    'finfo_tail': b'\x00' * 8,      # 8-byte Mac-FInfo tail (flags/location/folder)
+                                    # that trails EACH type/creator copy, mirrored
+                                    # between copy 1 and copy 2 (see docstring). Zero
+                                    # in all 9 RezIIgs forks originally decoded; the
+                                    # System-Sound and TeachText `data`-built forks
+                                    # carry real (identical, mirrored) values here.
+    'memo_tail2': b'\x00\x00',      # 2-byte field at fixed memo offset 86, just past
+                                    # copy 2's FInfo tail. Zero in the 9 original forks
+                                    # and every TeachText doc; the 10 System Sounds
+                                    # carry b'\x00\x84' here. Non-derivable host junk.
     'memo_marker': b'\x00\x00',     # unexplained 2-byte field (see docstring)
     'memo_unknown_dword': 0,        # unexplained dword near the tail (see docstring)
     'version': 0,                   # header rFileVersion; 0 in all 9 golden forks
@@ -200,8 +225,19 @@ def _build_memo(meta: dict, fork_length: int) -> bytes:
 
     filetype = _fixed_bytes(meta['filetype'], 4)
     creator = _fixed_bytes(meta['creator'], 4)
+    finfo_tail = _fixed_bytes(meta['finfo_tail'], 8)
     m[copy1_off:copy1_off + 4] = filetype
     m[copy1_off + 4:copy1_end] = creator
+
+    # The 8-byte FInfo tail directly follows copy 1's type/creator (making a
+    # 16-byte record), but is only written when that whole record fits before
+    # the fixed copy-2 anchor at offset 70 (a long file name pushes copy 1 up
+    # until first the tail, then even the 8-byte type/creator, no longer fit
+    # — matching the golden forks with long names, whose tails are zero
+    # anyway). Copy 2's tail (below) is at a fixed offset and always written.
+    tail1_off = copy1_end
+    if tail1_off + 8 <= MEMO_COPY2_OFF:
+        m[tail1_off:tail1_off + 8] = finfo_tail
 
     marker_off = copy1_end + MEMO_MARKER_REL
     if marker_off + 2 <= MEMO_COPY2_OFF:
@@ -209,6 +245,8 @@ def _build_memo(meta: dict, fork_length: int) -> bytes:
 
     m[MEMO_COPY2_OFF:MEMO_COPY2_OFF + 4] = filetype
     m[MEMO_COPY2_OFF + 4:MEMO_COPY2_OFF + 8] = creator
+    m[MEMO_COPY2_OFF + 8:MEMO_COPY2_OFF + 16] = finfo_tail
+    m[MEMO_TAIL2_OFF:MEMO_TAIL2_OFF + 2] = _fixed_bytes(meta['memo_tail2'], 2)
 
     struct.pack_into('>I', m, MEMO_TS_OFF, meta['creation_mac_ts'] & 0xFFFFFFFF)
     struct.pack_into('>I', m, MEMO_DWORD2_OFF, meta['memo_unknown_dword'] & 0xFFFFFFFF)

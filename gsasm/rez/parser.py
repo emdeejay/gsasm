@@ -503,7 +503,34 @@ class ReadStmt(Node):
     filename: bytes
 
 
-Statement = Union[TypeDecl, ResourceStmt, ReadStmt]
+@dataclass
+class DataStmt(Node):
+    """`data <typeid> (<id>[, "<name>"][, <attrs>...]) { <hex/string run> };`
+
+    A template-free resource: the brace body is a bare run of adjacent
+    HEXSTRING/STRING literals whose bytes become the resource's data
+    VERBATIM (no type template is consulted — this is exactly what MPW
+    `DeRezIIgs` emits, and what `data` compiles straight back to). The
+    header shares the exact shape of `ResourceStmt`/`ReadStmt` (id, optional
+    first-position name string, then attribute keywords/numbers). `body` is
+    a `list[StrLit | HexLit]` in source order; R5 concatenates their bytes
+    (hex verbatim, string escapes decoded) into the resource data.
+
+    Confirmed present in the System 6.0.1 sources this packet targets: the
+    12 System Sounds (`A.U.G/CtlPanel/SoundCDEV/Sounds/*.r`, whose forks are
+    built entirely from two `data` statements each — an explicit `data
+    $8014(...)` rResName plus a `data $8024(...)` sampled-sound resource)
+    and the TeachText Read.Me/Shortcuts/Whats.New docs
+    (`ToolBoxMisc/ReadMeFiles/*.r`, `A.U.G/Apple.Bowl/Read.Me.r`: a `data
+    0x7001(...)` TE record plus a `data rStyleBlock(...)` style block)."""
+    typeid: Union[int, str]
+    id: Expr
+    name: Optional[bytes]
+    attrs: List[Expr]
+    body: List[Value]
+
+
+Statement = Union[TypeDecl, ResourceStmt, ReadStmt, DataStmt]
 
 
 # ==========================================================================
@@ -596,8 +623,11 @@ class _Parser:
                 if low == 'read':
                     stmts.append(self.parse_read_stmt())
                     continue
+                if low == 'data':
+                    stmts.append(self.parse_data_stmt())
+                    continue
             raise ParseError(f"{t.file}:{t.line}: expected 'type', "
-                              f"'resource', or 'read', found {t.text!r}")
+                              f"'resource', 'read', or 'data', found {t.text!r}")
         return stmts
 
     def parse_typeid(self):
@@ -667,6 +697,28 @@ class _Parser:
         self.expect_punct(';')
         return ReadStmt(file=tok.file, line=tok.line, typeid=typeid,
                          id=id_expr, name=name, attrs=attrs, filename=filename)
+
+    def parse_data_stmt(self):
+        tok = self.advance()  # 'data'
+        typeid = self.parse_typeid()
+        id_expr, name, attrs = self.parse_res_header()
+        self.expect_punct('{')
+        # The body is a bare run of adjacent hex-/string-literal segments
+        # (no commas — real Rez treats a `data` body as a single
+        # concatenated data-string). Every target this packet builds uses
+        # only `$"..."` hex segments; STRING segments are accepted for
+        # generality and concatenated the same way (R5 decodes each).
+        body = []
+        while self.check(HEXSTRING) or self.check(STRING):
+            t = self.peek()
+            if t.kind == HEXSTRING:
+                body.append(self.parse_hexstring_run())
+            else:
+                body.append(self.parse_string_run())
+        self.expect_punct('}')
+        self.expect_punct(';')
+        return DataStmt(file=tok.file, line=tok.line, typeid=typeid,
+                         id=id_expr, name=name, attrs=attrs, body=body)
 
     # -- field lists (type bodies, array/optional/switch-case/group bodies) --
     def parse_field_list(self):

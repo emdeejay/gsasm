@@ -359,6 +359,14 @@ ATTR_BITS = {
     'nospecialmemory': 0x0008,
     'nocrossbank': 0x0010,   # SetStart rPString(75): golden attr word 0x0010
     'convert': 0x0800,   # only ever seen on `read` statements in this corpus
+    # Purge-level keywords occupy the 2-bit purge field (bits 8-9). Only
+    # `purgeable3` is exercised (the TeachText Read.Me/Whats.New/Apple.Bowl
+    # `data rStyleBlock(1, purgeable3)` statements — golden index attr word
+    # 0x0300, decoded straight from those forks); 1/2 are the obvious
+    # same-field lower levels, included for completeness.
+    'purgeable1': 0x0100,
+    'purgeable2': 0x0200,
+    'purgeable3': 0x0300,
 }
 
 
@@ -1239,7 +1247,7 @@ class GenEntry:
     """One entry per `ResourceStmt`/`ReadStmt` (plus the synthesized
     rResName), in the final source order `emit_fork` wants. See module
     docstring's "Public API" section for field meanings."""
-    kind: str                  # 'resource' | 'read' | 'resname'
+    kind: str                  # 'resource' | 'read' | 'data' | 'resname'
     file: str
     line: int
     rtype: int
@@ -1300,6 +1308,20 @@ def generate(statements) -> List[GenEntry]:
         if isinstance(s, parser.ReadStmt):
             entries.append(GenEntry('read', s.file, s.line, s.typeid, rid,
                                      attr, s.name, None))
+            continue
+
+        if isinstance(s, parser.DataStmt):
+            # Template-free resource: its data is the verbatim concatenation
+            # of the body's hex/string segments (hex bytes as-is; string
+            # escapes decoded the same way every other Rez string is). No
+            # type template is consulted, and it never feeds the synthesized
+            # rResName (a `data` statement carries its bytes wholesale — the
+            # sound files even supply their rResName resource *as* an
+            # explicit `data $8014(...)` statement).
+            data = b''.join(_value_bytes(seg, seg.file, seg.line)
+                            for seg in s.body)
+            entries.append(GenEntry('data', s.file, s.line, s.typeid, rid,
+                                     attr, s.name, data))
             continue
 
         # ResourceStmt
@@ -1366,4 +1388,15 @@ def to_emit_tuples(entries: List[GenEntry],
         else:
             data = e.data
         out.append((e.rtype, e.rid, e.attr, data))
+    # rResName-type ($8014) resources are laid out LAST in the data region,
+    # after every other resource in source order. `generate()` already
+    # appends the SYNTHESIZED rResName last, so this is a no-op for the
+    # RezIIgs-from-`resource`-statements corpus (Sys.Resources/EasyMount/
+    # CDEVs/Finder: their only $8014 is the synthesized one, already last).
+    # It matters for the `data`-built forks (the System Sounds supply their
+    # rResName as an explicit leading `data $8014(...)` statement, yet the
+    # golden fork places its bytes at the very end of the data region — see
+    # the sound forks' offset-sorted index). A stable partition preserves
+    # relative order within each group, so nothing else moves.
+    out.sort(key=lambda t: 1 if (t[0] & 0xFFFF) == RESNAME_TYPE else 0)
     return out
