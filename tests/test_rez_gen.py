@@ -480,7 +480,8 @@ def test_resname_synthesis_order_and_layout():
     assert [e.kind for e in entries] == ['resource', 'resource', 'resource', 'resname']
     resname = entries[-1]
     assert resname.rtype == gen.RESNAME_TYPE == 0x8014
-    assert resname.rid == gen.RESNAME_ID == 0x00018001
+    # rResName id is 0x10000 | resource type; these resources are type 1.
+    assert resname.rid == (gen.RESNAME_ID_BASE | 1) == 0x00010001
     assert resname.attr == 0
     expected = (
         struct.pack('<H', gen.RESNAME_FORMAT)
@@ -489,6 +490,29 @@ def test_resname_synthesis_order_and_layout():
         + struct.pack('<I', 300) + bytes([6]) + b'Second'
     )
     assert resname.data == expected
+
+
+def test_resname_id_is_per_type():
+    """One rResName is synthesized PER named resource type, each at id
+    0x10000 | type (not one lumped holder at a fixed id).  Byte-pair
+    derived: the System Sounds' rSoundSample ($8024) names land at
+    $00018024, Finder's rIcon ($8001) names at $00018001."""
+    src = (
+        b'type $8024 { byte; };\r'
+        b'type $8001 { byte; };\r'
+        b'resource $8024 (4, "Frog") { 0xAA };\r'
+        b'resource $8001 (7, "Ikon") { 0xBB };\r'
+    )
+    entries = _gen(src)
+    resnames = [e for e in entries if e.kind == 'resname']
+    # both rResName entries come after every 'resource', sorted by type
+    assert [e.kind for e in entries[:2]] == ['resource', 'resource']
+    assert [e.rid for e in resnames] == [0x00018001, 0x00018024]
+    assert all(e.rtype == gen.RESNAME_TYPE for e in resnames)
+    frog = next(e for e in resnames if e.rid == 0x00018024)
+    assert frog.data == (
+        struct.pack('<H', gen.RESNAME_FORMAT) + struct.pack('<I', 1)
+        + struct.pack('<I', 4) + bytes([4]) + b'Frog')
 
 
 def test_no_named_resources_means_no_resname_entry():
@@ -742,7 +766,8 @@ def test_duplicate_resource_key_collides_with_resname_raises():
         b'type 1 { pstring; };\r'
         b'type $8014 { byte; };\r'
         b'resource 1 (100, "Alpha") { "x" };\r'
-        b'resource $8014 ($00018001) { 9 };\r'
+        # synthesized rResName id is 0x10000 | type = $00010001 for type 1
+        b'resource $8014 ($00010001) { 9 };\r'
     )
     msg = _expect_gen_error(src)
     assert 'duplicate resource key' in msg

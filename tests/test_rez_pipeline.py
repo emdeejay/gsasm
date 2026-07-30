@@ -122,7 +122,7 @@ def _expected_fork():
         (1, 100, offsets[0], 0x8000, len(data1)),
         (1, 200, offsets[1], 0x4000, len(data2)),
         (2, 300, offsets[2], 0x8800, len(data3)),
-        (gen.RESNAME_TYPE, gen.RESNAME_ID, offsets[3], 0, len(resname)),
+        (gen.RESNAME_TYPE, gen.RESNAME_ID_BASE | 1, offsets[3], 0, len(resname)),
     ], key=lambda r: (r[0], r[1]))
     for rtype, rid, off_, attr, size in records:
         m += struct.pack('<HIIHII', rtype, rid, off_, attr, size, 0)

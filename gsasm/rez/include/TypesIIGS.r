@@ -39,6 +39,7 @@
 #define rListRef            0x801C
 #define rCString            0x801D
 #define rErrorString        0x8020
+#define rSoundSample        0x8024
 #define rVersion            0x8029
 #define rComment            0x802A
 #define rBundle             0x802B
@@ -500,6 +501,24 @@ type rListRef {            /* List Manager member list.  Only the EMPTY
     array {
         pstring;
     };
+};
+
+/* --- Sampled sound ------------------------------------------------------ */
+/* rSoundSample ($8024): a sampled-sound resource -- a five-word little-endian
+ * header (format, wave size, relative pitch, flags, sample rate) followed by
+ * the raw 8-bit sample bytes.  Byte-pair derived (build vs golden) from the
+ * System Sounds Frog and Whoosh forks on Disk 4: e.g. Frog's $8024 body opens
+ * 00 00 / 14 00 / E8 82 / 00 00 / EE 56 (format 0, wave size 20, rel pitch
+ * $82E8, flags 0, sample rate 22254) ahead of 5259 raw sample bytes.  The
+ * relative-pitch word reads back in hex; the sample rate is unsigned. */
+
+type rSoundSample {
+    integer;               /* format                                      */
+    integer;               /* wave size                                   */
+    hex integer;           /* relative pitch                              */
+    integer;               /* flags                                       */
+    unsigned integer;      /* sample rate                                 */
+    hex string;            /* raw 8-bit sample data                       */
 };
 
 /* --- Tool startup ------------------------------------------------------- */

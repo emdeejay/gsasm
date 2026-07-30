@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""rezforkcheck.py — rebuild five small A.U.G/ToolBoxMisc resource forks
+"""rezforkcheck.py — rebuild seven small A.U.G/ToolBoxMisc resource forks
 from their archived Rez sources, byte-exact, through the SAME clean-room
 pipeline cdevcheck.py/findercheck.py already exercise: `gsasm.rez.parser`
 + `gen` + `emit`, with the clean-room `gsasm/rez/include/TypesIIGS.r`
-providing every template (`RezIIGS: 1` predefined). No gsasm pipeline
-change was needed to reach byte-exact here — a feasibility probe already
-established that; this harness only wires the five forks into a runnable
-check + gate metric.
+providing every template (`RezIIGS: 1` predefined). The first five needed
+no gsasm pipeline change; Frog/Whoosh added the `rSoundSample` template and
+generalized rResName synthesis to one holder per named resource type (id
+0x10000 | type) — see gsasm/rez/gen.py and tests/test_rez_gen.py.
 
     FindFile     — Desk Accessory (ToolBoxMisc/FindFileGS/Findfile.rez).
                    Ships as /SystemTools1/System/Desk.Accs/FindFile on
@@ -25,19 +25,27 @@ check + gate metric.
                    proven byte-exact by work/appdatacheck.py).  Ships as
                    /SystemTools2/System/Drivers/Media.Control/Pioneer4200
                    on Disk 4.  A single rPstring — no code resources.
+    Frog         — one named rSoundSample ($8024) Sound CDEV sample.  Ships
+                   as /SystemTools2/System/Sounds/Frog on Disk 4.
+    Whoosh       — two named rSoundSamples (forward "Whoosh" + reversed
+                   "hsoohW"), the source's RezIIGS branch (`#ifdef MacStyle`
+                   gates the Mac 'snd ' branch away).  Ships as
+                   /SystemTools2/System/Sounds/Whoosh on Disk 4.  (The other
+                   10 System Sounds use template-free `data` statements and
+                   live in rezdatacheck.py.)
 
-None of the five sources declare a `read` resource, so — unlike
+None of the seven sources declare a `read` resource, so — unlike
 cdevcheck's rCDEVCode/rCodeResource extraction-feed — no golden bytes need
 splicing in here. `build_rez_fork` still DETECTS any `kind == 'read'`
 entry generically (matching cdevcheck's rCDEVCode/rCodeResource types plus
 any other `read`) and gold-feeds it from the golden fork's raw resource
 data, so the harness doesn't silently break if a future target needs it.
 
-Deliberately NOT wired into work/diskcheck.py (none of these five files
+Deliberately NOT wired into work/diskcheck.py (none of these seven files
 are on the System Disk diskcheck walks) — standalone runner + the gate's
 rezfork_bytes_exact metric source, same footing as cdevcheck/appdatacheck.
 
-    python3 work/rezforkcheck.py            # summary over all 5 targets
+    python3 work/rezforkcheck.py            # summary over all 7 targets
     python3 work/rezforkcheck.py FindFile   # one target, verbose diff
 """
 import sys, os
@@ -74,6 +82,18 @@ REZMAP = {
     'Pioneer4200': (
         D4, '/SystemTools2/System/Drivers/Media.Control/Pioneer4200',
         'A.U.G/MediaCtl/P4200/P4200.r'),
+    # Two Sound CDEV samples that use the rSoundSample ($8024) TEMPLATE
+    # (the other 10 System Sounds ship as template-free `data` statements
+    # and live in rezdatacheck.py).  Frog is one named rSoundSample; Whoosh
+    # is two (forward "Whoosh" + reversed "hsoohW"), its source gated behind
+    # `#ifdef MacStyle` so the RezIIGS branch compiles.  Each fork's
+    # synthesized rResName ($8014) lands at id $00018024 = 0x10000 | $8024.
+    'Frog': (
+        D4, '/SystemTools2/System/Sounds/Frog',
+        'A.U.G/CtlPanel/SoundCDEV/Sounds/Frog.r'),
+    'Whoosh': (
+        D4, '/SystemTools2/System/Sounds/Whoosh',
+        'A.U.G/CtlPanel/SoundCDEV/Sounds/Whoosh.r'),
 }
 
 
@@ -91,7 +111,7 @@ def build_rez_fork(name):
     # Any `read` (kind == 'read') entry is opaque input Rez never
     # generates itself (see gen.to_emit_tuples' docstring); gold-feed it
     # from the golden fork's raw resource data by (type, id), exactly as
-    # cdevcheck.py does for rCDEVCode/rCodeResource. None of the five
+    # cdevcheck.py does for rCDEVCode/rCodeResource. None of the seven
     # REZMAP sources currently declare one, but this stays generic rather
     # than hardcoding "no reads here".
     read_types = {e.rtype for e in entries if e.kind == 'read'}

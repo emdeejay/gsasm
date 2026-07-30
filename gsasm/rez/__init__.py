@@ -54,7 +54,7 @@ from .gen import (
     generate,
     to_emit_tuples,
     RESNAME_TYPE,
-    RESNAME_ID,
+    RESNAME_ID_BASE,
 )
 
 __all__ = [
@@ -67,5 +67,5 @@ __all__ = [
     'Num', 'Name', 'Subscript', 'UnaryOp', 'BinOp', 'Call',
     'StrLit', 'HexLit', 'GroupValue', 'CaseValue',
     'GenError', 'GenEntry', 'generate', 'to_emit_tuples',
-    'RESNAME_TYPE', 'RESNAME_ID',
+    'RESNAME_TYPE', 'RESNAME_ID_BASE',
 ]
