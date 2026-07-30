@@ -1125,134 +1125,21 @@ def _het_seg_meta(
     }
 
 
-def expressload(
-        objects: list[tuple[bytes, Any | None]],
-        opts: dict | None = None,
+def _build_single_output_seg(
+        placed: list,
+        sym: dict,
+        obj_globals: list,
+        placed_obj_idx: list,
+        super_classes: frozenset,
+        kind_override: int | None,
+        loadfile_name: bytes | None,
 ) -> bytes:
-    """Convert OMF object(s) to ExpressLoad format.
-
-    Parameters
-    ----------
-    objects
-        Same as ``linkiigs.link(objects, …)`` — list of
-        ``(obj_bytes, asm_or_None)`` pairs.
-    opts
-        Options dict.  Keys recognised:
-
-        ``merge``
-            Forced to ``False`` internally (segmented pass required).
-        ``multiseg``
-            If ``True`` and there are multiple input objects, produce one
-            output load segment per input object.  Defaults to ``False``
-            (original behavior: merge everything into a single ``'main'``
-            segment regardless of input-object count).
-        ``extern``
-            Pre-seeded externals passed to the internal linker.
-        ``kind``
-            KIND override for single-segment output.
-        ``obj_group``
-            Opt-in per-FILE output groups: ``list[int]``, one entry per
-            object in ``objects``, giving that object's output GROUP index
-            (monotonic non-decreasing, e.g. ``[0, 0, 1, 1, 1, ..., 2, ...]``)
-            — several separately-assembled per-file objects (real ``Asm``
-            metadata, not a pre-concatenated combo blob) can share one output
-            load segment while keeping each file's private/EXPORT symbol
-            scoping genuinely per-file (see ``linkiigs._build_symtab``).
-            Absent (the default) — every object is its own group, EXACTLY
-            today's behaviour; every existing caller that doesn't pass this
-            key is byte-for-byte unaffected.  When present, ``segnames`` /
-            ``segkinds`` index GROUPS, not objects.
-        ``order``
-            Optional explicit placement order as ``(obj_idx, seg_idx)``
-            pairs, passed straight to ``linkiigs._place(objects, 0,
-            order=...)``.  Absent — default sequential per-object placement.
-            A segment omitted by ``order`` is NOT placed and must not appear
-            in any group body (used together with ``obj_group`` so a caller
-            can select a subset of each file's segments, in filter-list
-            order, without byte-filtering the object itself).
-        ``segnames``
-            List of segment name overrides (bytes) for multi-segment output,
-            one per output GROUP (see ``obj_group``) — one per input object
-            when ``obj_group`` is absent.  If shorter than the number of
-            groups, remaining groups use the first placed segment's SEGNAME.
-        ``segkinds``
-            List of KIND overrides (int) for multi-segment output, one per
-            output GROUP (see ``obj_group``) — one per input object when
-            ``obj_group`` is absent.  If shorter than the number of groups,
-            remaining groups use the first placed segment's KIND.
-        ``jt_entries``
-            Opt-in — emit a linker-generated ``~JumpTable`` (KIND 0x0002) load
-            segment at the golden position (after the non-dynamic block,
-            before the first dynamic group) and route every cross-group
-            reference into a DYNAMIC group (``segkinds`` KIND & 0x8000)
-            through it, exactly as MPW LinkIIgs does. Value is the ALREADY-
-            DERIVED ``[(target_segnum, routine_offset), ...]`` list — the
-            same one work/toolcheck.py's ``_link_jt_tool`` computes and gates
-            byte-exact against gold (this module does not re-derive the
-            reference-scan order, only consumes it as a lookup keyed by
-            (final target segnum, target's own base-0 routine offset)).
-            Requires ``multiseg`` and a complete ``segkinds`` (one entry per
-            output group) with all non-dynamic groups listed before all
-            dynamic ones (the golden layout). ``None`` (the default) leaves
-            every other caller's output byte-for-byte unchanged.
-
-    Returns
-    -------
-    bytes
-        An ExpressLoad OMF file: ``[~ExpressLoad seg] + [load seg(s)] + …``
-    """
-    if opts is None:
-        opts = {}
-    # We must have segmented (not merged) output for the reloc scan.
-    opts = dict(opts, merge=False)
-
-    multiseg: bool = opts.get('multiseg', False)
-
-    # (size, shift) classes the emitting toolchain's encoder folds into
-    # SUPER records; everything else with a symbol ref goes standalone.
-    # Default: every class in _SUPER_TYPE (the System Disk toolchain).
-    # SUPER_CLASSES_APR93 reproduces the older 30-Apr-93 LinkIIGS
-    # (MountImageGS) — see that constant's comment.
-    super_classes: frozenset = frozenset(
-        opts.get('super_classes') or _ALL_SUPER_CLASSES)
-
-    # Opt-gated injection (docs/EXPRESSLOAD_FINDER_PLAN.md B.0/B.1): when the
-    # caller has externally resolved each load segment's LCONST image and its
-    # complete relocation-record stream (the Finder builder does, via
-    # work/finderdatacheck.py's link_finder site enumeration), it passes them
-    # here keyed by output segment name.  For any group whose name is present
-    # in ``reloc_dicts``, expressload() SKIPS its own body-build + reloc
-    # classification and uses the injected image + record stream verbatim,
-    # while still running the shared framing / ~JumpTable insertion / HET
-    # directory tail.  Both are None for every other caller (all the tools),
-    # so their code path is byte-identical by construction.
-    seg_images_opt: dict | None = opts.get('seg_images')
-    reloc_dicts_opt: dict | None = opts.get('reloc_dicts')
-
-    # ~ExpressLoad directory LOADNAME (FINDER_PLAN B.3): the load file's own
-    # name, space-padded to 10 bytes in the directory header.  Absent (every
-    # tool build) -> the field stays b'\x00'*10 (unchanged).
-    _lfn = opts.get('loadfile_name')
-    loadfile_name: bytes | None = (
-        _lfn.encode() if isinstance(_lfn, str) else _lfn)
-
-    # ------------------------------------------------------------------
-    # Pass 1: parse inputs and place segments
-    # ------------------------------------------------------------------
-    placed, obj_seg_bases, placed_obj_idx = _linkiigs._place(
-        objects, 0, order=opts.get('order'))
-
-    if not placed:
-        return b''
-
-    # ------------------------------------------------------------------
-    # Pass 2: build global symbol table (shared with linkiigs.link)
-    # ------------------------------------------------------------------
-    sym, obj_globals = _linkiigs._build_symtab(
-        objects, placed, obj_seg_bases, placed_obj_idx,
-        opts.get('extern') or {}
-    )
-
+    """Single-segment ExpressLoad output (the original, non-multiseg
+    path): every input object collapses into one ``'main'`` load
+    segment.  Extracted verbatim from ``expressload()`` (R9 decomposition,
+    byte-identical) — builds each placed segment's body (Passes 3/4),
+    merges them, classifies the standalone / case-B / SUPER relocation
+    records, and frames the single ``~ExpressLoad`` directory tail."""
     # ------------------------------------------------------------------
     # Pass 3 / Pass 4: resolve each segment's body
     # ------------------------------------------------------------------
@@ -1274,126 +1161,133 @@ def expressload(
         bodies.append(_omf._build_body(recs2, local_sym, seg_base))
         body_syms.append(local_sym)
 
-    # ------------------------------------------------------------------
-    # Pass 5: group placed segments into output load segments
-    # ------------------------------------------------------------------
-    # Single-segment path: all input objects collapsed into one 'main' segment.
-    # Multi-segment path: one output segment per input object (when multiseg=True
-    # and there are multiple input objects).
+    # ---- Single-segment output (original behavior) ----
+    merged_body = _linkiigs._merge_bodies(placed, bodies)
 
-    n_objs = len(objects)
-    use_multiseg = multiseg and n_objs > 1
+    # Standalone cRELOC/RELOC records come BEFORE the SUPER records,
+    # matching MPW ExpressLoad, sorted together by patch offset (verified:
+    # the golden corpus's standalone records are always in ascending-
+    # offset order regardless of case A/B — work/archive/reloc_survey.py).
+    #
+    # Two cases collapse into one combined, offset-sorted list:
+    #   case A — a shifted relocation whose (size, shift) has NO SUPER
+    #            encoding at all (e.g. the >>8 high-byte cRELOC); its
+    #            relOffset is the plain segment-relative target.
+    #   case B — a relocation whose (size, shift) WOULD be SUPER-covered,
+    #            but whose target expression carries addend bits >= 24
+    #            (out of segment-address range, e.g. a ModalDialog
+    #            filterProc `#Label+$80000000` convention) and so cannot
+    #            ride a SUPER page list; relOffset is the FULL 32-bit
+    #            flagged value (see _scan_case_b).
+    combined: list[tuple[int, int, int, int]] = []
+    for offset, size, shift, ops, seg_i in _scan_standalone_relocs(
+            placed, super_classes):
+        if (size, shift) == (2, 16):
+            # A forced-standalone bank-byte site: the image word holds
+            # the SHIFTED value (the bank), but the golden $F5 record's
+            # relOffset is the full UNSHIFTED target (MountImageGS:
+            # `f5 02 f0 0081 00f9` for image word 0x0000, target
+            # NDAHEADER+249) — evaluate the expression sans shift.
+            ops_wo = ops
+            if (len(ops) >= 4 and ops[-1] == 'end'
+                    and ops[-2] == ('op', 7)
+                    and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
+                ops_wo = ops[:-3] + ['end']
+            rel_off = _omf._eval(ops_wo, body_syms[seg_i]) & 0xFFFFFF
+        elif size >= 2:
+            rel_off = int.from_bytes(merged_body[offset:offset + size],
+                                     'little')
+        else:
+            # a 1-byte field can't hold the target offset — evaluate the
+            # expression without its tail shift (same strip as
+            # _defer_shifts) against the OWNING segment's own object-
+            # local symbol table (body_syms[seg_i] — same table its body
+            # was resolved against; NOT the multi-object-shared `sym`,
+            # which omits object-private segment names).
+            ops_wo = ops
+            if (len(ops) >= 4 and ops[-1] == 'end'
+                    and ops[-2] == ('op', 7)
+                    and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
+                ops_wo = ops[:-3] + ['end']
+            rel_off = _omf._eval(ops_wo, body_syms[seg_i]) & 0xFFFFFF
+        combined.append((offset, size, shift, rel_off))
 
-    if not use_multiseg:
-        # ---- Single-segment output (original behavior) ----
-        merged_body = _linkiigs._merge_bodies(placed, bodies)
+    case_b = _scan_case_b(placed, body_syms)
+    combined.extend(case_b)
+    combined.sort(key=lambda r: r[0])
 
-        # Standalone cRELOC/RELOC records come BEFORE the SUPER records,
-        # matching MPW ExpressLoad, sorted together by patch offset (verified:
-        # the golden corpus's standalone records are always in ascending-
-        # offset order regardless of case A/B — work/archive/reloc_survey.py).
-        #
-        # Two cases collapse into one combined, offset-sorted list:
-        #   case A — a shifted relocation whose (size, shift) has NO SUPER
-        #            encoding at all (e.g. the >>8 high-byte cRELOC); its
-        #            relOffset is the plain segment-relative target.
-        #   case B — a relocation whose (size, shift) WOULD be SUPER-covered,
-        #            but whose target expression carries addend bits >= 24
-        #            (out of segment-address range, e.g. a ModalDialog
-        #            filterProc `#Label+$80000000` convention) and so cannot
-        #            ride a SUPER page list; relOffset is the FULL 32-bit
-        #            flagged value (see _scan_case_b).
-        combined: list[tuple[int, int, int, int]] = []
-        for offset, size, shift, ops, seg_i in _scan_standalone_relocs(
-                placed, super_classes):
-            if (size, shift) == (2, 16):
-                # A forced-standalone bank-byte site: the image word holds
-                # the SHIFTED value (the bank), but the golden $F5 record's
-                # relOffset is the full UNSHIFTED target (MountImageGS:
-                # `f5 02 f0 0081 00f9` for image word 0x0000, target
-                # NDAHEADER+249) — evaluate the expression sans shift.
-                ops_wo = ops
-                if (len(ops) >= 4 and ops[-1] == 'end'
-                        and ops[-2] == ('op', 7)
-                        and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
-                    ops_wo = ops[:-3] + ['end']
-                rel_off = _omf._eval(ops_wo, body_syms[seg_i]) & 0xFFFFFF
-            elif size >= 2:
-                rel_off = int.from_bytes(merged_body[offset:offset + size],
-                                         'little')
-            else:
-                # a 1-byte field can't hold the target offset — evaluate the
-                # expression without its tail shift (same strip as
-                # _defer_shifts) against the OWNING segment's own object-
-                # local symbol table (body_syms[seg_i] — same table its body
-                # was resolved against; NOT the multi-object-shared `sym`,
-                # which omits object-private segment names).
-                ops_wo = ops
-                if (len(ops) >= 4 and ops[-1] == 'end'
-                        and ops[-2] == ('op', 7)
-                        and isinstance(ops[-3], tuple) and ops[-3][0] == 'lit'):
-                    ops_wo = ops[:-3] + ['end']
-                rel_off = _omf._eval(ops_wo, body_syms[seg_i]) & 0xFFFFFF
-            combined.append((offset, size, shift, rel_off))
+    standalone = bytearray()
+    for offset, size, shift, rel_off in combined:
+        if offset < 0x10000 and rel_off < 0x10000:
+            standalone += emit_creloc(size, shift, offset, rel_off)
+        else:
+            standalone += emit_reloc(size, shift, offset, rel_off)
 
-        case_b = _scan_case_b(placed, body_syms)
-        combined.extend(case_b)
-        combined.sort(key=lambda r: r[0])
+    # Scan relocs over ALL placed segments, excluding any site case-B
+    # already claimed as standalone (it cannot ALSO ride a SUPER page
+    # list — that is the whole point of the flag).
+    relocs_by_type = _scan_relocs(placed, super_classes)
+    case_b_offsets = {r[0] for r in case_b}
+    if case_b_offsets:
+        for stype in list(relocs_by_type):
+            relocs_by_type[stype] = [o for o in relocs_by_type[stype]
+                                     if o not in case_b_offsets]
+            if not relocs_by_type[stype]:
+                del relocs_by_type[stype]
+    super_records = bytearray()
+    for stype in sorted(relocs_by_type):
+        super_records += emit_super(stype, relocs_by_type[stype])
+    super_records += b'\x00'   # END record
 
-        standalone = bytearray()
-        for offset, size, shift, rel_off in combined:
-            if offset < 0x10000 and rel_off < 0x10000:
-                standalone += emit_creloc(size, shift, offset, rel_off)
-            else:
-                standalone += emit_reloc(size, shift, offset, rel_off)
+    all_relocs = bytes(standalone) + bytes(super_records)
+    first_hdr   = placed[0][3]
+    out_name    = b'main'
+    out_kind    = kind_override or first_hdr['KIND']
+    out_align   = max((p[3].get('ALIGN') or 0) for p in placed)
+    reloc_size_val = len(all_relocs) - 1  # exclude trailing END byte
 
-        # Scan relocs over ALL placed segments, excluding any site case-B
-        # already claimed as standalone (it cannot ALSO ride a SUPER page
-        # list — that is the whole point of the flag).
-        relocs_by_type = _scan_relocs(placed, super_classes)
-        case_b_offsets = {r[0] for r in case_b}
-        if case_b_offsets:
-            for stype in list(relocs_by_type):
-                relocs_by_type[stype] = [o for o in relocs_by_type[stype]
-                                         if o not in case_b_offsets]
-                if not relocs_by_type[stype]:
-                    del relocs_by_type[stype]
-        super_records = bytearray()
-        for stype in sorted(relocs_by_type):
-            super_records += emit_super(stype, relocs_by_type[stype])
-        super_records += b'\x00'   # END record
+    main_seg_bytes = _make_output_seg(
+        out_name, out_kind, 2, merged_body, all_relocs, align=out_align
+    )
 
-        all_relocs = bytes(standalone) + bytes(super_records)
-        first_hdr   = placed[0][3]
-        out_name    = b'main'
-        out_kind    = opts.get('kind') or first_hdr['KIND']
-        out_align   = max((p[3].get('ALIGN') or 0) for p in placed)
-        reloc_size_val = len(all_relocs) - 1  # exclude trailing END byte
+    # Parse back the output seg's DISPDATA for HET.
+    out_dispname = 44
+    sname_field  = bytes([len(out_name)]) + out_name
+    out_dispdata = out_dispname + 10 + len(sname_field)
 
-        main_seg_bytes = _make_output_seg(
-            out_name, out_kind, 2, merged_body, all_relocs, align=out_align
-        )
+    het_input = [_het_seg_meta(
+        2, out_kind, out_dispdata, out_dispname, out_name, out_align,
+        merged_body, reloc_size_val,
+    )]
 
-        # Parse back the output seg's DISPDATA for HET.
-        out_dispname = 44
-        sname_field  = bytes([len(out_name)]) + out_name
-        out_dispdata = out_dispname + 10 + len(sname_field)
+    # Two-pass to fix up file offset.
+    lconst_payload0 = _build_het_lconst(het_input, [0])
+    express_bc      = len(_build_express_seg(lconst_payload0, loadfile_name))
+    lconst_payload  = _build_het_lconst(het_input, [express_bc])
+    express_seg     = _build_express_seg(lconst_payload, loadfile_name)
 
-        het_input = [_het_seg_meta(
-            2, out_kind, out_dispdata, out_dispname, out_name, out_align,
-            merged_body, reloc_size_val,
-        )]
+    assert len(express_seg) == express_bc, (
+        f'~ExpressLoad size changed: {len(express_seg)} != {express_bc}')
 
-        # Two-pass to fix up file offset.
-        lconst_payload0 = _build_het_lconst(het_input, [0])
-        express_bc      = len(_build_express_seg(lconst_payload0, loadfile_name))
-        lconst_payload  = _build_het_lconst(het_input, [express_bc])
-        express_seg     = _build_express_seg(lconst_payload, loadfile_name)
+    return bytes(express_seg) + main_seg_bytes
 
-        assert len(express_seg) == express_bc, (
-            f'~ExpressLoad size changed: {len(express_seg)} != {express_bc}')
 
-        return bytes(express_seg) + main_seg_bytes
+def _build_multiseg_output(
+        placed: list,
+        placed_obj_idx: list,
+        sym: dict,
+        obj_globals: list,
+        n_objs: int,
+        opts: dict,
+        loadfile_name: bytes | None,
+) -> bytes:
+    """Multi-segment ExpressLoad output: one output load segment per input
+    object (or per ``opts['obj_group']`` group), with cross-group reloc
+    classification, optional ``~JumpTable`` generation, and the injected
+    ``seg_images``/``reloc_dicts`` path.  Extracted verbatim from
+    ``expressload()`` (R9 decomposition, byte-identical)."""
+    seg_images_opt: dict | None = opts.get('seg_images')
+    reloc_dicts_opt: dict | None = opts.get('reloc_dicts')
 
     # ---- Multi-segment output ----
     # Opt-in per-FILE output groups (opts['obj_group']): several separately-
@@ -2120,3 +2014,131 @@ def expressload(
     for g in out_groups:
         result += g['seg_bytes']
     return bytes(result)
+
+def expressload(
+        objects: list[tuple[bytes, Any | None]],
+        opts: dict | None = None,
+) -> bytes:
+    """Convert OMF object(s) to ExpressLoad format.
+
+    Parameters
+    ----------
+    objects
+        Same as ``linkiigs.link(objects, …)`` — list of
+        ``(obj_bytes, asm_or_None)`` pairs.
+    opts
+        Options dict.  Keys recognised:
+
+        ``merge``
+            Forced to ``False`` internally (segmented pass required).
+        ``multiseg``
+            If ``True`` and there are multiple input objects, produce one
+            output load segment per input object.  Defaults to ``False``
+            (original behavior: merge everything into a single ``'main'``
+            segment regardless of input-object count).
+        ``extern``
+            Pre-seeded externals passed to the internal linker.
+        ``kind``
+            KIND override for single-segment output.
+        ``obj_group``
+            Opt-in per-FILE output groups: ``list[int]``, one entry per
+            object in ``objects``, giving that object's output GROUP index
+            (monotonic non-decreasing, e.g. ``[0, 0, 1, 1, 1, ..., 2, ...]``)
+            — several separately-assembled per-file objects (real ``Asm``
+            metadata, not a pre-concatenated combo blob) can share one output
+            load segment while keeping each file's private/EXPORT symbol
+            scoping genuinely per-file (see ``linkiigs._build_symtab``).
+            Absent (the default) — every object is its own group, EXACTLY
+            today's behaviour; every existing caller that doesn't pass this
+            key is byte-for-byte unaffected.  When present, ``segnames`` /
+            ``segkinds`` index GROUPS, not objects.
+        ``order``
+            Optional explicit placement order as ``(obj_idx, seg_idx)``
+            pairs, passed straight to ``linkiigs._place(objects, 0,
+            order=...)``.  Absent — default sequential per-object placement.
+            A segment omitted by ``order`` is NOT placed and must not appear
+            in any group body (used together with ``obj_group`` so a caller
+            can select a subset of each file's segments, in filter-list
+            order, without byte-filtering the object itself).
+        ``segnames``
+            List of segment name overrides (bytes) for multi-segment output,
+            one per output GROUP (see ``obj_group``) — one per input object
+            when ``obj_group`` is absent.  If shorter than the number of
+            groups, remaining groups use the first placed segment's SEGNAME.
+        ``segkinds``
+            List of KIND overrides (int) for multi-segment output, one per
+            output GROUP (see ``obj_group``) — one per input object when
+            ``obj_group`` is absent.  If shorter than the number of groups,
+            remaining groups use the first placed segment's KIND.
+        ``jt_entries``
+            Opt-in — emit a linker-generated ``~JumpTable`` (KIND 0x0002) load
+            segment at the golden position (after the non-dynamic block,
+            before the first dynamic group) and route every cross-group
+            reference into a DYNAMIC group (``segkinds`` KIND & 0x8000)
+            through it, exactly as MPW LinkIIgs does. Value is the ALREADY-
+            DERIVED ``[(target_segnum, routine_offset), ...]`` list — the
+            same one work/toolcheck.py's ``_link_jt_tool`` computes and gates
+            byte-exact against gold (this module does not re-derive the
+            reference-scan order, only consumes it as a lookup keyed by
+            (final target segnum, target's own base-0 routine offset)).
+            Requires ``multiseg`` and a complete ``segkinds`` (one entry per
+            output group) with all non-dynamic groups listed before all
+            dynamic ones (the golden layout). ``None`` (the default) leaves
+            every other caller's output byte-for-byte unchanged.
+
+    Returns
+    -------
+    bytes
+        An ExpressLoad OMF file: ``[~ExpressLoad seg] + [load seg(s)] + …``
+    """
+    if opts is None:
+        opts = {}
+    # We must have segmented (not merged) output for the reloc scan.
+    opts = dict(opts, merge=False)
+
+    multiseg: bool = opts.get('multiseg', False)
+
+    # (size, shift) classes the emitting toolchain's encoder folds into
+    # SUPER records; everything else with a symbol ref goes standalone.
+    # Default: every class in _SUPER_TYPE (the System Disk toolchain).
+    # SUPER_CLASSES_APR93 reproduces the older 30-Apr-93 LinkIIGS
+    # (MountImageGS) — see that constant's comment.
+    super_classes: frozenset = frozenset(
+        opts.get('super_classes') or _ALL_SUPER_CLASSES)
+
+    # ~ExpressLoad directory LOADNAME (FINDER_PLAN B.3): the load file's own
+    # name, space-padded to 10 bytes in the directory header.  Absent (every
+    # tool build) -> the field stays b'\x00'*10 (unchanged).
+    _lfn = opts.get('loadfile_name')
+    loadfile_name: bytes | None = (
+        _lfn.encode() if isinstance(_lfn, str) else _lfn)
+
+    # ------------------------------------------------------------------
+    # Pass 1: parse inputs and place segments
+    # ------------------------------------------------------------------
+    placed, obj_seg_bases, placed_obj_idx = _linkiigs._place(
+        objects, 0, order=opts.get('order'))
+
+    if not placed:
+        return b''
+
+    # ------------------------------------------------------------------
+    # Pass 2: build global symbol table (shared with linkiigs.link)
+    # ------------------------------------------------------------------
+    sym, obj_globals = _linkiigs._build_symtab(
+        objects, placed, obj_seg_bases, placed_obj_idx,
+        opts.get('extern') or {}
+    )
+
+    n_objs = len(objects)
+    if not (multiseg and n_objs > 1):
+        # Single-segment output (all input objects -> one 'main' segment).
+        return _build_single_output_seg(
+            placed, sym, obj_globals, placed_obj_idx,
+            super_classes, opts.get('kind'), loadfile_name)
+    # Multi-segment output (one load segment per object / obj_group).
+    return _build_multiseg_output(
+        placed, placed_obj_idx, sym, obj_globals, n_objs, opts,
+        loadfile_name)
+
+
