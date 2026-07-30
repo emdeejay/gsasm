@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """drivercheck.py — validate gsasm against shipping System 6.0.1 driver files.
 
-Assembles each driver from source (ref/GSOS_6/IIGS.601.SRC/GS.OS/{Drivers,
-SupervisoryDrivers}/), links the object(s), and byte-compares against the
-shipping driver binary extracted from the System 6.0.1 disk images
-(ref/GSOS_6/driver_bin/).
+Assembles each driver from source — the GS.OS drivers under
+ref/GSOS_6/IIGS.601.SRC/GS.OS/{Drivers,SupervisoryDrivers}/ and the shipped
+PrinterDrivers/MIDI drivers under .../GSToolbox/ — links the object(s), and
+byte-compares against the shipping driver binary.  The golden binary is either a
+cadius-extracted file in ref/GSOS_6/driver_bin/ or, when that is absent, the data
+fork read straight out of the 6.0.1 disk image via a2til (NO cadius needed).
 
 All shipping drivers are ExpressLoad'd OMF (leading ~ExpressLoad segment,
 KIND 0x8001).  de_express() strips the directory segment and returns the
@@ -49,17 +51,27 @@ Source → shipping-name map (from GS.OS/MakeFiles/make.*):
   SCSITape.Driver — same shared sources × 13  (-d type=2)  (at $0103)
   SCSI.Manager  — SupervisoryDrivers/SCSI.Manager(1meg)/SCSIM.{Header,...} × 11
   SCC.Manager   — SupervisoryDrivers/SCCManager/Driver.aii
-  (Slinky IS shipped — as A2.RAMCard on SystemTools1/Disk 3, source
-   Drivers/Slinky/slinky.aii; buildable-asm, not yet wired (build-verify pending,
-   SOW P4). ETalk / ATBoot / ATRam / ATRom not in scope)
+  A2.RAMCard    — Drivers/Slinky/slinky.aii  (the shipped Slinky/RamFactor driver,
+                  SystemTools1/Disk 3)
+  Modem         — GSToolbox/PrinterDrivers/Modem/{modem,dialogdata}.asm
+  Parallel.Card — GSToolbox/PrinterDrivers/GraphiCard/{graphicard,dialogdata}.asm
+  Printer       — GSToolbox/PrinterDrivers/Printer/{printer,dialogdata}.asm
+  AppleTalk     — GSToolbox/PrinterDrivers/AppleTalk/{appletalk,dialogdata}.asm
+                  (the PRINTER driver on SystemTools2/Disk 4, NOT GS.OS ATalk)
+  Apple.Midi    — GSToolbox/Midi/Drivers/Apple.Midi/apple.midi.aii
+  Card6850.MIDI — GSToolbox/Midi/Drivers/Card6850.Midi/card6850.midi.aii
+  (ETalk / ATBoot / ATRam / ATRom not in scope)
 
 Packaging: all drivers are ExpressLoad'd (KIND 0x8001 leading segment).
 
 Status:
-  All 12 mapped shipping drivers are byte-exact (94,948/94,948).  Historical
-  residual classes here — bank-byte SUPER relocations, multi-object sizing
-  drift, SCSIHD include-path loss, RAM5/AppleDisk/SCC length drift — are closed
-  and guarded by this harness plus work/gate.py.
+  All 19 mapped shipping drivers are byte-exact (106,730/106,730) — the original
+  12 GS.OS drivers (94,948 B) plus 7 sweep-proven adds: A2.RAMCard (Slinky) and
+  the 6 GSToolbox printer/MIDI drivers (Modem, Parallel.Card, Printer, AppleTalk,
+  Apple.Midi, Card6850.MIDI).  Historical residual classes here — bank-byte SUPER
+  relocations, multi-object sizing drift, SCSIHD include-path loss,
+  RAM5/AppleDisk/SCC length drift — are closed and guarded by this harness plus
+  work/gate.py.
 """
 import sys, os
 from _common import (
@@ -82,6 +94,57 @@ GSOS  = os.path.join(SRC, 'GS.OS')
 CMN   = os.path.join(GSOS, 'Common')
 DBIN  = 'ref/GSOS_6/driver_bin'
 
+# For drivers whose golden binary was never cadius-extracted into DBIN, read the
+# shipping fork straight out of the System 6.0.1 disk image with a2til (NO
+# cadius).  name -> (2mg filename under DISK_DIR, ProDOS path of the driver).
+A2TIL_ROOT = os.path.expanduser('~/src/a2til')
+DISK_DIR = 'ref/GSOS_6/System601_disks/System 6.0.1'
+DRIVER_DISK = {
+    'A2.RAMCard':    ('Disk 3 of 7 SystemTools1.2mg',
+                      '/SystemTools1/System/Drivers/A2.RAMCard'),
+    'Modem':         ('Disk 3 of 7 SystemTools1.2mg',
+                      '/SystemTools1/System/Drivers/Modem'),
+    'Parallel.Card': ('Disk 3 of 7 SystemTools1.2mg',
+                      '/SystemTools1/System/Drivers/Parallel.Card'),
+    'Printer':       ('Disk 3 of 7 SystemTools1.2mg',
+                      '/SystemTools1/System/Drivers/Printer'),
+    'AppleTalk':     ('Disk 4 of 7 SystemTools2.2mg',
+                      '/SystemTools2/System/Drivers/AppleTalk'),
+    'Apple.Midi':    ('Disk 3 of 7 SystemTools1.2mg',
+                      '/SystemTools1/System/Drivers/Apple.Midi'),
+    'Card6850.MIDI': ('Disk 3 of 7 SystemTools1.2mg',
+                      '/SystemTools1/System/Drivers/Card6850.MIDI'),
+}
+_DISK_RAW_CACHE: dict[str, bytes] = {}
+
+
+def _extract_from_disk(name: str) -> bytes | None:
+    """Read a driver's shipping data fork from its 2mg image via a2til."""
+    disk = DRIVER_DISK.get(name)
+    if disk is None:
+        return None
+    if name in _DISK_RAW_CACHE:
+        return _DISK_RAW_CACHE[name]
+    if A2TIL_ROOT not in sys.path:
+        sys.path.insert(0, A2TIL_ROOT)
+    from a2til.prodos import Volume
+    disk_file, path = disk
+    with open(os.path.join(DISK_DIR, disk_file), 'rb') as f:
+        vol = Volume(f.read())
+    raw = vol.read_file(path, fork='data')
+    _DISK_RAW_CACHE[name] = raw
+    return raw
+
+
+def _golden_raw(name: str) -> bytes | None:
+    """Raw shipping OMF bytes: a cadius-extracted DBIN file if present, else the
+    fork read directly from the disk image (a2til)."""
+    cand = first_existing_path(_golden_candidates(name))
+    if cand:
+        with open(cand, 'rb') as f:
+            return f.read()
+    return _extract_from_disk(name)
+
 # Include path: Common first (has common.equ.src / hw.equ.src / driver.equ.src),
 # then every GS.OS subdir (so per-driver equate files are reachable).
 INCS = gsos_incs(work_abs('includes'))
@@ -102,7 +165,7 @@ _SCSI_SHARED = [
     'SCSI Main Driver',
     'SCSI Driver Mgmt',
 ]
-_SCSI_DRV_DIR = 'Drivers/SCSI.Drivers'
+_SCSI_DRV_DIR = 'GS.OS/Drivers/SCSI.Drivers'
 
 # SCSI.Manager supervisory driver source files
 _SCSI_MGR_FILES = [
@@ -118,39 +181,85 @@ _SCSI_MGR_FILES = [
     'SCSIM.Mgmnt',
     'SCSIM.Misc',
 ]
-_SCSI_MGR_DIR = 'SupervisoryDrivers/SCSI.Manager(1meg)'
+_SCSI_MGR_DIR = 'GS.OS/SupervisoryDrivers/SCSI.Manager(1meg)'
 
 # Driver shipping-name -> (source-subdir, [source-files], {defines})
-# Per GS.OS/MakeFiles/make.* — transcribed exactly, no guessing.
+# source-subdir is relative to the IIGS.601.SRC root (SRC): GS.OS/… drivers live
+# under GS.OS, the shipped PrinterDrivers/Midi drivers under GSToolbox/….
+# Per GS.OS/MakeFiles/make.* and GSToolbox/build.tools — transcribed exactly.
 DRIVERMAP = {
     'AppleDisk3.5': (
-        'Drivers/AppleDisk3.5',
+        'GS.OS/Drivers/AppleDisk3.5',
         ['AD3.5.src'],
         {},
     ),
     'AppleDisk5.25': (
-        'Drivers/AppleDisk5.25',
+        'GS.OS/Drivers/AppleDisk5.25',
         ['AppleDisk5.25.src'],
         {},
     ),
     'Console.Driver': (
-        'Drivers/Console.Driver',
+        'GS.OS/Drivers/Console.Driver',
         ['Console.aii', 'New.DRI.Patch'],
         {'Library': 0},
     ),
     'UniDisk3.5': (
-        'Drivers/UniDisk3.5',
+        'GS.OS/Drivers/UniDisk3.5',
         ['UniDisk3.5.src'],
         {},
     ),
     'RAM5': (
-        'Drivers/RAM5',
+        'GS.OS/Drivers/RAM5',
         ['RAM5.aii'],
         {},
     ),
     'ATalk': (
-        'Drivers/ATalk',
+        'GS.OS/Drivers/ATalk',
         ['Main.aii', 'rpm.aii', 'AppleTalk.aii', 'Others.aii'],
+        {},
+    ),
+    # A2.RAMCard is the shipped name for the Slinky (RAM-card/RamFactor) driver
+    # on SystemTools1 — source GS.OS/Drivers/Slinky/slinky.aii.
+    'A2.RAMCard': (
+        'GS.OS/Drivers/Slinky',
+        ['slinky.aii'],
+        {},
+    ),
+    # PrinterDrivers (GSToolbox/build.tools 'BuildProgram <ship-name>'):
+    #   Modem/GraphiCard/Printer/AppleTalk each link the driver body + the
+    #   shared dialogdata.asm (setup-dialog resources); special.macros is
+    #   picked up from the driver's own dir (first on the include path).
+    'Modem': (
+        'GSToolbox/PrinterDrivers/Modem',
+        ['modem.asm', 'dialogdata.asm'],
+        {},
+    ),
+    'Parallel.Card': (
+        'GSToolbox/PrinterDrivers/GraphiCard',
+        ['graphicard.asm', 'dialogdata.asm'],
+        {},
+    ),
+    'Printer': (
+        'GSToolbox/PrinterDrivers/Printer',
+        ['printer.asm', 'dialogdata.asm'],
+        {},
+    ),
+    # AppleTalk here is the PRINTER driver (Disk 4 / SystemTools2), NOT the
+    # GS.OS AppleTalk network driver mapped above as 'ATalk'.
+    'AppleTalk': (
+        'GSToolbox/PrinterDrivers/AppleTalk',
+        ['appletalk.asm', 'dialogdata.asm'],
+        {},
+    ),
+    # MIDI drivers (GSToolbox/Midi/Drivers):
+    'Apple.Midi': (
+        'GSToolbox/Midi/Drivers/Apple.Midi',
+        ['apple.midi.aii'],
+        {},
+    ),
+    'Card6850.MIDI': (
+        'GSToolbox/Midi/Drivers/Card6850.Midi',
+        ['card6850.midi.aii'],
         {},
     ),
     'SCSIHD.Driver': (
@@ -179,7 +288,7 @@ DRIVERMAP = {
         {},
     ),
     'SCC.Manager': (
-        'SupervisoryDrivers/SCCManager',
+        'GS.OS/SupervisoryDrivers/SCCManager',
         ['Driver.aii'],
         {},
     ),
@@ -198,11 +307,9 @@ def _extract_img(result: bytes) -> bytes:
 
 def _packaging(name: str) -> str:
     """Determine packaging type from the golden binary OMF header."""
-    cand = first_existing_path(_golden_candidates(name))
-    if cand:
-        with open(cand, 'rb') as f:
-            hdr = f.read(256)
-        h = omf.parse_header(hdr)
+    raw = _golden_raw(name)
+    if raw:
+        h = omf.parse_header(raw[:256])
         segname = h.get('SEGNAME', b'').rstrip(b'\x00')
         if segname == b'~ExpressLoad':
             return 'ExpressLoad'
@@ -224,8 +331,8 @@ def _golden_candidates(name: str):
 
 
 def golden(name: str) -> bytes | None:
-    cand = first_existing_path(_golden_candidates(name))
-    return de_express(cand) if cand else None
+    raw = _golden_raw(name)
+    return de_express(raw) if raw else None
 
 
 # Drivers that embed the original build timestamp via `dc.b '&Sysdate &SysTime'`
@@ -238,8 +345,13 @@ DRIVER_BUILD_TIME = {
 
 
 def link_driver(subdir, sources, defines, build_time=None):
-    """Assemble and link one driver.  Returns the code image bytes."""
-    drv_dir = f'{GSOS}/{subdir}'
+    """Assemble and link one driver.  Returns the code image bytes.
+
+    subdir is relative to the IIGS.601.SRC root (SRC), so both the GS.OS
+    drivers (GS.OS/Drivers/…, GS.OS/SupervisoryDrivers/…) and the shipped
+    GSToolbox printer/MIDI drivers (GSToolbox/…) are reachable.
+    """
+    drv_dir = f'{SRC}/{subdir}'
     extra = [drv_dir]
     incs = extra + INCS
     sysdate, systime = build_time or (None, None)
@@ -259,7 +371,7 @@ def check(name: str, verbose: bool = False):
     subdir, sources, defines = DRIVERMAP[name]
     g = golden(name)
     if g is None:
-        return name, subdir, None, 'no golden binary (run cadius extraction)'
+        return name, subdir, None, 'no golden binary (DBIN file or disk image)'
     try:
         mine = link_driver(subdir, sources, defines,
                            DRIVER_BUILD_TIME.get(name))
@@ -320,7 +432,7 @@ def main():
         print(f'CORPUS raw code-image match: {tot_m}/{tot_n} ({100 * tot_m // tot_n}%)')
     print()
     print('Packaging note: all drivers are ExpressLoad\'d (KIND 0x8001 leading segment).')
-    print('Slinky ships as A2.RAMCard on SystemTools1 (buildable, not yet wired);'
+    print('Slinky ships as A2.RAMCard on SystemTools1 (now wired, byte-exact);'
           ' ETalk/ATBoot/ATRam/ATRom not on any 6.0.1 disk or skipped.')
 
 
