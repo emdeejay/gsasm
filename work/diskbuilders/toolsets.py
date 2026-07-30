@@ -22,7 +22,10 @@ Gold segment layout (from ``omf.parse_header`` over the on-disk files):
   TS2 (36665 B):  ~ExpressLoad + INIT(len 1027) + MAIN(len 22526) + BIGONLY(len 10775)
   TS3 (41700 B):  ~ExpressLoad + INIT(len  662) + MAIN(len 38492)
 
-STATUS — logical residual, NOT byte-exact (see RESIDUAL note below):
+STATUS — BYTE-EXACT (TS2 36665/36665, TS3 41700/41700; in tool_bytes, disk
+39/39).  The RESIDUAL note below is NOT a byte gap — it is an un-reverse-
+engineered segment-SELECTION-ORDER mechanism; `_part`'s filter-list order is
+empirically byte-exact for the whole mapped corpus (see the note's tail):
   The grouping/filtering is correct: every built segment reproduces the gold's
   EXACT code-image LENGTH (INIT/MAIN/BIGONLY all match to the byte).  All 82
   source objects assemble cleanly.  Each object() is now passed to

@@ -19,8 +19,8 @@ segment-relative code the loader relocates — which is what gsasm's linked imag
 is compared against (exactly the flat()-image comparison work/buildrom.py uses
 for the ROM banks).
 
-STATUS (2026-07): all 11 mapped toolbox code images are byte-exact
-(150,459/150,459).  The OMF emit+link path resolves cross-segment/-object
+STATUS (2026-07): all 14 mapped toolbox code images are byte-exact
+(193,357/193,357).  The OMF emit+link path resolves cross-segment/-object
 references, including per-tool dispatch tables (DC.L routine-1), static and
 dynamic inter-segment calls, and linker-generated `~JumpTable` thunks for the
 mapped multi-segment managers.
