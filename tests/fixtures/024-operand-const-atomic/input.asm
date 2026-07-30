@@ -4,7 +4,9 @@
 * operand field.  253 one-byte NOPs followed by `lda #$4321` put a greedy
 * 255-byte cut mid-immediate; the emitter must stop the record early so
 * the operand bytes stay together.  A block-move (mvn) at the same kind of
-* boundary is cut-atomic as well.
+* boundary is cut-atomic as well (its two bank bytes are one field; here
+* `mvn $010000,$020000` -> 54 02 01, each byte the operand's bank = value>>16,
+* dest before src — see fixtures 025/064).
 Atomic	PROC
 	nop
 	nop
@@ -511,7 +513,7 @@ Atomic	PROC
 	nop
 	nop
 	nop
-	mvn	$01,$02
+	mvn	$010000,$020000
 	rts
 	ENDP
 	END

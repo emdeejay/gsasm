@@ -207,12 +207,17 @@ def encode(mnem, operand, longa, longi, evaluate, pc, reloc=None):
             return bytes([tab['imp']]), None
 
     # block move: MVN src,dst -> opcode, dstbank, srcbank. Operands are 24-bit
-    # addresses; the block-move banks are their bank bytes (bits 16-23).
+    # addresses; the block-move bank byte is ALWAYS the operand's bank (bits
+    # 16-23), i.e. `value >> 16` — matching MPW AsmIIGS.  A small literal such
+    # as `mvp $FF,$FF` is bank 0 (`$FF >> 16 == 0`), NOT the literal $FF: the
+    # source spells a placeholder that is self-modified at run time (MIDI
+    # midi.main dp_code), and gold ships `44 00 00`.  (Reloc/symbolic bank
+    # operands are handled in omf.py via an explicit `>>16` expression.)
     if m in BLOCKMOVE:
         parts = op.split(',')
         s = evaluate(parts[0]) if parts else None
         d = evaluate(parts[1]) if len(parts) > 1 else None
-        bank = lambda v: ((v >> 16) if v and v >= 0x10000 else (v or 0)) & 0xFF
+        bank = lambda v: ((v or 0) >> 16) & 0xFF
         return bytes([tab['bmv'], bank(d), bank(s)]), None
 
     # PEI is dp-indirect; PEA pushes an absolute word. Both may be written with

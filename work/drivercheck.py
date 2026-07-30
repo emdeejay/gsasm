@@ -110,6 +110,8 @@ DRIVER_DISK = {
                       '/SystemTools1/System/Drivers/Printer'),
     'AppleTalk':     ('Disk 4 of 7 SystemTools2.2mg',
                       '/SystemTools2/System/Drivers/AppleTalk'),
+    'LaserWriter':   ('Disk 4 of 7 SystemTools2.2mg',
+                      '/SystemTools2/System/Drivers/LaserWriter'),
     'Apple.Midi':    ('Disk 3 of 7 SystemTools1.2mg',
                       '/SystemTools1/System/Drivers/Apple.Midi'),
     'Card6850.MIDI': ('Disk 3 of 7 SystemTools1.2mg',
@@ -251,6 +253,21 @@ DRIVERMAP = {
         ['appletalk.asm', 'dialogdata.asm'],
         {},
     ),
+    # LaserWriter is a MULTI-SEGMENT printer driver (GSToolbox/PrinterDrivers/LW/
+    # makefile): `-lseg MAIN lw.asm+dialogdata.asm` (resident) plus
+    # `-lseg:Dynamic PREPFILE prepfile.asm` (an on-demand KIND-0x8000 segment).
+    # MAIN's far pointer into PREPFILE routes through a linker-generated 26-byte
+    # ~JumpTable exactly like Tool016's dynamic Pics — so this takes the
+    # jump-table-aware multi-segment link (dict spec below), NOT the flat driver
+    # link.  de_express(gold) concatenates MAIN + ~JumpTable + PREPFILE in file
+    # order, which is what the built image reproduces.  Byte-exact 36644/36644.
+    'LaserWriter': {
+        'subdir': 'GSToolbox/PrinterDrivers/LW',
+        'jt_segments': [
+            ('MAIN',     0x0000, ['lw.asm', 'dialogdata.asm']),
+            ('PREPFILE', 0x8000, ['prepfile.asm']),
+        ],
+    },
     # MIDI drivers (GSToolbox/Midi/Drivers):
     'Apple.Midi': (
         'GSToolbox/Midi/Drivers/Apple.Midi',
@@ -365,10 +382,60 @@ def link_driver(subdir, sources, defines, build_time=None):
     return _extract_img(result)
 
 
+def _link_jt_driver(spec):
+    """Jump-table-aware multi-segment link of a driver (LaserWriter), returning
+    the flat CONST/LCONST image de_express(gold) compares against.
+
+    Reuses toolcheck's ``_link_jt_tool`` (its ``subdir`` is relative to the
+    GSToolbox root, matching toolcheck.TB) to place the load segments, route
+    each MAIN->PREPFILE far pointer through the generated ~JumpTable, and build
+    every segment's relocated image.  The images are then concatenated in FILE
+    segment order (non-dynamic block, ~JumpTable, dynamic block — the order
+    de_express walks the shipping file), with the generated ~JumpTable inserted
+    at its own segnum slot."""
+    import toolcheck as _tc
+    subdir = spec['subdir']
+    if subdir.startswith('GSToolbox/'):
+        subdir = subdir[len('GSToolbox/'):]
+    segs = spec['jt_segments']
+    images, jt_entries, jt_segnum, segnum = _tc._link_jt_tool(subdir, segs)
+    by_segnum = {segnum[name]: images[name] for name, _k, _s in segs}
+    if jt_entries:
+        by_segnum[jt_segnum] = _tc.encode_jumptable(jt_entries)
+    out = bytearray()
+    for sn in sorted(by_segnum):
+        out += by_segnum[sn]
+    return bytes(out)
+
+
 def check(name: str, verbose: bool = False):
     if name not in DRIVERMAP:
         return name, None, None, f'not in DRIVERMAP'
-    subdir, sources, defines = DRIVERMAP[name]
+    entry = DRIVERMAP[name]
+    if isinstance(entry, dict):
+        subdir = entry['subdir']
+        g = golden(name)
+        if g is None:
+            return name, subdir, None, 'no golden binary (DBIN file or disk image)'
+        try:
+            mine = _link_jt_driver(entry)
+        except Exception as e:
+            return name, subdir, None, f'{type(e).__name__}: {e}'
+        m, n = byte_match(mine, g)
+        pct = (100 * m // n) if n else 0
+        if verbose:
+            print(f'{name} ({subdir}): gsasm={len(mine)} gold={len(g)} '
+                  f'match {m}/{n} ({pct}%)  pkg=multiseg+jt')
+            diffs = mismatch_offsets(mine, g)
+            if diffs:
+                pos = diffs[0]
+                print(f'  first diff @ {pos:#06x}: gsasm={mine[pos]:02x} gold={g[pos]:02x}')
+                print(f'    gsasm {bytes(mine[max(0, pos - 4):pos + 8]).hex()}')
+                print(f'    gold  {g[max(0, pos - 4):pos + 8].hex()}')
+            else:
+                print('  BYTE-EXACT')
+        return name, subdir, (pct, m, n, len(mine), len(g)), None
+    subdir, sources, defines = entry
     g = golden(name)
     if g is None:
         return name, subdir, None, 'no golden binary (DBIN file or disk image)'

@@ -206,6 +206,68 @@ TOOLMAP = {
     # the de-ExpressLoad'd code image (3613/3613) — verified via
     # gsasm.expressload.expressload against the Disk-4 SystemTools2 gold.
     '033': ('VideoMix',   ['VD.asm']),
+    # MidiTools: flat single-segment link per Midi/MidiTools/makefile.  The 13
+    # midi.*.aii objects + strip.asm are pulled whole; the four cross-manager
+    # objects are dead-stripped to the exact routines the makefile's
+    # `object(SYM,...)` clauses name (init.asm(QDSTART), cursor/em symbol lists,
+    # misc.tools(IRQ_HEART)).  midi=1 for cursor/em, RAMVersion=0 for misc.tools,
+    # matching the makefile AsmIIGS `-d` flags.  Byte-exact 12153/12153 against
+    # /SystemTools1/System/Tools/Tool032 (Disk 3); the mvp $FF,$FF placeholder in
+    # midi.main's direct-page image drove the block-move bank-byte (`>>16`) fix.
+    '032': ('MidiTools', {'objsel': [
+        ('Midi/MidiTools/midi.main.aii',    None, None),
+        ('Midi/MidiTools/midi.buffer.aii',  None, None),
+        ('Midi/MidiTools/midi.clock.aii',   None, None),
+        ('Midi/MidiTools/midi.control.aii', None, None),
+        ('Midi/MidiTools/midi.convert.aii', None, None),
+        ('Midi/MidiTools/midi.device.aii',  None, None),
+        ('Midi/MidiTools/midi.glue.aii',    None, None),
+        ('Midi/MidiTools/midi.info.aii',    None, None),
+        ('Midi/MidiTools/midi.notes.aii',   None, None),
+        ('Midi/MidiTools/midi.play.aii',    None, None),
+        ('Midi/MidiTools/midi.read.aii',    None, None),
+        ('Midi/MidiTools/midi.record.aii',  None, None),
+        ('Midi/MidiTools/midi.write.aii',   None, None),
+        ('QD/QDAlone/strip.asm',            None, None),
+        ('QD/init.asm',   None,             ['QDSTART']),
+        ('QD/cursor.asm', {'midi': 1},      ['IDRAWCURSOR', 'IUNDRAWCURSOR',
+            'SCREENTABLE', 'SETCURSOR', 'CALCSAVESIZE', 'USERINITCURSOR',
+            'GETITREADY', 'CURSORDATA', 'UNLOCKSAVEHANDLE', 'LOCKSAVEHANDLE',
+            'SHIFTSTUFF', 'SHIFTONE']),
+        ('EVENTS/em.asm', {'midi': 1},      ['POSTEVENT', 'GETOSEVENT', 'DEQUEUE',
+            'FILLRECORD', 'MOUSE', 'GETNEXTEVENT', 'WAITMOUSEUP', 'EVENTAVAIL',
+            'STILLDOWN', 'FLUSHEVENTS', 'GETOSEVENT', 'GOSECOMMON', 'OSEVENTAVAIL',
+            'MOUSETASK', 'DOJOURNAL', 'GETMOUSE', 'BUTTON', 'EMDATA', 'LOCKQ',
+            'ENQUEUE', 'UNLOCKQ', 'GETGLOBALLOC', 'SETMODBITS']),
+        ('MISC.TOOLS/misc.tools.asm', {'RAMVersion': 0}, ['IRQ_HEART']),
+    ]}),
+    # MIDISynth: flat single-segment link per MIDISynth/makefile — same
+    # cross-manager dead-strip pattern as Tool032, with the 9 MIDISynth objects
+    # pulled whole.  misc.tools takes RAMVersion=0 AND midi=1 here (the makefile
+    # adds -d midi=1).  Byte-exact 28416/28416 against /synthLAB/Tool035 (Disk 6).
+    '035': ('MIDISynth', {'objsel': [
+        ('MIDISynth/MIDISynth.aii',    None, None),
+        ('MIDISynth/NoteOn.aii',       None, None),
+        ('MIDISynth/NoteOff.aii',      None, None),
+        ('MIDISynth/Update.aii',       None, None),
+        ('MIDISynth/ToolCalls.aii',    None, None),
+        ('MIDISynth/Tables.aii',       None, None),
+        ('MIDISynth/Buffer.aii',       None, None),
+        ('MIDISynth/Midi.Control.aii', None, None),
+        ('MIDISynth/Midi.Driver.aii',  None, None),
+        ('QD/QDAlone/strip.asm',       None, None),
+        ('QD/init.asm',   None,        ['QDSTART']),
+        ('QD/cursor.asm', {'midi': 1}, ['IDRAWCURSOR', 'IUNDRAWCURSOR',
+            'SCREENTABLE', 'SETCURSOR', 'CALCSAVESIZE', 'USERINITCURSOR',
+            'GETITREADY', 'CURSORDATA', 'UNLOCKSAVEHANDLE', 'LOCKSAVEHANDLE',
+            'SHIFTSTUFF', 'SHIFTONE']),
+        ('EVENTS/em.asm', {'midi': 1}, ['POSTEVENT', 'GETOSEVENT', 'DEQUEUE',
+            'FILLRECORD', 'MOUSE', 'GETNEXTEVENT', 'WAITMOUSEUP', 'EVENTAVAIL',
+            'STILLDOWN', 'FLUSHEVENTS', 'GETOSEVENT', 'GOSECOMMON', 'OSEVENTAVAIL',
+            'MOUSETASK', 'DOJOURNAL', 'GETMOUSE', 'BUTTON', 'EMDATA', 'LOCKQ',
+            'ENQUEUE', 'UNLOCKQ', 'GETGLOBALLOC', 'SETMODBITS']),
+        ('MISC.TOOLS/misc.tools.asm', {'RAMVersion': 0, 'midi': 1}, ['IRQ_HEART']),
+    ]}),
     # TextEdit (GSTextEdit): 19-object flat link per TextEdit/MakeFile
     # (LinkIIGS {ToolObjects} -t TOL -o Tool034; gold = ~ExpressLoad + one
     # KIND-0 'main' segment).  Every module INCLUDEs GlobalIncludes, which
@@ -331,6 +393,76 @@ def _seg_place_order(srcs, subdir):
                    if s['loadname'].lower() == section.lower()]
         order += [(oi, si) for si in sel]
     return objs, (order if filtered else None)
+
+
+def _obj_seg_list(obj_bytes):
+    """[(SEGNAME_upper, seg_raw), ...] in emit order for one OMF object."""
+    return [(seg['hdr']['SEGNAME'].rstrip(b'\x00 ').upper(), seg['raw'])
+            for seg in omf.iter_segments(obj_bytes, records=False)]
+
+
+def _objsel_order(obj, a, names):
+    """Emit-segment indices selected by ``object(SYM1,SYM2,...)`` (the MPW
+    LinkIIgs per-object symbol filter), in the object's NATURAL (emit) order.
+
+    A filter name is normally a segment name (gsasm emits one OMF segment per
+    PROC, named for its first label); when it is instead an interior label it
+    resolves to its containing emit segment via the Asm's ``symseg`` map — the
+    same label-aware, emit-order resolution diskbuilders/toolsets.py::_part uses
+    for TS2/TS3.  ONE ``object(...)`` reference is a SET pulled in emit order."""
+    segl = _obj_seg_list(obj)
+    asm_segs = [s for s in a.segs if s.items or s.name]
+
+    def _resolve(lab):
+        for i, (sn, _b) in enumerate(segl):
+            if sn == lab:
+                return i
+        for key in (lab, lab.lower(), lab.capitalize()):
+            if key in a.symseg:
+                sg = a.symseg[key]
+                if sg is None or sg < 0 or sg >= len(a.segs):
+                    return None
+                try:
+                    ei = asm_segs.index(a.segs[sg])
+                except ValueError:
+                    return None
+                return ei if ei < len(segl) else None
+        return None
+
+    order = []
+    for lab in (n.upper() for n in names):
+        ei = _resolve(lab)
+        if ei is not None and ei not in order:
+            order.append(ei)
+    order.sort()
+    return order
+
+
+def _link_objsel(specs):
+    """Flat single-segment link of an ``objsel`` tool (Tool032/Tool035): a
+    linkiigs merge where each object is either whole or filtered to the OMF
+    segments its ``object(SYM,...)`` clause selects.
+
+    ``specs`` is a list of ``(relpath, defines, names)`` — relpath is relative
+    to ``TB``, ``defines`` a per-object assemble-define dict (or None), and
+    ``names`` the ``object()`` symbol list (or None for the whole object).  The
+    selection is applied via linkiigs' ``seg_order`` placement list, so the
+    full Asm (all symbols) stays available to resolve cross-object references
+    to segments this clause happened not to pull — exactly the MPW dead-strip
+    semantics.  Returns the concatenated, relocated CONST/LCONST code image."""
+    objects, seg_order = [], []
+    for relpath, defines, names in specs:
+        a = asm.assemble(f'{TB}/{relpath}', INCS, defines=defines or None)
+        obj = omf.emit(a)
+        oi = len(objects)
+        objects.append((obj, a))
+        if names is None:
+            sel = range(len(_obj_seg_list(obj)))
+        else:
+            sel = _objsel_order(obj, a, names)
+        seg_order += [(oi, si) for si in sel]
+    result = linkiigs.link(objects, opts={'merge': True, 'seg_order': seg_order})
+    return _lconst_image(result)
 
 
 def _compute_externs(srcs, subdir, base):
@@ -683,6 +815,26 @@ def check(tool, verbose=False):
             return _check_jt_tool(tool, subdir, spec['jt_segments'], verbose=verbose)
         if 'segments' in spec:
             return _check_multiseg(tool, subdir, spec['segments'], verbose=verbose)
+        if 'objsel' in spec:
+            g = golden(tool)
+            if g is None:
+                return tool, subdir, None, "no golden binary"
+            try:
+                mine = _link_objsel(spec['objsel'])
+            except Exception as e:
+                return tool, subdir, None, f"{type(e).__name__}: {e}"
+            m, n = byte_match(mine, g)
+            pct = (100 * m // n) if n else 0
+            if verbose:
+                print(f"Tool{tool} ({subdir}): gsasm={len(mine)} gold={len(g)} "
+                      f"match {m}/{n} ({pct}%)")
+                diffs = mismatch_offsets(mine, g)
+                if diffs:
+                    i = diffs[0]
+                    print(f"  first diff @ {i:#06x}: gsasm={mine[i]:02x} gold={g[i]:02x}")
+                    print(f"    gsasm {mine[max(0,i-4):i+8].hex()}")
+                    print(f"    gold  {g[max(0,i-4):i+8].hex()}")
+            return tool, subdir, (pct, m, n, len(mine), len(g)), None
         # flat link with per-tool assemble options
         asm_opts = spec.get('asm_opts')
         spec = spec['files']

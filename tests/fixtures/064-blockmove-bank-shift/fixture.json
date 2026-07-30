@@ -1,0 +1,3 @@
+{
+  "note": "MVN/MVP block-move operands are addresses; the emitted bank byte is `operand >> 16` (MPW AsmIIGS), NOT the low byte. `mvp $FF,$FF` -> 44 00 00 (bank of $FF is 0), the self-modified placeholder MIDI midi.main ships. Guards m65816.py block-move bank lambda (dropped the <$10000 literal special-case). Image order is opcode, bank(dest), bank(src). Unblocked Tool032/Tool035 (MidiTools/MIDISynth) byte-exactness."
+}

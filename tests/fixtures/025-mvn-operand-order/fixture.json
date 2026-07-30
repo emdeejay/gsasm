@@ -1,4 +1,4 @@
 {
-  "note": "MVN/MVP operands are written src,dest but encode dest,src",
+  "note": "MVN/MVP operands are written src,dest but encode dest,src (bank bytes, value>>16 per MPW; see fixture 064). Operands use distinct banks so the dest-before-src order stays visible under the corrected >>16 semantics.",
   "commit": "-"
 }

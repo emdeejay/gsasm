@@ -61,6 +61,7 @@ SRC = os.path.join(dc.ROOT, 'ref', 'GSOS_6', 'IIGS.601.SRC')
 FINDER_DIR = os.path.join(SRC, 'A.U.G', 'Finder')   # authentic all.macros (≠)
 INC_E16 = work_abs('rincludes', 'AIIGSIncludes')    # M16.*/E16.* headers
 DISKS = os.path.join(dc.ROOT, dc.DISKS)
+D1 = os.path.join(DISKS, 'Disk 1 of 7 Install.2mg')
 D3 = os.path.join(DISKS, 'Disk 3 of 7 SystemTools1.2mg')
 D4 = os.path.join(DISKS, 'Disk 4 of 7 SystemTools2.2mg')
 
@@ -69,9 +70,11 @@ D4 = os.path.join(DISKS, 'Disk 4 of 7 SystemTools2.2mg')
 # all-NUL LOADNAME, low-word relocs packed into SUPER records.
 PLAIN_OPTS = {'super': True, 'segname': b'main', 'loadname': b'\x00' * 10}
 
-# name -> (disk image, on-disk path, source subdir, [modules], build_kind)
-#   build_kind: 'expressload' -> expressload(objects)
+# name -> (disk image, on-disk path, source subdir, [modules], build_kind[, opts])
+#   build_kind: 'expressload' -> expressload(objects[, opts])
 #               'plainload'   -> linkiigs.link(objects, opts=PLAIN_OPTS)
+#   opts (optional 6th element): extra expressload() opts, e.g. the output
+#     segment KIND set by a `-lseg:$NNNN name` linkiigs directive.
 # Module order is the makefile's link order; no target takes -d defines.
 APPMAP = {
     'CDRemote': (
@@ -94,6 +97,18 @@ APPMAP = {
         'A.U.G/MediaCtl/P4200',
         ['P4200.aii'],
         'plainload'),
+    # ControlPanel NDA (A.U.G/CtlPanel/CtlPanelNDA/makefile): a two-object flat
+    # link `-lseg:$1000 main CtlPanel.aii.obj cbp.aii.obj`, then ExpressLoad'd.
+    # The `-lseg:$1000` sets the merged 'main' segment's KIND to 0x1000, passed
+    # here as the expressload `kind` override (default would keep CtlPanel.aii's
+    # own KIND, mismatching the ~ExpressLoad directory entry at 0x71).  Golden is
+    # the DATA fork on Disk 1 (the code); the resource fork is a separate file
+    # proven by cdevcheck.  Byte-exact 15110/15110.
+    'ControlPanel': (
+        D1, '/Install/System/Desk.Accs/ControlPanel',
+        'A.U.G/CtlPanel/CtlPanelNDA',
+        ['CtlPanel.aii', 'cbp.aii'],
+        'expressload', {'kind': 0x1000}),
 }
 
 _VOL_CACHE = {}
@@ -113,7 +128,8 @@ def golden(name) -> bytes:
 def build_app_data(name) -> bytes:
     """Assemble+link one target's data fork; returns whatever gsasm produces
     (callers compare against the golden on-disk fork)."""
-    _disk, _path, subdir, modules, kind = APPMAP[name]
+    _disk, _path, subdir, modules, kind, *rest = APPMAP[name]
+    xopts = rest[0] if rest else None
     src_dir = os.path.join(SRC, subdir)
     incs = [src_dir, FINDER_DIR, INC_E16]
     objects = []
@@ -124,7 +140,7 @@ def build_app_data(name) -> bytes:
                                f'first: {a.errors[0]}')
         objects.append((omf.emit(a), a))
     if kind == 'expressload':
-        return expressload(objects)
+        return expressload(objects, opts=xopts) if xopts else expressload(objects)
     if kind == 'plainload':
         return linkiigs.link(objects, opts=PLAIN_OPTS)
     raise ValueError(f'{name}: unknown build_kind {kind!r}')
