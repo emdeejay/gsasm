@@ -1,126 +1,134 @@
 {
- "app_data_bytes_exact": [
-  44129,
-  0
- ],
- "basic_system_bytes_exact": [
-  2,
-  0
- ],
- "cdev_rsrc_bytes_exact": [
-  156917,
-  0
- ],
- "disk_logical_exact": [
-  39,
-  0
- ],
- "driver_bytes": [
-  143374,
-  0
- ],
- "expressload_sys601_bytes_exact": [
-  10526,
-  0
- ],
- "finder_data_bytes_exact": [
-  293848,
-  0
- ],
- "finder_data_code_bytes": [
-  135444,
-  0
- ],
- "finder_reloc_segs_exact": [
-  13,
-  0
- ],
- "finder_rsrc_bytes_exact": [
-  104790,
-  0
- ],
- "fst_bytes": [
-  111584,
-  0
- ],
- "installer_rsrc_bytes_exact": [
-  17895,
-  0
- ],
- "kernel_bytes": [
-  59049,
-  0
- ],
- "link_identical": [
-  61,
-  0
- ],
- "manifest_builders_exact": [
-  135,
-  27
- ],
- "manifest_builders_wired": [
-  135,
-  27
- ],
- "manifest_inventory_classified": [
-  7,
-  0
- ],
- "manifest_physical_exact": [
-  1,
-  6
- ],
- "manifest_substitutes_confirmed": [
-  193,
-  0
- ],
- "mountimage_data_bytes_exact": [
-  5750,
-  0
- ],
- "obj_identical": [
-  40,
-  21
- ],
- "opcode_bytes": [
-  97202,
-  0
- ],
- "operand_values": [
-  62714,
-  745
- ],
- "p8_bytes": [
-  17128,
-  0
- ],
- "rez_data_bytes_exact": [
-  107839,
-  0
- ],
- "rez_easymount_data_bytes_exact": [
-  9221,
-  0
- ],
- "rez_easymount_rsrc_bytes_exact": [
-  2500,
-  0
- ],
- "rez_sysresources_bytes_exact": [
-  24337,
-  0
- ],
- "rezfork_bytes_exact": [
-  21170,
-  0
- ],
- "teach_rsrc_bytes_exact": [
-  7333,
-  0
- ],
- "tool_bytes": [
-  239810,
-  0
- ]
+  "app_data_bytes_exact": [
+    44129,
+    0
+  ],
+  "basic_system_bytes_exact": [
+    2,
+    0
+  ],
+  "cdev_rsrc_bytes_exact": [
+    156917,
+    0
+  ],
+  "disk5_logical_exact": [
+    1,
+    0
+  ],
+  "disk6_logical_exact": [
+    2,
+    0
+  ],
+  "disk_logical_exact": [
+    39,
+    0
+  ],
+  "driver_bytes": [
+    143374,
+    0
+  ],
+  "expressload_sys601_bytes_exact": [
+    10526,
+    0
+  ],
+  "finder_data_bytes_exact": [
+    293848,
+    0
+  ],
+  "finder_data_code_bytes": [
+    135444,
+    0
+  ],
+  "finder_reloc_segs_exact": [
+    13,
+    0
+  ],
+  "finder_rsrc_bytes_exact": [
+    104790,
+    0
+  ],
+  "fst_bytes": [
+    111584,
+    0
+  ],
+  "installer_rsrc_bytes_exact": [
+    17895,
+    0
+  ],
+  "kernel_bytes": [
+    59049,
+    0
+  ],
+  "link_identical": [
+    61,
+    0
+  ],
+  "manifest_builders_exact": [
+    135,
+    27
+  ],
+  "manifest_builders_wired": [
+    135,
+    27
+  ],
+  "manifest_inventory_classified": [
+    7,
+    0
+  ],
+  "manifest_physical_exact": [
+    3,
+    4
+  ],
+  "manifest_substitutes_confirmed": [
+    193,
+    0
+  ],
+  "mountimage_data_bytes_exact": [
+    5750,
+    0
+  ],
+  "obj_identical": [
+    40,
+    21
+  ],
+  "opcode_bytes": [
+    97202,
+    0
+  ],
+  "operand_values": [
+    62714,
+    745
+  ],
+  "p8_bytes": [
+    17128,
+    0
+  ],
+  "rez_data_bytes_exact": [
+    107839,
+    0
+  ],
+  "rez_easymount_data_bytes_exact": [
+    9221,
+    0
+  ],
+  "rez_easymount_rsrc_bytes_exact": [
+    2500,
+    0
+  ],
+  "rez_sysresources_bytes_exact": [
+    24337,
+    0
+  ],
+  "rezfork_bytes_exact": [
+    21170,
+    0
+  ],
+  "teach_rsrc_bytes_exact": [
+    7333,
+    0
+  ],
+  "tool_bytes": [
+    239810,
+    0
+  ]
 }

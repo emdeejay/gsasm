@@ -438,6 +438,25 @@ def _objsel_order(obj, a, names):
     return order
 
 
+def objsel_objects(specs):
+    """Assemble each ``objsel`` spec into the ``(objects, seg_order)`` linkiigs
+    inputs — the front half of ``_link_objsel``, factored out so the full-file
+    ExpressLoad path (``build_tool035_fullfile``) can feed the SAME objects and
+    dead-strip placement to ``expressload()`` that the code-image link uses."""
+    objects, seg_order = [], []
+    for relpath, defines, names in specs:
+        a = asm.assemble(f'{TB}/{relpath}', INCS, defines=defines or None)
+        obj = omf.emit(a)
+        oi = len(objects)
+        objects.append((obj, a))
+        if names is None:
+            sel = range(len(_obj_seg_list(obj)))
+        else:
+            sel = _objsel_order(obj, a, names)
+        seg_order += [(oi, si) for si in sel]
+    return objects, seg_order
+
+
 def _link_objsel(specs):
     """Flat single-segment link of an ``objsel`` tool (Tool032/Tool035): a
     linkiigs merge where each object is either whole or filtered to the OMF
@@ -450,19 +469,25 @@ def _link_objsel(specs):
     full Asm (all symbols) stays available to resolve cross-object references
     to segments this clause happened not to pull — exactly the MPW dead-strip
     semantics.  Returns the concatenated, relocated CONST/LCONST code image."""
-    objects, seg_order = [], []
-    for relpath, defines, names in specs:
-        a = asm.assemble(f'{TB}/{relpath}', INCS, defines=defines or None)
-        obj = omf.emit(a)
-        oi = len(objects)
-        objects.append((obj, a))
-        if names is None:
-            sel = range(len(_obj_seg_list(obj)))
-        else:
-            sel = _objsel_order(obj, a, names)
-        seg_order += [(oi, si) for si in sel]
+    objects, seg_order = objsel_objects(specs)
     result = linkiigs.link(objects, opts={'merge': True, 'seg_order': seg_order})
     return _lconst_image(result)
+
+
+def build_tool035_fullfile():
+    """Build the FULL on-disk ``/synthLAB/Tool035`` (Disk 6) — the byte-exact
+    29,842-byte ExpressLoad file, not merely the de_express'd 28,416-byte code
+    image ``check('035')`` compares.  Tool035 is a SINGLE-segment ExpressLoad
+    file (`~ExpressLoad` directory + one KIND-0x4000 `main` seg); its packaging
+    reuses the same objsel objects + dead-strip order as the code link, wrapped
+    by ``expressload()`` (``order`` == linkiigs' ``seg_order``).  The
+    single-seg reloc scan drops the two SUPER records for cursor.asm's
+    ``jsl xShiftOut``/``xShiftStay`` (EXPORTed absolute equates $E01E8C/$E01E84,
+    outside the load segment — gold emits no reloc; see
+    gsasm/expressload.py::_scan_relocs)."""
+    from gsasm.expressload import expressload
+    objects, seg_order = objsel_objects(TOOLMAP['035'][1]['objsel'])
+    return expressload(objects, opts={'order': seg_order})
 
 
 def _compute_externs(srcs, subdir, base):

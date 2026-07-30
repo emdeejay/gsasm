@@ -37,7 +37,7 @@ DISKROOT = os.path.join(
 # the golden (i.e. RECONSTRUCTED, gated by diskcheck.check(D) in the same pass).
 # Only Disk 2 today; the First-Disks phase adds 5 & 6, etc. Being merely
 # builder-complete (0 TODO) does NOT put a disk here — the overlay must exist.
-OVERLAID_DISKS = {'Disk 2'}
+OVERLAID_DISKS = {'Disk 2', 'Disk 5', 'Disk 6'}
 
 
 def disk_path_for(label):

@@ -163,6 +163,16 @@ CHECKS = [
 FULL_CHECKS = [
     ('diskcheck', ['diskcheck.py'], [
         ('disk_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac')]),
+    # First-Disks phase: the generalized whole-disk overlay reconstructs the
+    # first NON-System disks (Fonts, synthLAB) byte-exact.  The GATED metric is
+    # the byte-exact-builder count (logical-exact) — NOT the raw physical match,
+    # which is trivially 100% for a no-builder run (a failed build is simply not
+    # overlaid).  These proofs back manifestcheck's OVERLAID_DISKS promotion,
+    # exactly as the `diskcheck` entry above backs Disk 2's.
+    ('diskcheck5', ['diskcheck.py', '--disk', 'Disk 5 of 7 Fonts.2mg'], [
+        ('disk5_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac')]),
+    ('diskcheck6', ['diskcheck.py', '--disk', 'Disk 6 of 7 synthLAB.2mg'], [
+        ('disk6_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac')]),
     # P0: the 7-disk completion scoreboard (work/manifestcheck.py).  These are
     # the builder-correctness metrics from docs/SOW_COMPLETION.md §2 — physical
     # match alone is NOT the gate (a golden-carry disk is trivially 100%).
@@ -234,8 +244,11 @@ def run_fixture_suite():
 
 def run_check(name, argv, specs):
     """Run one check; return {metric: (good, bad)} or raise on parse failure."""
-    proc = subprocess.run([sys.executable, os.path.join(ROOT, 'work', *argv)],
-                          cwd=ROOT, capture_output=True, text=True)
+    # argv[0] is the script; argv[1:] are its own CLI args (e.g. the First-Disks
+    # `--disk 'Disk 5 of 7 Fonts.2mg'`).  Single-element argv is unchanged.
+    proc = subprocess.run(
+        [sys.executable, os.path.join(ROOT, 'work', argv[0]), *argv[1:]],
+        cwd=ROOT, capture_output=True, text=True)
     out = proc.stdout + proc.stderr
     metrics = {}
     for metric, rx, kind in specs:

@@ -401,6 +401,23 @@ def _addend_of(ops: list) -> int:
     return 0
 
 
+def _reloc_target_addr(ops: list, syms: dict):
+    """Evaluate a relocatable EXPR's TARGET address, stripping any trailing
+    ``>>N`` shift pair so the RAW target is tested (not the shifted patch
+    value).  Returns an ``int``, or ``None`` when it cannot be resolved to a
+    constant (an unresolved import / multi-symbol expr) — callers treat None
+    conservatively (keep the reloc, the pre-existing behavior)."""
+    tail = ops
+    if (len(tail) >= 4 and tail[-1] == 'end' and tail[-2] == ('op', 7)
+            and isinstance(tail[-3], tuple) and tail[-3][0] == 'lit'):
+        tail = tail[:-3] + ['end']
+    try:
+        v = _omf._eval(tail, syms)
+    except Exception:                                      # noqa: BLE001
+        return None
+    return v if isinstance(v, int) else None
+
+
 _ALL_SUPER_CLASSES = frozenset(_SUPER_TYPE)
 
 
@@ -423,6 +440,8 @@ SUPER_CLASSES_APR93 = frozenset({(2, 0)})
 def _scan_relocs(
         placed: list[tuple[str, list, int, dict, Any]],
         super_classes: frozenset = _ALL_SUPER_CLASSES,
+        body_syms: list[dict] | None = None,
+        body_len: int | None = None,
 ) -> dict[int, list[int]]:
     """Scan LEXPR/BEXPR/EXPR records in all placed segments and return
     ``{super_type: sorted_list_of_absolute_byte_offsets}``
@@ -430,9 +449,17 @@ def _scan_relocs(
 
     Only expressions that contain a symbol reference are included; pure
     literals are constant at link time and require no load-time relocation.
+
+    When ``body_syms`` + ``body_len`` are supplied (the single-segment path),
+    a reloc whose net SYMBOL address resolves OUTSIDE the merged load segment
+    ``[0, body_len]`` is DROPPED — gold emits no relocation for a site that
+    binds to an exported absolute EQU (e.g. MIDISynth's ``XSHIFTOUT equ
+    $E01E8C`` reached by cursor.asm's ``jsl xShiftOut``).  This mirrors the
+    multi-segment path's ``_group_of(target) is None`` rule; the multi-seg
+    caller passes neither arg, so its behavior is unchanged.
     """
     relocs: dict[int, list[int]] = {}
-    for _segname, recs, seg_base, _hdr, _asm in placed:
+    for seg_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
         body_off = 0
         for _, nm, d in recs:
             if nm == 'END':
@@ -443,10 +470,28 @@ def _scan_relocs(
                 size = d[0]
                 ops  = d[1]
                 if _needs_reloc(ops):
-                    shift = _get_shift(ops)
-                    stype = _SUPER_TYPE.get((size, shift))
-                    if stype is not None and (size, shift) in super_classes:
-                        relocs.setdefault(stype, []).append(seg_base + body_off)
+                    # Range-check the net SYMBOL address (target minus its
+                    # folded addend), NOT the raw target: gsasm folds
+                    # `Label±N` into `SEGNAME + (offset±N)`, so the DISPATCH
+                    # idiom `dc.l Target-2` (Target at 0 -> 0xFFFFFFFE) and the
+                    # case-B flag `Target+$80000000` both keep the symbol at a
+                    # SEGMENT base and must NOT be dropped here (case-B is
+                    # re-emitted standalone by _scan_case_b).  Only a symbol
+                    # that itself resolves OUTSIDE the load seg — an exported
+                    # absolute EQU like MIDISynth's XSHIFTOUT=$E01E8C — is
+                    # dropped (gold emits no reloc; mirrors multi-seg _group_of).
+                    sym_addr = None
+                    if body_syms is not None and body_len is not None:
+                        tgt = _reloc_target_addr(ops, body_syms[seg_i])
+                        if tgt is not None:
+                            sym_addr = (tgt - _addend_of(ops)) & 0xFFFFFFFF
+                    if sym_addr is not None and not (0 <= sym_addr <= body_len):
+                        pass                    # absolute symbol — no reloc
+                    else:
+                        shift = _get_shift(ops)
+                        stype = _SUPER_TYPE.get((size, shift))
+                        if stype is not None and (size, shift) in super_classes:
+                            relocs.setdefault(stype, []).append(seg_base + body_off)
                 body_off += size
             elif nm == 'RELEXPR':
                 body_off += d[0]
@@ -1294,7 +1339,8 @@ def _build_single_output_seg(
     # Scan relocs over ALL placed segments, excluding any site case-B
     # already claimed as standalone (it cannot ALSO ride a SUPER page
     # list — that is the whole point of the flag).
-    relocs_by_type = _scan_relocs(placed, super_classes)
+    relocs_by_type = _scan_relocs(placed, super_classes,
+                                  body_syms, len(merged_body))
     case_b_offsets = {r[0] for r in case_b}
     if case_b_offsets:
         for stype in list(relocs_by_type):

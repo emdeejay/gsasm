@@ -278,6 +278,98 @@ def _build_finder_data():
 SOURCE_BUILDERS[f'{V}/System/Start'] = _build_finder_data
 
 
+# ---------------------------------------------------------------------------
+# First-Disks phase — a manifest-driven whole-disk overlay for ANY disk, so
+# non-System disks reconstruct byte-exact too (SOW physical_exact 1/7 -> 3/7).
+#
+# Disk 2 keeps its own MANIFEST/SOURCE_BUILDERS/REZ_BUILDERS/check() path
+# UNCHANGED.  The generalized path below is a fully separate `reconstruct()`
+# keyed by the census disk label; each disk's registry lists exactly the forks
+# with a wired byte-exact builder.  Everything else on the disk is carried
+# verbatim (the ROM substitution pattern) — so the physical image match is by
+# construction, and the HONEST gate is the byte-exact-builder count (a failed
+# build is simply not overlaid, which would leave the image trivially matching;
+# `logical-exact: ok/N` is what goes red).  Same lazy-import discipline as the
+# Disk-2 builder wrappers above (avoids rezcheck/cdevcheck import cycles).
+# ---------------------------------------------------------------------------
+def _build_fonts_readme_rsrc():
+    import rezdatacheck                       # rez `data` fork (TeachText Read.Me)
+    return rezdatacheck.build_rez_fork('Fonts.Read.Me')
+
+
+def _build_midi_rsrc():
+    import cdevcheck                          # synthLAB MIDI CDEV resource fork
+    return cdevcheck.build_cdev_fork('MIDI')
+
+
+def _build_tool035_fullfile():
+    import toolcheck                          # full 29,842-byte ExpressLoad file
+    return toolcheck.build_tool035_fullfile()  # (objsel link + single-seg wrap)
+
+
+# path -> (fork, builder()->bytes) per census disk label.  fork is the ACTUAL
+# on-disk fork the builder targets (Read.Me/MIDI build their resource forks;
+# Tool035 its data fork) — independent of the census's file-granular label.
+DISK_BUILDER_REGISTRY = {
+    'Disk 5 of 7 Fonts.2mg': {
+        '/Fonts/Goodies/Read.Me': ('rsrc', _build_fonts_readme_rsrc),
+    },
+    'Disk 6 of 7 synthLAB.2mg': {
+        '/synthLAB/MIDI': ('rsrc', _build_midi_rsrc),
+        '/synthLAB/Tool035': ('data', _build_tool035_fullfile),
+    },
+}
+
+
+def reconstruct(disk_label):
+    """Generalized First-Disks overlay: build+overlay every registered fork for
+    `disk_label`, then confirm the whole image stays byte-identical.
+
+    Mirrors check()'s per-file contract (build -> len==EOF -> logical-exact vs
+    the ORIGINAL fork BEFORE overlay -> overlay only a byte-exact build), but is
+    disk-agnostic and does NOT touch Disk-2's MANIFEST/catalog inventory gate
+    (that is diskmanifest/manifestcheck's job).  Returns (match, n, ok, total)."""
+    disk_path = f'{DISKS}/{disk_label}'
+    orig = open(disk_path, 'rb').read()
+    buf = bytearray(orig)
+    vol = Volume(buf)
+    entries = dict(_walk(vol, '/' + vol.name))
+    reg = DISK_BUILDER_REGISTRY.get(disk_label, {})
+
+    ok = 0
+    notes = []
+    for path, (fork, builder) in reg.items():
+        if path not in entries:
+            notes.append(f'{path}: not on disk (stale registry entry)')
+            continue
+        f = DiskFile(path, entries[path], vol)
+        try:
+            content = builder()
+        except Exception as e:                             # noqa: BLE001
+            notes.append(f'{path}: builder raised {type(e).__name__}: {e}')
+            continue
+        eof = f.rsrc_eof if fork == 'rsrc' else f.data_eof
+        if len(content) != eof:
+            notes.append(f'{path}: build {len(content)}B != {fork} EOF {eof}')
+            continue
+        original = vol.read_file(path, fork=fork)          # pre-overlay compare
+        if content != original:
+            notes.append(f'{path}: logical ({fork}) differs at '
+                         f'{_first_diff(content, original)}')
+            continue
+        (overlay_rsrc if fork == 'rsrc' else overlay)(vol, f, content)
+        ok += 1
+
+    match, n = byte_match(bytes(buf), orig)
+    print(f"{disk_label}: {vol.name}  {vol.total_blocks} blocks")
+    print(f"  builders wired: {len(reg)}  logical-exact: {ok}/{len(reg)}")
+    print(f"  PHYSICAL image byte-match: {match}/{n} ({100*match//n}%)")
+    if notes:
+        print("  builder logical mismatches:")
+        print("\n".join(f'    {x}' for x in notes))
+    return match, n, ok, len(reg)
+
+
 def build_and_overlay(vol, f):
     """The Phase-2 builder contract for one manifest BUILD file. Returns
     (built_ok, note)."""
@@ -432,6 +524,9 @@ def selftest(disk_path=SYSTEM_DISK):
 def main():
     if '--selftest' in sys.argv:
         sys.exit(0 if selftest() else 1)
+    if '--disk' in sys.argv:                # First-Disks generalized overlay
+        reconstruct(sys.argv[sys.argv.index('--disk') + 1])
+        return
     mb = 0
     if '--min-built' in sys.argv:
         mb = int(sys.argv[sys.argv.index('--min-built') + 1])
