@@ -182,6 +182,15 @@ TOOLMAP = {
     # _defer_shifts). The archived source in IIGS.601.SRC IS the shipping
     # revision -- there is no source/binary disagreement.
     '019': ('PrintMgr',   ['printmgr.asm', 'dialogdata.asm']),
+    # NoteSynth: 7-object flat link per NoteSynth/makefile
+    # (LINKIIGS {Objects} -o tool025 -t tol).  {Objects} = note.exec, alloc,
+    # noteon, noteoff, update, freq, tables; the makefile {Defines} (Note.aii,
+    # Note.Macros, GCB.aii) are INCLUDEd by the sources, not linked objects.
+    # Gold = /SystemTools1/System/Tools/Tool025 on Disk 3 (== ref/tool_bin,
+    # 6180 B ExpressLoad); de-ExpressLoad'd code image byte-exact.
+    '025': ('NoteSynth',  ['Note.Exec.aii', 'alloc.aii', 'NoteOn.aii',
+                           'NoteOff.aii', 'Update.aii', 'freq.aii',
+                           'Tables.aii']),
     # NoteSeq: single-object flat link per NoteSeq/makefile
     # (LINKIIGS tool.aii.obj -o tool026 -t tol).  tool.aii INCLUDEs Data.aii +
     # DirPage.aii (makefile {Defines}); only tool.aii is a linked object.  The
