@@ -33,6 +33,12 @@ import diskmanifest as dm  # noqa: E402
 DISKROOT = os.path.join(
     ROOT, 'ref', 'GSOS_6', 'System601_disks', 'System 6.0.1')
 
+# Disks with a working whole-disk overlay whose reconstructed image byte-matches
+# the golden (i.e. RECONSTRUCTED, gated by diskcheck.check(D) in the same pass).
+# Only Disk 2 today; the First-Disks phase adds 5 & 6, etc. Being merely
+# builder-complete (0 TODO) does NOT put a disk here — the overlay must exist.
+OVERLAID_DISKS = {'Disk 2'}
+
 
 def disk_path_for(label):
     return os.path.join(DISKROOT, label)
@@ -130,17 +136,26 @@ def run():
         d_exact = sum(1 for e in manifest.values()
                       if e.state == dm.BUILT and e.builder is not None)
         exact_total += d_exact
-        # physical_exact: builder-complete disks only (0 TODO_BUILDABLE) — a
-        # disk with any TODO fork can NOT count even if golden-carry makes it
-        # physically 100%. Per-disk physical byte-match is gated by
-        # diskcheck.check(D) as each disk lands (Disk 2: proven now).
+        # physical_exact: ONLY a disk with a working whole-disk overlay whose
+        # image byte-matches counts (RECONSTRUCTED, not merely builder-complete).
+        # Being builder-complete (0 TODO) is necessary but NOT sufficient — the
+        # per-disk overlay + byte-match must exist (diskcheck.check(D)). Today
+        # only Disk 2 is overlaid; Disks 5/6 are builder-complete but await the
+        # First-Disks overlay work. This is what keeps golden-carry from
+        # false-greening physical.
         builder_complete = (st[dm.TODO_BUILDABLE] == 0)
-        if builder_complete:
+        reconstructed = any(label.startswith(d) for d in OVERLAID_DISKS)
+        if reconstructed:
             phys_good += 1
 
         short = label.split(' of 7 ')[-1].replace('.2mg', '')
         flag = 'OK' if classified else f'!! {len(missing)} UNCLASSIFIED'
-        pstate = 'builder-complete' if builder_complete else f'{st[dm.TODO_BUILDABLE]} TODO'
+        if reconstructed:
+            pstate = 'RECONSTRUCTED'
+        elif builder_complete:
+            pstate = 'builder-complete (needs overlay)'
+        else:
+            pstate = f'{st[dm.TODO_BUILDABLE]} TODO'
         print(f'  {short[:20]:20} live={len(live):3} inv={flag:18} '
               f'BUILT={st[dm.BUILT]:3}/{required:3} exact={d_exact:3} '
               f'SUB={st[dm.SUBSTITUTE]:3} TECH={st[dm.TECHNICAL_EXCEPTION]} [{pstate}]')

@@ -1,5 +1,5 @@
 {
- "generated": "2026-07-30 (rev2: +Disk2, +Disk5 Finder.Data, Disk7 key fixed, Tool.Setup=technical-exception; Codex review)",
+ "generated": "2026-07-30 (rev2: +Disk2, +Disk5 Finder.Data, Disk7 key fixed, Tool.Setup=technical-exception; Codex review) | P2 rev3 2026-07-31: +31 crew wins reclassified built",
  "workflow": "wf_986133b2-1c2",
  "disks": {
   "Disk 1 of 7 Install.2mg": {
@@ -228,21 +228,21 @@
     {
      "path": "/Install/System/Desk.Accs/ControlPanel",
      "forks": "data+rsrc",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/CtlPanelNDA/{CtlPanel.aii,cbp.aii,makefile}",
-     "proven_by": null,
-     "evidence": "HARDEST part = 15110B DATA fork (the NDA 65816 code), whose ASM source (CtlPanel.aii+cbp.aii+makefile) EXISTS but is NOT built by any harness. Only the 1238B rsrc fork is proven byte-exact (cdevcheck build_cdev('ControlPanel'), extraction-fed code). Disk1 both forks cmp-identical to System-Disk.",
+     "proven_by": "toolcheck(objsel L1)",
+     "evidence": "HARDEST part = 15110B DATA fork (the NDA 65816 code), whose ASM source (CtlPanel.aii+cbp.aii+makefil | P2 2026-07-31: now BUILT byte-exact via toolcheck(objsel L1)",
      "confidence": "high"
     },
     {
      "path": "/Install/System/Start",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SetStartCDEV/Startup.Aii",
-     "proven_by": null,
-     "evidence": "RESOLVED 2026-07-30: 565B asm boot-launcher, not the Finder. SetStart.make \"Added dependencies for START\"; Startup.Aii is a 65816 launcher PROC (MessageCenter boot path -> _quitGS, Finder fallback). Buildable-asm, build-verify pending (SOW P4).",
+     "proven_by": "expressloadcheck",
+     "evidence": "RESOLVED 2026-07-30: 565B asm boot-launcher, not the Finder. SetStart.make \"Added dependencies for S | P2 2026-07-31: now BUILT byte-exact via expressloadcheck",
      "confidence": "high"
     },
     {
@@ -1163,11 +1163,11 @@
     {
      "path": "/SystemTools1/System/Drivers/A2.RAMCard",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/Slinky/slinky.aii",
-     "proven_by": "",
-     "evidence": "RESOLVED 2026-07-30: slinky.aii = \"Slinky (RAM card) Driver\" (asm, v1.01). A2.RAMCard (aux $107) ships on SystemTools1/Disk 3 -> drivercheck comment \"Slinky not shipped\" was WRONG (fixed). Buildable-asm, build-verify pending (SOW P4).",
+     "proven_by": "drivercheck",
+     "evidence": "RESOLVED 2026-07-30: slinky.aii = \"Slinky (RAM card) Driver\" (asm, v1.01). A2.RAMCard (aux $107) shi | P2 2026-07-31: now BUILT byte-exact via drivercheck",
      "confidence": "high"
     },
     {
@@ -1183,31 +1183,31 @@
     {
      "path": "/SystemTools1/System/Drivers/Modem",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/Modem/modem.asm",
-     "proven_by": "",
-     "evidence": "build.tools: 'directory ::Modem BuildProgram Modem'; source PrinterDrivers/Modem/{modem.asm,dialogdata.asm,special.macros} is assembly. No byte-exact harness yet gates it.",
+     "proven_by": "drivercheck",
+     "evidence": "build.tools: 'directory ::Modem BuildProgram Modem'; source PrinterDrivers/Modem/{modem.asm,dialogda | P2 2026-07-31: now BUILT byte-exact via drivercheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools1/System/Drivers/Parallel.Card",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/GraphiCard/graphicard.asm",
-     "proven_by": "",
-     "evidence": "build.tools: 'directory ::GraphiCard BuildProgram Parallel.Card'; source PrinterDrivers/GraphiCard/{graphicard.asm,dialogdata.asm} is assembly. Not yet harness-gated.",
+     "proven_by": "drivercheck",
+     "evidence": "build.tools: 'directory ::GraphiCard BuildProgram Parallel.Card'; source PrinterDrivers/GraphiCard/{ | P2 2026-07-31: now BUILT byte-exact via drivercheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools1/System/Drivers/Printer",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/Printer/printer.asm",
-     "proven_by": "",
-     "evidence": "build.tools: 'directory ::Printer BuildProgram Printer'; source PrinterDrivers/Printer/{printer.asm,dialogdata.asm} is assembly. Distinct from the Printer CDEV. Not yet harness-gated.",
+     "proven_by": "drivercheck",
+     "evidence": "build.tools: 'directory ::Printer BuildProgram Printer'; source PrinterDrivers/Printer/{printer.asm, | P2 2026-07-31: now BUILT byte-exact via drivercheck",
      "confidence": "high"
     },
     {
@@ -1253,21 +1253,21 @@
     {
      "path": "/SystemTools1/System/Drivers/Apple.Midi",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/Midi/Drivers/Apple.Midi/apple.midi.aii",
-     "proven_by": "",
-     "evidence": "build.tools: 'directory ::drivers:apple.midi BuildProgram apple.midi'; source Midi/Drivers/Apple.Midi/apple.midi.aii is assembly. Not yet harness-gated.",
+     "proven_by": "drivercheck",
+     "evidence": "build.tools: 'directory ::drivers:apple.midi BuildProgram apple.midi'; source Midi/Drivers/Apple.Mid | P2 2026-07-31: now BUILT byte-exact via drivercheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools1/System/Drivers/Card6850.MIDI",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/Midi/Drivers/Card6850.Midi/card6850.midi.aii",
-     "proven_by": "",
-     "evidence": "build.tools: 'directory ::card6850.midi BuildProgram card6850.midi'; source Midi/Drivers/Card6850.Midi/card6850.midi.aii is assembly. Not yet harness-gated.",
+     "proven_by": "drivercheck",
+     "evidence": "build.tools: 'directory ::card6850.midi BuildProgram card6850.midi'; source Midi/Drivers/Card6850.Mi | P2 2026-07-31: now BUILT byte-exact via drivercheck",
      "confidence": "high"
     },
     {
@@ -1673,11 +1673,11 @@
     {
      "path": "/SystemTools1/System/Tools/Tool025",
      "forks": "data (ExpressLoad)",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/NoteSynth",
-     "proven_by": "",
-     "evidence": "build.tools: 'directory ::notesynth BuildProgram tool025'; source GSToolbox/NoteSynth/*.aii is assembly. gsasm even has a 'Tool025 case-collision' fix (generality_check.py), but NO byte-exact harness gates it (toolcheck.py TOOLMAP lacks '025').",
+     "proven_by": "toolcheck",
+     "evidence": "build.tools: 'directory ::notesynth BuildProgram tool025'; source GSToolbox/NoteSynth/*.aii is assem | P2 2026-07-31: now BUILT byte-exact via toolcheck",
      "confidence": "high"
     },
     {
@@ -1703,11 +1703,11 @@
     {
      "path": "/SystemTools1/System/Tools/Tool032",
      "forks": "data (ExpressLoad)",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/Midi/MidiTools",
-     "proven_by": "",
-     "evidence": "build.tools: 'directory ::midi:miditools BuildProgram tool032'; source GSToolbox/Midi/MidiTools/midi.*.aii is assembly. Not in toolcheck.py TOOLMAP \u2014 no byte-exact harness yet.",
+     "proven_by": "toolcheck",
+     "evidence": "build.tools: 'directory ::midi:miditools BuildProgram tool032'; source GSToolbox/Midi/MidiTools/midi | P2 2026-07-31: now BUILT byte-exact via toolcheck",
      "confidence": "high"
     },
     {
@@ -1798,11 +1798,11 @@
     {
      "path": "/SystemTools2/AppleTalk/QuickLogoff",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/QuickLogoff/Quick.aii",
-     "proven_by": null,
-     "evidence": "GS.OS/MakeFiles/make.quicklogoff: AsmIIGS quick.aii -> quick.o; LinkIIGS -o {SDAppleTalk}QuickLogoff -t $B7. Source Quick.aii + Makefile present. Not gated.",
+     "proven_by": "expressloadcheck",
+     "evidence": "GS.OS/MakeFiles/make.quicklogoff: AsmIIGS quick.aii -> quick.o; LinkIIGS -o {SDAppleTalk}QuickLogoff | P2 2026-07-31: now BUILT byte-exact via expressloadcheck",
      "confidence": "high"
     },
     {
@@ -1948,11 +1948,11 @@
     {
      "path": "/SystemTools2/System/Drivers/AppleTalk",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/AppleTalk/appletalk.asm",
-     "proven_by": null,
-     "evidence": "ToolboxToDiskImage: PrinterDrivers:AppleTalk:AppleTalk -> ST2 drivers/AppleTalk. This is the AppleTalk PRINTER driver: GSToolbox/PrinterDrivers/AppleTalk/makefile links appletalk.asm.obj + dialogdata.asm.obj -o appletalk -t $BB -at $0003 (ASMIIGS). Not the AT-stack driver. Not gated.",
+     "proven_by": "drivercheck",
+     "evidence": "ToolboxToDiskImage: PrinterDrivers:AppleTalk:AppleTalk -> ST2 drivers/AppleTalk. This is the AppleTa | P2 2026-07-31: now BUILT byte-exact via drivercheck",
      "confidence": "high"
     },
     {
@@ -1988,11 +1988,11 @@
     {
      "path": "/SystemTools2/System/Drivers/LaserWriter",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/LW",
-     "proven_by": null,
-     "evidence": "ToolboxToDiskImage: PrinterDrivers:LW:LaserWriter -> ST2 drivers/LaserWriter. LW/makefile: ASMIIGS lw.asm + dialogdata.asm + prepfile.asm; linkiigs -lseg MAIN ... -o laserwriter -t $BB -at $0001. Not gated.",
+     "proven_by": "drivercheck",
+     "evidence": "ToolboxToDiskImage: PrinterDrivers:LW:LaserWriter -> ST2 drivers/LaserWriter. LW/makefile: ASMIIGS l | P2 2026-07-31: now BUILT byte-exact via drivercheck",
      "confidence": "high"
     },
     {
@@ -2168,11 +2168,11 @@
     {
      "path": "/SystemTools2/System/Tools/Tool038",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/MediaCtlTool/MediaCtrlMgr.asm",
-     "proven_by": null,
-     "evidence": "ToolboxToDiskImage: MediaCtlTool:Tool038 -> ST2 system:tools:Tool038. Source GSToolbox/MediaCtlTool/MediaCtrlMgr.asm + build.tools (asm, MediaControl Tool). NOT in toolcheck corpus (Tool038 absent from all work/*.py). Buildable but not yet gated.",
+     "proven_by": "expressloadcheck",
+     "evidence": "ToolboxToDiskImage: MediaCtlTool:Tool038 -> ST2 system:tools:Tool038. Source GSToolbox/MediaCtlTool/ | P2 2026-07-31: now BUILT byte-exact via expressloadcheck",
      "confidence": "high"
     },
     {
@@ -2188,121 +2188,121 @@
     {
      "path": "/SystemTools2/System/Sounds/Ahh",
      "forks": "rSoundSample via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Ahh.r",
-     "proven_by": null,
-     "evidence": "A.U.G/CtlPanel/SoundCDEV/Sounds/Makefile: RezIIGS Ahh.r -o Ahh -t $70D80003. A.U.G.ToDiskImage copies SoundCDev:Sounds:Ahh -> ST2 System:Sounds. Sound-sample payload embedded as data block in the .r. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "A.U.G/CtlPanel/SoundCDEV/Sounds/Makefile: RezIIGS Ahh.r -o Ahh -t $70D80003. A.U.G.ToDiskImage copie | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/System/Sounds/Doorbell",
      "forks": "rSoundSample via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/DoorBell.r",
-     "proven_by": null,
-     "evidence": "Sounds/Makefile RezIIGS DoorBell.r -o DoorBell -t $70D80003; A.U.G.ToDiskImage copies to ST2 System:Sounds/Doorbell. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "Sounds/Makefile RezIIGS DoorBell.r -o DoorBell -t $70D80003; A.U.G.ToDiskImage copies to ST2 System: | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/System/Sounds/Droplet",
      "forks": "rSoundSample via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Droplet.r",
-     "proven_by": null,
-     "evidence": "Sounds/Makefile RezIIGS Droplet.r -o Droplet -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "Sounds/Makefile RezIIGS Droplet.r -o Droplet -t $70D80003; copied to ST2 System:Sounds. Not gated. | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/System/Sounds/Eastern",
      "forks": "rSoundSample via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Eastern.r",
-     "proven_by": null,
-     "evidence": "Sounds/Makefile RezIIGS Eastern.r -o Eastern -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "Sounds/Makefile RezIIGS Eastern.r -o Eastern -t $70D80003; copied to ST2 System:Sounds. Not gated. | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/System/Sounds/Frog",
      "forks": "rSoundSample via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Frog.r",
-     "proven_by": null,
-     "evidence": "Sounds/Makefile RezIIGS Frog.r -o Frog -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "proven_by": "rezforkcheck",
+     "evidence": "Sounds/Makefile RezIIGS Frog.r -o Frog -t $70D80003; copied to ST2 System:Sounds. Not gated. | P2 2026-07-31: now BUILT byte-exact via rezforkcheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/System/Sounds/PipeOrgan",
      "forks": "rSoundSample via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/PipeOrgan.r",
-     "proven_by": null,
-     "evidence": "Sounds/Makefile RezIIGS PipeOrgan.r -o PipeOrgan -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "Sounds/Makefile RezIIGS PipeOrgan.r -o PipeOrgan -t $70D80003; copied to ST2 System:Sounds. Not gate | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/System/Sounds/Quack",
      "forks": "rSoundSample via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Quack.r",
-     "proven_by": null,
-     "evidence": "Sounds/Makefile RezIIGS Quack.r -o Quack -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "Sounds/Makefile RezIIGS Quack.r -o Quack -t $70D80003; copied to ST2 System:Sounds. Not gated. | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/System/Sounds/SimpleBeep",
      "forks": "rSoundSample via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/SimpleBeep.r",
-     "proven_by": null,
-     "evidence": "Sounds/Makefile RezIIGS SimpleBeep.r -o SimpleBeep -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "Sounds/Makefile RezIIGS SimpleBeep.r -o SimpleBeep -t $70D80003; copied to ST2 System:Sounds. Not ga | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/System/Sounds/Sosumi",
      "forks": "rSoundSample via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Sosumi.r",
-     "proven_by": null,
-     "evidence": "Sounds/Makefile RezIIGS Sosumi.r -o Sosumi -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "Sounds/Makefile RezIIGS Sosumi.r -o Sosumi -t $70D80003; copied to ST2 System:Sounds. Not gated. | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/System/Sounds/Swish",
      "forks": "rSoundSample via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Swish.r",
-     "proven_by": null,
-     "evidence": "Sounds/Makefile RezIIGS Swish.r -o Swish -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "Sounds/Makefile RezIIGS Swish.r -o Swish -t $70D80003; copied to ST2 System:Sounds. Not gated. | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/System/Sounds/Trumpets",
      "forks": "rSoundSample via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Trumpets.r",
-     "proven_by": null,
-     "evidence": "Sounds/Makefile RezIIGS Trumpets.r -o Trumpets -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "Sounds/Makefile RezIIGS Trumpets.r -o Trumpets -t $70D80003; copied to ST2 System:Sounds. Not gated. | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/System/Sounds/Whoosh",
      "forks": "rSoundSample via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Whoosh.r",
-     "proven_by": null,
-     "evidence": "Sounds/Makefile RezIIGS Whoosh.r -o Whoosh -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "proven_by": "rezforkcheck",
+     "evidence": "Sounds/Makefile RezIIGS Whoosh.r -o Whoosh -t $70D80003; copied to ST2 System:Sounds. Not gated. | P2 2026-07-31: now BUILT byte-exact via rezforkcheck",
      "confidence": "high"
     },
     {
@@ -2348,21 +2348,21 @@
     {
      "path": "/SystemTools2/Read.Me",
      "forks": "data fork = literal Read.Me.text; rsrc fork = Read.Me.r via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/ToolBoxMisc/ReadMeFiles/Read.Me.r",
-     "proven_by": null,
-     "evidence": "ReadMeFiles/makefile: duplicate Read.Me.text -> Read.Me (data fork = verbatim .text); reziigs Read.Me.r -o Read.Me -t $70505445 (rsrc = style block). Both forks source-present. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "ReadMeFiles/makefile: duplicate Read.Me.text -> Read.Me (data fork = verbatim .text); reziigs Read.M | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/Shortcuts",
      "forks": "data fork = literal Shortcuts.text; rsrc = Shortcuts.r via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/ToolBoxMisc/ReadMeFiles/Shortcuts.r",
-     "proven_by": null,
-     "evidence": "ReadMeFiles/makefile: duplicate Shortcuts.text -> Shortcuts; reziigs Shortcuts.r -o Shortcuts -t $70505445. TeachText doc: data fork = verbatim .text, rsrc = .r. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "ReadMeFiles/makefile: duplicate Shortcuts.text -> Shortcuts; reziigs Shortcuts.r -o Shortcuts -t $70 | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
@@ -2378,11 +2378,11 @@
     {
      "path": "/SystemTools2/Whats.New",
      "forks": "data fork = literal Whats.New.text; rsrc = Whats.New.r via rez",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/ToolBoxMisc/ReadMeFiles/Whats.New.r",
-     "proven_by": null,
-     "evidence": "ReadMeFiles/makefile: duplicate Whats.New.text -> Whats.New; reziigs Whats.New.r -o Whats.New -t $70505445. Added for 6.0.1. data fork = verbatim .text, rsrc = .r. Not gated.",
+     "proven_by": "rezdatacheck",
+     "evidence": "ReadMeFiles/makefile: duplicate Whats.New.text -> Whats.New; reziigs Whats.New.r -o Whats.New -t $70 | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "high"
     },
     {
@@ -2653,11 +2653,11 @@
     {
      "path": "/Fonts/Goodies/Read.Me",
      "forks": "data+rsrc",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez+text",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/Apple.Bowl/Read.Me.r",
-     "proven_by": null,
-     "evidence": "data+rsrc. Makefile 'Read.Me' target: data fork = 'Duplicate -d -y Read.Me.txt Read.Me' (plain text copy of Read.Me.txt, 3329 B) then 'RezIIGS Read.Me.r -o Read.Me' adds the resource fork. Read.Me.r declares rStyleBlock ($8012) resources -> buildable-rez through the same gsasm.rez pipeline rezforkcheck uses. NOT yet wired into any harness (rezforkcheck REZMAP has only 5 targets, Read.Me not among them) so not gated byte-exact. Hardest part = the Rez resource fork.",
+     "proven_by": "rezdatacheck",
+     "evidence": "data+rsrc. Makefile 'Read.Me' target: data fork = 'Duplicate -d -y Read.Me.txt Read.Me' (plain text  | P2 2026-07-31: now BUILT byte-exact via rezdatacheck",
      "confidence": "medium"
     },
     {
@@ -2738,11 +2738,11 @@
     {
      "path": "/synthLAB/Tool035",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm(65816)",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/MIDISynth/",
-     "proven_by": "",
-     "evidence": "Tool035 = MIDISynth. Full APW assembly source at ref/GSOS_6/IIGS.601.SRC/GSToolbox/MIDISynth/ (MIDISynth.aii, NoteOn/NoteOff/Update/ToolCalls/Tables/Buffer/Midi.Control/Midi.Driver.aii, ns.equ) with makefile: `Tool035 ... LinkIIGS {ObjDir}MIDISynth.obj ...`. Listed in GSToolbox/build.tools: 'directory ::midisynth / BuildProgram {parameters} tool035'. Not yet gated byte-exact (toolcheck.py TOOL_SPECS stop at 034); Build.Synth copies the prebuilt binary but the producing asm source exists.",
+     "proven_by": "toolcheck",
+     "evidence": "Tool035 = MIDISynth. Full APW assembly source at ref/GSOS_6/IIGS.601.SRC/GSToolbox/MIDISynth/ (MIDIS | P2 2026-07-31: now BUILT byte-exact via toolcheck",
      "confidence": "high"
     },
     {
@@ -3590,11 +3590,11 @@
  },
  "needs_investigation_resolved": "2026-07-30: both -> buildable-asm",
  "_totals": {
-  "built": 104,
+  "built": 135,
   "technical-exception": 2,
   "no-source-substitute": 183,
-  "buildable-asm": 37,
-  "buildable-rez": 21,
+  "buildable-asm": 22,
+  "buildable-rez": 5,
   "pascal-c-nontarget": 8
  },
  "_total_files": 355,

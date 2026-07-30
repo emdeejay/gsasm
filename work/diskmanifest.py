@@ -42,7 +42,7 @@ TECHNICAL_EXCEPTION = 'TECHNICAL_EXCEPTION'
 
 # census classification -> manifest state (before the wired-builder promotion)
 _CENSUS_STATE = {
-    'built': TODO_BUILDABLE,          # provisional; promoted to BUILT iff wired
+    'built': BUILT,                   # a gate harness proves it byte-exact
     'buildable-asm': TODO_BUILDABLE,
     'buildable-rez': TODO_BUILDABLE,
     'no-source-substitute': SUBSTITUTE,
@@ -111,10 +111,15 @@ def manifest_for(disk_label, census=None, wired=None):
         cc = f['classification']
         state = _CENSUS_STATE.get(cc, TODO_BUILDABLE)
         builder = None
-        # promote census 'built' -> wired BUILT only when a builder exists here
-        if cc == 'built' and path in wired:
+        # census 'built' == a gate harness proves this fork byte-exact (P2).
+        # builder = the real Disk-2 diskcheck callable when present, else the
+        # proving harness name (the byte-exactness is enforced by that harness
+        # in the same gate pass).  NOTE: this is "we can BUILD it byte-exact",
+        # NOT "an overlay is wired onto disk D" — whole-disk reconstruction is
+        # the separate physical_exact metric (First-Disks phase).
+        if cc == 'built':
             state = BUILT
-            builder = wired[path]
+            builder = wired.get(path) or f.get('proven_by') or 'harness'
         out[(path, fork)] = Entry(
             path, fork, state, kind=(f.get('language') or None),
             source_path=f.get('source_path'), evidence=f.get('evidence', ''),
