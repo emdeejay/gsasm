@@ -9,13 +9,13 @@ R3 forensic-script quarantine, R4 annotation hygiene, and R5 drift fixes
 landed with the Tier-1/E0 work.  R8 (link.py eval utils -> omf.py, commit
 ea7ea5f), R6 (dispatch split, cebad22), and R7 (define_label predicates,
 6731bb4) landed post-E3, each verified gate-stdout byte-identical.  R9 is
-PARTIAL: E0 extracted the per-table builders (_het_entries,
-_seg_conversion_table, _seg_header_block, _pathname_block), but the E1/E2
-multi-segment packaging feature then grew `expressload()` itself to ~940
-lines — exactly the outcome the packet warned about — so a fresh
-decomposition pass over `expressload()` remains OPEN backlog alongside R10
-(opt-in assembly cache).  Keep this guide as the spec the landed commits
-were reviewed against.
+now COMPLETE: E0 extracted the per-table builders (_het_entries,
+_seg_conversion_table, _seg_header_block, _pathname_block); the remaining
+half (commit e2126dd) split the ~994-line `expressload()` into a thin
+dispatcher plus `_build_single_output_seg()` and `_build_multiseg_output()`,
+gate-stdout byte-identical.  R10 (opt-in assembly cache) is the last open
+packet.  Keep this guide as the spec the landed commits were reviewed
+against.
 
 ---
 
@@ -285,7 +285,7 @@ PR: mechanically update the 8+8+3+2 call sites, leaving `link.link()` alone
 (it's the fixtures' `"link": true` oracle — renaming it would dirty blessed
 fixture metadata for no gain). ~1 day + review.
 
-### R9. Decompose `expressload()` (PARTIAL — re-scoped 2026-07-19)
+### R9. Decompose `expressload()` (DONE — commit e2126dd)
 
 Original packet: extract the directory-segment per-table builders and split
 `expressload()` before the multi-segment packaging feature.  The first half
@@ -293,12 +293,18 @@ landed with E0 (`_het_entries`, `_seg_conversion_table`, `_seg_header_block`,
 `_pathname_block` are extracted, golden layout offsets in docstrings,
 cross-referenced to `docs/design/expressload.md`).  The warned-about second
 half then happened anyway: the E1/E2 multi-segment packaging feature grew
-`expressload()` to ~940 lines (single-segment path + multiseg group path +
-standalone/case-B/SUPER emission inline).  REMAINING WORK: split
-`expressload()` into the single-segment and multiseg-group pipelines and
-extract the reloc-dictionary emission stages, same zero-drift discipline —
-the E2e "six golden rules" comments must move verbatim with their code.
-~2 days, senior review.
+`expressload()` to ~994 lines (single-segment path + multiseg group path +
+standalone/case-B/SUPER emission inline).
+
+The remaining half landed in commit e2126dd: `expressload()` is now a thin
+dispatcher (opts parse -> place -> symtab -> dispatch) over two extracted
+builders — `_build_single_output_seg()` (the single-segment path, carrying
+its Passes 3/4 body-build) and `_build_multiseg_output()` (the multiseg-group
+path with cross-group reloc classification, `~JumpTable` generation, and the
+injected `seg_images`/`reloc_dicts` path).  The multiseg body (725 lines) was
+a verbatim move; the "six golden rules" reloc comments moved verbatim with
+their code.  Verified gate-stdout byte-identical + buildrom byte-identical +
+fixtures 62/62.
 
 ### R10. Opt-in assembly cache for the gate's inner loop
 
@@ -366,7 +372,7 @@ behavior, not style.
 | 6 | R8 link.py utils → omf | med | 1d |
 | 7 | R6 dispatch split | med | 2d |
 | 8 | R7 define_label predicates | med | 1-2d |
-| 9 | R9 expressload decomposition (remaining half) | med | 2d |
+| 9 | R9 expressload decomposition (remaining half) | med | ✅ e2126dd |
 | 10 | R10 assembly cache | med (opt-in) | 1d |
 
 Each packet independently shippable; stop anywhere.  (R9's "land before the
