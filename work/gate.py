@@ -80,6 +80,14 @@ CHECKS = [
          r'PASS EasyMount resource fork: built=(\d+)B', 'count'),
         ('rez_easymount_data_bytes_exact',
          r'PASS EasyMount data fork: built=(\d+)B', 'count')]),
+    # E1: System 6.0.1 single-segment ExpressLoad files whose code image was
+    # already byte-exact but whose ~ExpressLoad wrapper/reloc-dict differed —
+    # Start (Disk 1, loadfile_name LOADNAME), QuickLogoff (Disk 4, null reloc
+    # pointer), Tool038/MediaCtlTool (Disk 4, net-zero-weight same-segment
+    # label differences).  See work/expressloadcheck.py.
+    ('expressloadcheck', ['expressloadcheck.py'], [
+        ('expressload_sys601_bytes_exact',
+         r'EXPRESSLOAD_SYS601_BYTES_EXACT (\d+)/(\d+)', 'frac')]),
     # Rez tier-1 CDEV forks (clean-room include; rCDEVCode extraction-fed —
     # see work/cdevcheck.py's docstring for exactly what this proves).
     ('cdevcheck', ['cdevcheck.py'], [

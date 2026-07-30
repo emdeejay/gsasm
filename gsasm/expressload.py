@@ -322,6 +322,69 @@ def _has_sym_ref(ops: list) -> bool:
     return any(isinstance(op, tuple) and op[0].startswith('sym') for op in ops)
 
 
+def _reloc_weight(ops: list) -> int | None:
+    """Net segment-relocation weight of an OMF expression op-list.
+
+    Each relocatable label reference contributes +1; a constant contributes 0.
+    ADD combines the two operands' weights, SUB subtracts them, and a shift
+    (SHL/`>>`) leaves the shifted value's weight unchanged.  The result is the
+    net number of segment biases the loader would add at load time:
+
+      * weight == 1  -> an ordinary relocation (the common case).
+      * weight == 0  -> a link-time CONSTANT such as a same-segment
+                        ``End-Start`` difference (both labels relocate by the
+                        same bias, which cancels) — it needs NO relocation
+                        record.  MPW LinkIIGS/ExpressLoad emits no reloc here;
+                        we must not either (Tool038/MediaCtlTool's per-message
+                        length words ``EndMsg-Msg`` were the falsifying case).
+
+    Returns ``None`` when the expression uses an operator we do not model, so
+    the caller falls back to the conservative ``_has_sym_ref`` behaviour and
+    keeps emitting the relocation (never drops one it is unsure about).
+    """
+    stack: list[int] = []
+    for op in ops:
+        if op == 'end':
+            break
+        if not isinstance(op, tuple):
+            return None
+        tag = op[0]
+        if tag.startswith('sym'):
+            stack.append(1)
+        elif tag == 'lit':
+            stack.append(0)
+        elif tag == 'op':
+            o = op[1]
+            if o in (1, 2):          # ADD / SUB
+                if len(stack) < 2:
+                    return None
+                b = stack.pop(); a = stack.pop()
+                stack.append(a + b if o == 1 else a - b)
+            elif o == 7:             # SHL (the >>N / <<N shift encoding)
+                if len(stack) < 2:
+                    return None
+                stack.pop()          # shift amount (weight 0); value weight rides
+            else:
+                return None          # unmodelled operator -> stay conservative
+        else:
+            return None
+    if len(stack) != 1:
+        return None
+    return stack[0]
+
+
+def _needs_reloc(ops: list) -> bool:
+    """True iff *ops* requires a load-time relocation record.
+
+    A pure literal (no symbol) never does.  An expression whose net
+    relocation weight is exactly 0 (a same-segment label difference) is a
+    link-time constant and does not either.  Everything else does.
+    """
+    if not _has_sym_ref(ops):
+        return False
+    return _reloc_weight(ops) != 0
+
+
 def _addend_of(ops: list) -> int:
     """The constant addend ADDed to the symbol in *ops* (0 if none).
 
@@ -379,7 +442,7 @@ def _scan_relocs(
             elif nm in ('LEXPR', 'BEXPR', 'EXPR'):
                 size = d[0]
                 ops  = d[1]
-                if _has_sym_ref(ops):
+                if _needs_reloc(ops):
                     shift = _get_shift(ops)
                     stype = _SUPER_TYPE.get((size, shift))
                     if stype is not None and (size, shift) in super_classes:
@@ -430,7 +493,7 @@ def _scan_standalone_relocs(
             elif nm in ('LEXPR', 'BEXPR', 'EXPR'):
                 size = d[0]
                 ops = d[1]
-                if _has_sym_ref(ops):
+                if _needs_reloc(ops):
                     shift = _get_shift(ops)
                     if ((size, shift) not in _SUPER_TYPE
                             or (size, shift) not in super_classes):
@@ -855,8 +918,13 @@ def _het_single_entry(seg_info: dict, seg_file_offset: int) -> bytes:
     dispname = h.get('DISPNAME', 44)
 
     code_start  = foff + dispdata + 5
-    reloc_start = code_start + length
     reloc_size  = seg_info.get('reloc_size', 0)
+    # A segment with NO relocation dictionary carries a NULL reloc pointer
+    # (gold sets reloc_start = 0, not code_start+length).  Every reloc-bearing
+    # single-segment tool keeps the code_start+length value (proven byte-exact);
+    # QuickLogoff is the first zero-reloc single-segment ExpressLoad file and
+    # pins reloc_start = 0 when reloc_size == 0.
+    reloc_start = (code_start + length) if reloc_size else 0
 
     entry = bytearray(68)
     entry[0] = 0x0a                              # entry_ptr lo byte (ptr=10)
