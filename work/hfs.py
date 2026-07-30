@@ -3,8 +3,13 @@
 import struct, sys, os
 
 class HFS:
-    def __init__(self, path):
-        self.img = open(path, 'rb').read()
+    def __init__(self, path=None, data=None):
+        img = data if data is not None else open(path, 'rb').read()
+        # Accept a .2mg-wrapped image (Disk 7 net-boot): strip the 64-byte
+        # 2IMG header so the HFS MDB lands at offset 1024 as the reader expects.
+        if img[:4] == b'2IMG':
+            img = img[64:]
+        self.img = img
         b = self.img
         assert b[1024:1026] == b'BD', "not HFS standard"
         self.alBlkSiz = struct.unpack('>I', b[1024+20:1024+24])[0]

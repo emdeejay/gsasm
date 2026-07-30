@@ -31,6 +31,16 @@ green **and** the 5 builder-correctness metrics satisfied for all 7 disks —
 > completion gate; states must distinguish built from buildable; the census JSON
 > must be validated against live enumeration first; HFS is more than a wrapper.
 
+> **STATUS: P0a/P0b/P0c/P0d-1 DONE** — `work/diskmanifest.py` (fork-level states
+> from the census, Disk-2 builders merged) + `work/manifestcheck.py` (live-vs-
+> manifest validation across all 7 disks incl. HFS Disk 7 + the 5 metrics) +
+> `work/hfs.py` reads the 2mg-wrapped Disk 7. Wired into `gate.py --full` with
+> baselines: `inventory_classified 7/7`, `substitutes_confirmed 193/193`,
+> `builders_wired 37/162`, `builders_exact 37/162`, `physical_exact 1/7`.
+> `disk_logical_exact 39/39` unchanged (Disk-2 gate untouched — built alongside,
+> not refactored). **P0d-2 (HFS overlay writer) deferred to P5** (per plan: the
+> ProDOS track must not block on it; Disk 7 lands in P5).
+
 **P0a — ProDOS manifest model + structured result.** Generalize `diskcheck`'s
 implicit Disk-2 registry (`SOURCE_BUILDERS`/`REZ_BUILDERS`) into
 `work/diskmanifest/` — one module per disk exposing **fork/payload-level** owners:
@@ -123,7 +133,7 @@ at 100%; `builder` = disks fully builder-exact.
 
 | Phase | Disks / batch | Steps | Acceptance (phys / builder) |
 |-------|---------------|-------|------------|
-| **P0** | infra | §1 P0a–d | 5 metrics wired+baselined; Disk 2 phys 100%; `oos:0` all 7 |
+| **P0** | infra | §1 P0a–d1 | ✅ **DONE** — 5 metrics wired+baselined; Disk 2 unchanged; `oos:0` all 7 (P0d-2 HFS writer → P5) |
 | **P2** | 1,3,4 | wire 104 built forks (§2) | builders-wired/exact climb to expected-built |
 | **P3** | 5 Fonts, 6 synthLAB | subs + `Tool035` + `Read.Me` | phys **3/7** (2,5,6); builder 3/7 |
 | **P4a** | 3,4 drivers | 17 via drivercheck pattern | 17 drivers logical-exact |

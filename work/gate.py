@@ -145,6 +145,21 @@ CHECKS = [
 FULL_CHECKS = [
     ('diskcheck', ['diskcheck.py'], [
         ('disk_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac')]),
+    # P0: the 7-disk completion scoreboard (work/manifestcheck.py).  These are
+    # the builder-correctness metrics from docs/SOW_COMPLETION.md §2 — physical
+    # match alone is NOT the gate (a golden-carry disk is trivially 100%).
+    # RATCHET metrics: they climb through SOW phases P2-P7 as builders wire.
+    ('manifestcheck', ['manifestcheck.py'], [
+        ('manifest_inventory_classified',
+         r'manifest_inventory_classified good=(\d+) bad=(\d+)', 'okbad'),
+        ('manifest_substitutes_confirmed',
+         r'manifest_substitutes_confirmed good=(\d+) bad=(\d+)', 'okbad'),
+        ('manifest_builders_wired',
+         r'manifest_builders_wired (\d+)/(\d+)', 'frac'),
+        ('manifest_builders_exact',
+         r'manifest_builders_exact (\d+)/(\d+)', 'frac'),
+        ('manifest_physical_exact',
+         r'manifest_physical_exact good=(\d+) bad=(\d+)', 'okbad')]),
 ]
 
 
