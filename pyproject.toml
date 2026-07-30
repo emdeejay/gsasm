@@ -35,3 +35,12 @@ Repository = "https://github.com/emdeejay/gsasm"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gsasm"]
+
+[tool.hatch.build.targets.sdist]
+# Never ship copyrighted reference material or scratch disk images in the
+# source distribution. `ref/` is gitignored; `tmp/` (Apple System 6 .po disk
+# images + PDFs) is tracked but must NOT be distributed — see .gitignore:24.
+exclude = [
+    "/tmp",
+    "/Users",
+]
