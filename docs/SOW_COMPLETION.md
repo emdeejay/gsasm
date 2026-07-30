@@ -32,7 +32,7 @@ The canonical target set (`ref/GSOS_6/System601_disks/System 6.0.1/`):
 | 4 | SystemTools2 | not reconstructed | Teach rsrc; AppleShare/FolderPriv/Namer/NetPrinter/Network/MediaControl CDEVs; Pioneer2000/EasyAccess/Pioneer4200 data; MediaControl/VideoMix/Pioneer4200 rsrc |
 | 5 | Fonts | not reconstructed | Apple.Bowl rsrc (mostly bitmap fonts → substitutes) |
 | 6 | synthLAB | not reconstructed | NoteSeq + VideoMix tools; MIDI CDEV |
-| 7 | Apple II Setup | not reconstructed | (8-bit / P8 setup files — uncensused) |
+| 7 | Apple II Setup | not reconstructed | **HFS net-boot disk** (not ProDOS — see A.2); Basic.System, p8, ProDOS16 boot blocks/image |
 
 So the honest current claim is *"Disk 2 reconstructed whole-image; on the other
 six disks a scattered set of file forks is proven, but the disks themselves are
@@ -70,9 +70,12 @@ inside a 100% image). Completion is not "everything is source-built"; it is
 - **Tier D — Capstone:** self-hosting (`gsasm816` assembles gsasm; fixed-point proof).
 
 ### Explicit non-goals (permanent, documented)
-Pascal/C-compiled code & data forks; `MountImage.r` resource fork (no oracle);
-static runtime data with no producing source; localized disks under Tier A.
-Each such file is a **substitute**, never an `oos`.
+Pascal/C-compiled code & data forks (the **8 enumerated files in A.4** — Teach,
+FindFile, Calculator, ADU, MediaControl, VideoMix, Apple.Bowl, CLOCK.PATCH; their
+resource forks *are* byte-exact); the extraction-fed CDEV `rCDEVCode` payloads
+(A.5); `MountImage.r` resource fork (no oracle); static runtime data with no
+producing source; localized disks under Tier A. Each such file is a
+**substitute**, never an `oos`.
 
 ---
 
@@ -158,22 +161,25 @@ rough wall-clock of automated sessions, not human days.
 
 | Phase | Goal | Automation | Human gate | Acceptance |
 |-------|------|------------|------------|------------|
-| **P0** | W1 infra: per-disk manifest + `disk_physical_exact` gate metric over 7 disks | scripted (mechanical) | review the metric wiring | gate green; Disk 2 still 100% |
-| **P1** | Census all 7 disks; produce `diskmanifest/*` skeletons with every file classified | 7 parallel census agents (a2til walk + source-search per file) | confirm the substitute list per disk | every file classified; 0 unknown |
-| **P2** | Wire all **already-proven** forks into their disk manifests (Finder, CDEVs, Installer, Teach, app/misc forks) | mechanical wiring agent per disk | — | those files flip to byte-exact on their disks |
-| **P3** | Disk 5 (Fonts) to 100% — expected mostly substitutes + a few forks | one loop pass | confirm font files are genuinely no-source | Disk 5 100% physical, oos:0 |
-| **P4** | Disks 3 & 4 (SystemTools1/2) to 100% — many forks done, wire remainder + CRACK unknowns | per-disk loop + CRACK workflows for new files | confirm substitutes | Disks 3,4 100% |
-| **P5** | Disk 1 (Install) & Disk 7 (Apple II Setup) to 100% — 8-bit/P8-heavy, more unknowns | per-disk loop + CRACK | confirm substitutes / non-targets | Disks 1,7 100% |
-| **P6** | Disk 6 (synthLAB) to 100% — tools done; synthLAB app likely Pascal/C non-target | per-disk loop | confirm non-target code forks | Disk 6 100% |
-| **P7** | W3 residuals: retry `Tool.Setup` case-B via CRACK; finalize the one documented exception | CRACK workflow | accept exception if it resists | Tool.Setup byte-exact OR documented |
+| **P0** | W1 infra: per-disk manifest + `disk_physical_exact` gate metric over 7 disks; **incl. an HFS whole-image overlay path for Disk 7** (see A.2) | scripted (mechanical) | review the metric wiring | gate green; Disk 2 still 100% |
+| **P1** | ✅ **DONE** — evidence-based census (Appendix A): 355 files classified, 57 buildable, 8 Pascal/C, 183 substitute, 2 needs-investigation | (workflow wf_986133b2-1c2) | confirm substitute lists | every file classified; 0 unknown |
+| **P2** | Wire all **already-proven** forks into their disk manifests (105 built files: Finder, 19 CDEVs, Installer, Teach, drivers, FSTs, kernel, app/misc forks) | mechanical wiring agent per disk | — | those files flip to byte-exact on their disks |
+| **P3** | Disks 5 (Fonts) & 6 (synthLAB) to 100% — data disks, ~28/30 and ~23/25 substitute + 1 buildable each (A.3) | one loop pass | confirm the data files are genuinely no-source | Disks 5,6 100% physical, oos:0 |
+| **P4** | Disks 1, 3, 4 to 100% — wire the ~48 buildable files; **most are new instances of proven builder types** (printer/AppleTalk/MIDI drivers, Tool025/029/032/038, Printer/Slots/Time CDEVs, 12 Sound rez) | per-disk loop; CRACK only for genuinely-new dialects | confirm substitutes + the 8 Pascal/C non-targets (A.4) | Disks 1,3,4 100% |
+| **P5** | Disk 7 (Apple II Setup) to 100% — **HFS net-boot disk** (A.2); 7 buildable (Basic.System, p8, ProDOS16 boot blocks + image, IWEm), 5 substitute | HFS overlay loop + CRACK for boot infra | confirm substitutes | Disk 7 100% |
+| **P6** | needs-investigation (A.6): resolve `/Install/System/Start` (SetStart launcher) and `A2.RAMCard` (slinky.aii) | investigation agents | classification decision | both classified |
+| **P7** | W3 residual: retry `Tool.Setup` case-B via CRACK; finalize the one documented exception | CRACK workflow | accept exception if it resists | Tool.Setup byte-exact OR documented |
 | **P8** | **Tier A COMPLETE**: `disk_physical_exact` 7/7, tag a release | scripted | approve release (outward-facing) | all 7 disks 100%, oos:0 |
 | **P9** | Tier C: R10 assembly cache + deep-dive D1 (`_common.py`), D5 (asm internals) | gate-identical refactor commits | review each packet | gate byte-identical each step |
 | **P10** | Tier C: deep-dive D3 (multiseg phase-split), D4 (OMF classifier) — the high-risk structural pieces | supervised, byte-identity-gated | review | gate byte-identical; **Tier A+C COMPLETE** |
 
-**Sequencing rationale:** P3 (Fonts) first as the cheapest whole-disk win to
-validate the P0/P1 machinery end-to-end before the harder disks; then the
-fork-rich disks (P4); then the unknown-heavy 8-bit disks (P5); synthLAB (P6)
-last because its app is the likeliest large non-target.
+**Sequencing rationale (evidence-driven, per Appendix A):** P3 (Fonts + synthLAB)
+first — both are ~90% no-source data, so they validate the P0 machinery for near
+pennies. Then P4 (Disks 1/3/4), where the ~48 buildable files are mostly new
+instances of already-proven builder types (drivers, tools, CDEVs, Sound rez), so
+the CRACK workflow is rarely needed. Disk 7 (P5) is deliberately last: it's the
+one genuinely-different image (HFS net-boot, needs the new overlay path + boot
+infrastructure).
 
 ---
 
@@ -201,4 +207,90 @@ last because its app is the likeliest large non-target.
    the documented exception.
 
 **Next action:** P0 (per-disk manifest infra + `disk_physical_exact` gate metric
-over 7 disks) — mechanical, one supervised session. Then P1 census.
+over 7 disks). **P1 census is DONE** — see Appendix A (evidence-based, not
+inference).
+
+---
+
+## Appendix A — Evidence-based census (2026-07-30)
+
+Method: deterministic 7-disk file enumeration (a2til / `work/hfs.py`) + a 6-agent
+parallel classification pass, each file grep-verified against the source trees
+and the `work/*check.py` harnesses, with adversarial "no-source" checks. Raw
+data: workflow `wf_986133b2-1c2`. This **supersedes** the inferences elsewhere
+in this doc (notably the synthLAB and Pascal/C guesses).
+
+### A.1 Classification — all 7 disks (354 files)
+
+| Disk | files | built | buildable | Pascal/C | no-source sub | needs-invest |
+|------|------:|------:|----------:|---------:|--------------:|-------------:|
+| 1 Install | 97 | 33 | 3 | 0 | 60 | 1 |
+| 2 System Disk *(done)* | 50 | 38 | 0 | 0 | 12 | 0 |
+| 3 SystemTools1 | 79 | 19 | 15 | 3 | 41 | 1 |
+| 4 SystemTools2 | 62 | 14 | 30 | 4 | 14 | 0 |
+| 5 Fonts | 30 | 0 | 1 | 1 | 28 | 0 |
+| 6 synthLAB | 25 | 1 | 1 | 0 | 23 | 0 |
+| 7 Apple II Setup | 12 | 0 | 7 | 0 | 5 | 0 |
+| **TOTAL** | **355** | **105** | **57** | **8** | **183** | **2** |
+
+**The remaining reproduction work is 57 buildable files** — and most are new
+*instances of already-proven builder types*: printer/AppleTalk/MIDI drivers (the
+driver builder already proves 12), Tool025/029/032/035/038 (the tool builder
+proves 14), the Printer/Slots/Time CDEVs and 12 Sound resources (the Rez
+pipeline proves 19 CDEVs + Sys.Resources). So P4 is largely "point the existing
+builder at more of the same," not new dialect cracking.
+
+### A.2 Correction: Disk 7 is HFS-inside-2IMG, not ProDOS
+
+The a2til parse failure was a **filesystem misdiagnosis**: `Disk 7 of 7 Apple II
+Setup.2mg` is a valid 800K ProDOS-order 2IMG whose **contents are HFS** (Mac
+filesystem — MDB `BD` at image offset 1088), built on a Mac via MPW; it is the
+AppleShare **net-boot** disk (recipe `GS.OS/NetBoot/Makefile`). Read with
+`work/hfs.py` after stripping the 64-byte header (12 files, 2 dirs). **P0 infra
+must add an HFS whole-image overlay path** — `diskcheck.check` currently assumes
+a ProDOS `Volume`. This is the one genuinely-different disk.
+
+### A.3 Correction: synthLAB & Fonts are data disks, not Pascal/C
+
+- **synthLAB (Disk 6):** 23/25 files are no-source data (`.bnk`/`.seq`/`.wav`
+  instrument/sequence/waveform data, icons, Finder.Data) → substitutes; the
+  `synthLAB` app binary has **no source in any tree** (third-party Bogas
+  Productions app, copied in by the build, not compiled) → substitute; only
+  `Tool035` (MIDISynth, 65816 asm) is buildable. **Zero Pascal/C.**
+- **Fonts (Disk 5):** 28/30 no-source (bitmap fonts, Finder.Data) → substitutes;
+  Apple.Bowl (rsrc built, code is BASIC-compiled-by-a-Pascal-tool). Trivial disk.
+
+### A.4 Pascal/C non-targets — the true set (8 files, evidence-cited)
+
+Note: `.pii` (Pascal IIgs) is the real extension — an earlier `.p`-only grep
+undercounted. For every one, the **resource fork is already byte-exact**; only
+the compiled code/data fork is the non-target substitute.
+
+| File | Disk | Lang | rsrc status |
+|------|------|------|-------------|
+| Teach | 4 | Pascal | rsrc ✅ (teachcheck) |
+| FindFile (DA) | 3 | Pascal | rsrc ✅ (rezforkcheck) |
+| Calculator (GSCalc NDA) | 3 | Pascal (`.pii`) | — |
+| Adv.Disk.Util (ADU, 11 `.pii`) | 3 | Pascal | rsrc ✅ |
+| MediaControl (NDA) | 4 | Pascal | rsrc ✅ (rezforkcheck) |
+| VideoMix (NDA) | 4 | Pascal | rsrc ✅ (rezforkcheck) |
+| Apple.Bowl | 5 | BASIC/asm | rsrc ✅ (rezforkcheck) |
+| CLOCK.PATCH | 4 | Applesoft (no source) | — → really a no-source substitute |
+
+### A.5 Honesty caveat surfaced by the census
+
+The "built" CDEVs (General/Printer/RAM/Slots/Time/SetStart/…) have their
+**resource fork byte-exact from source**, but the embedded `rCDEVCode` code
+resource is **extraction-fed from gold**, not source-assembled (the Pascal/C
+wall again). The Rez *shell* is proven; the compiled code payload inside is a
+substitute. The completion accounting must count these as "rsrc-built,
+code-substituted," not fully source-built.
+
+### A.6 needs-investigation (2 — human decision)
+
+- `/Install/System/Start` (Disk 1) — a 565 B ExpressLoad'd launcher named
+  `SetStart` (SetStart-CDEV-generated), **not** the Finder (unlike the System
+  Disk's `Start`). Decide: is there a source path, or substitute?
+- `/SystemTools1/System/Drivers/A2.RAMCard` (Disk 3) — `slinky.aii` source
+  exists in `GS.OS/Drivers/Slinky` but drivercheck doesn't wire it. Likely
+  buildable; confirm.

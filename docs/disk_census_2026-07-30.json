@@ -1,0 +1,3076 @@
+{
+ "generated": "2026-07-30",
+ "workflow": "wf_986133b2-1c2",
+ "disks": {
+  "Disk 1 of 7 Install.2mg": {
+   "notes": "METHOD: Not opinion \u2014 I extracted every candidate from Disk 1 with cadius and byte-compared (cmp) against the project's proven gold binaries (ref/GSOS_6/{driver_bin,fst_bin,tool_bin,os_bin}) and against the System Disk (Disk 2) copies. All 33 'built' files are cmp-IDENTICAL to a binary a harness already gates byte-exact.\n\nBUILT (33): ProDOS, GS.OS, Start.GS.OS, GS.OS.Dev, Error.Msg, P8 (kernel/p8check/probootcheck); Pro.FST, Char.FST (fstcheck); 6 drivers AppleDisk3.5/AppleDisk5.25/SCSI.Manager/SCSIHD.Driver/Console.Driver/UniDisk3.5 (drivercheck \u2014 SCSIHD & UniDisk gold are LITERALLY extracted from this Install disk); TS2, TS3, Resource.Mgr (diskbuilders, diskcheck 39/39); Sys.Resources (rezbuildcheck, fully source-built rsrc, 0-byte data fork); 12 tools 014/015/016/018/019/020/021/022/023/027/028/034 (toolcheck); plus 3 CDEVs SetStart/General/RAM (cdevcheck).\n\n*** HUMAN-DECISION FLAG on the 3 CDEVs (SetStart, General, RAM) ***: cdevcheck proves the Rez LAYER byte-exact, but the `read rCDEVCode` code resource inside each is EXTRACTION-FED from the golden fork (copied, NOT source-assembled \u2014 the CDEVs are Pascal-built, a documented 'non-reproducible wall'). They have 0-byte data forks so the whole file is the proven rsrc fork, hence 'built' per the harness-gate rule \u2014 but the compiled code payload is not independently reproduced from source. If the census's bar is 'reproduced FROM SOURCE', these three are partial.\n\nBUILDABLE-ASM (3), all have ASM source but are NOT yet byte-exact:\n - Tool.Setup: the single deliberately-UNWIRED ExpressLoad residual (case-B converter wall, per expressload_files.py/kernel_setup.py). ASM toolset bundle like TS2/TS3.\n - Installer: 17,895B rsrc fork IS byte-exact (installercheck); the HARDEST part is the 56,163B DATA fork (S16 app) \u2014 ASM sources+MakeFile present at A.U.G/Installer, not built.\n - ControlPanel (Desk.Accs): 1,238B rsrc fork proven (cdevcheck); HARDEST part is the 15,110B DATA fork (NDA code) \u2014 ASM source A.U.G/CtlPanel/CtlPanelNDA/{CtlPanel.aii,cbp.aii,makefile}, not built.\n\nNEEDS-INVESTIGATION (1): /Install/System/Start (565B) \u2014 NOT the Finder; a SetStart-CDEV-GENERATED, parameterized ExpressLoad launcher (embeds ':Install:Installer' from SetStart.data). SetStart runtime is mixed Pascal+asm; the reproduction path for the generated stub is unproven and untargeted.\n\nNO-SOURCE-SUBSTITUTE (60): 50 Installer SCRIPT-format text data files, 5 Finder.Data desktop-DBs, CDev.Data, Font.Lists, FastFont, SetStart.data, FType.Apple. SURPRISE / good news: this is DATA, not a wall \u2014 the archive ships VERBATIM byte-identical copies of most substitutes: A.U.G/InstallerScripts/ holds the Installer scripts (sampled 9/11 cmp-identical; the 2 'misses' are filename remaps like Teach->TeachGS, Calculator->GSCalc.NDA, FindFile->Find.File.NDA), and SD.ODDS.N.Ends holds byte-identical SetStart.data and FType.Apple. So ~57 of the 60 substitutes are reproducible by verbatim copy from the source tree; only FastFont, Font.Lists, CDev.Data, and the runtime-generated Finder.Data files have no in-tree copy.\n\nWHOLE-DISK PICTURE: Build.Install (SD.ODDS.N.Ends/APW.Scripts) confirms the Install disk is assembled purely by DUPLICATing already-built files from a source volume \u2014 the same binaries as the System Disk build \u2014 which is exactly why every 'built' file here is cmp-identical to the proven System-Disk/gold copies. Nothing on this disk needs NEW assembler work except the Tool.Setup case-B wall and the two application code forks (Installer, ControlPanel) whose ASM sources already exist.",
+   "files": [
+    {
+     "path": "/Install/ProDOS",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/.../Boot/ProBoot.src",
+     "proven_by": "probootcheck",
+     "evidence": "Disk1 copy (1668B) cmp-identical to proven gold ref/GSOS_6/os_bin/ProDOS#FF0000; gated by probootcheck.build_prodos (diskcheck SOURCE_BUILDERS, 1668/1668).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Start.GS.OS",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS (SCM scm.bin.8..11)",
+     "proven_by": "kernelcheck",
+     "evidence": "Disk1 copy (13169B) cmp-identical to gold ref/GSOS_6/os_bin/Start.GS.OS#F90001; kernelcheck + diskcheck kernel_setup builder (logical-exact).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/GS.OS",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/OS",
+     "proven_by": "kernelcheck",
+     "evidence": "Disk1 copy (55395B) cmp-identical to gold ref/GSOS_6/os_bin/GS.OS#F90000; kernelcheck kernel_bytes + diskcheck kernel_os builder.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Error.Msg",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS (english.obj)",
+     "proven_by": "kernelcheck",
+     "evidence": "Disk1 copy (5472B) cmp-identical to gold ref/GSOS_6/os_bin/Error.Msg#BC0000; diskcheck kernel_setup builder (logical-exact).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/GS.OS.Dev",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS (NewDispatcher.src)",
+     "proven_by": "diskcheck",
+     "evidence": "Disk1 copy (2388B) cmp-identical to System-Disk copy; built by diskbuilders/kernel_os.py, in diskcheck logical-exact 39/39.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/FSTs/Pro.FST",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/FSTs/ProDOS/ProDOS.FST",
+     "proven_by": "fstcheck",
+     "evidence": "Disk1 copy (25581B) cmp-identical to gold ref/GSOS_6/fst_bin/Pro.FST#BD0000; fstcheck fst_bytes.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/FSTs/Char.FST",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/FSTs/Character/Character.FST",
+     "proven_by": "fstcheck",
+     "evidence": "Disk1 copy (1910B) cmp-identical to gold ref/GSOS_6/fst_bin/Char.FST#BD0000; fstcheck fst_bytes.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Drivers/AppleDisk3.5",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/AppleDisk3.5/AD3.5.src",
+     "proven_by": "drivercheck",
+     "evidence": "Disk1 copy (7810B) cmp-identical to gold ref/GSOS_6/driver_bin/AppleDisk3.5#BB0108; drivercheck driver_bytes.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Drivers/AppleDisk5.25",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/AppleDisk5.25/AppleDisk5.25.src",
+     "proven_by": "drivercheck",
+     "evidence": "Disk1 copy (6754B) cmp-identical to gold driver_bin/AppleDisk5.25#BB010E; drivercheck.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Drivers/SCSI.Manager",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/SupervisoryDrivers/SCSI.Manager(1meg)",
+     "proven_by": "drivercheck",
+     "evidence": "Disk1 copy (10150B) cmp-identical to gold driver_bin/SCSI.Manager#BB0140; drivercheck driver_bytes.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Drivers/SCSIHD.Driver",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/SCSI.Drivers (13 srcs, -d type=0)",
+     "proven_by": "drivercheck",
+     "evidence": "Disk1 copy (17344B) cmp-identical to gold driver_bin/SCSIHD.Driver#BB013F (gold is literally extracted from THIS disk per drivercheck header); drivercheck.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Drivers/Console.Driver",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/Console.Driver/Console.aii+New.DRI.Patch",
+     "proven_by": "drivercheck",
+     "evidence": "Disk1 copy (7538B) cmp-identical to gold driver_bin/Console.Driver#BB0101; drivercheck.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Drivers/UniDisk3.5",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/UniDisk3.5/UniDisk3.5.src",
+     "proven_by": "drivercheck",
+     "evidence": "Disk1 copy (2173B) cmp-identical to gold driver_bin/UniDisk3.5#BB0104 (gold extracted from THIS disk per drivercheck); drivercheck.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/System.Setup/Tool.Setup",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS toolset-bundle objects (same family as TS2/TS3)",
+     "proven_by": null,
+     "evidence": "ASM toolset bundle. NOT yet byte-exact: the one deliberately-unwired ExpressLoad residual (case-B converter wall) per diskbuilders/expressload_files.py + kernel_setup.py docstrings. Disk1 copy (19232B) cmp-identical to System-Disk copy, which diskcheck leaves un-overlaid (no builder wired).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/System.Setup/TS2",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS toolset objects (diskbuilders/toolsets.py)",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (36665B) cmp-identical to System-Disk copy; built byte-exact by diskbuilders/toolsets.py (TS2 36665/36665), counted in tool_bytes + diskcheck 39/39.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/System.Setup/TS3",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS toolset objects (diskbuilders/toolsets.py)",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (41700B) cmp-identical to System-Disk copy; built byte-exact by toolsets.py (TS3 41700/41700), tool_bytes + diskcheck 39/39.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/System.Setup/Resource.Mgr",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/ResourceMgr",
+     "proven_by": "diskcheck",
+     "evidence": "Disk1 copy (11798B) cmp-identical to System-Disk copy; built by diskbuilders/expressload_files.py _build_resource_mgr, diskcheck logical-exact 39/39.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/System.Setup/Sys.Resources",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "clean-room Rez pipeline (M7 flagship)",
+     "proven_by": "rezbuildcheck",
+     "evidence": "Data fork is 0 bytes; whole 24337B resource fork built byte-exact FROM SOURCE by rezbuildcheck (rez_sysresources_bytes_exact 24337). Disk1 rsrc cmp-identical to System-Disk rsrc.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/CDevs/SetStart",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SetStartCDEV/SetStart.r",
+     "proven_by": "cdevcheck",
+     "evidence": "Data fork 0B; 6173B rsrc fork emitted byte-exact by cdevcheck (uses THIS disk copy as gold, D1). CAVEAT: the read rCDEVCode code resource is EXTRACTION-FED from gold, not source-assembled (Rez layer proven, not the CDEV's code payload).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/CDevs/General",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/.../GeneralCDEV/General.r",
+     "proven_by": "cdevcheck",
+     "evidence": "Data fork 0B; 4925B rsrc fork byte-exact via cdevcheck (cdev_rsrc_bytes_exact). Disk1 rsrc cmp-identical to System-Disk rsrc. CAVEAT: rCDEVCode extraction-fed from gold (not source-built).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/CDevs/RAM",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/.../RamDiskCDEV/RAMDisk.r",
+     "proven_by": "cdevcheck",
+     "evidence": "Data fork 0B; 3709B rsrc fork byte-exact via cdevcheck. Disk1 rsrc cmp-identical to System-Disk rsrc. CAVEAT: rCDEVCode extraction-fed from gold.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/CDevs/CDev.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary CDEV config data (2079B). Marked SUBSTITUTE in diskcheck manifest ('binary CDEV config data, no ASM source'). Searched IIGS.601.SRC (incl. A.U.G, SD.ODDS.N.Ends): no 'CDev.Data' producing source or verbatim copy present.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Desk.Accs/ControlPanel",
+     "forks": "data+rsrc",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/CtlPanelNDA/{CtlPanel.aii,cbp.aii,makefile}",
+     "proven_by": null,
+     "evidence": "HARDEST part = 15110B DATA fork (the NDA 65816 code), whose ASM source (CtlPanel.aii+cbp.aii+makefile) EXISTS but is NOT built by any harness. Only the 1238B rsrc fork is proven byte-exact (cdevcheck build_cdev('ControlPanel'), extraction-fed code). Disk1 both forks cmp-identical to System-Disk.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Start",
+     "forks": "data",
+     "classification": "needs-investigation",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SetStartCDEV/{SetStart.aii,SetStart.p}",
+     "proven_by": null,
+     "evidence": "565B ExpressLoad'd S16 launcher (segment name 'SetStart'), NOT the Finder. It is a SetStart-CDEV-GENERATED, parameterized launcher (embeds the ':Install:Installer' target from SetStart.data). SetStart runtime source is mixed Pascal (SetStart.p) + asm (SetStart.aii); reproduction path for the generated stub is unproven and no harness targets it.",
+     "confidence": "medium"
+    },
+    {
+     "path": "/Install/System/SetStart.data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/SD.ODDS.N.Ends/SetStart.data",
+     "proven_by": null,
+     "evidence": "20B config (Pascal string ':Install:Installer' + count). No build step, but a BYTE-IDENTICAL verbatim copy exists in the source tree at SD.ODDS.N.Ends/SetStart.data (cmp-identical) \u2014 fully reproducible by copy.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/P8",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/P8/MliSrc.aii + P8.Drivers (make.p8)",
+     "proven_by": "p8check",
+     "evidence": "Disk1 copy (17128B) cmp-identical to gold ref/GSOS_6/os_bin/P8#FF0000; p8check p8_bytes 17128/17128.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Fonts/FastFont",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "28672B BIN font-cache data. Searched IIGS.601.SRC (grep 'fastfont' hits only unrelated GSToolbox/QD FastFontCache toolbox CODE + Build scripts that DUPLICATE the file); no producer and no verbatim copy of this data file. Build.Install duplicates it prebuilt.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Fonts/Font.Lists",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "70B CFG config data. Marked SUBSTITUTE in diskcheck manifest. Searched IIGS.601.SRC: no 'Font.Lists' producing source or verbatim copy.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Tool014",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "GSToolbox/WindMgr (windmgr.asm,task.asm,...)",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (30018B) cmp-identical to gold tool_bin/Tool014#BA0000; toolcheck TOOLMAP['014'] (tool_bytes).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Tool015",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "GSToolbox/MenuMgr (menumgr.asm,wcm.asm + ~JumpTable)",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (18362B) cmp-identical to gold tool_bin/Tool015#BA0000; toolcheck (jt_segments).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Tool016",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "GSToolbox/ControlMgr",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (15696B) cmp-identical to gold tool_bin/Tool016#BA0000; toolcheck (jt_segments).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Tool018",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "GSToolbox/QDAux",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (28874B) cmp-identical to gold tool_bin/Tool018#BA0000; toolcheck (jt_segments).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Tool019",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "GSToolbox/PrintMgr (printmgr.asm,dialogdata.asm)",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (5889B) cmp-identical to gold tool_bin/Tool019#BA0000; toolcheck TOOLMAP['019'].",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Tool020",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "GSToolbox/LineEdit",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (9126B) cmp-identical to gold tool_bin/Tool020#BA0000; toolcheck (jt_segments).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Tool021",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "GSToolbox/DialogMgr (dialog.asm)",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (11933B) cmp-identical to gold tool_bin/Tool021#BA0000; toolcheck TOOLMAP['021'].",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Tool022",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "GSToolbox/Scrap (scrap.asm,common.asm)",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (5916B) cmp-identical to gold tool_bin/Tool022#BA0000; toolcheck TOOLMAP['022'].",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Tool023",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "GSToolbox/StdFile (sfmain.asm,sf.asm)",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (17012B) cmp-identical to gold tool_bin/Tool023#BA0000; toolcheck TOOLMAP['023'].",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Tool027",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "GSToolbox/FontMgr (fm.asm,common.asm,scale.asm)",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (13019B) cmp-identical to gold tool_bin/Tool027#BA0000; toolcheck TOOLMAP['027'].",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Tool028",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "GSToolbox/ListMgr (ListMgr.asm)",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (7655B) cmp-identical to gold tool_bin/Tool028#BA0000; toolcheck TOOLMAP['028'].",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Tool034",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "GSToolbox/TextEdit",
+     "proven_by": "toolcheck",
+     "evidence": "Disk1 copy (38242B) cmp-identical to gold tool_bin/Tool034#BA0000; toolcheck TOOLMAP['034'] (E3 close).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Tools/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop-DB file (246B, type FND). SUBSTITUTE by rule in diskcheck. No source (Finder-generated at runtime).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/System/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop-DB file (260B, type FND). SUBSTITUTE by rule; runtime-generated, no source.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Icons/FType.Apple",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/SD.ODDS.N.Ends/FType.Apple",
+     "proven_by": null,
+     "evidence": "12160B icon data (type FTD). Marked SUBSTITUTE in diskcheck. No build step, but a BYTE-IDENTICAL verbatim copy exists in the source tree at SD.ODDS.N.Ends/FType.Apple (cmp-identical) \u2014 reproducible by copy.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Icons/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop-DB file (63B, type FND). SUBSTITUTE by rule; runtime-generated, no source.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Installer",
+     "forks": "data+rsrc",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/Installer/{Main.asm,Install.asm,Startup.asm,Subroutines.asm,Data.asm,MainSub.asm,MakeFile}",
+     "proven_by": "installercheck (rsrc fork only)",
+     "evidence": "HARDEST part = 56163B DATA fork (the Installer S16 application), whose ASM source + MakeFile EXIST but are NOT built by any harness. Only the 17895B rsrc fork is proven byte-exact (installercheck installer_rsrc_bytes_exact, from THIS disk). So the fork is done; the app code fork is buildable-asm, not yet reproduced.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/A2.RAMCard",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Installer SCRIPT-format text data (magic 'SCRIPT\\rV2.00'). No assembler/rez/compiler produces it; Build.Install DUPLICATEs it verbatim. Verbatim copies of most Scripts exist in A.U.G/InstallerScripts/ (sampled 9/11 byte-identical; 2 are filename remaps).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/RAM5",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/InstallerScripts/RAM5",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Adv.Disk.Util",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/ADV.DISK.UTIL",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Apple.Bowl",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Apple.Bowl",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/Apple.Bowl (cmp-identical). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Apple.MIDI",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/APPLE.MIDI",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/AppleDisk5.25",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/APPLEDISK5.25",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/AppleShare",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/APPLESHARE",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/AppleShare3.5",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/AppleShare3.5",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/AppleShare3.5 (cmp-identical). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Archiver",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/ArchiverGS",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (ArchiverGS). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Aristotle.Patch",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Aristotle.Patch",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/ATImageWriter",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/ATIMAGEWRITER",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/ATImageWriterLQ",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/ATIMAGEWRITERLQ",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Calculator",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data. No producer; A.U.G/InstallerScripts holds the equivalent under a remapped name (GSCalc.NDA). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Card6850.MIDI",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/CARD6850.MIDI",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/CDROM",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/CDROM",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/CDROM (cmp-identical). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/CloseView",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/CloseView.Init",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (CloseView.Init). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/DCImageWriter",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/DCIMAGEWRITER",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/DCImageWriterLQ",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/DCIMAGEWRITERLQ",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/DOS3.3.FST",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/DOS3.3.FST",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Easy.Access",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Easy.Access",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Epson",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/EPSON",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/FindFile",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Find.File.NDA",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; equivalent in A.U.G/InstallerScripts/ (Find.File.NDA). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Fonts",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/FONTS",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Fonts.Max",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Fonts.Max",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Fonts.Max (cmp-identical). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Fonts.Std",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Fonts.Std",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/HFS.FST",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/HFS.FST",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Inst.Sys.Min",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/INST.SYS.MIN",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Inst.SysF.NoFin",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/INST.SYSF.NOFIN",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Instal.Sys.File",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/INSTAL.SYS.FILE",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/INSTAL.SYS.FILE (cmp-identical). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/LaserWriter",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/LASERWRITER",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Local.Net.Boot",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Local.Net.Boot",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Local.Net.Boot (cmp-identical). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/MediaControl",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/MEDIACTRL",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (MEDIACTRL). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/MediaCtrl.CDSC",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/MediaCtrl.CDSC",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/MediaCtrl.P2000",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/MediaCtrl.P2000",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/MediaCtrl.P4200",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/MediaCtrl.P4200",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/MSDOS.FST",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/MSDOS.FST",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Namer",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/NAMER",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/NAMER (cmp-identical). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Pascal.FST",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Pascal.FST",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Quick.Logoff",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Quick.Logoff",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/SCSI.Hard.Disk",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/SCSI.HARD.DISK",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/SCSI.Scanner",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Scanner.Driver (equiv)",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; A.U.G/InstallerScripts holds SCSI-scanner scripts (Scanner.Driver/Scan6.0). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/SCSI.Tape",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Tape.Driver (equiv)",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; A.U.G/InstallerScripts holds SCSI-tape scripts (Tape.Driver/Tape6.0). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Server.Sys.File",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Server.Sys.File",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Server.Sys.File (cmp-identical). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Sounds.All",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/Sounds.All",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/StyleWriter",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/stylewriter",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/synthLAB",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/synthLAB",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Teach",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/TeachGS (equiv)",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data (verified magic 'SCRIPT\\rV2.00'). A.U.G/InstallerScripts holds it under remapped name TeachGS. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/UniDisk3.5",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/UNIDISK3.5",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/VideoKeyboard",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/VideoKeyboard",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/VideoMix",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "A.U.G/InstallerScripts/VIDEOMIX",
+     "proven_by": null,
+     "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/VideoMix (cmp-identical). No build step.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Scripts/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop-DB file (1079B, type FND) inside Scripts dir. SUBSTITUTE by rule; runtime-generated, no source.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Install/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Volume-root Finder desktop-DB file (125B, type FND). SUBSTITUTE by rule; runtime-generated, no source.",
+     "confidence": "high"
+    }
+   ]
+  },
+  "Disk 3 of 7 SystemTools1.2mg": {
+   "notes": "79 files classified. Totals: built 19, buildable-asm 12, buildable-rez 3, pascal-c-nontarget 3, no-source-substitute 41, needs-investigation 1.\n\nBUILT (19, harness-gated byte-exact on the Disk-3 path): Finder (findercheck + finderdatacheck), 5 CDEVs DirectConnect/Keyboard/Modem/Monitor/Sound (cdevcheck), CDRemote NDA (appdatacheck), 5 drivers SCSI.Manager/SCSICD/SCSIScan/SCSITape/RAM5 (drivercheck), 5 FSTs DOS3.3/HFS/HS/Pascal/MSDOS (fstcheck), Tool026/NoteSeq (toolcheck), BASIC.System (basiccheck, which checks the Disk-3 copy explicitly).\n\nBUILDABLE-ASM (12, asm source proven present via GSToolbox/build.tools but NO byte-exact harness yet): 9 drivers (Modem, Parallel.Card, Printer, Epson, ImageWriter, ImageWriter.LQ, StyleWriter, Apple.Midi, Card6850.MIDI \u2014 all from GSToolbox/PrinterDrivers or Midi/Drivers) + 3 tools (Tool025/NoteSynth, Tool029/ACE, Tool032/MIDITools). These are the obvious next unlocks \u2014 pure assembly, source in-tree, just need harness recipes. Note gsasm already carries a 'Tool025 case-collision' fix, so Tool025 assembly is partly exercised.\n\nBUILDABLE-REZ (3): the Printer/Slots/Time CDEVs. Rez sources exist (A.U.G/CtlPanel/{Printer,Slots,Time}CDEV/*.r) and their Disk-2 twins are byte-exact via cdevcheck, but cdevcheck maps these three names to the DISK2 copies only \u2014 the Disk-3 copies are not directly gated. HUMAN DECISION: confirm the D3 copies are byte-identical to the D2 copies (very likely) and add D3 targets to cdevcheck to promote them to built.\n\nPASCAL-C-NONTARGET (3): Calculator (GSCalcNDA.pii, 'Max Pascal'), FindFile (data fork FindFileDA.p is Pascal; its RESOURCE fork IS already byte-exact via rezforkcheck), Adv.Disk.Util (A.U.G/ADU is 11 Pascal .pii files + adu.rii Rez fork). For FindFile and Adv.Disk.Util I picked the classification of the hardest (Pascal code) fork; both have a buildable-rez resource fork.\n\nNO-SOURCE-SUBSTITUTE (41): 32 bitmap fonts + 9 Finder.Data files. Fonts have no producing source in any tree (the only 'font' hits are GSToolbox/QD/font.asm, the QuickDraw renderer, unrelated to the bitmap data; Build.SysTools1 merely Duplicates prebuilt font files). Finder.Data is SUBSTITUTE by rule in diskcheck.py (Finder desktop database).\n\nNEEDS-INVESTIGATION (1): A2.RAMCard (Apple II RAM-card / RamFactor driver). CONFLICT: slinky.aii source exists in GS.OS/Drivers/Slinky, but drivercheck.py explicitly declares '(Slinky not shipped on 6.0.1 disks)' and does not build A2.RAMCard, and no makefile/installer-script maps the name 'A2.RAMCard' to Slinky. Either the drivercheck comment is stale (A2.RAMCard IS Slinky -> buildable-asm) or A2.RAMCard is a different, sourceless driver (-> no-source-substitute). Recommend extracting the golden A2.RAMCard binary and diffing against a Slinky build to resolve.\n\nFork handling: CDEVs and FindFile/Adv.Disk.Util are dual-fork; where the resource fork is buildable/built but the code/data fork is Pascal or gold-fed, I classified by the hardest (blocking) fork and documented the split in each file's evidence/forks. Every non-Finder.Data path on this disk has a producing source located in ref/GSOS_6/IIGS.601.SRC EXCEPT the 32 bitmap fonts and (pending resolution) A2.RAMCard.",
+   "files": [
+    {
+     "path": "/SystemTools1/System/Finder",
+     "forks": "data+rsrc; both forks proven byte-exact",
+     "classification": "built",
+     "language": "rez+asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/Finder/Finder.rez",
+     "proven_by": "findercheck.py",
+     "evidence": "findercheck.py GOLDENS[0]=('Finder (Disk 3)', D3, '/SystemTools1/System/Finder') builds the resource fork byte-exact from A.U.G/Finder/Finder.rez; the ExpressLoad data fork is byte-exact via finderdatacheck (git 0e48cab 'FULL DATA FORK byte-exact 146,924 B').",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/CDevs/DirectConnect",
+     "forks": "data+rsrc; rCDEVCode gold-fed, rest built from .r",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/DirectConnectCDEV",
+     "proven_by": "cdevcheck.py",
+     "evidence": "cdevcheck.py TARGETS 'DirectConnect': (D3, '/SystemTools1/System/CDevs/DirectConnect', ...) \u2014 resource fork byte-exact (memory: 19/19 CDEVs).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/CDevs/Keyboard",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/KeyboardCDEV/Keyboard.r",
+     "proven_by": "cdevcheck.py",
+     "evidence": "cdevcheck.py 'Keyboard': (D3, '/SystemTools1/System/CDevs/Keyboard', 'KeyboardCDEV/Keyboard.r') \u2014 byte-exact.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/CDevs/Modem",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/ModemCDEV/Modem.r",
+     "proven_by": "cdevcheck.py",
+     "evidence": "cdevcheck.py 'Modem': (D3, '/SystemTools1/System/CDevs/Modem', 'ModemCDEV/Modem.r') \u2014 byte-exact. Distinct from the Drivers/Modem printer-port driver.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/CDevs/Monitor",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/MonitorCDEV/Monitor.r",
+     "proven_by": "cdevcheck.py",
+     "evidence": "cdevcheck.py 'Monitor': (D3, '/SystemTools1/System/CDevs/Monitor', 'MonitorCDEV/Monitor.r') \u2014 byte-exact.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/CDevs/Printer",
+     "forks": "data+rsrc; rCDEVCode gold-fed like all CDEVs",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/PrinterCDEV/Printer.r",
+     "proven_by": "cdevcheck.py (Disk 2 twin)",
+     "evidence": "cdevcheck.py maps 'Printer' to the Disk-2 copy ('Printer': (D2, ...'PrinterCDEV/Printer.r')) which is byte-exact; the identical CDEV also ships here on Disk 3 but this D3 path is NOT directly gated. Rez source present.",
+     "confidence": "medium"
+    },
+    {
+     "path": "/SystemTools1/System/CDevs/Slots",
+     "forks": "data+rsrc",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SlotsCDEV/Slots.r",
+     "proven_by": "cdevcheck.py (Disk 2 twin)",
+     "evidence": "cdevcheck.py 'Slots': (D2, ...'SlotsCDEV/Slots.r') byte-exact; the D3 copy is not directly gated but shares source. Rez source present.",
+     "confidence": "medium"
+    },
+    {
+     "path": "/SystemTools1/System/CDevs/Sound",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sound.r",
+     "proven_by": "cdevcheck.py",
+     "evidence": "cdevcheck.py 'Sound': (D3, '/SystemTools1/System/CDevs/Sound', 'SoundCDEV/Sound.r') \u2014 byte-exact.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/CDevs/Time",
+     "forks": "data+rsrc",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/TimeCDEV/Time.r",
+     "proven_by": "cdevcheck.py (Disk 2 twin)",
+     "evidence": "cdevcheck.py 'Time': (D2, ...'TimeCDEV/Time.r') byte-exact; the D3 copy is not directly gated but shares source. Rez source present (Time.r, plus time.aii/Time.pii code fork gold-fed).",
+     "confidence": "medium"
+    },
+    {
+     "path": "/SystemTools1/System/CDevs/Finder.Data",
+     "forks": null,
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "diskcheck.py owner_for(): basename 'Finder.Data' is SUBSTITUTE by rule (Finder desktop database, no producing source in any tree).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Desk.Accs/CDRemote",
+     "forks": "data (single fork)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CDRemote",
+     "proven_by": "appdatacheck.py",
+     "evidence": "appdatacheck.py CDRemote: (D3, '/SystemTools1/System/Desk.Accs/CDRemote', ...) \u2014 data fork byte-exact (git 41c6e09).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Desk.Accs/FindFile",
+     "forks": "data+rsrc; rsrc fork BUILT byte-exact via rezforkcheck.py, data/code fork is Pascal (blocks byte-exact)",
+     "classification": "pascal-c-nontarget",
+     "language": "pascal (data fork) + rez (rsrc fork)",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/ToolBoxMisc/FindFileGS/ (FindFileDA.p + DAInterface.asm + Findfile.rez)",
+     "proven_by": "rezforkcheck.py (rsrc fork only)",
+     "evidence": "rezforkcheck.py builds the resource fork byte-exact from ToolBoxMisc/FindFileGS/Findfile.rez; but the code/data fork's core is FindFileDA.p (Pascal), so full byte-exact repro is blocked by the Pascal compiler. Hardest part = data fork.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Desk.Accs/Calculator",
+     "forks": "data (single fork)",
+     "classification": "pascal-c-nontarget",
+     "language": "pascal",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/GSCalcNDA/GSCalcNDA.pii",
+     "proven_by": "",
+     "evidence": "Calculator = GSCalcNDA; only source is GSCalcNDA.pii, whose header says 'Converted to Max Pascal' \u2014 Pascal, non-target for the asm toolchain.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Desk.Accs/Finder.Data",
+     "forks": null,
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/SCSI.Manager",
+     "forks": "data (ExpressLoad)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/SupervisoryDrivers/SCSI.Manager(1meg)",
+     "proven_by": "drivercheck.py",
+     "evidence": "drivercheck.py extracts SCSI.Manager from DISK3 and builds byte-exact (SCSIM.* x11); 'All 12 mapped shipping drivers are byte-exact (94,948/94,948)'.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/SCSICD.Driver",
+     "forks": "data (ExpressLoad)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/SCSI.Drivers",
+     "proven_by": "drivercheck.py",
+     "evidence": "drivercheck.py builds SCSICD.Driver (shared SCSI sources x13, -d type=1) byte-exact from DISK3.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/SCSIScan.Driver",
+     "forks": "data (ExpressLoad)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/SCSI.Drivers",
+     "proven_by": "drivercheck.py",
+     "evidence": "drivercheck.py builds SCSIScan.Driver (-d type=3, at $0103) byte-exact from DISK3.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/SCSITape.Driver",
+     "forks": "data (ExpressLoad)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/SCSI.Drivers",
+     "proven_by": "drivercheck.py",
+     "evidence": "drivercheck.py builds SCSITape.Driver (-d type=2, at $0103) byte-exact from DISK3.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/A2.RAMCard",
+     "forks": "data",
+     "classification": "needs-investigation",
+     "language": "asm?",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/Slinky/slinky.aii (candidate, unconfirmed)",
+     "proven_by": "",
+     "evidence": "Apple II RAM-card (RamFactor/Slinky) driver. slinky.aii source EXISTS in GS.OS/Drivers/Slinky, but drivercheck.py explicitly states '(Slinky not shipped on 6.0.1 disks)' and does NOT build A2.RAMCard \u2014 direct name mapping A2.RAMCard->Slinky is unconfirmed (no installer-script or makefile links the name). Build.SysTools1 only Duplicates the prebuilt file. Conflict: source-present vs harness-declared-out-of-scope. Human decision needed.",
+     "confidence": "low"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/RAM5",
+     "forks": "data (ExpressLoad)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/RAM5/RAM5.aii",
+     "proven_by": "drivercheck.py",
+     "evidence": "drivercheck.py extracts RAM5 from DISK3, builds byte-exact from Drivers/RAM5/RAM5.aii (in the 12 byte-exact drivers).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/Modem",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/Modem/modem.asm",
+     "proven_by": "",
+     "evidence": "build.tools: 'directory ::Modem BuildProgram Modem'; source PrinterDrivers/Modem/{modem.asm,dialogdata.asm,special.macros} is assembly. No byte-exact harness yet gates it.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/Parallel.Card",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/GraphiCard/graphicard.asm",
+     "proven_by": "",
+     "evidence": "build.tools: 'directory ::GraphiCard BuildProgram Parallel.Card'; source PrinterDrivers/GraphiCard/{graphicard.asm,dialogdata.asm} is assembly. Not yet harness-gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/Printer",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/Printer/printer.asm",
+     "proven_by": "",
+     "evidence": "build.tools: 'directory ::Printer BuildProgram Printer'; source PrinterDrivers/Printer/{printer.asm,dialogdata.asm} is assembly. Distinct from the Printer CDEV. Not yet harness-gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/Epson",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/Epson/epson.asm",
+     "proven_by": "",
+     "evidence": "build.tools: 'directory ::Epson BuildProgram Epson'; source PrinterDrivers/Epson/{epson.asm,dialogdata.asm,epson.macros} is assembly. Not yet harness-gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/ImageWriter",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/NEW.IW",
+     "proven_by": "",
+     "evidence": "build.tools: 'directory ::New.IW BuildProgram ImageWriter'; source PrinterDrivers/NEW.IW/*.aii (entry/imager/dialog/dialogdata/equates) is assembly. Not yet harness-gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/ImageWriter.LQ",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/LQ",
+     "proven_by": "",
+     "evidence": "build.tools: 'directory ::LQ BuildProgram ImageWriter.LQ'; source PrinterDrivers/LQ/*.aii is assembly. Not yet harness-gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/StyleWriter",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/TABASCO",
+     "proven_by": "",
+     "evidence": "build.tools: 'directory ::Tabasco BuildProgram StyleWriter'; source PrinterDrivers/TABASCO/*.a (APW-assembler .a: entry/imager/dialog/communications) is assembly. Not yet harness-gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/Apple.Midi",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/Midi/Drivers/Apple.Midi/apple.midi.aii",
+     "proven_by": "",
+     "evidence": "build.tools: 'directory ::drivers:apple.midi BuildProgram apple.midi'; source Midi/Drivers/Apple.Midi/apple.midi.aii is assembly. Not yet harness-gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/Card6850.MIDI",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/Midi/Drivers/Card6850.Midi/card6850.midi.aii",
+     "proven_by": "",
+     "evidence": "build.tools: 'directory ::card6850.midi BuildProgram card6850.midi'; source Midi/Drivers/Card6850.Midi/card6850.midi.aii is assembly. Not yet harness-gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Drivers/Finder.Data",
+     "forks": null,
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Courier.09",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data file. Searched IIGS.601.SRC (only GSToolbox/QD/font.asm \u2014 the QuickDraw renderer, not font bitmaps), ROM Source, Build.SysTools1 (Duplicates prebuilt) \u2014 no producing .r/.aii/.fnt source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Courier.10",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source in IIGS.601.SRC/ROM/system500 (only QD font renderer, unrelated).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Courier.12",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Courier.14",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Courier.18",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Courier.20",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Courier.24",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Geneva.10",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Geneva.12",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Geneva.14",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Geneva.16",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Geneva.18",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Geneva.20",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Geneva.24",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Helvetica.09",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Helvetica.10",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Helvetica.12",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Helvetica.14",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Helvetica.18",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Helvetica.20",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Helvetica.24",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Shaston.16",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data (the system UI font); no producing source in any tree \u2014 grep 'Shaston' hits only Build.SysTools1 Duplicate + QD renderer.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Times.09",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Times.10",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found. (diskcheck.py also lists Times.10 as SUBSTITUTE for the Disk-2 copy.)",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Times.12",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Times.14",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Times.18",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Times.20",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Times.24",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Venice.12",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Venice.14",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Venice.24",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Bitmap font data; no producing source found.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Fonts/Finder.Data",
+     "forks": null,
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/FSTs/DOS3.3.FST",
+     "forks": "data (ExpressLoad)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/FSTs/DOS3.3/DOS3.3.FST",
+     "proven_by": "fstcheck.py",
+     "evidence": "fstcheck.py extracts DOS3.3.FST from DISK3, builds byte-exact (-D DEBUGSYMBOLS=0); 'All 8 buildable shipping FSTs are byte-exact (111,584/111,584)'.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/FSTs/HFS.FST",
+     "forks": "data (ExpressLoad)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/FSTs/HFS",
+     "proven_by": "fstcheck.py",
+     "evidence": "fstcheck.py builds HFS.FST byte-exact from FSTs/HFS/{hfs.fst.main,hfs.fst.btree}, extracted from DISK3.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/FSTs/HS.FST",
+     "forks": "data (ExpressLoad)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/FSTs/HighSierra/HS.FST.src",
+     "proven_by": "fstcheck.py",
+     "evidence": "fstcheck.py builds HS.FST byte-exact from FSTs/HighSierra/HS.FST.src, extracted from DISK3.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/FSTs/Pascal.FST",
+     "forks": "data (ExpressLoad)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/FSTs/Pascal/pascal.fst.aii",
+     "proven_by": "fstcheck.py",
+     "evidence": "fstcheck.py builds Pascal.FST byte-exact from FSTs/Pascal/pascal.fst.aii, extracted from DISK3.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/FSTs/MSDOS.FST",
+     "forks": "data (ExpressLoad)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/FSTs/MSDos",
+     "proven_by": "fstcheck.py",
+     "evidence": "fstcheck.py builds MSDos.FST byte-exact from FSTs/MSDos/{MSDos.aii,Calls,Subs,Data}, extracted from DISK3 as MSDOS.FST.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/FSTs/Finder.Data",
+     "forks": null,
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Tools/Tool025",
+     "forks": "data (ExpressLoad)",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/NoteSynth",
+     "proven_by": "",
+     "evidence": "build.tools: 'directory ::notesynth BuildProgram tool025'; source GSToolbox/NoteSynth/*.aii is assembly. gsasm even has a 'Tool025 case-collision' fix (generality_check.py), but NO byte-exact harness gates it (toolcheck.py TOOLMAP lacks '025').",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Tools/Tool026",
+     "forks": "data (ExpressLoad)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/NoteSeq/tool.aii",
+     "proven_by": "toolcheck.py",
+     "evidence": "toolcheck.py TOOLMAP '026': ('NoteSeq', ['tool.aii']) \u2014 single-object flat link byte-exact vs Disk-3 gold (git 3a6cfc4 'Tool026 byte-exact \u2014 corpus 14/14').",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Tools/Tool029",
+     "forks": "data (ExpressLoad)",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/ACE/ace.asm",
+     "proven_by": "",
+     "evidence": "build.tools: 'directory ::ace BuildProgram tool029'; source GSToolbox/ACE/ace.asm is assembly. Not in toolcheck.py TOOLMAP \u2014 no byte-exact harness yet.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Tools/Tool032",
+     "forks": "data (ExpressLoad)",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/Midi/MidiTools",
+     "proven_by": "",
+     "evidence": "build.tools: 'directory ::midi:miditools BuildProgram tool032'; source GSToolbox/Midi/MidiTools/midi.*.aii is assembly. Not in toolcheck.py TOOLMAP \u2014 no byte-exact harness yet.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Tools/Finder.Data",
+     "forks": null,
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/System/Finder.Data",
+     "forks": null,
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/Icons/Finder.Data",
+     "forks": null,
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/Adv.Disk.Util",
+     "forks": "data+rsrc; rsrc buildable from adu.rii (Rez), but code/data fork is Pascal (blocks byte-exact)",
+     "classification": "pascal-c-nontarget",
+     "language": "pascal (code fork) + rez (rsrc fork)",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/ADU",
+     "proven_by": "",
+     "evidence": "A.U.G/Build.All: 'directory ADU / BuildProgram ADV.DISK.UTIL'. A.U.G/ADU has 11 .pii (Pascal) + 2 .aii + 1 adu.rii; the application code fork is Pascal, so full byte-exact repro is blocked by the Pascal compiler. Hardest part = data fork.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/BASIC.System",
+     "forks": "data (ProDOS-8 SYS)",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/BASIC.SYSTEM",
+     "proven_by": "basiccheck.py",
+     "evidence": "basiccheck.py _COPIES includes ('Disk 3', '/SystemTools1/BASIC.System') and verifies byte-exact 10,240 B against the Disk-3 copy (LOADER/MAIN/GLOBALS link).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools1/Finder.Data",
+     "forks": null,
+     "classification": "no-source-substitute",
+     "language": null,
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+     "confidence": "high"
+    }
+   ]
+  },
+  "Disk 4 of 7 SystemTools2.2mg": {
+   "notes": "62 files total; all classified, zero needs-investigation. Counts: built 14, buildable-asm 15, buildable-rez 15, pascal-c-nontarget 4, no-source-substitute 14.\n\nThe definitive provenance oracle for this disk is SD.ODDS.N.Ends/{ToolboxToDiskImage, A.U.G.ToDiskImage, GSOSToDiskImage, ONEToDiskImage, TBoxMiscToDiskImage} -- MPW scripts that map every ST2 path back to its build source. (Build.SysTools2 itself is only a disk-duplicate step from a prebuilt {Source} tree, so it does NOT reveal language -- do not rely on it alone.)\n\nALREADY BYTE-EXACT (14 'built', all harness-gated): CDevs AppleShare/FolderPriv/MediaControl/Namer/NetPrinter/Network (cdevcheck, rsrc fork; CDEV code is clean-room `read` payload, data fork empty); Drivers SCC.Manager + ATalk (drivercheck); Media.Control Pioneer2000 (appdatacheck) and Pioneer4200 (appdatacheck data + rezforkcheck rsrc = BOTH forks); FSTs/AppleShare.FST (fstcheck); System.Setup EasyAccess (appdatacheck) + EasyMount (easymountcheck, BOTH forks); Tools/Tool033 (toolcheck, = VideoMix toolset).\n\nBIGGEST UNLOCK -- 15 buildable-rez, mostly the 12 Sound files: every ST2 sound (Ahh..Whoosh) has full Rez source at A.U.G/CtlPanel/SoundCDEV/Sounds/*.r built by `RezIIGS *.r -o name -t $70D80003`. These are NOT no-source data blobs (the historical trap) -- the sample payload is embedded in the .r. Plus 3 TeachText docs (Read.Me/Shortcuts/Whats.New) = ReadMeFiles/*.{r,text} via reziigs + verbatim .text data fork. None currently gated; strong candidates to fold into rezforkcheck-style harnesses.\n\n15 buildable-asm, source present and un-gated: AppleTalk netboot trio (Boot.Driver=ATBoot.aii, QuickLogoff=Quick.aii, Start=Start.aii+Console+Logon via GS.OS/MakeFiles/make.*); 5 drivers -- AppleTalk/LaserWriter/IWEM are PRINTER drivers from GSToolbox/PrinterDrivers/{AppleTalk,LW,IWEm}, ATP1.ATROM/ATP2.ATRAM are the AT-stack drivers from GS.OS/Drivers/{ATRom,ATRam} (drivercheck docstring explicitly declares these 'not in scope'); Media.Control/AppleCDSC (AppleCDSC.aii); Desk.Accs/VideoKeyboard (A.U.G/VideoKeyboard/*.a); System.Setup AppleIIVOC (VideoMix.INIT/vdinit.asm)/ATInit/ATResponder/CloseView; Tools/Tool038 (GSToolbox/MediaCtlTool/MediaCtrlMgr.asm, the MediaControl tool -- notably absent from toolcheck's 14-tool corpus).\n\n4 pascal-c-nontarget (Pascal walls where only the Rez layer is reachable): Desk.Accs/MediaControl NDA (MediaCtlNDA.pii) and Desk.Accs/VideoMix NDA (PokeyNDA.Pii) -- for BOTH, rezforkcheck already proves the rsrc fork byte-exact, only the Pascal data/code fork blocks a full-file match; Teach (ToolBoxMisc/Teach/*.p, rsrc proven by teachcheck). Note the two NDAs vs their same-named siblings: CDevs/MediaControl (asm CDEV, built) and Tools/Tool033 (VideoMix toolset, built) are DIFFERENT files that ARE reproducible.\n\nHUMAN DECISIONS / caveats:\n- CLOCK.PATCH is a tokenized Applesoft BASIC program (identical file at SD.ODDS.N.Ends/CLOCK.PATCH, shipped verbatim). There is no BASIC bucket in the enum; parked in pascal-c-nontarget as 'nearest non-target language,' confidence low. Decide whether BASIC gets its own category or counts as data-copied.\n- Archiver: an application (Archiver.app) whose source dir (ArchiverGS) is absent from every tree searched -- only the disk-image copy scripts name it. Classified no-source-substitute but it is clearly a would-be buildable app, not a data blob; worth a targeted hunt for ArchiverGS sources.\n- AppleTalk/Display.0 (no-source-substitute): the patched Aristotle netboot menu display -- a 25490B opaque binary (AristotlePatch/Display.0) + a small asm patch applied by a C-built PatchTool (make.aristotle). The display image itself has no asm/rez source.\n- CDEV 'built' entries prove only the resource fork (data fork empty for CDEVs); these D4 forks are NOT counted in diskcheck (cdevcheck contributes its own metric only), so 'whole-disk byte-exact' is not yet claimed for this disk.\n- 12 Finder.Data files = Finder's runtime-generated per-folder desktop database; genuinely no source anywhere (correctly no-source-substitute).",
+   "files": [
+    {
+     "path": "/SystemTools2/AppleTalk/Boot.Driver",
+     "forks": "data (single OMF load file)",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/ATBoot/ATBoot.aii",
+     "proven_by": null,
+     "evidence": "GS.OS/MakeFiles/make.atboot links ATBOOT/atboot.aii.obj -t $BB -at $0181 -o {SDAppleTalk}Boot.Driver; source ATBoot.aii + Equates + MakeFile present. Not gated by any harness.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/AppleTalk/Display.0",
+     "forks": "data (display image)",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/AristotlePatch/Display.0",
+     "proven_by": null,
+     "evidence": "GS.OS/MakeFiles/make.aristotle patches a prebuilt Aristotle menu-display binary (AristotlePatch/Display.0, 25490 B ~= 51 blocks, `file`=data) with a small asm patch applied by a C-built PatchTool (main.c). No assembler/rez source produces the display image itself; base blob is an opaque third-party binary. GSOSToDiskImage copies appletalk:DISPLAY.0 -> ST2 AppleTalk/Display.0.",
+     "confidence": "medium"
+    },
+    {
+     "path": "/SystemTools2/AppleTalk/QuickLogoff",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/QuickLogoff/Quick.aii",
+     "proven_by": null,
+     "evidence": "GS.OS/MakeFiles/make.quicklogoff: AsmIIGS quick.aii -> quick.o; LinkIIGS -o {SDAppleTalk}QuickLogoff -t $B7. Source Quick.aii + Makefile present. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/AppleTalk/Start",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Start/Start.aii",
+     "proven_by": null,
+     "evidence": "GS.OS/MakeFiles/make.net.start links Start.o + StartLog.o + Console.o + DES.o -> {SDAppleTalk}Start (all AsmIIGS from Start.aii/StartLog.aii/Console.aii/DES.aii). Multi-object asm. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/AppleTalk/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder per-folder desktop database. Searched IIGS.601.SRC (A.U.G, GS.OS, GSToolbox, ToolBoxMisc, SD.ODDS.N.Ends) + fst/driver/tool/os_bin: no producing source; Finder.Data is runtime-generated metadata, never built.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/CDevs/AppleShare",
+     "forks": "rsrc proven byte-exact; data fork empty",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/AppleShareCDEV/AppleShare.r",
+     "proven_by": "cdevcheck",
+     "evidence": "cdevcheck.py maps AppleShare (D4 /SystemTools2/System/CDevs/AppleShare) -> AppleShareCDEV/AppleShare.r, gates CDEV_RSRC_BYTES_EXACT (rsrc fork byte-exact). rCDEVCode is clean-room `read` payload; data fork empty (CDEV = resource-fork executable).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/CDevs/FolderPriv",
+     "forks": "rsrc proven; data empty",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/FolderPrivCDEV/FolderPriv.r",
+     "proven_by": "cdevcheck",
+     "evidence": "cdevcheck.py maps FolderPriv -> FolderPrivCDEV/FolderPriv.r; gated CDEV_RSRC_BYTES_EXACT. Data fork empty.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/CDevs/MediaControl",
+     "forks": "rsrc proven; data empty",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/MediaCtl/MediaCtlCDev/MediaCtrl.r",
+     "proven_by": "cdevcheck",
+     "evidence": "cdevcheck.py maps MediaControl (D4) -> MediaCtl/MediaCtlCDev (MediaCtrl.r + MediaCtrl.aii asm); gated CDEV_RSRC_BYTES_EXACT rsrc byte-exact. Distinct from the Desk.Accs/MediaControl NDA.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/CDevs/Namer",
+     "forks": "rsrc proven; data empty",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/NamerCDEV/namer.r",
+     "proven_by": "cdevcheck",
+     "evidence": "cdevcheck.py maps Namer -> NamerCDEV/namer.r; gated CDEV_RSRC_BYTES_EXACT.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/CDevs/NetPrinter",
+     "forks": "rsrc proven; data empty",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/NetPrinterCDEV/netprinter.r",
+     "proven_by": "cdevcheck",
+     "evidence": "cdevcheck.py maps NetPrinter -> NetPrinterCDEV/netprinter.r; gated CDEV_RSRC_BYTES_EXACT.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/CDevs/Network",
+     "forks": "rsrc proven; data empty",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/NetworkCDEV/network.r",
+     "proven_by": "cdevcheck",
+     "evidence": "cdevcheck.py maps Network -> NetworkCDEV/network.r; gated CDEV_RSRC_BYTES_EXACT.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/CDevs/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop DB; no producing source in any tree (runtime metadata).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Desk.Accs/MediaControl",
+     "forks": "rsrc built (rezforkcheck); data fork Pascal (wall)",
+     "classification": "pascal-c-nontarget",
+     "language": "pascal",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/MediaCtl/MediaCtlNDA/MediaCtlNDA.pii",
+     "proven_by": null,
+     "evidence": "NDA. rsrc fork proven byte-exact by rezforkcheck (MediaControl -> MediaCtlNDA.rii, REZFORK_BYTES_EXACT). But DATA/code fork is built from Pascal (MediaCtlNDA.pii + MediaCtlUNIT.pii) -> outside gsasm asm/rez target; not reproducible. Hardest part = Pascal data fork.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Desk.Accs/VideoKeyboard",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/VideoKeyboard",
+     "proven_by": null,
+     "evidence": "A.U.G.ToDiskImage: VideoKeyboard:VideoKeyboard -> ST2 Desk.Accs/VideoKeyboard. Source A.U.G/VideoKeyboard/{Key.a,Main.a,Mouse.a,Window.a,KeyData.a} + MakeFile (all .a assembly). Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Desk.Accs/VideoMix",
+     "forks": "rsrc built (rezforkcheck); data fork Pascal (wall)",
+     "classification": "pascal-c-nontarget",
+     "language": "pascal",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/VideoMix/VideoMix.NDA/PokeyNDA.Pii",
+     "proven_by": null,
+     "evidence": "NDA. rsrc fork proven byte-exact by rezforkcheck (VideoMix -> VideoMixNDA.rii, REZFORK_BYTES_EXACT). DATA/code fork is Pascal (PokeyNDA.Pii + PokeyUnit.Pii) -> non-target. Hardest part = Pascal data fork. (Distinct from Tool033 = VideoMix toolset, which IS built.)",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Desk.Accs/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop DB; no producing source (runtime metadata).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Drivers/SCC.Manager",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/SupervisoryDrivers/SCCManager/Driver.aii",
+     "proven_by": "drivercheck",
+     "evidence": "drivercheck.py extracts D4 /SystemTools2/System/Drivers/SCC.Manager and builds from SupervisoryDrivers/SCCManager/Driver.aii; in CORPUS raw code-image match (driver_bytes gate).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Drivers/AppleTalk",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/AppleTalk/appletalk.asm",
+     "proven_by": null,
+     "evidence": "ToolboxToDiskImage: PrinterDrivers:AppleTalk:AppleTalk -> ST2 drivers/AppleTalk. This is the AppleTalk PRINTER driver: GSToolbox/PrinterDrivers/AppleTalk/makefile links appletalk.asm.obj + dialogdata.asm.obj -o appletalk -t $BB -at $0003 (ASMIIGS). Not the AT-stack driver. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Drivers/ATP1.ATROM",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/ATRom",
+     "proven_by": null,
+     "evidence": "GS.OS/Drivers/ATRom/MakeFile: asmiigs atp_includes/lap_includes/aptalk.aii -> linkiigs -t $70BB0201 -o atrom; renamed atp1.atrom. GSOSToDiskImage copies ATP1.ATROM -> ST2. drivercheck docstring explicitly notes ATRom 'not in scope' (not gated), but full asm source present.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Drivers/ATP2.ATRAM",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/ATRam",
+     "proven_by": null,
+     "evidence": "GS.OS/Drivers/ATRam/MakeFile: 18 .aii objects (header/atpatch/pap/rpm/zip/asp/atstart/pfi*) -> linkiigs -t $70BB0203 -o atram; renamed atp2.atram. GSOSToDiskImage copies ATP2.ATRAM -> ST2. drivercheck docstring: ATRam 'not in scope' (not gated).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Drivers/ATalk",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/ATalk",
+     "proven_by": "drivercheck",
+     "evidence": "drivercheck.py extracts D4 Drivers/ATalk, builds from GS.OS/Drivers/ATalk (Main.aii + rpm.aii + AppleTalk.aii + Others.aii); in CORPUS raw code-image match. make.atalk: linkiigs -t $BB -at $0110 -o ATALK.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Drivers/LaserWriter",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/LW",
+     "proven_by": null,
+     "evidence": "ToolboxToDiskImage: PrinterDrivers:LW:LaserWriter -> ST2 drivers/LaserWriter. LW/makefile: ASMIIGS lw.asm + dialogdata.asm + prepfile.asm; linkiigs -lseg MAIN ... -o laserwriter -t $BB -at $0001. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Drivers/IWEM",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/IWEm/IWEm.Src",
+     "proven_by": null,
+     "evidence": "ToolboxToDiskImage: PrinterDrivers:IWEM:IWEM -> ST2 drivers/IWEM (ImageWriter-emulator network printer driver). GSToolbox/PrinterDrivers/IWEm/{IWEm.Src, makefile, BuildIWEm} present (asm). NOT the NetBoot SpoolerIWEM. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Drivers/Media.Control/AppleCDSC",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/MediaCtl/AppleCDSC/AppleCDSC.aii",
+     "proven_by": null,
+     "evidence": "A.U.G.ToDiskImage: MediaCtl:AppleCDSC:AppleCDSC -> ST2 drivers/Media.Control/AppleCDSC. Source AppleCDSC.aii + AppleCDSC.make (asm). Not gated (appdatacheck covers only Pioneer2000/4200 of the Media.Control drivers).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Drivers/Media.Control/Pioneer2000",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/MediaCtl/Pioneer2000/P2000.aii",
+     "proven_by": "appdatacheck",
+     "evidence": "appdatacheck.py builds Pioneer2000 (D4) data fork from A.U.G/MediaCtl/Pioneer2000/P2000.aii byte-exact via expressload/linkiigs; APP_DATA_BYTES_EXACT gate.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Drivers/Media.Control/Pioneer4200",
+     "forks": "data (appdatacheck) + rsrc (rezforkcheck) both byte-exact",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/MediaCtl/P4200",
+     "proven_by": "appdatacheck + rezforkcheck",
+     "evidence": "BOTH forks proven: appdatacheck.py builds data fork from P4200.aii byte-exact (APP_DATA_BYTES_EXACT); rezforkcheck.py builds rsrc fork from P4200.r byte-exact (REZFORK_BYTES_EXACT).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Drivers/Media.Control/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop DB; no producing source (runtime metadata).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Drivers/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop DB; no producing source (runtime metadata).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Fonts/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop DB; no producing source (runtime metadata).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/FSTs/AppleShare.FST",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/FSTs/AppleShare",
+     "proven_by": "fstcheck",
+     "evidence": "fstcheck.py gates AppleShare.FST in CORPUS raw code-image match (fst_bytes). GSOSToDiskImage copies system:fsts:AppleShare.fst -> ST2. Memory handoff confirms AppleShare FST byte-exact.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/FSTs/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop DB; no producing source (runtime metadata).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/System.Setup/AppleIIVOC",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/VideoMix/VideoMix.INIT/vdinit.asm",
+     "proven_by": null,
+     "evidence": "A.U.G.ToDiskImage: videomix:VideoMix.INIT:AppleIIVOC.INIT -> ST2 system.setup/AppleIIVOC. VideoMix.INIT/makefile: Asmiigs VDInit.asm; Linkiigs VDInit.asm.obj -o AppleIIVOC.INIT -t $B7. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/System.Setup/ATInit",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/SetupFiles/ATInit/ATInit.aii",
+     "proven_by": null,
+     "evidence": "GSOSToDiskImage copies system:SYSTEM.SETUP:ATINIT -> ST2. Source GS.OS/SetupFiles/ATInit/ATInit.aii + MakeFile (asm). Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/System.Setup/ATResponder",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/SetupFiles/ATResponder/ATResponder.aii",
+     "proven_by": null,
+     "evidence": "GSOSToDiskImage copies system:SYSTEM.SETUP:ATRESPONDER -> ST2. Source GS.OS/SetupFiles/ATResponder/ATResponder.aii + MakeFile (asm). Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/System.Setup/CloseView",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CloseView",
+     "proven_by": null,
+     "evidence": "A.U.G.ToDiskImage: CloseView:Closeview -> ST2 system.setup/CloseView. Source A.U.G/CloseView/{Core.aii,Data.aii,NDA.aii,Patches.aii} + CloseView.make (asm). Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/System.Setup/EasyAccess",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/EasyAccess/EasyAccess.aii",
+     "proven_by": "appdatacheck",
+     "evidence": "appdatacheck.py builds EasyAccess (D4) data fork from A.U.G/EasyAccess/EasyAccess.aii byte-exact (APP_DATA_BYTES_EXACT gate; 3,191-byte ExpressLoad).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/System.Setup/EasyMount",
+     "forks": "rsrc + data both byte-exact",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/Finder/EasyMount",
+     "proven_by": "easymountcheck",
+     "evidence": "easymountcheck.py gates BOTH forks: 'PASS EasyMount resource fork' + 'PASS EasyMount data fork' (rez_easymount_rsrc/data_bytes_exact). R10/R11 closed both.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/System.Setup/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop DB; no producing source (runtime metadata).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Tools/Tool033",
+     "forks": "data",
+     "classification": "built",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/VideoMix (VD.asm)",
+     "proven_by": "toolcheck",
+     "evidence": "toolcheck.py entry '033': VideoMix, VD.asm; flat link (Linkiigs VD.asm.obj -o Tool033 -t TOL) verified via expressload against Disk-4 SystemTools2 gold; in CORPUS raw code-image match (tool_bytes gate). Memory: Tool033 byte-exact.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Tools/Tool038",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/MediaCtlTool/MediaCtrlMgr.asm",
+     "proven_by": null,
+     "evidence": "ToolboxToDiskImage: MediaCtlTool:Tool038 -> ST2 system:tools:Tool038. Source GSToolbox/MediaCtlTool/MediaCtrlMgr.asm + build.tools (asm, MediaControl Tool). NOT in toolcheck corpus (Tool038 absent from all work/*.py). Buildable but not yet gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Tools/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop DB; no producing source (runtime metadata).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/Ahh",
+     "forks": "rSoundSample via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Ahh.r",
+     "proven_by": null,
+     "evidence": "A.U.G/CtlPanel/SoundCDEV/Sounds/Makefile: RezIIGS Ahh.r -o Ahh -t $70D80003. A.U.G.ToDiskImage copies SoundCDev:Sounds:Ahh -> ST2 System:Sounds. Sound-sample payload embedded as data block in the .r. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/Doorbell",
+     "forks": "rSoundSample via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/DoorBell.r",
+     "proven_by": null,
+     "evidence": "Sounds/Makefile RezIIGS DoorBell.r -o DoorBell -t $70D80003; A.U.G.ToDiskImage copies to ST2 System:Sounds/Doorbell. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/Droplet",
+     "forks": "rSoundSample via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Droplet.r",
+     "proven_by": null,
+     "evidence": "Sounds/Makefile RezIIGS Droplet.r -o Droplet -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/Eastern",
+     "forks": "rSoundSample via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Eastern.r",
+     "proven_by": null,
+     "evidence": "Sounds/Makefile RezIIGS Eastern.r -o Eastern -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/Frog",
+     "forks": "rSoundSample via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Frog.r",
+     "proven_by": null,
+     "evidence": "Sounds/Makefile RezIIGS Frog.r -o Frog -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/PipeOrgan",
+     "forks": "rSoundSample via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/PipeOrgan.r",
+     "proven_by": null,
+     "evidence": "Sounds/Makefile RezIIGS PipeOrgan.r -o PipeOrgan -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/Quack",
+     "forks": "rSoundSample via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Quack.r",
+     "proven_by": null,
+     "evidence": "Sounds/Makefile RezIIGS Quack.r -o Quack -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/SimpleBeep",
+     "forks": "rSoundSample via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/SimpleBeep.r",
+     "proven_by": null,
+     "evidence": "Sounds/Makefile RezIIGS SimpleBeep.r -o SimpleBeep -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/Sosumi",
+     "forks": "rSoundSample via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Sosumi.r",
+     "proven_by": null,
+     "evidence": "Sounds/Makefile RezIIGS Sosumi.r -o Sosumi -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/Swish",
+     "forks": "rSoundSample via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Swish.r",
+     "proven_by": null,
+     "evidence": "Sounds/Makefile RezIIGS Swish.r -o Swish -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/Trumpets",
+     "forks": "rSoundSample via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Trumpets.r",
+     "proven_by": null,
+     "evidence": "Sounds/Makefile RezIIGS Trumpets.r -o Trumpets -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/Whoosh",
+     "forks": "rSoundSample via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SoundCDEV/Sounds/Whoosh.r",
+     "proven_by": null,
+     "evidence": "Sounds/Makefile RezIIGS Whoosh.r -o Whoosh -t $70D80003; copied to ST2 System:Sounds. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Sounds/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop DB; no producing source (runtime metadata).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/System/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop DB; no producing source (runtime metadata).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/Archiver",
+     "forks": "data+rsrc (application; source absent)",
+     "classification": "no-source-substitute",
+     "language": "unknown",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "TBoxMiscToDiskImage: :ArchiverGS:Archiver.app -> ST2 Archiver (from work:gstoolboxMisc:ArchiverGS). Searched IIGS.601.SRC (ToolBoxMisc, A.U.G, GSToolbox, SD.ODDS.N.Ends) + all bin dirs: no ArchiverGS/Archiver.app source dir present -- only disk-image copy scripts reference it. Application binary, source not archived. FLAG: would be buildable if source surfaced.",
+     "confidence": "medium"
+    },
+    {
+     "path": "/SystemTools2/Teach",
+     "forks": "rsrc built (teachcheck); data fork Pascal (wall)",
+     "classification": "pascal-c-nontarget",
+     "language": "pascal",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/ToolBoxMisc/Teach",
+     "proven_by": null,
+     "evidence": "rsrc fork proven byte-exact by teachcheck.py (TEACH_RSRC_BYTES_EXACT). DATA/code fork built from Pascal (ToolBoxMisc/Teach/{uMenu.p,uWindow.p,uUtils.p,uGlobals.p,...} + teach.r) -> non-target. Hardest part = Pascal data fork (wall).",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/Read.Me",
+     "forks": "data fork = literal Read.Me.text; rsrc fork = Read.Me.r via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/ToolBoxMisc/ReadMeFiles/Read.Me.r",
+     "proven_by": null,
+     "evidence": "ReadMeFiles/makefile: duplicate Read.Me.text -> Read.Me (data fork = verbatim .text); reziigs Read.Me.r -o Read.Me -t $70505445 (rsrc = style block). Both forks source-present. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/Shortcuts",
+     "forks": "data fork = literal Shortcuts.text; rsrc = Shortcuts.r via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/ToolBoxMisc/ReadMeFiles/Shortcuts.r",
+     "proven_by": null,
+     "evidence": "ReadMeFiles/makefile: duplicate Shortcuts.text -> Shortcuts; reziigs Shortcuts.r -o Shortcuts -t $70505445. TeachText doc: data fork = verbatim .text, rsrc = .r. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/CLOCK.PATCH",
+     "forks": "data (tokenized Applesoft BASIC)",
+     "classification": "pascal-c-nontarget",
+     "language": "applesoft-basic",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/SD.ODDS.N.Ends/CLOCK.PATCH",
+     "proven_by": null,
+     "evidence": "ONEToDiskImage: duplicate SD.Odds.N.Ends:CLOCK.PATCH -> ST2 CLOCK.PATCH (verbatim copy, not built). `file` reports 'Applesoft BASIC program data' (tokenized); identical artifact present at SD.ODDS.N.Ends/CLOCK.PATCH (7769B) and GS.OS/P8/clock.patch (7655B). NON-TARGET language (Applesoft BASIC, not asm/rez/Pascal/C) -- no clean enum bucket; using pascal-c-nontarget as nearest non-target. FLAG for human decision.",
+     "confidence": "low"
+    },
+    {
+     "path": "/SystemTools2/Whats.New",
+     "forks": "data fork = literal Whats.New.text; rsrc = Whats.New.r via rez",
+     "classification": "buildable-rez",
+     "language": "rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/ToolBoxMisc/ReadMeFiles/Whats.New.r",
+     "proven_by": null,
+     "evidence": "ReadMeFiles/makefile: duplicate Whats.New.text -> Whats.New; reziigs Whats.New.r -o Whats.New -t $70505445. Added for 6.0.1. data fork = verbatim .text, rsrc = .r. Not gated.",
+     "confidence": "high"
+    },
+    {
+     "path": "/SystemTools2/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop DB; no producing source (runtime metadata).",
+     "confidence": "high"
+    }
+   ]
+  },
+  "Disk 5 of 7 Fonts.2mg": {
+   "notes": "Disk 5 (Fonts) is overwhelmingly data. 30 files: 23 outline-bitmap font files (Courier/Helvetica/Times, $C8), 4 Finder.Data desktop DBs, 1 AppleBowl.Icon, plus the Apple.Bowl app and its Read.Me. NOTHING on this disk is currently gated fully byte-exact ('built'=0), but one fork IS proven: Apple.Bowl's RESOURCE fork (863 B, Bowl.r) passes rezforkcheck.py (REZFORK_BYTES_EXACT 4515/4515).\n\nKey findings / human decisions:\n1. Apple.Bowl (data+rsrc) = pascal-c-nontarget by its HARDEST part. Its rsrc fork is byte-exact (rezforkcheck), but its DATA fork is the compiled app, produced by 'IntBasicIIGS Bowl.bas' \u2014 a custom BASIC->OMF compiler WRITTEN IN PASCAL (A.U.G/Apple.Bowl/Compiler/*.p). That compiler is not the AsmIIGS/Rez target, so the app's code fork is out of scope for byte-exact reproduction unless the project decides to also reproduce IntBasicIIGS. Note BowlBin.aii/ProgAid.aii ARE asm and get linked in, but the bulk (Bowl.obj) is BASIC-compiled.\n2. Read.Me (data+rsrc) = buildable-rez and is a low-hanging unlock: Read.Me.r (rStyleBlock resources) builds through the existing gsasm.rez pipeline, and the data fork is a literal copy of Read.Me.txt (Makefile 'Duplicate -d -y'). It's just not wired into rezforkcheck's REZMAP yet \u2014 adding it as a 6th target would very likely go byte-exact with no pipeline change.\n3. Substitute list (28 no-source): 23 font files, 4 Finder.Data, AppleBowl.Icon. Fonts and icon are authored binary data with no producing source in any of the three trees (verified: find -iname courier*/helvetica*/times.* returned only the QuickDraw Font Manager engine, not the font files). Finder.Data is runtime desktop state (diskcheck hard-codes it SUBSTITUTE by rule).\n4. AppleBowl.Icon has an identical archived copy in the source tree, but it is hand-authored data (no Makefile rule builds it) \u2014 classified no-source-substitute, not built.",
+   "files": [
+    {
+     "path": "/Fonts/System/Fonts/Courier.27",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary IIgs font file ($C8). Searched ref/GSOS_6/IIGS.601.SRC + ROM Source + work/rincludes/system500 for 'Courier*' font-data source: absent. Only QuickDraw Font Manager engine code exists (work/includes/M16.Font, txt/QD/font.asm) which is the renderer, not the font files.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Courier.28",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no 'Courier*' producing source in IIGS.601.SRC/ROM Source/system500 (find -iname courier* returned nothing but the QD font engine).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Courier.30",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no font-data source found in any of the three trees (find -iname courier* empty).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Courier.36",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no producing source in IIGS.601.SRC/ROM Source/system500.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Courier.42",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Helvetica.27",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; find -iname helvetica* across IIGS.601.SRC/ROM Source/system500 returned nothing.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Helvetica.28",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Helvetica.30",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Helvetica.36",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Helvetica.42",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Helvetica.48",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Helvetica.60",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Helvetica.72",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Helvetica.96",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Times.27",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data. find -iname 'times.*' returned nothing under IIGS.601.SRC/ROM Source/system500 (the only 'Times' source is the Time CDEV, unrelated). No font-data source.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Times.28",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no font-data source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Times.30",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no font-data source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Times.36",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no font-data source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Times.42",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no font-data source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Times.48",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no font-data source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Times.60",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no font-data source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Times.72",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no font-data source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Fonts/Times.96",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "font-data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Binary $C8 font data; no font-data source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/System/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop database (binary). work/diskcheck.py owner_for() hard-codes any basename 'Finder.Data' as SUBSTITUTE (line 121); no producing source exists \u2014 it is runtime-generated desktop state.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/Goodies/Apple.Bowl",
+     "forks": "data+rsrc",
+     "classification": "pascal-c-nontarget",
+     "language": "BASIC(compiled by Pascal tool)+asm; rsrc=rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/Apple.Bowl/",
+     "proven_by": "rezforkcheck(rsrc-only)",
+     "evidence": "data+rsrc. RSRC FORK is byte-exact: rezforkcheck.py REZMAP['Apple.Bowl'] builds Bowl.r -> 863 B, PASS (rezforkcheck REZFORK_BYTES_EXACT 4515/4515). DATA FORK (app, ~40 blocks S16) is NOT reproducible via the AsmIIGS target: Makefile links Apple.Bowl from Bowl.obj = 'IntBasicIIGS Bowl.bas -o Bowl.obj', where IntBasicIIGS is a custom BASIC->OMF compiler written in Pascal (Compiler/Basic.p, Parser.p, Scanner.p, CodeGen.p, BasicCom.p). Hardest part (data fork) is Pascal-tool/BASIC, out of the ASM/Rez target scope.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/Goodies/Read.Me",
+     "forks": "data+rsrc",
+     "classification": "buildable-rez",
+     "language": "rez+text",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/Apple.Bowl/Read.Me.r",
+     "proven_by": null,
+     "evidence": "data+rsrc. Makefile 'Read.Me' target: data fork = 'Duplicate -d -y Read.Me.txt Read.Me' (plain text copy of Read.Me.txt, 3329 B) then 'RezIIGS Read.Me.r -o Read.Me' adds the resource fork. Read.Me.r declares rStyleBlock ($8012) resources -> buildable-rez through the same gsasm.rez pipeline rezforkcheck uses. NOT yet wired into any harness (rezforkcheck REZMAP has only 5 targets, Read.Me not among them) so not gated byte-exact. Hardest part = the Rez resource fork.",
+     "confidence": "medium"
+    },
+    {
+     "path": "/Fonts/Goodies/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop database (binary, 1 block). diskcheck.py owner_for() rule: basename 'Finder.Data' -> SUBSTITUTE; no producing source (runtime-generated).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/Icons/AppleBowl.Icon",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "icon-data",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/Apple.Bowl/AppleBowl.Icon",
+     "proven_by": null,
+     "evidence": "ProDOS/IIgs icon file (binary $CA icon data, 1 block). An identical authored copy exists in the source tree (A.U.G/Apple.Bowl/AppleBowl.Icon, 466 B) but it IS the data \u2014 no toolchain produces it. Apple.Bowl/Makefile has NO build rule for AppleBowl.Icon (only Apple.Bowl and Read.Me targets). Hand-authored binary icon data -> substitute (archived copy available).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Fonts/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "data",
+     "source_path": null,
+     "proven_by": null,
+     "evidence": "Finder desktop database (binary, 1 block). diskcheck.py owner_for() rule maps basename 'Finder.Data' -> SUBSTITUTE; runtime-generated, no source.",
+     "confidence": "high"
+    }
+   ]
+  },
+  "Disk 6 of 7 synthLAB.2mg": {
+   "notes": "Disk 6 (synthLAB) = 25 files. This is a bundled third-party application disk (Bogas Productions synthLAB) plus its data. In the 6.0.1 build system it is NOT compiled from source \u2014 the only tree references are copy scripts (ref/GSOS_6/IIGS.601.SRC/SD.ODDS.N.Ends/APW.Scripts/Build.Synth and .../synthLABToDiskImage) which `Duplicate` prebuilt binaries/data from a source disk (:A2CE_Sources:System Disk 6.0:synthlab:). Hence 23/25 are no-source-substitute.\\n\\nTwo genuine reproducibles:\\n- MIDI (built): the MIDI CDEV \u2014 resource fork byte-exact via work/cdevcheck.py (source MIDICDEV/midi.r), confirmed by running the harness (4552=4552 BYTE-EXACT); data fork empty, so whole file reproduced. Only file on this disk already proven byte-exact.\\n- Tool035 (buildable-asm): = MIDISynth toolset. Full APW 65816 asm source ships at ref/GSOS_6/IIGS.601.SRC/GSToolbox/MIDISynth/ with a makefile (LinkIIGS ... Tool035) and is listed in GSToolbox/build.tools. This is the obvious next unlock for this disk \u2014 toolcheck.py currently gates only up to Tool034, so a Tool035 TOOL_SPEC would extend the tool corpus. NoteSynth (Tool025, already built) and MIDISynth share NoteOn/NoteOff/Update/Tables/Note.Macros filenames \u2014 the shared-fork machinery is likely reusable.\\n\\nSubstitute list (verbatim data copies, no source anywhere \u2014 need golden bytes shipped): synthLAB app; Icons/SL.Icons; 3x Finder.Data (Icons/, Seq.and.Instr/, root); Reference document (data+rsrc); and 18 sound data files in Seq.and.Instr (*.bnk instrument banks, *.wav waveforms, *.seq sequences).\\n\\nHuman decision: whether the substitute (no-source) files on this disk are in-scope for the byte-exact project at all \u2014 synthLAB is a bundled third-party app, distinct from the Apple GS/OS system software. Whole-disk logical-exact for Disk 6 is achievable only by shipping golden bytes for the 23 substitutes plus building Tool035; no diskcheck currently gates Disk 6 (disk_logical_exact to date covers Disk 2 / System Disk).",
+   "files": [
+    {
+     "path": "/synthLAB/synthLAB",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "binary(app)",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "synthLAB application (212 blks, GS/OS S16). No producing source in any tree: searched IIGS.601.SRC + 'ROM Source Code' + work extractions \u2014 no synthlab source dir exists (only GSToolbox/MIDISynth+NoteSynth, unrelated tools). Build scripts SD.ODDS.N.Ends/APW.Scripts/Build.Synth and SD.ODDS.N.Ends/synthLABToDiskImage merely `Duplicate` a prebuilt binary from ':A2CE_Sources:System Disk 6.0:synthlab:synthLAB'. Basename absent as build target.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Icons/SL.Icons",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "icon-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Finder icon file (7 blks). Searched IIGS.601.SRC + ROM Source Code: only hits for 'SL.Icons' are QDAux/icon.asm (icon-mgr code, unrelated) and Build.Synth which just `Duplicate`s it verbatim. No .icons/.r/.rez source; SD.ODDS.N.Ends/Finder.Icons script does not mention SL.Icons.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Icons/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "finder-db",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Finder desktop database (1 blk), generated at runtime by Finder, not built from source (per census rules Finder.Data is no-source-substitute). Absent as a build target in IIGS.601.SRC/ROM Source Code.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Tool035",
+     "forks": "data",
+     "classification": "buildable-asm",
+     "language": "asm(65816)",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/MIDISynth/",
+     "proven_by": "",
+     "evidence": "Tool035 = MIDISynth. Full APW assembly source at ref/GSOS_6/IIGS.601.SRC/GSToolbox/MIDISynth/ (MIDISynth.aii, NoteOn/NoteOff/Update/ToolCalls/Tables/Buffer/Midi.Control/Midi.Driver.aii, ns.equ) with makefile: `Tool035 ... LinkIIGS {ObjDir}MIDISynth.obj ...`. Listed in GSToolbox/build.tools: 'directory ::midisynth / BuildProgram {parameters} tool035'. Not yet gated byte-exact (toolcheck.py TOOL_SPECS stop at 034); Build.Synth copies the prebuilt binary but the producing asm source exists.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/MIDI",
+     "forks": "data+rsrc",
+     "classification": "built",
+     "language": "rez",
+     "source_path": "MIDICDEV/midi.r (SRC_ROOT-relative, in cdevcheck CDEVMAP)",
+     "proven_by": "cdevcheck.py",
+     "evidence": "MIDI CDEV. work/cdevcheck.py CDEVMAP maps it to source MIDICDEV/midi.r and gates the full resource fork byte-exact; ran `python3 work/cdevcheck.py MIDI` => 'built=4552 gold=4552 BYTE-EXACT'. Data fork is 0 bytes (verified via rezcheck volume read), so the entire file is reproduced. rCDEVCode/rCodeResource opaque code blobs are supplied from gold (standard CDEV method, matches completed CDEV sweep).",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Synth.bnk",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "synthLAB instrument-bank data (.bnk). Only tree reference is Build.Synth `Duplicate ... Synth.bnk` (verbatim copy). No producing source in IIGS.601.SRC/ROM Source Code; .aii hits for '.bnk' are incidental comments in unrelated sound-tool source.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Synth.seq",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "synthLAB sequence data (.seq). Only tree reference is Build.Synth `Duplicate ... Synth.seq`. No producing source in any tree searched.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Synth.wav",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "synthLAB waveform data (.wav). Only tree reference is Build.Synth `Duplicate ... Synth.wav`. No producing source; searched IIGS.601.SRC + ROM Source Code + work extractions.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Bee.seq",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Bee.seq`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Capri.seq",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Capri.seq`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Combo.bnk",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Instrument-bank data. Only reference Build.Synth `Duplicate ... Combo.bnk`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Combo.wav",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Waveform data. Only reference Build.Synth `Duplicate ... Combo.wav`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Demo.bnk",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Instrument-bank data. Only reference Build.Synth `Duplicate ... Demo.bnk`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Demo.wav",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Waveform data. Only reference Build.Synth `Duplicate ... Demo.wav`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Fugue.seq",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Fugue.seq`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Midsummer.seq",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Midsummer.seq`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Orch.bnk",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Instrument-bank data. Only reference Build.Synth `Duplicate ... Orch.bnk`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Orch.wav",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Waveform data. Only reference Build.Synth `Duplicate ... Orch.wav`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Piano.bnk",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Instrument-bank data. Only reference Build.Synth `Duplicate ... Piano.bnk`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Piano.wav",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Waveform data. Only reference Build.Synth `Duplicate ... Piano.wav`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Rhythm.seq",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Rhythm.seq`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Sonata.seq",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "sound-data",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Sonata.seq`; no producing source in any tree.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Seq.and.Instr/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "finder-db",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Finder desktop database (1 blk) for the Seq.and.Instr folder, generated at runtime by Finder. Not a build target; absent from IIGS.601.SRC/ROM Source Code.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Reference",
+     "forks": "data+rsrc",
+     "classification": "no-source-substitute",
+     "language": "document(teach)",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "synthLAB reference document (114 blks; data fork 53839 B, rsrc fork 2108 B, verified via rezcheck volume read). Only tree reference is Build.Synth `Duplicate ... Reference` (verbatim copy). No .r/.rez/.p/.c source; 'Reference' hits under GSToolbox are incidental word matches in NoteSynth .aii comments, not this document.",
+     "confidence": "high"
+    },
+    {
+     "path": "/synthLAB/Finder.Data",
+     "forks": "data",
+     "classification": "no-source-substitute",
+     "language": "finder-db",
+     "source_path": "",
+     "proven_by": "",
+     "evidence": "Finder desktop database (1 blk) for the synthLAB volume root, generated at runtime by Finder. Not a build target; absent from all source trees searched.",
+     "confidence": "high"
+    }
+   ]
+  },
+  "Disk 7 of 7 Apple II Setup.2mg \u2014 FORMAT FINDING: The 2mg is a valid 2IMG (magic '2IMG', creator 'XGS!', header len 0x40, image-format field @0x0C = 1 = ProDOS/logical block order, num_blocks @0x14 = 0x0640 = 1600 blocks = 800K, data offset 0x40, data length 0xC8000 = 819200; file size 819264 = 64+819200 checks out). The a2til ProDOS reader failed (\"header says 8293 blocks but device holds 1600\") because the CONTAINED FILESYSTEM IS HFS, NOT ProDOS: block 2 (image offset 64+1024=1088) begins with 0x4244 = 'BD' = HFS MDB signature. a2til read HFS bytes as a ProDOS volume-directory total_blocks field and got garbage (8293). Boot block starts 4C 4B 60 (JMP $604B). Read cleanly with work/hfs.py after stripping the 64-byte 2mg header: HFS volume with 12 files in 2 dirs (root + 'System Folder'). This is the AppleShare net-boot 'Apple II Setup' disk, built on a Macintosh via MPW (creators MACS/ttxt/bjbc); its build recipe is ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Makefile + build.disk.": {
+   "notes": "FORMAT: the a2til failure was a filesystem misdiagnosis \u2014 the .2mg is a legitimate 800K ProDOS-order 2IMG whose CONTENTS are HFS (MDB 'BD' at image offset 1088). Read with work/hfs.py after stripping the 64-byte header. 12 files, 2 dirs.\n\nBIG UNLOCK: this disk's exact build recipe is in-tree at ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Makefile + build.disk (by Mark Day / D.Lyons, v3.0, 2-Apr-93). It names every file and how it is produced; all six vers/patch .r resource sources are in GS.OS/NetBoot/Installer/ (Apple2GSInstallerScript.r, Basic.r, BootBlocks.r, Bullwinkle.r, Image.r, P8.r). The NetBoot tree (Fizzy, Stub, Boot, IIeBlocks/reloc.aii, Logon, Console, MakeImage, SpoolerIWEM) is essentially untouched by current harnesses and is a whole new asm build target set.\n\nTWO BYTE-LEVEL PROOFS this run:\n1. /System Folder/Basic.System DATA fork is byte-identical (sha ea5a8d1a41cd) to the basiccheck golden -> its code is already reproduced byte-exact; only the tiny vers rsrc fork (Basic.r) remains.\n2. /IWEm DATA fork (28523 B) is byte-identical to the tree's compiled GSToolbox/PrinterDrivers/IWEm/IWEm (buildable-asm from IWEm.Src).\n\nKEY FINDING on p8: /System Folder/p8 differs from the p8check golden in exactly 4 bytes, which decode to an embedded ASCII assembly-DATE ('02-Apr' on this disk vs '06-May' on the System Disk). Same P8 source/recipe p8check already proves byte-exact \u2014 reproduction just needs the date parameter. This is a good example of a near-miss that is NOT a distinct binary.\n\nSURPRISE / HUMAN DECISION: /Installer is a 132 KB compiled MACINTOSH 68k application (CODE/CDEF/LDEF/DLOG/SIZE resources), not a IIgs program \u2014 it is Apple's Mac Installer used on the build Mac. installercheck.py proves an entirely different artifact (the IIgs Installer, A.U.G/Installer, 17,895 B on Disk 1). No 68k Mac Installer source exists in the IIgs trees, so this file is no-source-substitute. Do NOT conflate it with the installercheck target.\n\nSUBSTITUTE LIST (no-source, 5): /Installer (Mac 68k app), /Desktop (Finder desktop DB), /Finder.Data (root), /System Folder/Finder.Data, /Spooler-Read Me (TeachText doc; identical copy exists in NetBoot/SpoolerIWEM but authored, not built).\n\nFORK NOTE: every System Folder file and Apple II Script carries a small HFS RESOURCE fork added by build.disk's Rez/SetVersion steps (vers/BNDL/icons), all buildable-rez from the NetBoot/Installer .r files but embedding the hard-coded build date/version (thisvers=3.0, todayhex). A fully byte-exact disk repro must reproduce those date-stamped vers resources. Consistent with diskcheck's convention, I classified dual-fork files by the hardest still-open fork; none is currently harness-gated as a whole file, hence built=0 even though two data forks are already proven byte-exact.",
+   "files": [
+    {
+     "path": "/System Folder/Basic.System",
+     "forks": "data=built(byte-exact, proven by basiccheck); rsrc=buildable-rez(Basic.r+SetVersion vers) not yet gated",
+     "classification": "buildable-rez",
+     "language": "6502/65C02 asm (data fork) + Rez (rsrc fork)",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/BASIC.SYSTEM/ (data); ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Installer/Basic.r (rsrc)",
+     "proven_by": "basiccheck",
+     "evidence": "DATA fork (10240 B) sha256 prefix ea5a8d1a41cd is BYTE-IDENTICAL to the basiccheck golden ref/GSOS_6/IIGS.601.SRC/BASIC.SYSTEM/BASIC.SYSTEM (same sha), which basiccheck builds byte-exact (BASIC_SYSTEM_BYTES_EXACT, gate.py). build.disk duplicates {Basic}Basic.System then applies 'Rez {inst}Basic.r' + SetVersion for the 416 B rsrc fork. Hardest remaining part = the ungated vers resource fork -> buildable-rez.",
+     "confidence": "high"
+    },
+    {
+     "path": "/IWEm",
+     "forks": "data=buildable-asm (byte-identical to in-tree compiled reference); rsrc=312 B (small vers/finder)",
+     "classification": "buildable-asm",
+     "language": "65816 asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/IWEm/IWEm.Src",
+     "proven_by": null,
+     "evidence": "Disk data fork (28523 B, sha256 prefix 66ce407b23e9) is BYTE-IDENTICAL to the tree's already-compiled binary ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/IWEm/IWEm (same size 28523, same sha). ImageWriter-emulation printer driver; asm source IWEm.Src (63669 B) present with BuildIWEm/makefile. No gsasm harness gates it yet -> buildable-asm.",
+     "confidence": "high"
+    },
+    {
+     "path": "/System Folder/p8",
+     "forks": "data=buildable-asm (date-stamp variant of p8check golden); rsrc=409 B buildable-rez (P8.r)",
+     "classification": "buildable-asm",
+     "language": "6502/65C02 asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/P8/ (built via work/diskbuilders/p8_driver.py; gated by p8check for the System-Disk variant)",
+     "proven_by": "p8check (identical recipe, different embedded date)",
+     "evidence": "Data fork (17128 B, sha 2f98bd08d43c) differs from p8check golden ref/GSOS_6/os_bin/P8#FF0000 (17128 B, sha 108bdd79c418) in EXACTLY 4 bytes at 0x27,0x29-0x2b. Decoded high-bit ASCII: disk='...02-Apr...' (b0 b2 ad c1 f0 f2) vs golden='...06-May...' (b0 b6 ad cd e1 f9) \u2014 an embedded assembly-DATE string (build.disk is dated 2-Apr-93). Same P8 asm source/recipe p8check proves byte-exact; only the date stamp differs. build.disk duplicates {SDSystem}P8 then Rez P8.r for the rsrc fork.",
+     "confidence": "high"
+    },
+    {
+     "path": "/System Folder/Apple //e Boot Blocks",
+     "forks": "data=buildable-asm (Catenate of Reloc+P8+BootLog8); rsrc=423 B buildable-rez(Bullwinkle.r)",
+     "classification": "buildable-asm",
+     "language": "65816/6502 asm (composite)",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/IIeBlocks/reloc.aii + :work:P8 + GS.OS/NetBoot/Logon/BootLog8.aii; rsrc from GS.OS/NetBoot/Installer/Bullwinkle.r",
+     "proven_by": null,
+     "evidence": "NetBoot/Makefile target 'Apple //e Boot Blocks' = Catenate {iie}Reloc :work:P8 :Logon:BootLog8 (all asm-built: reloc.aii->LinkIIGS->MakeBinIIGS; P8; BootLog8 from BootLog8.aii+Console.o+DES.o). build.disk then 'Rez {inst}Bullwinkle.r' + SetVersion for the rsrc fork. Composite of three asm-derived pieces; not yet built by gsasm.",
+     "confidence": "medium"
+    },
+    {
+     "path": "/System Folder/ProDOS16 Boot Blocks",
+     "forks": "data=buildable-asm(Boot.aii, org $800); rsrc=426 B buildable-rez(BootBlocks.r)",
+     "classification": "buildable-asm",
+     "language": "65816 asm",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Boot/Boot.aii; rsrc from GS.OS/NetBoot/Installer/BootBlocks.r",
+     "proven_by": null,
+     "evidence": "NetBoot/Makefile: {blocks} = duplicate of :boot:boot, built AsmIIGS boot.aii -> LinkIIGS -> MakeBinIIGS -org $800. build.disk applies 'Rez {inst}BootBlocks.r' + two SetVersion vers for the rsrc fork. Source Boot.aii present; not yet gated.",
+     "confidence": "medium"
+    },
+    {
+     "path": "/System Folder/ProDOS16 Image",
+     "forks": "data=buildable-asm composite; rsrc=420 B buildable-rez(Image.r)",
+     "classification": "buildable-asm",
+     "language": "65816 asm components combined by the MakeImage (C) build tool",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/{Fizzy/Fizzy.aii,Stub/stub.aii,Logon/BootLog16.aii,MakeImage/main.c}; drivers ATP1.ATRom/ATP2.ATRam/ETalk duplicated from System Disk; rsrc from Installer/Image.r",
+     "proven_by": null,
+     "evidence": "NetBoot/Makefile {image} target: the 'mi' MakeImage tool (built from MakeImage/main.c \u2014 a C build utility, like makebin, NOT the target content) combines fizzy($1000),stub($2000),p8($2000),BootLog16($6800),atrom,atram,ETBoot into the 92672 B image. All CODE content is .aii asm (fizzy.aii, stub.aii, BootLog16.aii+Console+DES, plus AppleTalk/EtherTalk drivers duplicated from the System Disk). Complex composite requiring the mi combiner + several drivers; classified buildable-asm by content language but not yet attempted. NOTE: this is a P16 boot image, unrelated to the 1668 B ProDOS golden (os_bin/ProDOS#FF0000) that diskcheck._build_prodos gates.",
+     "confidence": "low"
+    },
+    {
+     "path": "/Apple II Script",
+     "forks": "data=0; rsrc=6421 B buildable-rez",
+     "classification": "buildable-rez",
+     "language": "Rez",
+     "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Installer/Apple2GSInstallerScript.r",
+     "proven_by": null,
+     "evidence": "build.disk builds it: 'Rez {inst}Apple2GSInstallerScript.r -o {work}Apple II Script -c bjbc -t bjbc -d releasedate={todayhex}' then SetVersion + ScriptCheck. Pure resource file (data fork 0); source .r present in NetBoot/Installer/. It is the 'bjbc' installer script consumed by the Macintosh Installer app on this disk. Embeds a build date (releasedate/ScriptCheck) so reproduction is date-parameterized.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Installer",
+     "forks": "data=0; rsrc=132375 B (Mac 68k application)",
+     "classification": "no-source-substitute",
+     "language": "Macintosh 68k (compiled CODE resources)",
+     "source_path": "ABSENT \u2014 no 68k Mac Installer source in any tree",
+     "proven_by": null,
+     "evidence": "Resource fork (132375 B) type list = Macintosh application: CODE(9), CDEF, LDEF, PROC, INIT, ptch, DLOG(11)/dctb(12)/DITL(22), SIZE, dcmp, icl8/icl4/ics8/ics4 icon families, BNDL/FREF/SIG#, bjbc(1). This is Apple's Macintosh Installer app (creator 'bjbc'), used on the Mac that builds this disk (build.disk: 'build to a Macintosh System Tools ... or Apple II Setup disk'). installercheck.py gates a DIFFERENT program \u2014 the IIgs Installer (A.U.G/Installer: Install.asm/Main.asm/Data.asm + Installer.r), 17,895 B / 90 resources on Disk 1. Searched IIGS.601.SRC (incl. A.U.G, GS.OS/NetBoot/Installer which holds only .r scripts): no 68k Mac Installer source. -> no-source-substitute.",
+     "confidence": "high"
+    },
+    {
+     "path": "/Spooler\u2014Read Me",
+     "forks": "data=273 B text; rsrc=425 B (TeachText styl/window)",
+     "classification": "no-source-substitute",
+     "language": "TeachText document (authored text)",
+     "source_path": "in-tree copy at ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/SpoolerIWEM/Spooler\u2014Read Me (authored content, not built)",
+     "proven_by": null,
+     "evidence": "type 'ttro' creator 'ttxt' = TeachText read-only document. An identically-named copy exists in the source archive (NetBoot/SpoolerIWEM/Spooler-Read Me) but it is authored prose, not produced by any asm/rez build step. -> no-source-substitute (data doc).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Desktop",
+     "forks": "data=0; rsrc=33533 B",
+     "classification": "no-source-substitute",
+     "language": "Finder Desktop database (binary data)",
+     "source_path": "none (Finder-generated runtime database)",
+     "proven_by": null,
+     "evidence": "type 'FNDR' creator 'ERIK' = the classic Finder 'Desktop' database file (icon/bundle registry), generated at runtime by the Finder, not built from source. Searched IIGS.601.SRC: no producing source. -> no-source-substitute (per project rule for Finder.Data/Desktop desktop DBs).",
+     "confidence": "high"
+    },
+    {
+     "path": "/Finder.Data",
+     "forks": "data=148 B; rsrc=0",
+     "classification": "no-source-substitute",
+     "language": "Finder data (binary)",
+     "source_path": "none",
+     "proven_by": null,
+     "evidence": "type 'p...'(pdos) creator 'pdos' = Finder metadata/data file. finderdatacheck.py exists but targets the GS/OS Finder's Finder.Data on the System/Tools disks, not this Apple-II-Setup root copy; no source builds this data. Project rule classifies Finder.Data as no-source-substitute.",
+     "confidence": "high"
+    },
+    {
+     "path": "/System Folder/Finder.Data",
+     "forks": "data=161 B; rsrc=0",
+     "classification": "no-source-substitute",
+     "language": "Finder data (binary)",
+     "source_path": "none",
+     "proven_by": null,
+     "evidence": "type 'p...'(pdos) creator 'pdos', 161 B Finder data in the System Folder. Same as root Finder.Data \u2014 Finder-maintained data, no producing source in any tree. -> no-source-substitute.",
+     "confidence": "high"
+    }
+   ]
+  }
+ }
+}
