@@ -2108,11 +2108,11 @@
     {
      "path": "/SystemTools2/System/System.Setup/ATResponder",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/SetupFiles/ATResponder/ATResponder.aii",
-     "proven_by": null,
-     "evidence": "GSOSToDiskImage copies system:SYSTEM.SETUP:ATRESPONDER -> ST2. Source GS.OS/SetupFiles/ATResponder/ATResponder.aii + MakeFile (asm). Not gated.",
+     "proven_by": "expressloadcheck",
+     "evidence": "ATResponder single-object ExpressLoad file (GS.OS/SetupFiles/ATResponder/ATResponder.aii) byte-exact whole-file 4107/4107 vs Disk-4 gold. expressloadcheck build_atresponder.",
      "confidence": "high"
     },
     {

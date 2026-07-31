@@ -77,6 +77,13 @@ def build_quicklogoff():
     return _one(os.path.join(ql, 'Quick.aii'), [ql] + _GINCS)
 
 
+def build_atresponder():
+    # ATResponder (Disk 4 /System/System.Setup) — single-object ExpressLoad file,
+    # byte-exact whole-file (code image + wrapper + reloc dict). GS.OS SetupFile.
+    ar = os.path.join(_SRC, 'GS.OS', 'SetupFiles', 'ATResponder')
+    return _one(os.path.join(ar, 'ATResponder.aii'), [ar] + _GINCS)
+
+
 def build_atinit():
     # ATInit is NOT ExpressLoad — it is a flat MakeBin file (make.atinit:
     # linkiigs atinit.aii -t $E2 -at $0000 -o ATINIT ; makebiniigs ATINIT).
@@ -109,6 +116,7 @@ _TARGETS = [
     ('QuickLogoff', 'Disk 4 of 7 SystemTools2.2mg', 'AppleTalk/QuickLogoff', build_quicklogoff),
     ('Tool038',     'Disk 4 of 7 SystemTools2.2mg', 'System/Tools/Tool038',  build_tool038),
     ('ATInit',      'Disk 4 of 7 SystemTools2.2mg', 'System/System.Setup/ATInit', build_atinit),
+    ('ATResponder', 'Disk 4 of 7 SystemTools2.2mg', 'System/System.Setup/ATResponder', build_atresponder),
 ]
 
 
