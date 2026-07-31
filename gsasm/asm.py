@@ -492,6 +492,10 @@ class Asm:
                                       #   (a same-segment SET shadows a WITH field
                                       #   in resolve(), like other locals; the
                                       #   live value stays in symbols — no cache)
+        self.segattrs = {}            # folded SEG loadname -> [SegAttr operands]
+                                      #   (Installer Static/Dynamic/Bank; read by
+                                      #   the packaging harness, inert otherwise)
+        self.stackdp_segs = set()     # folded names of StackDP..EndS segments
         self.setvar_val = {}          # SET name -> its LIVE running value. When a
                                       #   SET collides with a STORAGE LABEL, the
                                       #   label keeps the module-visible binding
@@ -1261,6 +1265,24 @@ class Asm:
                 and (u in self.imports or u in self.exports
                      or u in self.entries))
 
+    def _label_shadows_proc_head(self, name, kind, u, seg):
+        """A plain proc-interior label reusing the NAME of a PROC (segment
+        head) defined ELSEWHERE in the module stays segment-local: MPW scopes
+        interior labels to their module, so outside it the PROC definition is
+        the visible binding. Installer Main.asm — StandardProgram's interior
+        `inControl` label vs the `inControl PROC` further down; KeyDown's
+        `bne inControl` must reach the (forward, in-range) PROC, not the
+        interior label 140 bytes back. Keyed on the prior pass's final home
+        (symseg_seed): the name's segment is a head whose own name IS the
+        label, and is not this segment. EXPORT/ENTRY names keep their own
+        rules; pass 1 keeps last-wins (the seed converges pass 2+)."""
+        si = self.symseg_seed.get(u)
+        names = getattr(self, 'seg_names_seed', [])
+        return (kind == 'label' and self.in_proc and not name.startswith('@')
+                and si is not None and si != seg and si < len(names)
+                and names[si] == u
+                and u not in self.exports and u not in self.entries)
+
     def _proc_equ_reuses_import_winner(self, name, kind, u):
         """A proc-scoped EQU may reuse a declared IMPORT name while another
         object in the same load segment actually EXPORTs that name.  With the
@@ -1471,8 +1493,10 @@ class Asm:
                 # setvar_seg/setvar_val in resolve()/sym_kind. A SET that OWNS
                 # its name (no label collision) updates symbols as before.
                 set_vs_label = (redefinable and self.symtype.get(u) == 'label')
+                shadows_head = self._label_shadows_proc_head(name, kind, u, seg)
                 if (not keep_prior and not foreign_entry_dup
-                        and not prior_modscope and not set_vs_label):
+                        and not prior_modscope and not set_vs_label
+                        and not shadows_head):
                     self.symbols[u] = value
                     self.symtype[u] = kind
                     if (kind == 'equ' and not self.in_proc
@@ -1483,7 +1507,8 @@ class Asm:
                 self.defcount[u] = self.defcount.get(u, 0) + 1
                 self.labels.append((name, value))
                 if kind == 'label' and not keep_prior:
-                    if not foreign_entry_dup and not prior_modscope:
+                    if (not foreign_entry_dup and not prior_modscope
+                            and not shadows_head):
                         self.symseg[u] = seg              # defining segment index
                     # module-local reachability: register in the defining segment
                     # even when the global binding stays with the ENTRY's home seg
@@ -2461,6 +2486,30 @@ class Asm:
             # PROCs until the next SEG (persistent, NOT one-shot); a bare SEG
             # reverts to the default 'main' segment.
             self.seg_loadname = _unquote(ln.operand) if ln.operand else None
+            return
+        if u == 'SEGATTR':
+            # `SegAttr Static|Dynamic|Bank $NN` — load-segment attributes for
+            # the CURRENT `SEG` group (Installer: Static->KIND $4000, Dynamic->
+            # KIND $8000/$C000). The assembler just RECORDS them; the packaging
+            # harness maps them onto ExpressLoad segment KINDs.
+            key = self._fold(self.seg_loadname or 'main')
+            self.segattrs.setdefault(key, []).append((ln.operand or '').strip())
+            self._lbl(ln)
+            return
+        if u == 'STACKDP':
+            # `Name StackDP ... EndS` — a direct-page/stack load segment
+            # (Installer Data.asm `Stack StackDP` + `ds.b 4096`): opens a
+            # PROC-like segment flagged is_stackdp (LinkIIGS merges these into
+            # the ~direct KIND $12 DP/stack load segment).
+            self._proc(ln)
+            self.segs[-1].is_stackdp = True
+            if ln.label:
+                self.stackdp_segs.add(self._fold(ln.label))
+            return
+        if u == 'ENDS':
+            # closes a StackDP segment (like ENDP)
+            self.proc_depth = max(0, self.proc_depth - 1)
+            self.in_proc = self.proc_depth > 0
             return
         if u == 'ORG':
             self._dir_org(ln); return
@@ -3460,7 +3509,7 @@ def _find_ci(base, relpath):
 def _run_once(path, include_paths, seed, seed_type, seg_seed=None, defines=None,
               at_seed=None, at_seg_seed=None, sysdate=None, systime=None,
               loads=None, symseg_seed=None, import_wins=None,
-              case_equ_variants=None):
+              case_equ_variants=None, seg_names_seed=None):
     asm = Asm(include_paths, seed=seed, seed_type=seed_type, seg_seed=seg_seed,
               sysdate=sysdate, systime=systime, loads=loads,
               symseg_seed=symseg_seed, import_wins=import_wins,
@@ -3469,6 +3518,10 @@ def _run_once(path, include_paths, seed, seed_type, seg_seed=None, defines=None,
     # pass (a forward @-ref is resolved while assembling, before its definition)
     asm.at_seed = at_seed or {}
     asm.at_seg_seed = at_seg_seed or {}
+    # prior pass's SEGMENT NAMES (indices are stable): lets a predicate ask
+    # whether a symbol's final home segment is a SEGMENT HEAD even before that
+    # segment exists this pass (_label_shadows_proc_head / Installer inControl)
+    asm.seg_names_seed = seg_names_seed or []
     src_dir = os.path.dirname(os.path.abspath(path))
     if src_dir not in asm.include_paths:
         asm.include_paths = [src_dir] + asm.include_paths
@@ -3518,7 +3571,9 @@ def assemble(path, include_paths, passes=3, defines=None, sysdate=None,
                       at_seed=prev.at_defs, at_seg_seed=prev.at_seg,
                       sysdate=sysdate, systime=systime, loads=loads,
                       symseg_seed=prev.symseg, import_wins=import_wins,
-                      case_equ_variants=case_equ_variants)
+                      case_equ_variants=case_equ_variants,
+                      seg_names_seed=[prev._fold(s.name or '')
+                                      for s in prev.segs])
     return a
 
 
