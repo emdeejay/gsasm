@@ -281,6 +281,14 @@ def first_field(s, expr_cont=False, num_cont=False, count_dir=False):
             # `sta foo,x , put it back`.)
             if prev and prev[-1] == ',':
                 i = j; continue
+            # A comma immediately AFTER the whitespace continues a DATA/equate
+            # comma-list (`dc.b $5B,50 , $5D,50 , $43,00` — the intl_tbl in the
+            # ImageWriter/LQ imager.aii, 32 rows x 8 words). Gated to expr_cont
+            # (DC.B/W/L, EQU, SET, DS) so an INSTRUCTION's unmarked comment that
+            # starts with a comma (`sta foo,x , put it back` — num_cont, not
+            # expr_cont) is never swallowed.
+            if expr_cont and s[j:j+1] == ',':
+                i = j; continue
             # Expression continuation (data/equate directives, and IMMEDIATE
             # instruction operands): the operand continues across whitespace
             # ONLY when the ENTIRE tail parses as a clean [operator term]*

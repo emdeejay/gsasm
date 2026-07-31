@@ -1,0 +1,3 @@
+{
+  "note": "A DC.B/DC.W comma-list written with SPACED commas (` , `) continues across the whitespace — the comma is a list separator, not a comment boundary. first_field already handled a comma BEFORE the space (`DC.W Flag, 0`); this adds the comma AFTER the space, gated to expr_cont (DC.B/W/L, EQU, SET, DS) so an instruction's unmarked comment starting with a comma (`sta foo,x , put it back`, num_cont not expr_cont) is never swallowed. discovered: ImageWriter/ImageWriter.LQ imager.aii intl_tbl (32 rows x `dc.b $5B,50 , $5D,50 , $43,00 , $45,00`) — gsasm kept only the first word of each row, dropping 32 x 6 = 192 bytes. Expected: all 8 bytes 5b325d3243004500."
+}
