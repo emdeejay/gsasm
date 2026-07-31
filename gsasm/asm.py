@@ -2541,8 +2541,12 @@ class Asm:
             if ',' in op:                      # `base,increment|decrement`
                 base_txt, mod = op.split(',', 1)
                 modl = mod.strip().lower()
-                if 'decrement' in modl or 'increment' in modl:
-                    dec = 'decrement' in modl
+                # Accept the ABBREVIATIONS INCR/DECR too (VideoKeyboard Key.a
+                # `StackFrame RECORD 1,INCR`); previously only the full words
+                # matched, so the modifier was not stripped and the base operand
+                # `1` failed to evaluate -> base 0 -> every field offset off by 1.
+                if modl[:4] in ('incr', 'decr'):
+                    dec = modl[:4] == 'decr'
                     op = base_txt.strip()
             # `Name RECORD IMPORT`: Name is an EXTERNAL data instance (defined
             # and exported elsewhere — AppleShare's SPWrite/SPCommand are
@@ -2766,11 +2770,9 @@ class Asm:
     def _dir_export(self, ln):
         self._lbl(ln)
         if ln.operand:
-            for tok in _split_commas(ln.operand):
-                nm = tok.split(':')[0].strip()
-                if nm:
-                    self.exports.add(self._fold(nm))
-                    self._note_entry_seg(self._fold(nm))
+            for nm, _typ in _iter_sym_decls(ln.operand):
+                self.exports.add(self._fold(nm))
+                self._note_entry_seg(self._fold(nm))
         if ln.label:
             self._note_entry_seg(self._fold(ln.label))
 
@@ -2778,9 +2780,7 @@ class Asm:
         # `IMPORT a,b,c` declares several externals on one line; each may carry
         # a `:attr` suffix (stripped).  (Was: only the first was taken, so
         # e.g. GQuit's `Import e1_errBuf,e1_errStr` became one bogus symbol.)
-        for part in (ln.operand or '').split(','):
-            bits = part.split(':')
-            nm = bits[0].strip()
+        for nm, typ in _iter_sym_decls(ln.operand):
             if nm:
                 f = self._fold(nm)
                 self.imports.add(f)
@@ -2791,8 +2791,8 @@ class Asm:
                 # QUALIFIED `name.field` reference is the same external
                 # (MSDos `ldy #one_entry.attributes` = ONE_ENTRY+0x0b, an
                 # import+addend the linker resolves)
-                if len(bits) > 1 and bits[1].strip():
-                    t = self._fold(bits[1].strip())
+                if typ:
+                    t = self._fold(typ)
                     self.import_type[f] = t
                     prefix = t + '.'
                     for q in self.record_ds_fields:
@@ -3184,6 +3184,34 @@ def _split_commas(s):
             cur.append(c)
     out.append(''.join(cur))
     return out
+
+
+def _iter_sym_decls(operand):
+    """Yield (name, type_or_None) for an EXPORT/IMPORT operand. Expands a
+    PARENTHESIZED GROUP `(a,b,c):type` into a, b, c each carrying the shared
+    `:type` — MPW grouped-declaration syntax (Start/StartLog
+    `export (InitParm,FrameParms1,MainWindow):code`,
+    `import (InitParm,TitLine):code`). A plain `name` or `name:type` yields one
+    pair; the top-level split is paren-aware so a group is not shredded."""
+    for tok in _split_commas(operand or ''):
+        tok = tok.strip()
+        if not tok:
+            continue
+        if tok.startswith('('):
+            close = tok.find(')')
+            if close == -1:
+                continue
+            suffix = tok[close + 1:].strip()
+            typ = suffix[1:].strip() if suffix.startswith(':') else None
+            for m in tok[1:close].split(','):
+                m = m.strip()
+                if m:
+                    yield m, typ
+        else:
+            bits = tok.split(':')
+            typ = bits[1].strip() if len(bits) > 1 and bits[1].strip() else None
+            if bits[0].strip():
+                yield bits[0].strip(), typ
 
 
 def _split_kw(s, kw):
