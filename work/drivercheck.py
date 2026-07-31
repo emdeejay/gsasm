@@ -120,6 +120,8 @@ DRIVER_DISK = {
                        '/SystemTools1/System/Drivers/ImageWriter'),
     'ImageWriter.LQ': ('Disk 3 of 7 SystemTools1.2mg',
                        '/SystemTools1/System/Drivers/ImageWriter.LQ'),
+    'StyleWriter':    ('Disk 3 of 7 SystemTools1.2mg',
+                       '/SystemTools1/System/Drivers/StyleWriter'),
 }
 _DISK_RAW_CACHE: dict[str, bytes] = {}
 
@@ -254,6 +256,14 @@ DRIVERMAP = {
         'GSToolbox/PrinterDrivers/LQ',
         ['entry.aii', 'printloop.aii', 'metrics.aii', 'dialog.aii',
          'dialogdata.aii', 'spool.aii', 'imager.aii', 'imagerdata.aii'],
+        {},
+    ),
+    # StyleWriter (Tabasco): 9-object link. Byte-exact once BUG-C (@-scope in
+    # record) and BUG-D (EQU *±const relocation) land.
+    'StyleWriter': (
+        'GSToolbox/PrinterDrivers/Tabasco',
+        ['entry.a', 'printloop.a', 'patchprocs.a', 'metrics.a', 'dialog.a',
+         'dialogdata.a', 'spool.a', 'imager.a', 'communications.a'],
         {},
     ),
     'Parallel.Card': (

@@ -1243,11 +1243,11 @@
     {
      "path": "/SystemTools1/System/Drivers/StyleWriter",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/TABASCO",
-     "proven_by": "",
-     "evidence": "build.tools: 'directory ::Tabasco BuildProgram StyleWriter'; source PrinterDrivers/TABASCO/*.a (APW-assembler .a: entry/imager/dialog/communications) is assembly. Not yet harness-gated.",
+     "proven_by": "drivercheck",
+     "evidence": "StyleWriter (Tabasco) 9-object flat link -> ExpressLoad; byte-exact 18238/18238 vs Disk-3 gold. Needed asm BUG-C (@-scope resets at record fields, dialogdata.a @TitleStart) + BUG-D (cross-object EQU *+const relocation, patchprocs.a PuPiSrcLookupMask). drivercheck.",
      "confidence": "high"
     },
     {

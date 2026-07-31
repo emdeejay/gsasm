@@ -2462,15 +2462,26 @@ class Asm:
         self.emit_line(ln, data, [])
 
     def _dir_equ(self, ln, u):
-        # `name EQU *` inside a relocatable PROC is a code LABEL by another
-        # spelling (AD3.5.read `FastBufr EQU *`): references must relocate
-        # (SEGNAME+offset), not bake the segment-relative literal.  In an
-        # absolute (ORG'd) segment the equate value already equals the
-        # label's absolute address, so the historical equate path stands.
-        if ((ln.operand or '').strip() == '*' and ln.label
+        # `name EQU *` (optionally `* +/- <const>`) inside a relocatable PROC is
+        # a code LABEL by another spelling (AD3.5.read `FastBufr EQU *`;
+        # StyleWriter patchprocs.a `PuPiSrcLookupMask EQU *+0`): references must
+        # relocate (SEGNAME+offset), not bake the segment-relative literal — else
+        # a cross-object reference keeps the object-LOCAL offset and the linker
+        # never adds the target object's placed base.  A pure numeric addend is
+        # folded into the label value; a `* - label` DIFFERENCE does NOT match
+        # (it is a link-time constant, stays the historical equate path).  In an
+        # absolute (ORG'd) segment the equate value already equals the label's
+        # absolute address, so the historical equate path stands there too.
+        mstar = re.fullmatch(r'\s*\*\s*([+\-]\s*\$?[0-9A-Fa-f]+)?\s*',
+                             ln.operand or '')
+        if (mstar and ln.label
                 and self.in_proc and not self.segs[-1].absolute
                 and self.segs[-1].temporg is None):
-            self.define_label(ln.label, self.loc)
+            addend = 0
+            if mstar.group(1):
+                extra = mstar.group(1).replace(' ', '')
+                addend = int(extra.replace('$', ''), 16 if '$' in extra else 10)
+            self.define_label(ln.label, self.loc + addend)
             return
         self.define_label(ln.label, self.evaluate(ln.operand) or 0, kind='equ',
                           redefinable=(u == 'SET'))
