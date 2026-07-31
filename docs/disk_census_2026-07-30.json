@@ -1213,11 +1213,11 @@
     {
      "path": "/SystemTools1/System/Drivers/Epson",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/Epson/epson.asm",
-     "proven_by": "",
-     "evidence": "build.tools: 'directory ::Epson BuildProgram Epson'; source PrinterDrivers/Epson/{epson.asm,dialogdata.asm,epson.macros} is assembly. Not yet harness-gated.",
+     "proven_by": "drivercheck",
+     "evidence": "Epson printer driver (epson.asm + dialogdata.asm) -> ExpressLoad; byte-exact 19222/19222 vs Disk-3 gold. Needed asm BUG-B (INA/DEA acc-only) + the linker import-vs-case-folded-local fix (epson `IMPORT l1` + local branch label `L1` collide under gsasm's fold; MPW is case-sensitive -> bind dialogdata's exported l1). drivercheck.",
      "confidence": "high"
     },
     {

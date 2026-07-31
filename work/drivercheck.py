@@ -122,6 +122,8 @@ DRIVER_DISK = {
                        '/SystemTools1/System/Drivers/ImageWriter.LQ'),
     'StyleWriter':    ('Disk 3 of 7 SystemTools1.2mg',
                        '/SystemTools1/System/Drivers/StyleWriter'),
+    'Epson':          ('Disk 3 of 7 SystemTools1.2mg',
+                       '/SystemTools1/System/Drivers/Epson'),
 }
 _DISK_RAW_CACHE: dict[str, bytes] = {}
 
@@ -256,6 +258,14 @@ DRIVERMAP = {
         'GSToolbox/PrinterDrivers/LQ',
         ['entry.aii', 'printloop.aii', 'metrics.aii', 'dialog.aii',
          'dialogdata.aii', 'spool.aii', 'imager.aii', 'imagerdata.aii'],
+        {},
+    ),
+    # Epson: driver body + dialogdata (like Modem/GraphiCard). Byte-exact once
+    # BUG-B (INA/DEA accumulator-only) and the linker import-vs-case-folded-local
+    # fix (epson `IMPORT l1` + local `L1`) land.
+    'Epson': (
+        'GSToolbox/PrinterDrivers/Epson',
+        ['epson.asm', 'dialogdata.asm'],
         {},
     ),
     # StyleWriter (Tabasco): 9-object link. Byte-exact once BUG-C (@-scope in

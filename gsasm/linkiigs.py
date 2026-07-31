@@ -546,7 +546,28 @@ def link(objects: list[tuple[bytes, Any | None]],
         # Local sym: global table overridden by this object's own GLOBALs.
         # This ensures e.g. WDefProc's JSR PUSHRECT resolves to WDefProc's
         # own PUSHRECT, not windmgr.asm's same-named export.
-        local_sym = sym if not obj_globals[oi] else {**sym, **obj_globals[oi]}
+        og = obj_globals[oi]
+        if not og:
+            local_sym = sym
+        else:
+            local_sym = {**sym, **og}
+            # A local label whose gsasm-UPPER-FOLDED name collides with a
+            # DIFFERENT-case IMPORT in the same object is, under MPW's
+            # case-sensitive linking, a distinct private symbol that must NOT
+            # shadow the imported external: bind the external EXPORT in `sym`
+            # instead. epson.asm `IMPORT l1` + branch target `L1` folds to one
+            # key `L1`, so `pushlong l1` (a sym83 external fixup) otherwise
+            # resolved to epson's own `L1` (0x08E3) instead of dialogdata's
+            # exported `l1` (0x4262). asm.py flags these folds in
+            # `_import_case_shadow`. Guard on a genuine differing external so a
+            # SAME-case self-satisfying import keeps its own local (Tool032
+            # midi.main `IMPORT NotImp` + `NotImp PROC` — NOT flagged).
+            shadow = getattr(_asm, '_import_case_shadow', None)
+            if shadow:
+                for nm in shadow:
+                    ext = sym.get(nm)
+                    if ext is not None and nm in og and ext != og[nm]:
+                        local_sym[nm] = ext
         bodies.append(_omf._build_body(recs2, local_sym, seg_base))
 
     # ------------------------------------------------------------------

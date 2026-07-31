@@ -24,7 +24,7 @@
     0
   ],
   "driver_bytes": [
-    217327,
+    236549,
     0
   ],
   "expressload_sys601_bytes_exact": [
@@ -64,12 +64,12 @@
     0
   ],
   "manifest_builders_exact": [
-    142,
-    20
+    143,
+    19
   ],
   "manifest_builders_wired": [
-    142,
-    20
+    143,
+    19
   ],
   "manifest_inventory_classified": [
     7,
