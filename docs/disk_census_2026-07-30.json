@@ -1778,11 +1778,11 @@
     {
      "path": "/SystemTools2/AppleTalk/Boot.Driver",
      "forks": "data (single OMF load file)",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/ATBoot/ATBoot.aii",
-     "proven_by": null,
-     "evidence": "GS.OS/MakeFiles/make.atboot links ATBOOT/atboot.aii.obj -t $BB -at $0181 -o {SDAppleTalk}Boot.Driver; source ATBoot.aii + Equates + MakeFile present. Not gated by any harness.",
+     "proven_by": "drivercheck",
+     "evidence": "Boot.Driver single ExpressLoad object (ATBOOT/atboot.aii) -> byte-exact vs Disk-4 gold. drivercheck DRIVERMAP/DRIVER_DISK.",
      "confidence": "high"
     },
     {
@@ -2088,11 +2088,11 @@
     {
      "path": "/SystemTools2/System/System.Setup/AppleIIVOC",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/VideoMix/VideoMix.INIT/vdinit.asm",
-     "proven_by": null,
-     "evidence": "A.U.G.ToDiskImage: videomix:VideoMix.INIT:AppleIIVOC.INIT -> ST2 system.setup/AppleIIVOC. VideoMix.INIT/makefile: Asmiigs VDInit.asm; Linkiigs VDInit.asm.obj -o AppleIIVOC.INIT -t $B7. Not gated.",
+     "proven_by": "drivercheck",
+     "evidence": "AppleIIVOC single ExpressLoad object (VideoMix.INIT/VDInit.asm) -> byte-exact vs Disk-4 gold. drivercheck DRIVERMAP/DRIVER_DISK.",
      "confidence": "high"
     },
     {

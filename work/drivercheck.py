@@ -124,6 +124,10 @@ DRIVER_DISK = {
                        '/SystemTools1/System/Drivers/StyleWriter'),
     'Epson':          ('Disk 3 of 7 SystemTools1.2mg',
                        '/SystemTools1/System/Drivers/Epson'),
+    'Boot.Driver':    ('Disk 4 of 7 SystemTools2.2mg',
+                       '/SystemTools2/AppleTalk/Boot.Driver'),
+    'AppleIIVOC':     ('Disk 4 of 7 SystemTools2.2mg',
+                       '/SystemTools2/System/System.Setup/AppleIIVOC'),
 }
 _DISK_RAW_CACHE: dict[str, bytes] = {}
 
@@ -260,6 +264,10 @@ DRIVERMAP = {
          'dialogdata.aii', 'spool.aii', 'imager.aii', 'imagerdata.aii'],
         {},
     ),
+    # AppleTalk boot driver (ATBOOT) + the VideoMix INIT (AppleIIVOC): single
+    # ExpressLoad object each; byte-exact as shipped (Disk 4 SystemTools2).
+    'Boot.Driver': ('GS.OS/Drivers/ATBoot', ['atboot.aii'], {}),
+    'AppleIIVOC': ('A.U.G/VideoMix/VideoMix.INIT', ['VDInit.asm'], {}),
     # Epson: driver body + dialogdata (like Modem/GraphiCard). Byte-exact once
     # BUG-B (INA/DEA accumulator-only) and the linker import-vs-case-folded-local
     # fix (epson `IMPORT l1` + local `L1`) land.
