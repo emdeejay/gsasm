@@ -551,22 +551,31 @@ def link(objects: list[tuple[bytes, Any | None]],
             local_sym = sym
         else:
             local_sym = {**sym, **og}
-            # A local label whose gsasm-UPPER-FOLDED name collides with a
-            # DIFFERENT-case IMPORT in the same object is, under MPW's
-            # case-sensitive linking, a distinct private symbol that must NOT
-            # shadow the imported external: bind the external EXPORT in `sym`
-            # instead. epson.asm `IMPORT l1` + branch target `L1` folds to one
-            # key `L1`, so `pushlong l1` (a sym83 external fixup) otherwise
-            # resolved to epson's own `L1` (0x08E3) instead of dialogdata's
-            # exported `l1` (0x4262). asm.py flags these folds in
-            # `_import_case_shadow`. Guard on a genuine differing external so a
-            # SAME-case self-satisfying import keeps its own local (Tool032
-            # midi.main `IMPORT NotImp` + `NotImp PROC` — NOT flagged).
-            shadow = getattr(_asm, '_import_case_shadow', None)
-            if shadow:
-                for nm in shadow:
+            # A name this object IMPORTs, that ANOTHER object EXPORTs (present in
+            # the global `sym` with a value differing from this object's own
+            # same-named entry in obj_globals), must bind that external EXPORT —
+            # UNLESS this object genuinely SATISFIES the import itself by defining
+            # the name as a segment/module head (a segment whose folded name
+            # equals the imported name) or as its own EXPORT/ENTRY. A plain
+            # INTERIOR label of the same (folded) name does NOT satisfy the import
+            # and must not shadow it. This is what MPW's case-sensitive,
+            # satisfy-the-import linking does, and it covers three collisions with
+            # ONE rule: epson.asm `IMPORT l1` + interior branch target `L1`
+            # (case-folded) -> bind dialogdata's exported `l1` ($4262 not $08E3);
+            # ATP_includes `import closeskt` + interior `closeskt` in cancelreq
+            # -> bind ApTalk's exported CLOSESKT ($1e95 not $0656); yet Tool032
+            # midi.main `IMPORT NotImp` + `NotImp PROC` (a segment head, offset 0)
+            # self-satisfies -> keeps its own local.
+            imp = getattr(_asm, 'imports', None)
+            if imp:
+                seg_names = {(_asm._fold(s.name) if s.name else None)
+                             for s in _asm.segs}
+                local_defs = (set(getattr(_asm, 'exports', ()))
+                              | set(getattr(_asm, 'entries', ())) | seg_names)
+                for nm in imp:
                     ext = sym.get(nm)
-                    if ext is not None and nm in og and ext != og[nm]:
+                    if (ext is not None and nm in og and ext != og[nm]
+                            and nm not in local_defs):
                         local_sym[nm] = ext
         bodies.append(_omf._build_body(recs2, local_sym, seg_base))
 

@@ -1958,21 +1958,21 @@
     {
      "path": "/SystemTools2/System/Drivers/ATP1.ATROM",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/ATRom",
-     "proven_by": null,
-     "evidence": "GS.OS/Drivers/ATRom/MakeFile: asmiigs atp_includes/lap_includes/aptalk.aii -> linkiigs -t $70BB0201 -o atrom; renamed atp1.atrom. GSOSToDiskImage copies ATP1.ATROM -> ST2. drivercheck docstring explicitly notes ATRom 'not in scope' (not gated), but full asm source present.",
+     "proven_by": "drivercheck",
+     "evidence": "ATP1.ATROM (ATRom, 3-obj link) byte-exact 10267/10267 vs Disk-4 gold; needed the linker import-vs-interior-local fix (ATP_includes `import closeskt` + interior local -> ApTalk's exported CLOSESKT). drivercheck.",
      "confidence": "high"
     },
     {
      "path": "/SystemTools2/System/Drivers/ATP2.ATRAM",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/Drivers/ATRam",
-     "proven_by": null,
-     "evidence": "GS.OS/Drivers/ATRam/MakeFile: 18 .aii objects (header/atpatch/pap/rpm/zip/asp/atstart/pfi*) -> linkiigs -t $70BB0203 -o atram; renamed atp2.atram. GSOSToDiskImage copies ATP2.ATRAM -> ST2. drivercheck docstring: ATRam 'not in scope' (not gated).",
+     "proven_by": "drivercheck",
+     "evidence": "ATP2.ATRAM (ATRam, 18-obj multi-dir link) byte-exact 41577/41577 vs Disk-4 gold. drivercheck.",
      "confidence": "high"
     },
     {

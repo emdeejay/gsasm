@@ -519,10 +519,6 @@ class Asm:
         self.link_bases = None        # link mode: seg index -> final base address
         self.extern = {}              # link mode: cross-module symbol -> final addr
         self.imports = set()
-        self.import_exact = {}        # folded import key -> first exact spelling
-        self._import_case_shadow = set()  # folded names where a local label's exact
-                                          # spelling differs from a same-fold IMPORT
-                                          # (MPW case-sensitive: distinct symbols)
         self.seg_imports = {}
         self.import_wins = set(import_wins or ())
         self.case_equ_variants = set(case_equ_variants or ())
@@ -1331,16 +1327,6 @@ class Asm:
 
     def define_label(self, name, value, kind='label', redefinable=False):
         if name:
-            # A code label whose UPPER-FOLDED name collides with a DIFFERENT-case
-            # IMPORT in this object is a distinct private symbol under MPW's
-            # case-sensitive linking (epson.asm `IMPORT l1` + branch target `L1`).
-            # Flag the fold so the linker binds the external export for that name,
-            # not this local. A SAME-case import (self-satisfying, e.g. Tool032
-            # `IMPORT NotImp` + `NotImp PROC`) is not flagged — its local wins.
-            if kind == 'label' and not name.startswith('@'):
-                _fk = self._fold(name)
-                if _fk in self.imports and name != self.import_exact.get(_fk, name):
-                    self._import_case_shadow.add(_fk)
             # ANY label not beginning with @ delimits @-local-label scope (MPW
             # Asm Ref, "@-labels": scope extends both directions to the nearest
             # non-@ label) — code labels AND equates (e.g. `NAME EQU *`) AND
@@ -2798,7 +2784,6 @@ class Asm:
             if nm:
                 f = self._fold(nm)
                 self.imports.add(f)
-                self.import_exact.setdefault(f, nm)
                 if self.segs:
                     self.seg_imports.setdefault(len(self.segs) - 1, set()).add(f)
                 # `IMPORT name:Type` — remember the declared type; WITH on

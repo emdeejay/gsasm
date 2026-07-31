@@ -128,6 +128,10 @@ DRIVER_DISK = {
                        '/SystemTools2/AppleTalk/Boot.Driver'),
     'AppleIIVOC':     ('Disk 4 of 7 SystemTools2.2mg',
                        '/SystemTools2/System/System.Setup/AppleIIVOC'),
+    'ATP1.ATROM':     ('Disk 4 of 7 SystemTools2.2mg',
+                       '/SystemTools2/System/Drivers/ATP1.ATROM'),
+    'ATP2.ATRAM':     ('Disk 4 of 7 SystemTools2.2mg',
+                       '/SystemTools2/System/Drivers/ATP2.ATRAM'),
 }
 _DISK_RAW_CACHE: dict[str, bytes] = {}
 
@@ -268,6 +272,21 @@ DRIVERMAP = {
     # ExpressLoad object each; byte-exact as shipped (Disk 4 SystemTools2).
     'Boot.Driver': ('GS.OS/Drivers/ATBoot', ['atboot.aii'], {}),
     'AppleIIVOC': ('A.U.G/VideoMix/VideoMix.INIT', ['VDInit.asm'], {}),
+    # AppleTalk protocol drivers (Disk 4). ATP1.ATROM (ATRom) needs the linker
+    # import-vs-interior-local fix (ATP_includes `import closeskt` + interior
+    # `closeskt` -> ApTalk's exported CLOSESKT). ATP2.ATRAM (ATRam) is an
+    # 18-object multi-dir link, byte-exact as-is (source files carry subpaths).
+    'ATP1.ATROM': ('GS.OS/Drivers/ATRom',
+                   ['ATP_includes.aii', 'lap_includes.aii', 'ApTalk.aii'], {}),
+    'ATP2.ATRAM': ('GS.OS/Drivers/ATRam',
+                   ['header.aii', 'atpatch/atpatch.aii', 'atpatch/pap/pap.aii',
+                    'atpatch/rpm/rpm.aii', 'atpatch/zip/zip.aii',
+                    'atpatch/asp/sp_includes.aii', 'atstart/atstart.aii',
+                    'pfi/pfi.aii', 'pfi/pfi_cmds.aii', 'pfi/pfi_cmds2.aii',
+                    'pfi/pfi_cmds3.aii', 'pfi/pfi_cmdsubs1.aii',
+                    'pfi/pfi_cmdsubs2.aii', 'pfi/pfi_cmdsubs3.aii',
+                    'pfi/pfi_cmdsubs4.aii', 'pfi/pfi_cmdsubs5.aii',
+                    'pfi/pfi_cmdsubs6.aii', 'pfi/pfi_vars.aii'], {}),
     # Epson: driver body + dialogdata (like Modem/GraphiCard). Byte-exact once
     # BUG-B (INA/DEA accumulator-only) and the linker import-vs-case-folded-local
     # fix (epson `IMPORT l1` + local `L1`) land.
