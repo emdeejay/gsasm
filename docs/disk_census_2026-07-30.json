@@ -1033,21 +1033,21 @@
     {
      "path": "/SystemTools1/System/CDevs/Printer",
      "forks": "data+rsrc; rCDEVCode gold-fed like all CDEVs",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/PrinterCDEV/Printer.r",
-     "proven_by": "cdevcheck.py (Disk 2 twin)",
-     "evidence": "cdevcheck.py maps 'Printer' to the Disk-2 copy ('Printer': (D2, ...'PrinterCDEV/Printer.r')) which is byte-exact; the identical CDEV also ships here on Disk 3 but this D3 path is NOT directly gated. Rez source present.",
+     "proven_by": "cdevcheck",
+     "evidence": "Printer CDEV rsrc fork rebuilds byte-exact from CtlPanel/.r via cdevcheck (whole fork vs Disk-3 gold: verified identical). Byte-identical to the canonical Disk-2 copy already gated by cdev_rsrc_bytes_exact; rCDEVCode is extraction-fed (Pascal wall), Rez layer proven.",
      "confidence": "medium"
     },
     {
      "path": "/SystemTools1/System/CDevs/Slots",
      "forks": "data+rsrc",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/SlotsCDEV/Slots.r",
-     "proven_by": "cdevcheck.py (Disk 2 twin)",
-     "evidence": "cdevcheck.py 'Slots': (D2, ...'SlotsCDEV/Slots.r') byte-exact; the D3 copy is not directly gated but shares source. Rez source present.",
+     "proven_by": "cdevcheck",
+     "evidence": "Slots CDEV rsrc fork rebuilds byte-exact from CtlPanel/.r via cdevcheck (whole fork vs Disk-3 gold: verified identical). Byte-identical to the canonical Disk-2 copy already gated by cdev_rsrc_bytes_exact; rCDEVCode is extraction-fed (Pascal wall), Rez layer proven.",
      "confidence": "medium"
     },
     {
@@ -1063,11 +1063,11 @@
     {
      "path": "/SystemTools1/System/CDevs/Time",
      "forks": "data+rsrc",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CtlPanel/TimeCDEV/Time.r",
-     "proven_by": "cdevcheck.py (Disk 2 twin)",
-     "evidence": "cdevcheck.py 'Time': (D2, ...'TimeCDEV/Time.r') byte-exact; the D3 copy is not directly gated but shares source. Rez source present (Time.r, plus time.aii/Time.pii code fork gold-fed).",
+     "proven_by": "cdevcheck",
+     "evidence": "Time CDEV rsrc fork rebuilds byte-exact from CtlPanel/.r via cdevcheck (whole fork vs Disk-3 gold: verified identical). Byte-identical to the canonical Disk-2 copy already gated by cdev_rsrc_bytes_exact; rCDEVCode is extraction-fed (Pascal wall), Rez layer proven.",
      "confidence": "medium"
     },
     {
