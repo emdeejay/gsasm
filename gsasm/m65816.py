@@ -189,6 +189,12 @@ def encode(mnem, operand, longa, longi, evaluate, pc, reloc=None):
     `reloc(expr)->bool` flags relocatable references (forced to absolute).
     `pc` is the location of this instruction (segment-relative)."""
     m = mnem.upper()
+    # INA/DEA are ACCUMULATOR-ONLY spellings of INC A / DEC A: there is no
+    # "INA <addr>" form (that is written INC), so any trailing text is an
+    # unmarked comment, never an operand.  `epson.asm:10461 ina<tab>skip 50%
+    # reduction` otherwise parsed "skip" as a memory operand -> INC abs (+2).
+    if m in ('INA', 'DEA'):
+        return bytes([OPTABLE[ALIAS[m]]['acc']]), None
     m = ALIAS.get(m, m)
     tab = OPTABLE.get(m)
     if tab is None:

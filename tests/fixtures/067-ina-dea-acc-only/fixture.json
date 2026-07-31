@@ -1,0 +1,3 @@
+{
+  "note": "INA/DEA are accumulator-only spellings of INC A / DEC A. There is no INA <addr> form (that is written INC/DEC), so any trailing text is an unmarked comment. m65816.encode aliased INA->INC before checking the operand, so `ina skip 50% reduction` (epson.asm:10461) parsed 'skip' as a memory operand and emitted INC abs (EE 0000), +2 bytes. Guard added at the top of encode before ALIAS.get: INA/DEA return the acc opcode (1A / 3A) unconditionally. Expected: 1a 3a 1a 60."
+}
