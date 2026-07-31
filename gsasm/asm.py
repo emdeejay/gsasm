@@ -1051,6 +1051,9 @@ class Asm:
             return self.sysdate
         if u == 'SYSTIME':
             return self.systime
+        if u in ('MAX', 'MIN'):                # integer clamp builtins (ace.asm)
+            vals = [self.evaluate(a) or 0 for a in args]
+            return str((max if u == 'MAX' else min)(vals) if vals else 0)
         # unknown builtin -> empty
         self._err(f"unknown builtin &{name}")
         return ''
@@ -1933,7 +1936,7 @@ class Asm:
             o = (pl.op or '').upper()
             if o == 'WHILE':
                 wstack.append(idx)
-            elif o == 'ENDWHILE' and wstack:
+            elif o in ('ENDWHILE', 'ENDW') and wstack:   # ENDW = short synonym (ace.asm)
                 w = wstack.pop()
                 while_end[w] = idx
                 endwhile_start[idx] = w
@@ -1991,7 +1994,7 @@ class Asm:
                     if not self.eval_cond(while_cond, raw=True):
                         i = while_end.get(i - 1, i - 1) + 1   # skip the loop body
                 continue
-            if op == 'ENDWHILE':
+            if op in ('ENDWHILE', 'ENDW'):
                 if emitting():
                     i = endwhile_start.get(i - 1, i - 1)      # back to the WHILE
                 continue
@@ -2376,7 +2379,7 @@ class Asm:
         if u in ('TITLE', 'PRINT', 'LIST', 'PAGE', 'PAGESIZE', 'EJECT', 'SPACE',
                  'NOGEN', 'GEN', 'WRITELN', 'ERR', 'ERRIF',
                  'NEEDS', 'BLANKS', 'LONGTABLE', 'KEEP', 'NOTE', 'WHILE', 'MEXIT',
-                 'DATACHK', 'CODECHK'):
+                 'DATACHK', 'CODECHK', 'ACTR'):
             self._lbl(ln); return
 
         # instruction?  (_MNEM_SYNONYM translates a plain-synonym spelling to

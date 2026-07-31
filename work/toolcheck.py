@@ -200,6 +200,7 @@ TOOLMAP = {
     '026': ('NoteSeq',    ['tool.aii']),
     '027': ('FontMgr',    ['fm.asm', 'common.asm', 'scale.asm']),
     '028': ('ListMgr',    ['ListMgr.asm']),
+    '029': ('ACE',        ['ace.asm']),   # flat 1-obj link; WHILE..ENDW + &max/&min
     # VideoMix: single-object flat link per VideoMix/makefile
     # (Linkiigs VD.asm.obj -o Tool033 -t TOL).  VD.asm INCLUDEs Equates.asm.
     # The WHOLE on-disk ExpressLoad file is byte-exact (4177/4177), not merely

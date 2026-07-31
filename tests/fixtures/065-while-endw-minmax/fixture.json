@@ -1,0 +1,3 @@
+{
+  "note": "AsmIIgs accepts ENDW as a synonym for ENDWHILE (short macro-loop terminator), and provides &max(a,...)/&min(a,...) integer-clamp builtins. gsasm knew only ENDWHILE (so a WHILE..ENDW body ran exactly once — its DC.W table collapsed to one row) and had no MAX/MIN builtin (so &max()/&min() folded to empty -> 0, zeroing whole tables). Both are additive and guarded to tokens only Tool029/ace.asm uses (verified corpus-wide: ENDW and the &max(/&min( call form appear only in ace.asm). asm.py _run_unit (ENDW in the loop-map builder and the runtime back-edge) + call_builtin (MAX/MIN). Expected: 4 rows x 2 words = 0000 0020 / 0000 0030 / 0010 0030 / 0020 0030 (16 bytes), not one all-zero 4-byte row."
+}

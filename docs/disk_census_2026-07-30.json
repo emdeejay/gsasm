@@ -1693,11 +1693,11 @@
     {
      "path": "/SystemTools1/System/Tools/Tool029",
      "forks": "data (ExpressLoad)",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/ACE/ace.asm",
-     "proven_by": "",
-     "evidence": "build.tools: 'directory ::ace BuildProgram tool029'; source GSToolbox/ACE/ace.asm is assembly. Not in toolcheck.py TOOLMAP \u2014 no byte-exact harness yet.",
+     "proven_by": "toolcheck",
+     "evidence": "Tool029 (ACE) flat 1-obj link ace.asm -> ExpressLoad; byte-exact 9971/9971 vs Disk-3 gold (code 9532/9532). asm.py: ENDW synonym for ENDWHILE + &max/&min integer builtins + ACTR no-op (fixture 065-while-endw-minmax). toolcheck TOOLMAP['029'].",
      "confidence": "high"
     },
     {
