@@ -77,6 +77,20 @@ def build_quicklogoff():
     return _one(os.path.join(ql, 'Quick.aii'), [ql] + _GINCS)
 
 
+def build_atinit():
+    # ATInit is NOT ExpressLoad — it is a flat MakeBin file (make.atinit:
+    # linkiigs atinit.aii -t $E2 -at $0000 -o ATINIT ; makebiniigs ATINIT).
+    # atinit.aii ALONE (the SetupFiles/ATInit MakeFile lists atstart.oii too,
+    # but the shipping make.atinit rule links only atinit.oii). 134 B, $E2.
+    from gsasm import makebin
+    ai = os.path.join(_SRC, 'GS.OS', 'SetupFiles', 'ATInit')
+    a = asm.assemble(os.path.join(ai, 'atinit.aii'), [ai] + _GINCS)
+    if a.errors:
+        raise RuntimeError(f'atinit.aii: {len(a.errors)} asm errors; '
+                           f'first: {a.errors[0]}')
+    return makebin.makebin(omf.emit(a), 0)
+
+
 def build_tool038():
     mc = os.path.join(_TB, 'MediaCtlTool')
     objs = []
@@ -94,6 +108,7 @@ _TARGETS = [
     ('Start',       'Disk 1 of 7 Install.2mg',      'System/Start',      build_start),
     ('QuickLogoff', 'Disk 4 of 7 SystemTools2.2mg', 'AppleTalk/QuickLogoff', build_quicklogoff),
     ('Tool038',     'Disk 4 of 7 SystemTools2.2mg', 'System/Tools/Tool038',  build_tool038),
+    ('ATInit',      'Disk 4 of 7 SystemTools2.2mg', 'System/System.Setup/ATInit', build_atinit),
 ]
 
 

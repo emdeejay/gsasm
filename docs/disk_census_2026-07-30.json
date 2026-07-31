@@ -2098,11 +2098,11 @@
     {
      "path": "/SystemTools2/System/System.Setup/ATInit",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/SetupFiles/ATInit/ATInit.aii",
-     "proven_by": null,
-     "evidence": "GSOSToDiskImage copies system:SYSTEM.SETUP:ATINIT -> ST2. Source GS.OS/SetupFiles/ATInit/ATInit.aii + MakeFile (asm). Not gated.",
+     "proven_by": "expressloadcheck",
+     "evidence": "ATInit is a FLAT MakeBin file (make.atinit: linkiigs atinit.aii -t $E2 -at $0000; makebiniigs), NOT ExpressLoad. atinit.aii alone -> makebin(obj,0) = 134B byte-exact vs Disk-4 gold. expressloadcheck build_atinit.",
      "confidence": "high"
     },
     {

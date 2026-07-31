@@ -28,7 +28,7 @@
     0
   ],
   "expressload_sys601_bytes_exact": [
-    10526,
+    10660,
     0
   ],
   "finder_data_bytes_exact": [
@@ -64,12 +64,12 @@
     0
   ],
   "manifest_builders_exact": [
-    145,
-    17
+    146,
+    16
   ],
   "manifest_builders_wired": [
-    145,
-    17
+    146,
+    16
   ],
   "manifest_inventory_classified": [
     7,
