@@ -69,11 +69,11 @@
   ],
   "manifest_builders_exact": [
     152,
-    10
+    8
   ],
   "manifest_builders_wired": [
     152,
-    10
+    8
   ],
   "manifest_inventory_classified": [
     7,
@@ -84,7 +84,7 @@
     4
   ],
   "manifest_substitutes_confirmed": [
-    193,
+    195,
     0
   ],
   "mountimage_data_bytes_exact": [

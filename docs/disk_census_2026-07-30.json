@@ -1998,11 +1998,11 @@
     {
      "path": "/SystemTools2/System/Drivers/IWEM",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "no-source-substitute",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/IWEm/IWEm.Src",
-     "proven_by": null,
-     "evidence": "ToolboxToDiskImage: PrinterDrivers:IWEM:IWEM -> ST2 drivers/IWEM (ImageWriter-emulator network printer driver). GSToolbox/PrinterDrivers/IWEm/{IWEm.Src, makefile, BuildIWEm} present (asm). NOT the NetBoot SpoolerIWEM. Not gated.",
+     "proven_by": "",
+     "evidence": "SUBSTITUTE (VERIFY-NEGATIVE, all 3 source trees): golden is ASCII PostScript (%!PS-Adobe-2.0, type $04) produced by the MPW shell script BuildIWEm from IWEm.Src. The SHIPPED disk IWEM (29185B) DIVERGES after only 78 bytes from the only buildable IWEm.Src the tree can produce (28523B, which has no /IWEmDict Version guard block) -> the exact shipped bytes cannot be regenerated; the matching IWEm.Src version is not present. Carried verbatim.",
      "confidence": "high"
     },
     {
@@ -3023,11 +3023,11 @@
     {
      "path": "/Apple II Script",
      "forks": "data=0; rsrc=6421 B buildable-rez",
-     "classification": "buildable-rez",
+     "classification": "no-source-substitute",
      "language": "Rez",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Installer/Apple2GSInstallerScript.r",
-     "proven_by": null,
-     "evidence": "build.disk builds it: 'Rez {inst}Apple2GSInstallerScript.r -o {work}Apple II Script -c bjbc -t bjbc -d releasedate={todayhex}' then SetVersion + ScriptCheck. Pure resource file (data fork 0); source .r present in NetBoot/Installer/. It is the 'bjbc' installer script consumed by the Macintosh Installer app on this disk. Embeds a build date (releasedate/ScriptCheck) so reproduction is date-parameterized.",
+     "proven_by": "",
+     "evidence": "SUBSTITUTE (VERIFY-NEGATIVE, all 3 source trees): data fork is 0 bytes; the payload is a Macintosh Installer RESOURCE fork compiled by Mac Rez from Apple2GSInstallerScript.r, whose #include 'Types.r','InstallerTypes.r' templates are absent from every source tree (Mac Rez, not IIgs Rez). No data-fork build exists to attempt. Carried verbatim.",
      "confidence": "high"
     },
     {
