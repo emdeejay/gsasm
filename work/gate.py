@@ -92,6 +92,11 @@ CHECKS = [
     # only (no whole-disk overlay). See work/disk7check.py.
     ('disk7check', ['disk7check.py'], [
         ('disk7_bytes_exact', r'DISK7_BYTES_EXACT (\d+)/(\d+)', 'frac')]),
+    # The Installer DATA fork (Disk 1) — the set's second-largest ExpressLoad
+    # application, 9 load segments + ~JumpTable. See work/installerdatacheck.py.
+    ('installerdatacheck', ['installerdatacheck.py'], [
+        ('installer_data_bytes_exact',
+         r'INSTALLER_DATA_BYTES_EXACT (\d+)/(\d+)', 'frac')]),
     # Rez tier-1 CDEV forks (clean-room include; rCDEVCode extraction-fed —
     # see work/cdevcheck.py's docstring for exactly what this proves).
     ('cdevcheck', ['cdevcheck.py'], [

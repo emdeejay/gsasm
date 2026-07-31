@@ -448,11 +448,11 @@
     {
      "path": "/Install/Installer",
      "forks": "data+rsrc",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/Installer/{Main.asm,Install.asm,Startup.asm,Subroutines.asm,Data.asm,MainSub.asm,MakeFile}",
-     "proven_by": "installercheck (rsrc fork only)",
-     "evidence": "HARDEST part = 56163B DATA fork (the Installer S16 application), whose ASM source + MakeFile EXIST but are NOT built by any harness. Only the 17895B rsrc fork is proven byte-exact (installercheck installer_rsrc_bytes_exact, from THIS disk). So the fork is done; the app code fork is buildable-asm, not yet reproduced.",
+     "proven_by": "installerdatacheck",
+     "evidence": "DATA fork (the 56,163B Installer S16 application - 9 load segments + ~JumpTable) byte-exact via installerdatacheck: SEG/SegAttr/StackDP dialect -> LOADNAME groups (Main $4000, ~direct $4812 DP/stack, main = GSOString.lib members in MPW -lib bucket-scan order, 3x dynamic $8000, 2x dynamic-private $C000), finderdatacheck's link algorithm (per-segment images, ~JumpTable from refs, SUPER/cINTERSEG reloc dicts) + intra-object import-satisfaction rules (an ENTRY/segment-head satisfies its own object's import; an interior label does not). RSRC fork already byte-exact via installercheck (17,895B).",
      "confidence": "high"
     },
     {

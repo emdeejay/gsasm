@@ -2746,12 +2746,16 @@ class Asm:
             # resolve to it through the linker's global symbol table.
             if exported and name:
                 self.exports.add(name)
+            # a DATA record under an active `SEG 'Name'` group belongs to that
+            # LOAD segment like any PROC (Installer Subroutines.asm `MyData
+            # RECORD` under `Seg 'Main'` — golden Main includes its 196 bytes)
+            _ldn = self.seg_loadname or 'main'
             cur = self.segs[-1]
             if cur.name is None and not cur.items:
-                cur.name = name; cur.loadname = 'main'; cur.is_data = True
+                cur.name = name; cur.loadname = _ldn; cur.is_data = True
                 cur.private = not exported
             else:
-                seg = Segment(name, 'main', None, len(self.segs) + 1)
+                seg = Segment(name, _ldn, None, len(self.segs) + 1)
                 seg.is_data = True; seg.private = not exported
                 self.segs.append(seg)
             if ln.label:

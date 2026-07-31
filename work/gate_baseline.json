@@ -55,6 +55,10 @@
     111584,
     0
   ],
+  "installer_data_bytes_exact": [
+    56163,
+    0
+  ],
   "installer_rsrc_bytes_exact": [
     17895,
     0
@@ -68,12 +72,12 @@
     0
   ],
   "manifest_builders_exact": [
-    159,
-    1
+    160,
+    0
   ],
   "manifest_builders_wired": [
-    159,
-    1
+    160,
+    0
   ],
   "manifest_inventory_classified": [
     7,

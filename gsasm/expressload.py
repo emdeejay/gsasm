@@ -676,7 +676,10 @@ def _make_suffix_template(kind: int, segnum: int, dispname: int = 44,
       [28..31] = DISPNAME as LE dword
       [32..41] = 10 zero bytes
     """
-    return (bytes([0, 0, 4, 2, 0, 0, 1, 0])
+    # BANKSIZE [4..7]: 0x10000, except a direct-page/stack segment (KIND type
+    # $12 — the Installer's ~direct) which gold carries with BANKSIZE 0.
+    bs = 0 if (kind & 0x00FF) == 0x12 else 0x10000
+    return (bytes([0, 0, 4, 2]) + struct.pack('<I', bs)
             + struct.pack('<H', kind)
             + bytes(6)
             + struct.pack('<I', align)
@@ -1185,8 +1188,11 @@ def _make_output_seg(
     out_dispname = 44
     out_dispdata = out_dispname + 10 + len(sname_field)
 
-    # BANKSIZE: 0x10000 for all ExpressLoad output segments (all gold EL files use this).
-    banksize = 0x10000
+    # BANKSIZE: 0x10000 for all ExpressLoad output segments (all gold EL files
+    # use this) — except a direct-page/stack segment (KIND type $12, e.g. the
+    # Installer's ~direct), which gold carries with BANKSIZE 0 (like a data
+    # segment: DP/stack space has no bank-crossing constraint).
+    banksize = 0 if (out_kind & 0x00FF) == 0x12 else 0x10000
 
     # LCONST record
     lconst_rec      = bytes([0xF2]) + struct.pack('<I', len(merged_body)) + merged_body
