@@ -1223,21 +1223,21 @@
     {
      "path": "/SystemTools1/System/Drivers/ImageWriter",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/NEW.IW",
-     "proven_by": "",
-     "evidence": "build.tools: 'directory ::New.IW BuildProgram ImageWriter'; source PrinterDrivers/NEW.IW/*.aii (entry/imager/dialog/dialogdata/equates) is assembly. Not yet harness-gated.",
+     "proven_by": "drivercheck",
+     "evidence": "ImageWriter flat multi-object link (8 .aii, makefile OBJ order) -> ExpressLoad; byte-exact vs Disk-3 gold. Needed asm BUG-A (spaced-comma dc.b list, imager.aii intl_tbl 192B) + BUG-C (@-scope resets at record fields, dialogdata.aii). drivercheck DRIVERMAP/DRIVER_DISK.",
      "confidence": "high"
     },
     {
      "path": "/SystemTools1/System/Drivers/ImageWriter.LQ",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/LQ",
-     "proven_by": "",
-     "evidence": "build.tools: 'directory ::LQ BuildProgram ImageWriter.LQ'; source PrinterDrivers/LQ/*.aii is assembly. Not yet harness-gated.",
+     "proven_by": "drivercheck",
+     "evidence": "ImageWriter.LQ flat multi-object link (8 .aii, makefile OBJ order) -> ExpressLoad; byte-exact vs Disk-3 gold. Needed asm BUG-A (spaced-comma dc.b list, imager.aii intl_tbl 192B) + BUG-C (@-scope resets at record fields, dialogdata.aii). drivercheck DRIVERMAP/DRIVER_DISK.",
      "confidence": "high"
     },
     {

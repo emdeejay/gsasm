@@ -116,6 +116,10 @@ DRIVER_DISK = {
                       '/SystemTools1/System/Drivers/Apple.Midi'),
     'Card6850.MIDI': ('Disk 3 of 7 SystemTools1.2mg',
                       '/SystemTools1/System/Drivers/Card6850.MIDI'),
+    'ImageWriter':    ('Disk 3 of 7 SystemTools1.2mg',
+                       '/SystemTools1/System/Drivers/ImageWriter'),
+    'ImageWriter.LQ': ('Disk 3 of 7 SystemTools1.2mg',
+                       '/SystemTools1/System/Drivers/ImageWriter.LQ'),
 }
 _DISK_RAW_CACHE: dict[str, bytes] = {}
 
@@ -234,6 +238,22 @@ DRIVERMAP = {
     'Modem': (
         'GSToolbox/PrinterDrivers/Modem',
         ['modem.asm', 'dialogdata.asm'],
+        {},
+    ),
+    # ImageWriter / ImageWriter.LQ: flat multi-object link (each makefile's OBJ=
+    # order); byte-exact once BUG-A (spaced-comma dc.b lists — imager.aii
+    # intl_tbl) and BUG-C (@-scope resets at record fields — dialogdata.aii)
+    # landed.  Same 8-object shape; ImageWriter.LQ is the LaserQuality sibling.
+    'ImageWriter': (
+        'GSToolbox/PrinterDrivers/New.IW',
+        ['entry.aii', 'printloop.aii', 'metrics.aii', 'dialog.aii',
+         'dialogdata.aii', 'spool.aii', 'imager.aii', 'imagerdata.aii'],
+        {},
+    ),
+    'ImageWriter.LQ': (
+        'GSToolbox/PrinterDrivers/LQ',
+        ['entry.aii', 'printloop.aii', 'metrics.aii', 'dialog.aii',
+         'dialogdata.aii', 'spool.aii', 'imager.aii', 'imagerdata.aii'],
         {},
     ),
     'Parallel.Card': (
