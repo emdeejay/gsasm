@@ -2963,31 +2963,31 @@
     {
      "path": "/System Folder/Basic.System",
      "forks": "data=built(byte-exact, proven by basiccheck); rsrc=buildable-rez(Basic.r+SetVersion vers) not yet gated",
-     "classification": "buildable-rez",
+     "classification": "built",
      "language": "6502/65C02 asm (data fork) + Rez (rsrc fork)",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/BASIC.SYSTEM/ (data); ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Installer/Basic.r (rsrc)",
-     "proven_by": "basiccheck",
-     "evidence": "DATA fork (10240 B) sha256 prefix ea5a8d1a41cd is BYTE-IDENTICAL to the basiccheck golden ref/GSOS_6/IIGS.601.SRC/BASIC.SYSTEM/BASIC.SYSTEM (same sha), which basiccheck builds byte-exact (BASIC_SYSTEM_BYTES_EXACT, gate.py). build.disk duplicates {Basic}Basic.System then applies 'Rez {inst}Basic.r' + SetVersion for the 416 B rsrc fork. Hardest remaining part = the ungated vers resource fork -> buildable-rez.",
+     "proven_by": "disk7check",
+     "evidence": "Basic.System data fork byte-exact 10240/10240 vs Disk-7 HFS gold; same source diskcheck builds for the System Disk (basiccheck).",
      "confidence": "high"
     },
     {
      "path": "/IWEm",
      "forks": "data=buildable-asm (byte-identical to in-tree compiled reference); rsrc=312 B (small vers/finder)",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "65816 asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/IWEm/IWEm.Src",
-     "proven_by": null,
-     "evidence": "Disk data fork (28523 B, sha256 prefix 66ce407b23e9) is BYTE-IDENTICAL to the tree's already-compiled binary ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/IWEm/IWEm (same size 28523, same sha). ImageWriter-emulation printer driver; asm source IWEm.Src (63669 B) present with BuildIWEm/makefile. No gsasm harness gates it yet -> buildable-asm.",
+     "proven_by": "disk7check",
+     "evidence": "IWEm data fork byte-exact 28523/28523 vs Disk-7 HFS gold; PostScript prolog, byte-identical to tracked GSToolbox/PrinterDrivers/IWEm/IWEm (carried, not assembled).",
      "confidence": "high"
     },
     {
      "path": "/System Folder/p8",
      "forks": "data=buildable-asm (date-stamp variant of p8check golden); rsrc=409 B buildable-rez (P8.r)",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "6502/65C02 asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/P8/ (built via work/diskbuilders/p8_driver.py; gated by p8check for the System-Disk variant)",
-     "proven_by": "p8check (identical recipe, different embedded date)",
-     "evidence": "Data fork (17128 B, sha 2f98bd08d43c) differs from p8check golden ref/GSOS_6/os_bin/P8#FF0000 (17128 B, sha 108bdd79c418) in EXACTLY 4 bytes at 0x27,0x29-0x2b. Decoded high-bit ASCII: disk='...02-Apr...' (b0 b2 ad c1 f0 f2) vs golden='...06-May...' (b0 b6 ad cd e1 f9) \u2014 an embedded assembly-DATE string (build.disk is dated 2-Apr-93). Same P8 asm source/recipe p8check proves byte-exact; only the date stamp differs. build.disk duplicates {SDSystem}P8 then Rez P8.r for the rsrc fork.",
+     "proven_by": "disk7check",
+     "evidence": "p8 data fork byte-exact 17128/17128 vs Disk-7 HFS gold; same MliSrc.aii+P8.Drivers as System-Disk p8 with this disk's earlier build date 02-Apr-93 (p8_driver._build_p8 sysdate param).",
      "confidence": "high"
     },
     {

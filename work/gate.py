@@ -88,6 +88,10 @@ CHECKS = [
     ('expressloadcheck', ['expressloadcheck.py'], [
         ('expressload_sys601_bytes_exact',
          r'EXPRESSLOAD_SYS601_BYTES_EXACT (\d+)/(\d+)', 'frac')]),
+    # Disk 7 (Apple II Setup, HFS) buildable data forks — builder-correctness
+    # only (no whole-disk overlay). See work/disk7check.py.
+    ('disk7check', ['disk7check.py'], [
+        ('disk7_bytes_exact', r'DISK7_BYTES_EXACT (\d+)/(\d+)', 'frac')]),
     # Rez tier-1 CDEV forks (clean-room include; rCDEVCode extraction-fed —
     # see work/cdevcheck.py's docstring for exactly what this proves).
     ('cdevcheck', ['cdevcheck.py'], [

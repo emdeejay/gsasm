@@ -173,12 +173,16 @@ def _overlay(dest: bytearray, src_bytes: bytes, offset: int) -> None:
 # P8 build
 # ---------------------------------------------------------------------------
 
-def _build_p8() -> bytes:
+def _build_p8(sysdate=_P8_SYSDATE) -> bytes:
     """Build the full 17128-byte P8 from MliSrc.aii + P8.Drivers.
 
     Returns exactly P8_SIZE (17128) bytes — byte-exact against the golden
     P8#FF0000.  Raises P8AssemblyError on any reached assembler error and
     ValueError if the packaged result is not exactly P8_SIZE bytes.
+
+    ``sysdate`` is the build date embedded at offset 0x26; it defaults to the
+    System-Disk P8's 06-May-93, but the same source builds the Apple II Setup
+    disk's P8 byte-exact with 02-Apr-93 (that disk was mastered a month earlier).
     """
     # ----------------------------------------------------------------
     # Step 1: Assemble MliSrc.aii -> parse PROC segments
@@ -189,7 +193,7 @@ def _build_p8() -> bytes:
     mli_obj, _mli_asm = _assemble(
         os.path.join(_P8, 'MliSrc.aii'),
         extra_incs=[_P8],
-        sysdate=_P8_SYSDATE,
+        sysdate=sysdate,
     )
 
     # linkiigs -lseg PROCONE -org $2000 ... links all four PROC segments into
