@@ -20,6 +20,7 @@ class HFS:
         self.NS = 512
         self.dirs = {2: (0, '')}
         self.files = {}
+        self.rforks = {}          # (parID, name) -> (rsrc_logical_len, extents)
         self._build()
 
     def _exts(self, o):
@@ -99,6 +100,17 @@ class HFS:
                 for fabn, ex in sorted(extra.get((0, cnid), [])):
                     ext += ex
                 self.files[(parID, name)] = (lg, ext, ft)
+                # Resource fork (HFS CdrFilRec: filRLgLen at +36, filRExtRec at
+                # +86 — the same +12 layout past the data-fork fields at +26/+74).
+                rlg = struct.unpack('>I', r[b+36:b+40])[0]
+                reo = b+86; rext = []
+                for i in range(3):
+                    s = struct.unpack('>H', r[reo:reo+2])[0]
+                    c = struct.unpack('>H', r[reo+2:reo+4])[0]; reo += 4
+                    if c: rext.append((s, c))
+                for fabn, ex in sorted(extra.get((0xFF, cnid), [])):  # rsrc overflow
+                    rext += ex
+                self.rforks[(parID, name)] = (rlg, rext)
 
     def path(self, parID):
         parts = []; cur = parID
@@ -109,6 +121,11 @@ class HFS:
     def data(self, parID, name):
         lg, ext, ft = self.files[(parID, name)]
         return self._fork(ext)[:lg]
+
+    def rsrc(self, parID, name):
+        """The file's RESOURCE fork bytes (empty if it has none)."""
+        rlg, rext = self.rforks.get((parID, name), (0, []))
+        return self._fork(rext)[:rlg] if rlg else b''
 
 
 if __name__ == '__main__':
