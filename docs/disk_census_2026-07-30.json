@@ -2008,11 +2008,11 @@
     {
      "path": "/SystemTools2/System/Drivers/Media.Control/AppleCDSC",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/MediaCtl/AppleCDSC/AppleCDSC.aii",
-     "proven_by": null,
-     "evidence": "A.U.G.ToDiskImage: MediaCtl:AppleCDSC:AppleCDSC -> ST2 drivers/Media.Control/AppleCDSC. Source AppleCDSC.aii + AppleCDSC.make (asm). Not gated (appdatacheck covers only Pioneer2000/4200 of the Media.Control drivers).",
+     "proven_by": "drivercheck",
+     "evidence": "AppleCDSC (Media.Control CD-SC driver, single-object link) byte-exact 5187/5187 vs Disk-4 gold. The '-1 pad' residual was `sta ChannelNo` \u2014 a FORWARD ref to RidStop's own `ChannelNo ds.w 1` \u2014 sizing DP off later PROCs' DefineStack stack-field EQUs of the same name; closed by sym_kind/needs_reloc consulting seg_seed (forward locals type as labels). drivercheck DRIVERMAP/DRIVER_DISK.",
      "confidence": "high"
     },
     {
@@ -2118,11 +2118,11 @@
     {
      "path": "/SystemTools2/System/System.Setup/CloseView",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/CloseView",
-     "proven_by": null,
-     "evidence": "A.U.G.ToDiskImage: CloseView:Closeview -> ST2 system.setup/CloseView. Source A.U.G/CloseView/{Core.aii,Data.aii,NDA.aii,Patches.aii} + CloseView.make (asm). Not gated.",
+     "proven_by": "expressloadcheck",
+     "evidence": "CloseView 2-lseg ExpressLoad app (CloseView.make: -lseg INIT Core+Patches+Data KIND 0x4000, -lseg NDA KIND 0, -t $B6): de_express'd CODE image byte-exact 33091/33091 vs Disk-4 gold (expressloadcheck build_closeview_code, cross-lseg externs at LinkIIGS's link-time bank bases INIT=$020000/NDA=$030000). Needed the SET-does-not-clobber-storage-label rule (fixture 076: Core.aii `v set h+2` vs the dp cell `v ds.W 1`) on top of the WITH-precedence fixes. 2-lseg packaging reloc dicts not modeled (code is what's gated).",
      "confidence": "high"
     },
     {

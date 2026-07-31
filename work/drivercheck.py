@@ -126,6 +126,8 @@ DRIVER_DISK = {
                        '/SystemTools1/System/Drivers/Epson'),
     'VideoKeyboard':  ('Disk 4 of 7 SystemTools2.2mg',
                        '/SystemTools2/System/Desk.Accs/VideoKeyboard'),
+    'AppleCDSC':      ('Disk 4 of 7 SystemTools2.2mg',
+                       '/SystemTools2/System/Drivers/Media.Control/AppleCDSC'),
     'Boot.Driver':    ('Disk 4 of 7 SystemTools2.2mg',
                        '/SystemTools2/AppleTalk/Boot.Driver'),
     'AppleIIVOC':     ('Disk 4 of 7 SystemTools2.2mg',
@@ -270,6 +272,13 @@ DRIVERMAP = {
          'dialogdata.aii', 'spool.aii', 'imager.aii', 'imagerdata.aii'],
         {},
     ),
+    # AppleCDSC (Media.Control CD-SC driver, Disk 4): single-object link. The
+    # long-standing "-1 pad byte" residual was really `sta ChannelNo` (a FORWARD
+    # reference to RidStop's own `ChannelNo ds.w 1` storage cell) sizing
+    # direct-page off the DefineStack stack-field EQUs that later PROCs define
+    # under the same name — fixed by sym_kind/needs_reloc consulting seg_seed
+    # (the prior pass's seg_local), which types the forward local as a label.
+    'AppleCDSC': ('A.U.G/MediaCtl/AppleCDSC', ['AppleCDSC.aii'], {}),
     # VideoKeyboard desk accessory (Disk 4): 5-object link in the MakeFile's
     # order. Byte-exact once the WITH-precedence fixes land (a forward local
     # shadows a WITH field in resolve/sym_kind/needs_reloc via seg_seed; a

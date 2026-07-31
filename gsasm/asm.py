@@ -492,6 +492,12 @@ class Asm:
                                       #   (a same-segment SET shadows a WITH field
                                       #   in resolve(), like other locals; the
                                       #   live value stays in symbols — no cache)
+        self.setvar_val = {}          # SET name -> its LIVE running value. When a
+                                      #   SET collides with a STORAGE LABEL, the
+                                      #   label keeps the module-visible binding
+                                      #   (symbols) and same-segment refs read the
+                                      #   SET from here (CloseView `v set h+2` in
+                                      #   one proc vs the dp cell `v ds.W 1`)
         # EQU that ALIASES a single relocatable label (`comp_temp equ and_mask`,
         # ProDOS.FST) — a second name for the same address, NOT a constant. Keyed
         # NAME(upper) -> (TARGET_upper, addend). A ref to NAME must inherit the
@@ -749,7 +755,7 @@ class Asm:
         local_here = seg is not None and (
             u in self.seg_local.get(seg, {}) or u in self.seg_equ.get(seg, {})
             or u in self.seg_seed.get(seg, {})
-            or (self.setvar_seg.get(u) == seg and u in self.symbols))
+            or (self.setvar_seg.get(u) == seg and u in self.setvar_val))
         # Inside a RECORD template definition, the record's OWN fields bind
         # first: TempStyle (origin WorkArea=$dc, TextEdit GlobalVars) does
         # `ORG fontID` — MPW rebases to TempStyle.fontID ($dc), not to a
@@ -782,6 +788,10 @@ class Asm:
             eq = self.seg_equ.get(seg)
             if eq and u in eq:
                 return eq[u]                          # equate -> absolute value
+            # a SET defined in THIS segment: its live running value (which may
+            # be label-masked out of symbols — CloseView `v set h+2`)
+            if self.setvar_seg.get(u) == seg and u in self.setvar_val:
+                return self.setvar_val[u]
             sd = self.seg_seed.get(seg)
             if sd and u in sd:
                 return based(sd[u], seg)
@@ -1358,8 +1368,9 @@ class Asm:
             self._defining = True         # key @-labels in their own scope
             u = self._symkey(name)
             self._defining = False
-            if redefinable and self.segs:  # SET var: remember its home segment
+            if redefinable and self.segs:  # SET var: remember home segment + value
                 self.setvar_seg[u] = len(self.segs) - 1
+                self.setvar_val[u] = value
             # A RECORD field is NOT a global symbol — it is reachable only as
             # RecordName.field or (bare) inside WITH RecordName. Defining its bare
             # name globally would let a later record's field clobber a real equate
@@ -1452,7 +1463,16 @@ class Asm:
                 foreign_entry_dup = self._label_reuses_entry_elsewhere(
                     kind, u, prior, seg)
                 prior_modscope = self._prior_modscope_dup(name, kind, u, prior, seg)
-                if not keep_prior and not foreign_entry_dup and not prior_modscope:
+                # A REDEFINABLE (SET) definition does not clobber an existing
+                # STORAGE-LABEL binding: MPW keeps the label module-visible and
+                # the SET proc-local (CloseView Core.aii `v set h+2` inside one
+                # proc vs the dp cell `v ds.W 1` — a later proc's `stz <v` binds
+                # the LABEL). Same-segment refs read the SET's live value via
+                # setvar_seg/setvar_val in resolve()/sym_kind. A SET that OWNS
+                # its name (no label collision) updates symbols as before.
+                set_vs_label = (redefinable and self.symtype.get(u) == 'label')
+                if (not keep_prior and not foreign_entry_dup
+                        and not prior_modscope and not set_vs_label):
                     self.symbols[u] = value
                     self.symtype[u] = kind
                     if (kind == 'equ' and not self.in_proc
@@ -1547,6 +1567,11 @@ class Asm:
                 continue        # ORG'd or temporg segment -> absolute literal
             # a PROC-local equate is an absolute value -> never relocated
             if seg is not None and u in self.seg_equ.get(seg, {}):
+                continue
+            # a SET defined in THIS segment is an absolute value too (even when
+            # label-masked out of symbols)
+            if (seg is not None and self.setvar_seg.get(u) == seg
+                    and u in self.setvar_val):
                 continue
             # an ident that binds to a WITH-ACTIVE record field takes resolve()'s
             # WITH precedence over any same-named global: a TEMPLATE field is an
@@ -1685,6 +1710,11 @@ class Asm:
             return 'label'
         # a PROC-local equate shadows a same-named code label in another PROC
         if seg is not None and u in self.seg_equ.get(seg, {}):
+            return 'equ'
+        # a SET defined in THIS segment sizes as an equate (even when a storage
+        # label of the same name keeps the module-visible symbols binding)
+        if (seg is not None and self.setvar_seg.get(u) == seg
+                and u in self.setvar_val):
             return 'equ'
         if (not self.case_sensitive and name in self.case_symtype
                 and self.case_symtype.get(name) == 'equ'):

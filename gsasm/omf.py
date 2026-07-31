@@ -1097,6 +1097,12 @@ def _cross_seg_label(asm, name):
     Such references need LEXPR even when both segments are ORG'd (e.g., slot firmware
     ENTRY labels that the linker must resolve via INTERSEG reloc for slot independence)."""
     u = asm._symkey(name)
+    # a SET defined in the CURRENT segment is an absolute value — not a
+    # reference to a same-named storage label in another segment (CloseView
+    # `v set h+2` vs the dp cell `v ds.W 1`; fixture 076).
+    if (asm._rseg is not None and asm.setvar_seg.get(u) == asm._rseg
+            and u in asm.setvar_val):
+        return False
     # WITH precedence (mirrors needs_reloc/resolve): a name bound by a
     # WITH-active TEMPLATE field is an absolute offset, not a reference to the
     # same-named label in another segment — unless a local label in the current

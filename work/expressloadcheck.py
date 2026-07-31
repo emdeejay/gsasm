@@ -103,6 +103,41 @@ def build_net_start():
     return expressload(objs)
 
 
+def build_closeview_code():
+    # CloseView (Disk 4 /System/System.Setup) — a TWO-load-segment ExpressLoad
+    # app (CloseView.make: -lseg INIT Core+Patches+Data [KIND 0x4000] -lseg NDA
+    # NDA [KIND 0], -t $B6). Builds the de_express'd CODE image (INIT ++ NDA):
+    # each lseg links merged with the OTHER lseg's symbol table as externs at
+    # LinkIIGS's link-time bases — load segment N sits at bank N (segnum<<16):
+    # INIT (seg #2 after ~ExpressLoad) at $020000, NDA (#3) at $030000 — so
+    # cross-lseg refs store the link-time absolute the gold image carries.
+    from gsasm import linkiigs
+    import drivercheck as _dc
+    cv = os.path.join(_SRC, 'A.U.G', 'CloseView')
+    objs = {}
+    for n in ('Core.aii', 'Patches.aii', 'Data.aii', 'NDA.aii'):
+        a = asm.assemble(os.path.join(cv, n), [cv] + _dc.INCS)
+        if a.errors:
+            raise RuntimeError(f'{n}: {len(a.errors)} asm errors; '
+                               f'first: {a.errors[0]}')
+        objs[n] = (omf.emit(a), a)
+    init_objs = [objs['Core.aii'], objs['Patches.aii'], objs['Data.aii']]
+    nda_objs = [objs['NDA.aii']]
+
+    def symtab(ol, base):
+        placed, bases, pidx = linkiigs._place(list(ol), base)
+        sym, _ = linkiigs._build_symtab(list(ol), placed, bases, pidx)
+        return sym
+
+    init = _dc._extract_img(linkiigs.link(list(init_objs), opts={
+        'merge': True, 'segname': b'INIT', 'kind': 0x4000,
+        'extern': symtab(nda_objs, 0x030000)}))
+    nda = _dc._extract_img(linkiigs.link(list(nda_objs), opts={
+        'merge': True, 'segname': b'NDA', 'kind': 0x0000,
+        'extern': symtab(init_objs, 0x020000)}))
+    return bytes(init) + bytes(nda)
+
+
 def build_atinit():
     # ATInit is NOT ExpressLoad — it is a flat MakeBin file (make.atinit:
     # linkiigs atinit.aii -t $E2 -at $0000 -o ATINIT ; makebiniigs ATINIT).
@@ -129,7 +164,10 @@ def build_tool038():
     return expressload(objs)
 
 
-# (label, disk basename, disk fork path, builder)
+# (label, disk basename, disk fork path, builder[, compare])
+# compare 'whole' (default): built == the raw on-disk fork.
+# compare 'code': built == de_express(fork) — the flat code image (CloseView's
+# 2-lseg packaging reloc dicts are not modeled; the code is what's gated).
 _TARGETS = [
     ('Start',       'Disk 1 of 7 Install.2mg',      'System/Start',      build_start),
     ('QuickLogoff', 'Disk 4 of 7 SystemTools2.2mg', 'AppleTalk/QuickLogoff', build_quicklogoff),
@@ -137,6 +175,8 @@ _TARGETS = [
     ('ATInit',      'Disk 4 of 7 SystemTools2.2mg', 'System/System.Setup/ATInit', build_atinit),
     ('ATResponder', 'Disk 4 of 7 SystemTools2.2mg', 'System/System.Setup/ATResponder', build_atresponder),
     ('net-Start',   'Disk 4 of 7 SystemTools2.2mg', 'AppleTalk/Start', build_net_start),
+    ('CloseView',   'Disk 4 of 7 SystemTools2.2mg', 'System/System.Setup/CloseView',
+     build_closeview_code, 'code'),
 ]
 
 
@@ -147,9 +187,14 @@ def _golden(disk_basename, path):
 
 
 def run():
+    from gsasm.expressload import de_express
     good = total = 0
-    for label, disk, path, builder in _TARGETS:
+    for target in _TARGETS:
+        label, disk, path, builder = target[:4]
+        mode = target[4] if len(target) > 4 else 'whole'
         gold = _golden(disk, path)
+        if mode == 'code':
+            gold = de_express(bytes(gold))
         try:
             built = builder()
         except Exception as e:                            # pragma: no cover
