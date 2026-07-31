@@ -1329,9 +1329,13 @@ class Asm:
         if name:
             # ANY label not beginning with @ delimits @-local-label scope (MPW
             # Asm Ref, "@-labels": scope extends both directions to the nearest
-            # non-@ label) — code labels AND equates (e.g. `NAME EQU *`), but not
-            # RECORD field definitions (those live in the record's namespace).
-            if not name.startswith('@') and not self.cur_record:
+            # non-@ label) — code labels AND equates (e.g. `NAME EQU *`) AND
+            # RECORD field labels. A field's bare name is not defined as a global
+            # symbol (see _is_record_field), but it STILL resets @-scope: the
+            # ImageWriter/StyleWriter dialogdata records define `@TitleStart` etc.
+            # under successive field labels ("Height:"/"Pages:"/"Copies:"), which
+            # must stay distinct rather than collapse into one pre-record scope.
+            if not name.startswith('@'):
                 self.last_global = self._fold(name)
             self._defining = True         # key @-labels in their own scope
             u = self._symkey(name)

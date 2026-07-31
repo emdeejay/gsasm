@@ -1,0 +1,11 @@
+SEGMENT 1: 'REC'
+  LOADNAME='main' LENGTH=17 KIND=$0001 ORG=0 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=129
+  +0003a GLOBAL    'REC' len=0 type=77 priv=0
+  +00043 GLOBAL    'ITEMA' len=0 type=77 priv=0
+  +0004e LEXPR     size=4 [sym83:REC $6 op1]
+  +0005c CONST     len=4    02 00 41 41
+  +00061 GLOBAL    'ITEMB' len=0 type=77 priv=0
+  +0006c LEXPR     size=4 [sym83:REC $E op1]
+  +0007a CONST     len=5    03 00 42 42 42
+  +00080 END
+TOTAL 129 bytes, 1 segment(s)
