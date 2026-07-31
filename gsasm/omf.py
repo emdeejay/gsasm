@@ -1097,6 +1097,16 @@ def _cross_seg_label(asm, name):
     Such references need LEXPR even when both segments are ORG'd (e.g., slot firmware
     ENTRY labels that the linker must resolve via INTERSEG reloc for slot independence)."""
     u = asm._symkey(name)
+    # WITH precedence (mirrors needs_reloc/resolve): a name bound by a
+    # WITH-active TEMPLATE field is an absolute offset, not a reference to the
+    # same-named label in another segment — unless a local label in the current
+    # segment shadows the field (then it IS that local, handled elsewhere).
+    if (asm._rseg is None or (u not in asm.seg_local.get(asm._rseg, {})
+                              and u not in asm.seg_seed.get(asm._rseg, {}))):
+        qf = asm._with_active_field(u)
+        if qf is not None and not (asm.symtype.get(qf) == 'label'
+                                   or asm.seed_type.get(qf) == 'label'):
+            return False
     si = asm.symseg.get(u)
     return (si is not None and si != asm._rseg
             and asm.symtype.get(u) == 'label')

@@ -96,6 +96,101 @@ def build_iie_boot_blocks():
     return reloc + bytes(build_p8()) + bootlog8
 
 
+def build_prodos16_image():
+    """ProDOS16 Image data fork: the `mi` (MakeImage) net-boot container over
+    seven components (NetBoot/Makefile {image} rule + MakeImage/Main.c):
+
+        fizzy   Link(fizzy.aii)  MakeBin org $1000          tuple $1000,4
+        stub    Link(stub.aii)   MakeBin org $2000          tuple $2000,4,1
+        p8      this disk's 02-Apr-93 build                 tuple $2000,4,2
+        BootLog16 Link(BootLog16,Console,DES) MakeBin $6800 tuple $6800,4
+        atram   MakeBin(ATRam link)  org $020000            tuple ramorg,4,0,1
+        atrom   MakeBin(ATRom link)  org $020000+len(atram) tuple romorg,4,0,1
+        ETBoot  MakeBin(ETalk.aii -d NetBoot=1) org $020000 tuple ramorg,4,0,2
+
+    MakeImage format: 512-byte 'GSOSBOOT' header with a 16-byte file-header
+    table at +256 (size, firstblk, blocks, 3-byte addr+0, maxver, os, hardware;
+    terminator entry carries firstblk=curblk), then each component 512-padded.
+    Main.c's onefile() reuses one stack blockbuf across every read, so a final
+    partial block is padded with the PREVIOUS chunk's tail bytes — reproduced
+    with a persistent buffer (NOT zero-padding)."""
+    import struct
+    import drivercheck as _dc
+
+    def _drv_objs(subdir, srcs, defines=None):
+        dd = os.path.join('ref/GSOS_6/IIGS.601.SRC', subdir)
+        incs = [dd] + drivercheck.INCS
+        out = []
+        for r in srcs:
+            a = _asm.assemble(os.path.join(dd, r), incs,
+                              defines=defines or None)
+            out.append((_omf.emit(a), a))
+        return out
+
+    def _mk(objs, org):
+        return bytes(_mkb.makebin(_link.link(objs, opts={
+            'merge': True, 'org': org, 'defer_shifts': False}), org))
+
+    fizzy = _mk([_nb_obj('Fizzy/fizzy.aii')], 0x1000)
+    stub = _mk([_nb_obj('Stub/stub.aii')], 0x2000)
+    p8 = bytes(build_p8())
+    bl16 = _mk([_nb_obj('Logon/BootLog16.aii', ['Console']),
+                _nb_obj('Console/Console.aii', ['Console']),
+                _nb_obj('Logon/DES.aii')], 0x6800)
+    ramorg = 0x020000
+    atram = _mk(_drv_objs('GS.OS/Drivers/ATRam', [
+        'header.aii', 'atpatch/atpatch.aii', 'atpatch/pap/pap.aii',
+        'atpatch/rpm/rpm.aii', 'atpatch/zip/zip.aii',
+        'atpatch/asp/sp_includes.aii', 'atstart/atstart.aii',
+        'pfi/pfi.aii', 'pfi/pfi_cmds.aii', 'pfi/pfi_cmds2.aii',
+        'pfi/pfi_cmds3.aii', 'pfi/pfi_cmdsubs1.aii', 'pfi/pfi_cmdsubs2.aii',
+        'pfi/pfi_cmdsubs3.aii', 'pfi/pfi_cmdsubs4.aii', 'pfi/pfi_cmdsubs5.aii',
+        'pfi/pfi_cmdsubs6.aii', 'pfi/pfi_vars.aii']), ramorg)
+    romorg = ramorg + len(atram)
+    atrom = _mk(_drv_objs('GS.OS/Drivers/ATRom', [
+        'ATP_includes.aii', 'lap_includes.aii', 'ApTalk.aii']), romorg)
+    etboot = _mk(_drv_objs('GS.OS/Drivers/ETalk', ['ETalk.aii'],
+                           defines={'NetBoot': 1}), ramorg)
+
+    out = bytearray(512)
+    hdr = bytearray(512)
+    hdr[0:8] = b'GSOSBOOT'
+    hpos = 256
+    curblk = 1
+    buf = bytearray(512)                       # persistent onefile blockbuf
+
+    def onehead(addr, byte, firstblk, block, ver, osv, hw):
+        nonlocal hpos
+        hdr[hpos:hpos+2] = struct.pack('<H', byte & 0xFFFF)
+        hdr[hpos+2:hpos+4] = struct.pack('<H', firstblk)
+        hdr[hpos+4:hpos+6] = struct.pack('<H', block)
+        hdr[hpos+6:hpos+9] = struct.pack('<I', addr & 0xFFFFFF)[:3]
+        hdr[hpos+9] = 0
+        hdr[hpos+10:hpos+12] = struct.pack('<H', ver)
+        hdr[hpos+12:hpos+14] = struct.pack('<H', osv)
+        hdr[hpos+14:hpos+16] = struct.pack('<H', hw)
+        hpos += 16
+
+    for data, addr, ver, osv, hw in [
+            (fizzy, 0x1000, 4, 0, 0), (stub, 0x2000, 4, 1, 0),
+            (p8, 0x2000, 4, 2, 0), (bl16, 0x6800, 4, 0, 0),
+            (atrom, romorg, 4, 0, 1), (atram, ramorg, 4, 0, 1),
+            (etboot, ramorg, 4, 0, 2)]:
+        first, nbytes, nblocks, pos = curblk, 0, 0, 0
+        while pos < len(data):
+            chunk = data[pos:pos+512]
+            buf[:len(chunk)] = chunk
+            out += bytes(buf)
+            nbytes += len(chunk)
+            nblocks += 1
+            curblk += 1
+            pos += 512
+        onehead(addr, nbytes, first, nblocks, ver, osv, hw)
+    onehead(0, 0, curblk, 0, 0, 0, 0)
+    out[0:512] = hdr
+    return bytes(out)
+
+
 # (parID, name, builder) — parID from hfs.files (2 = root, 19 = System Folder)
 _TARGETS = [
     (19, 'Basic.System', build_basic_system),
@@ -103,6 +198,7 @@ _TARGETS = [
     (19, 'p8',           build_p8),
     (19, 'ProDOS16 Boot Blocks',  build_p16_boot_blocks),
     (19, 'Apple //e Boot Blocks', build_iie_boot_blocks),
+    (19, 'ProDOS16 Image',        build_prodos16_image),
 ]
 
 

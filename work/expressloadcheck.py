@@ -84,6 +84,25 @@ def build_atresponder():
     return _one(os.path.join(ar, 'ATResponder.aii'), [ar] + _GINCS)
 
 
+def build_net_start():
+    # AppleTalk net-boot Start (Disk 4 /AppleTalk/Start) — 4-object ExpressLoad
+    # file per GS.OS/MakeFiles/make.net.start (the authoritative rule: StartLog,
+    # NOT the superseded NetBoot/Start/Makefile's BootLog16), link order
+    # Start.o StartLog.o Console.o DES.o. Byte-exact whole-file after the
+    # grouped-import/export, DC.L *, and WITH-precedence fixes.
+    nb = os.path.join(_SRC, 'GS.OS', 'NetBoot')
+    objs = []
+    for rel, incdirs in [('Start/Start.aii', ['Console']),
+                         ('Start/StartLog.aii', ['Console', 'Logon']),
+                         ('Console/console.aii', ['Console']),
+                         ('Logon/des.aii', [])]:
+        sub = os.path.join(nb, os.path.dirname(rel))
+        incs = [os.path.join(nb, d) for d in incdirs] + [sub] + _GINCS
+        a = asm.assemble(os.path.join(nb, rel), incs)
+        objs.append((omf.emit(a), a))
+    return expressload(objs)
+
+
 def build_atinit():
     # ATInit is NOT ExpressLoad — it is a flat MakeBin file (make.atinit:
     # linkiigs atinit.aii -t $E2 -at $0000 -o ATINIT ; makebiniigs ATINIT).
@@ -117,6 +136,7 @@ _TARGETS = [
     ('Tool038',     'Disk 4 of 7 SystemTools2.2mg', 'System/Tools/Tool038',  build_tool038),
     ('ATInit',      'Disk 4 of 7 SystemTools2.2mg', 'System/System.Setup/ATInit', build_atinit),
     ('ATResponder', 'Disk 4 of 7 SystemTools2.2mg', 'System/System.Setup/ATResponder', build_atresponder),
+    ('net-Start',   'Disk 4 of 7 SystemTools2.2mg', 'AppleTalk/Start', build_net_start),
 ]
 
 

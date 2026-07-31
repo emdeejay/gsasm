@@ -488,6 +488,10 @@ class Asm:
         self.setvars = set()          # names OWNED by SET (assembler variables:
                                       #   a record-scoped SET only updates the
                                       #   bare name when it owns it)
+        self.setvar_seg = {}          # SET name -> segment of its LAST definition
+                                      #   (a same-segment SET shadows a WITH field
+                                      #   in resolve(), like other locals; the
+                                      #   live value stays in symbols — no cache)
         # EQU that ALIASES a single relocatable label (`comp_temp equ and_mask`,
         # ProDOS.FST) — a second name for the same address, NOT a constant. Keyed
         # NAME(upper) -> (TARGET_upper, addend). A ref to NAME must inherit the
@@ -737,9 +741,15 @@ class Asm:
         # local, not ConsData.count.  A keep_prior-masked local (Pascal.FST
         # `temp` under an ACTIVE masking record) never enters seg_local in any
         # pass, so its seed is empty and the field still wins there.
+        # A SET variable defined in the CURRENT segment is a local too: its
+        # live running value (in symbols) shadows a WITH field of the same
+        # name (VideoKeyboard R2Completion `rtlAddr SET dirPage+2` then
+        # `dataPtr SET rtlAddr+3` under `WITH StackFrame` — the RHS binds the
+        # local SET ($4), not StackFrame.rtlAddr ($22)).
         local_here = seg is not None and (
             u in self.seg_local.get(seg, {}) or u in self.seg_equ.get(seg, {})
-            or u in self.seg_seed.get(seg, {}))
+            or u in self.seg_seed.get(seg, {})
+            or (self.setvar_seg.get(u) == seg and u in self.symbols))
         # Inside a RECORD template definition, the record's OWN fields bind
         # first: TempStyle (origin WorkArea=$dc, TextEdit GlobalVars) does
         # `ORG fontID` — MPW rebases to TempStyle.fontID ($dc), not to a
@@ -1348,6 +1358,8 @@ class Asm:
             self._defining = True         # key @-labels in their own scope
             u = self._symkey(name)
             self._defining = False
+            if redefinable and self.segs:  # SET var: remember its home segment
+                self.setvar_seg[u] = len(self.segs) - 1
             # A RECORD field is NOT a global symbol — it is reachable only as
             # RecordName.field or (bare) inside WITH RecordName. Defining its bare
             # name globally would let a later record's field clobber a real equate
@@ -1524,14 +1536,29 @@ class Asm:
                 return True
             # a label local to the current emit segment (seg_local only holds
             # 'label' defs) — shadows a same-named global equate, e.g. a dp
-            # equate `frame` vs a code label `frame` inside this segment
-            if seg is not None and u in self.seg_local.get(seg, {}):
+            # equate `frame` vs a code label `frame` inside this segment.
+            # (seg_seed carries the prior pass's seg_local so a FORWARD local
+            # is visible too — mirrors resolve()'s local_here.)
+            if seg is not None and (u in self.seg_local.get(seg, {})
+                                    or u in self.seg_seed.get(seg, {})):
                 s = self.segs[seg]
                 if s.org is None and s.temporg is None:
                     return True
                 continue        # ORG'd or temporg segment -> absolute literal
             # a PROC-local equate is an absolute value -> never relocated
             if seg is not None and u in self.seg_equ.get(seg, {}):
+                continue
+            # an ident that binds to a WITH-ACTIVE record field takes resolve()'s
+            # WITH precedence over any same-named global: a TEMPLATE field is an
+            # absolute OFFSET (not relocated — NetBoot stub `sta bufptr` under
+            # `with dp` is STA dp $08, even though a real label `bufptr` exists in
+            # the ListSessions data segment); an INSTANCE/data-record field is a
+            # real relocatable label (Pascal.FST `temp` under `with GLOBALS`).
+            # Local shadows above take precedence, matching resolve().
+            qf = self._with_active_field(u)
+            if qf is not None:
+                if self.symtype.get(qf) == 'label' or self.seed_type.get(qf) == 'label':
+                    return True
                 continue
             if u in self.imports:
                 return True
@@ -1557,6 +1584,22 @@ class Asm:
                         and self.segs[si].temporg is None:
                     return True
         return False
+
+    def _with_active_field(self, u):
+        """The qualified `REC.u` key when a WITH-active record binds the bare
+        name `u` — the same lookup resolve() performs (innermost frame first),
+        with the same emit-time `_rwith` fallback. None when no active record
+        has the field. Callers apply local-shadow precedence BEFORE consulting
+        this, mirroring resolve()'s local_here gate."""
+        with_stack = self.with_stack or self._rwith or []
+        if not with_stack:
+            return None
+        for recs in reversed(with_stack):
+            for rec in recs:
+                q = rec + '.' + u
+                if q in self.symbols or q in self.seed:
+                    return q
+        return None
 
     def _equ_alias_of(self, operand):
         """If EQU operand is exactly ONE relocatable label (optionally +/-const),
@@ -1632,7 +1675,13 @@ class Asm:
         seg = self._rseg
         if seg is None and self.emit_enabled and self.segs:
             seg = len(self.segs) - 1
-        if seg is not None and u in self.seg_local.get(seg, {}):
+        if seg is not None and (u in self.seg_local.get(seg, {})
+                                or u in self.seg_seed.get(seg, {})):
+            # seg_seed = the prior pass's seg_local: a FORWARD local (defined
+            # later in this segment) types as the local too, in lock-step with
+            # resolve()'s seeded local_here (VideoKeyboard Key.a procs each
+            # define their own trailing `index DS.W 1` under a persisting
+            # `WITH StackFrame` — refs before the def are still the local).
             return 'label'
         # a PROC-local equate shadows a same-named code label in another PROC
         if seg is not None and u in self.seg_equ.get(seg, {}):
@@ -1640,6 +1689,17 @@ class Asm:
         if (not self.case_sensitive and name in self.case_symtype
                 and self.case_symtype.get(name) == 'equ'):
             return 'equ'
+        # a WITH-ACTIVE record field takes resolve()'s precedence over a
+        # same-named GLOBAL: a TEMPLATE field is an equate-like OFFSET (sizes
+        # direct-page — NetBoot stub `sta bufptr` under `with dp` is STA dp $08
+        # even though a real `bufptr` label exists in the ListSessions data
+        # segment); an instance/data-record field keeps kind 'label'. The local
+        # shadows above (seg_local/seg_equ) still win, matching resolve().
+        qf = self._with_active_field(u)
+        if qf is not None:
+            t = self.symtype.get(qf) or self.seed_type.get(qf)
+            if t:
+                return t
         # a local definition overrides an IMPORT declaration of the same name
         # (modules sometimes IMPORT a symbol they also define locally)
         if self.symtype.get(u) == 'label':

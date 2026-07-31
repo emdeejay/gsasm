@@ -124,6 +124,8 @@ DRIVER_DISK = {
                        '/SystemTools1/System/Drivers/StyleWriter'),
     'Epson':          ('Disk 3 of 7 SystemTools1.2mg',
                        '/SystemTools1/System/Drivers/Epson'),
+    'VideoKeyboard':  ('Disk 4 of 7 SystemTools2.2mg',
+                       '/SystemTools2/System/Desk.Accs/VideoKeyboard'),
     'Boot.Driver':    ('Disk 4 of 7 SystemTools2.2mg',
                        '/SystemTools2/AppleTalk/Boot.Driver'),
     'AppleIIVOC':     ('Disk 4 of 7 SystemTools2.2mg',
@@ -268,6 +270,14 @@ DRIVERMAP = {
          'dialogdata.aii', 'spool.aii', 'imager.aii', 'imagerdata.aii'],
         {},
     ),
+    # VideoKeyboard desk accessory (Disk 4): 5-object link in the MakeFile's
+    # order. Byte-exact once the WITH-precedence fixes land (a forward local
+    # shadows a WITH field in resolve/sym_kind/needs_reloc via seg_seed; a
+    # same-segment SET shadows a WITH field; a WITH-active template field
+    # sizes DP over a same-named global label).
+    'VideoKeyboard': ('A.U.G/VideoKeyboard',
+                      ['Main.a', 'Mouse.a', 'Window.a', 'Key.a', 'KeyData.a'],
+                      {}),
     # AppleTalk boot driver (ATBOOT) + the VideoMix INIT (AppleIIVOC): single
     # ExpressLoad object each; byte-exact as shipped (Disk 4 SystemTools2).
     'Boot.Driver': ('GS.OS/Drivers/ATBoot', ['atboot.aii'], {}),

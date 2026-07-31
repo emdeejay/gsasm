@@ -1808,11 +1808,11 @@
     {
      "path": "/SystemTools2/AppleTalk/Start",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Start/Start.aii",
-     "proven_by": null,
-     "evidence": "GS.OS/MakeFiles/make.net.start links Start.o + StartLog.o + Console.o + DES.o -> {SDAppleTalk}Start (all AsmIIGS from Start.aii/StartLog.aii/Console.aii/DES.aii). Multi-object asm. Not gated.",
+     "proven_by": "expressloadcheck",
+     "evidence": "net-boot Start (4-object ExpressLoad: Start.o StartLog.o Console.o DES.o per the authoritative make.net.start \u2014 StartLog, not the superseded BootLog16 Makefile) byte-exact WHOLE FILE 37209/37209 vs Disk-4 gold. Needed grouped import/export `(a,b,c):type` (fixture 071), DC.L * self-reloc (072), and the WITH-precedence fixes (073-075). expressloadcheck build_net_start.",
      "confidence": "high"
     },
     {
@@ -1908,11 +1908,11 @@
     {
      "path": "/SystemTools2/System/Desk.Accs/VideoKeyboard",
      "forks": "data",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/VideoKeyboard",
-     "proven_by": null,
-     "evidence": "A.U.G.ToDiskImage: VideoKeyboard:VideoKeyboard -> ST2 Desk.Accs/VideoKeyboard. Source A.U.G/VideoKeyboard/{Key.a,Main.a,Mouse.a,Window.a,KeyData.a} + MakeFile (all .a assembly). Not gated.",
+     "proven_by": "drivercheck",
+     "evidence": "VideoKeyboard DA (5-object link Main/Mouse/Window/Key/KeyData.a) byte-exact 15659/15659 vs Disk-4 gold. Needed the RECORD base ,INCR fix (fixture 070) + the WITH-precedence fixes: forward local shadows WITH field via seg_seed (resolve/sym_kind/needs_reloc), same-segment SET shadows WITH field, WITH-active template field sizes DP over a same-named global label. drivercheck DRIVERMAP/DRIVER_DISK.",
      "confidence": "high"
     },
     {
@@ -3013,11 +3013,11 @@
     {
      "path": "/System Folder/ProDOS16 Image",
      "forks": "data=buildable-asm composite; rsrc=420 B buildable-rez(Image.r)",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "65816 asm components combined by the MakeImage (C) build tool",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/{Fizzy/Fizzy.aii,Stub/stub.aii,Logon/BootLog16.aii,MakeImage/main.c}; drivers ATP1.ATRom/ATP2.ATRam/ETalk duplicated from System Disk; rsrc from Installer/Image.r",
-     "proven_by": null,
-     "evidence": "NetBoot/Makefile {image} target: the 'mi' MakeImage tool (built from MakeImage/main.c \u2014 a C build utility, like makebin, NOT the target content) combines fizzy($1000),stub($2000),p8($2000),BootLog16($6800),atrom,atram,ETBoot into the 92672 B image. All CODE content is .aii asm (fizzy.aii, stub.aii, BootLog16.aii+Console+DES, plus AppleTalk/EtherTalk drivers duplicated from the System Disk). Complex composite requiring the mi combiner + several drivers; classified buildable-asm by content language but not yet attempted. NOTE: this is a P16 boot image, unrelated to the 1668 B ProDOS golden (os_bin/ProDOS#FF0000) that diskcheck._build_prodos gates.",
+     "proven_by": "disk7check",
+     "evidence": "DATA fork byte-exact 92672/92672 via disk7check.build_prodos16_image \u2014 a full port of the MakeImage (mi) net-boot container (Main.c: GSOSBOOT header + 16B file-header table @256 + 512-padded components, persistent-blockbuf padding) over 7 byte-exact components: fizzy, stub, p8(02-Apr-93), BootLog16(+Console+DES), atrom/atram (the ATP1/ATP2 links MakeBin'd at $020000+), ETBoot (ETalk.aii -d NetBoot=1). RSRC fork (420B Mac 'vers' via Image.r) same later-revision/no-source class as the boot blocks; carried verbatim.",
      "confidence": "low"
     },
     {
