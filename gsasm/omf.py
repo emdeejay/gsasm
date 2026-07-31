@@ -846,6 +846,15 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
         # target's symtype is 'label', so the label paths below fire naturally; the
         # alias's own symtype stays 'equ' (operand sizing is untouched).
         alias = getattr(asm, 'equ_alias', {}).get(asm._symkey(name))
+        # A label defined IN THE CURRENT SEGMENT shadows a WITH-instance field
+        # alias of the same bare name — MPW binds the innermost explicit
+        # definition (same precedence resolve() applies).  NetBoot Console
+        # SortArray's own `Count ds.w 1` must win over the persisting
+        # `with ConsData` instance field (equ_alias COUNT -> CONSDATA+11);
+        # golden BootLog8/net-Start bind SORTARRAY's local.
+        if (alias is not None and asm._rseg is not None
+                and asm._symkey(name) in asm.seg_local.get(asm._rseg, {})):
+            alias = None
         if alias is not None:
             name = alias[0]
             addend = (addend or 0) + alias[1]
@@ -1354,10 +1363,27 @@ def emit_segment(asm, seg, exports):
             # element-wise relocation for a DC address table: each fixed-width
             # element is either a literal (CONST) or a SEGNAME+offset/import ref
             # (LEXPR). Only when bytes divide evenly into w-sized elements.
+            def _star_elem(it):
+                # `VolName DC.L *` — the bare location counter as a DATA element
+                # is the ADDRESS of this point: a coefficient-1 SELF-segment
+                # relocation, not an assembly-time literal (NetBoot Logon.Main;
+                # gold ships it relocated to the placed base). ORG'd/temporg
+                # segments keep the literal (already absolute).
+                return (re.fullmatch(r'\*\s*([+\-]\s*\$?[0-9A-Fa-f]+)?', it)
+                        and not seg.absolute and seg.temporg is None)
             if (no_str and w and len(barr) == w * len(items)
-                    and any(_reloc_elem(it) for it in items)):
+                    and any(_reloc_elem(it) or _star_elem(it) for it in items)):
                 for k, it in enumerate(items):
-                    if _reloc_elem(it):
+                    if _star_elem(it):
+                        # the assembler baked the segment-relative location (incl.
+                        # any ±const addend) into the literal — emit SEGNAME+that.
+                        flush()
+                        off = int.from_bytes(barr[k*w:(k+1)*w], 'little')
+                        expr = bytes([0x83]) + _omfstr(segname)
+                        if off:
+                            expr += bytes([0x81]) + _num(off) + bytes([0x01])
+                        body += bytes([0xF3, w]) + expr + bytes([0x00])
+                    elif _reloc_elem(it):
                         flush()
                         body += bytes([0xF3, w]) + _expr_for(
                             asm, it, segname, as_data=True,

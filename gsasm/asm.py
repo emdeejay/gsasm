@@ -730,8 +730,16 @@ class Asm:
         # innermost explicit definition first.  StdFile's GetThePrefix defines
         # `devName equ ParBlock+02` while a stale `with PopUpGlobals` is still
         # active; the local equate ($b8) must win over PopUpGlobals.DevName ($36).
+        # A FORWARD local (defined later in this segment) shadows the field too:
+        # the prior pass's seg_local arrives in seg_seed, so consult it as well —
+        # NetBoot Console SortArray references `Count` (its own trailing
+        # `Count ds.w 1`) under a persisting `with ConsData`, and MPW binds the
+        # local, not ConsData.count.  A keep_prior-masked local (Pascal.FST
+        # `temp` under an ACTIVE masking record) never enters seg_local in any
+        # pass, so its seed is empty and the field still wins there.
         local_here = seg is not None and (
-            u in self.seg_local.get(seg, {}) or u in self.seg_equ.get(seg, {}))
+            u in self.seg_local.get(seg, {}) or u in self.seg_equ.get(seg, {})
+            or u in self.seg_seed.get(seg, {}))
         # Inside a RECORD template definition, the record's OWN fields bind
         # first: TempStyle (origin WorkArea=$dc, TextEdit GlobalVars) does
         # `ORG fontID` — MPW rebases to TempStyle.fontID ($dc), not to a

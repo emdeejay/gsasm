@@ -1,0 +1,14 @@
+SEGMENT 1: 'WORK'
+  LOADNAME='main' LENGTH=9 KIND=$0000 ORG=0 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=101
+  +0003b CONST     len=1    ad
+  +0003d LEXPR     size=2 [sym83:WORK $7 op1]
+  +0004c CONST     len=1    8d
+  +0004e LEXPR     size=2 [sym83:WORK $7 op1]
+  +0005d CONST     len=1    60
+  +0005f DS        2 zero bytes
+  +00064 END
+SEGMENT 2: 'INST'
+  LOADNAME='main' LENGTH=4 KIND=$0000 ORG=0 ALIGN=0 LABLEN=0 NUMLEN=4 BYTECNT=65
+  +0003b DS        4 zero bytes
+  +00040 END
+TOTAL 166 bytes, 2 segment(s)

@@ -2993,21 +2993,21 @@
     {
      "path": "/System Folder/Apple //e Boot Blocks",
      "forks": "data=buildable-asm (Catenate of Reloc+P8+BootLog8); rsrc=423 B buildable-rez(Bullwinkle.r)",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "65816/6502 asm (composite)",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/IIeBlocks/reloc.aii + :work:P8 + GS.OS/NetBoot/Logon/BootLog8.aii; rsrc from GS.OS/NetBoot/Installer/Bullwinkle.r",
-     "proven_by": null,
-     "evidence": "NetBoot/Makefile target 'Apple //e Boot Blocks' = Catenate {iie}Reloc :work:P8 :Logon:BootLog8 (all asm-built: reloc.aii->LinkIIGS->MakeBinIIGS; P8; BootLog8 from BootLog8.aii+Console.o+DES.o). build.disk then 'Rez {inst}Bullwinkle.r' + SetVersion for the rsrc fork. Composite of three asm-derived pieces; not yet built by gsasm.",
+     "proven_by": "disk7check",
+     "evidence": "DATA fork byte-exact 35221/35221 via disk7check.build_iie_boot_blocks (Catenate Reloc+P8+BootLog8 per NetBoot/Makefile; BootLog8=Link(BootLog8,Console,DES)+MakeBin org $2000+17128; Reloc asm'd with -d P8Size/LogonSize; P8=02-Apr-93). Needed 3 gsasm fixes: DC.L * self-seg reloc (fixture 072), forward-local-shadows-WITH-field via seg_seed local_here + equ_alias local-shadow guard (fixture 073). RSRC fork (423B Mac 'vers' via Bullwinkle.r) same later-revision/no-source class as ProDOS16 Boot Blocks; carried verbatim.",
      "confidence": "medium"
     },
     {
      "path": "/System Folder/ProDOS16 Boot Blocks",
      "forks": "data=buildable-asm(Boot.aii, org $800); rsrc=426 B buildable-rez(BootBlocks.r)",
-     "classification": "buildable-asm",
+     "classification": "built",
      "language": "65816 asm",
      "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Boot/Boot.aii; rsrc from GS.OS/NetBoot/Installer/BootBlocks.r",
-     "proven_by": null,
-     "evidence": "NetBoot/Makefile: {blocks} = duplicate of :boot:boot, built AsmIIGS boot.aii -> LinkIIGS -> MakeBinIIGS -org $800. build.disk applies 'Rez {inst}BootBlocks.r' + two SetVersion vers for the rsrc fork. Source Boot.aii present; not yet gated.",
+     "proven_by": "disk7check",
+     "evidence": "DATA fork byte-exact 478/478 via disk7check.build_p16_boot_blocks (boot.aii -> LinkIIGS -> MakeBinIIGS -org $800, fully-resolved link). RSRC fork (426B, Mac 'vers' resources) is verified-no-source: built by Mac Rez from a LATER revision of Installer/BootBlocks.r (shipped strings '3.0 (c)1988-1993' vs archived 2.1d9/1988) and its resource map carries build-machine heap-garbage handle fields; carried verbatim.",
      "confidence": "medium"
     },
     {
