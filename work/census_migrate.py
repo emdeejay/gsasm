@@ -653,6 +653,28 @@ _add(D2, '/System.Disk/System/System.Setup/Tool.Setup',
                  'the Disk-2 pass.',
                  source_path='ref/GSOS_6/IIGS.601.SRC/GSToolbox/Patch/Setup/makefile'))
 
+# --- IWEM (Disk 4 driver): CRACKED 2026-08-01. v1's VERIFY-NEGATIVE
+# ("diverges after 78 bytes ... the matching IWEm.Src version is not
+# present") was WRONG: that comparison was against the tree's PREBUILT
+# `IWEm` artifact (28523B — the stripped variant that also ships as Disk 7's
+# /IWEm), not against a replay of the checked-in MPW BuildIWEm script. The
+# shipped 29185B file = prebuilt[:78] + a 662-byte version-guard/ExitServer
+# block + prebuilt[78:], and that block sits UNCOMMENTED in IWEm.Src.
+# Replaying BuildIWEm's squeeze pipeline (work/iwemcheck.py) reproduces the
+# shipped file byte-exact 29185/29185 first try. Gate metric
+# iwem_bytes_exact.
+_add(D4, '/SystemTools2/System/Drivers/IWEM',
+     data=_entry('built', 'iwemcheck',
+                 'DATA fork (29185B ASCII PostScript, the ImageWriter '
+                 'Emulator proc set) proven byte-exact by work/iwemcheck.py: '
+                 'a verbatim Python replay of the MPW BuildIWEm (Ver 1.5) '
+                 'text-squeeze script over IWEm.Src, incl. the ExitServer/'
+                 'version-guard block the earlier verify-negative missed '
+                 '(it had compared against the prebuilt stripped artifact '
+                 'instead of replaying the script). Gate metric '
+                 'iwem_bytes_exact 29185/29185.',
+                 source_path='ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/IWEm/IWEm.Src'))
+
 
 def migrate_file(disk_label, f, live_sizes):
     key = (disk_label, f['path'])

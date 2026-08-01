@@ -52,6 +52,13 @@ CHECKS = [
         ('driver_bytes', r'CORPUS raw code-image match:\s*(\d+)/(\d+)', 'frac')]),
     ('toolcheck', ['toolcheck.py'], [
         ('tool_bytes', r'CORPUS raw code-image match:\s*(\d+)/(\d+)', 'frac')]),
+    # The Disk 4 IWEM driver — NOT 65816 code but the ImageWriter-Emulator
+    # PostScript proc set, rebuilt byte-exact by replaying the MPW BuildIWEm
+    # text-squeeze script over IWEm.Src (see work/iwemcheck.py; cracked
+    # 2026-08-01 — the census's earlier verify-negative had compared against
+    # the tree's prebuilt stripped artifact instead of replaying the script).
+    ('iwemcheck', ['iwemcheck.py'], [
+        ('iwem_bytes_exact', r'IWEM_BYTES_EXACT (\d+)/(\d+)', 'frac')]),
     ('bytecheck', ['bytecheck.py'], [
         ('opcode_bytes', r'OPCODE bytes:\s*(\d+) ok / (\d+) bad', 'okbad'),
         ('operand_values', r'OPERAND values[^:]*:\s*(\d+) ok / (\d+) bad', 'okbad')]),

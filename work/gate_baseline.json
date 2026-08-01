@@ -75,6 +75,10 @@
     17895,
     0
   ],
+  "iwem_bytes_exact": [
+    29185,
+    0
+  ],
   "kernel_bytes": [
     59049,
     0
@@ -84,11 +88,11 @@
     0
   ],
   "manifest_builders_exact": [
-    175,
+    176,
     3
   ],
   "manifest_builders_wired": [
-    175,
+    176,
     3
   ],
   "manifest_inventory_classified": [
@@ -100,11 +104,11 @@
     4
   ],
   "manifest_substitutes_confirmed": [
-    246,
+    245,
     0
   ],
   "manifest_substitutes_structured": [
-    201,
+    200,
     45
   ],
   "manifest_technical_exceptions_accepted": [

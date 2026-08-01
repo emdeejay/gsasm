@@ -4437,16 +4437,11 @@
           "path": "/SystemTools2/System/Drivers/IWEM",
           "forks": {
             "data": {
-              "classification": "no-source-substitute",
-              "evidence": "SUBSTITUTE (VERIFY-NEGATIVE, all 3 source trees): golden is ASCII PostScript (%!PS-Adobe-2.0, type $04) produced by the MPW shell script BuildIWEm from IWEm.Src. The SHIPPED disk IWEM (29185B) DIVERGES after only 78 bytes from the only buildable IWEm.Src the tree can produce (28523B, which has no /IWEmDict Version guard block) -> the exact shipped bytes cannot be regenerated; the matching IWEm.Src version is not present. Carried verbatim.",
+              "classification": "built",
+              "evidence": "DATA fork (29185B ASCII PostScript, the ImageWriter Emulator proc set) proven byte-exact by work/iwemcheck.py: a verbatim Python replay of the MPW BuildIWEm (Ver 1.5) text-squeeze script over IWEm.Src, incl. the ExitServer/version-guard block the earlier verify-negative missed (it had compared against the prebuilt stripped artifact instead of replaying the script). Gate metric iwem_bytes_exact 29185/29185.",
+              "proven_by": "iwemcheck",
               "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/IWEm/IWEm.Src",
-              "size": 29185,
-              "search": {
-                "searched_trees": null,
-                "search_date": null,
-                "search_patterns": null,
-                "decision": "Carried verbatim."
-              }
+              "size": 29185
             }
           },
           "classification": "no-source-substitute",
