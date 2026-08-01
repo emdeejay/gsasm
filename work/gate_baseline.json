@@ -23,6 +23,14 @@
     819264,
     0
   ],
+  "disk3_logical_exact": [
+    30,
+    0
+  ],
+  "disk3_physical_exact": [
+    819264,
+    0
+  ],
   "disk5_logical_exact": [
     1,
     0
@@ -116,8 +124,8 @@
     0
   ],
   "manifest_physical_exact": [
-    5,
-    2
+    6,
+    1
   ],
   "manifest_substitutes_confirmed": [
     243,

@@ -95,7 +95,7 @@ DISKROOT = os.path.join(
 # revert to an unbacked label count (adversarial-review finding #1).  Being
 # merely builder-complete (0 TODO) does NOT put a disk here — the overlay must
 # exist.
-OVERLAID_DISKS = {'Disk 2', 'Disk 5', 'Disk 6', 'Disk 1', 'Disk 7'}
+OVERLAID_DISKS = {'Disk 2', 'Disk 5', 'Disk 6', 'Disk 1', 'Disk 7', 'Disk 3'}
 
 
 def disk_path_for(label):

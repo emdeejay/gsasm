@@ -356,6 +356,129 @@ def _build_unidisk35_fullfile():
     return expressload(objects)
 
 
+# ---------------------------------------------------------------------------
+# Disk 3 (SystemTools1) — full-file ExpressLoad builders for the census's
+# 'built' forks that are NOT duplicates of a Disk-2 file (those instead reuse
+# the SAME SOURCE_BUILDERS/REZ_BUILDERS callables below, exactly like Disk 1's
+# block does — Tool025, BASIC.System, and the Printer/Slots/Time CDEVs are
+# byte-identical shipping copies of the System-Disk files).  Same lazy-import
+# discipline as every wrapper above.
+#
+# Investigated but left OUT (full-file surface NOT byte-exact even though the
+# DE-ExpressLoad'd code image is proven byte-exact by drivercheck.py, which is
+# what backs the census's 'built' classification for these 8 driver forks —
+# see D3_OVERLAY_REPORT.md's Residuals section for the diagnosis of each):
+#   SCSI.Manager, SCSICD.Driver, SCSIScan.Driver, SCSITape.Driver
+#     (11/13-object merges; same reloc-dictionary forward-pointer class as
+#     Disk 1's SCSIHD.Driver residual — +8B/+14B/+14B/+14B, first diff @ 0x64)
+#   ImageWriter, ImageWriter.LQ, StyleWriter
+#     (8/8/9-object merges; SAME class — +15B/+15B/+18B, first diff @ 0x64)
+#   Epson
+#     (2-object merge; a DIFFERENT, genuinely new residual class — same total
+#     length, but the unmerged/segmented LCONST payload itself diverges from
+#     gold's mid-code, at a byte position that is NOT a RELOC target offset —
+#     i.e. not the SCSI-class reloc-dictionary bug. Unexplored; left OUT.)
+def _build_driver_fullfile(name):
+    """Generic full ExpressLoad file builder for one drivercheck.DRIVERMAP
+    single/flat-object-list driver, reusing drivercheck's own build_time
+    table (RAM5 embeds its build date/time — DRIVER_BUILD_TIME)."""
+    def _b():
+        import drivercheck
+        subdir, srcs, defines = drivercheck.DRIVERMAP[name]
+        drv_dir = f'{drivercheck.SRC}/{subdir}'
+        incs = [drv_dir] + drivercheck.INCS
+        from gsasm import asm, omf
+        from gsasm.expressload import expressload
+        sysdate, systime = drivercheck.DRIVER_BUILD_TIME.get(name, (None, None))
+        objects = []
+        for r in srcs:
+            a = asm.assemble(f'{drv_dir}/{r}', incs, defines=defines or None,
+                             sysdate=sysdate, systime=systime)
+            objects.append((omf.emit(a), a))
+        return expressload(objects)
+    return _b
+
+
+def _build_fst_fullfile(name):
+    """Generic full ExpressLoad file builder for one fstcheck.FSTMAP FST,
+    including the 'lib' packaging (MSDos.FST): the library-member extraction
+    ORDER is captured straight from linkiigs.link_lib's own scan (a spy on
+    linkiigs.link's seg_order argument during a throwaway merged-link call),
+    so this is NOT a reimplementation of the -lib hash-bucket algorithm —
+    it reuses the exact order fstcheck's own code-image comparison already
+    gates byte-exact, then feeds that order to expressload() (unmerged)
+    for the FULL on-disk file, the same way toolcheck.objsel_objects's
+    seg_order feeds Tool032/035's full-file builds."""
+    def _b():
+        import fstcheck
+        from gsasm import asm, omf, linkiigs
+        from gsasm.expressload import expressload
+        subdir, srcs, defines, *rest = fstcheck.FSTMAP[name]
+        mode = rest[0] if rest else None
+        fst_dir = f'{fstcheck.GSOS}/{subdir}'
+        incs = [fst_dir] + fstcheck.INCS
+        objects = []
+        for r in srcs:
+            a = asm.assemble(f'{fst_dir}/{r}', incs, defines=defines or None)
+            objects.append((omf.emit(a), a))
+        if mode == 'lib':
+            captured = {}
+            orig_link = linkiigs.link
+
+            def _spy(objs, opts=None):
+                captured['seg_order'] = (opts or {}).get('seg_order')
+                return orig_link(objs, opts)
+
+            linkiigs.link = _spy
+            try:
+                linkiigs.link_lib(objects[:1], objects[1:], opts={'merge': True})
+            finally:
+                linkiigs.link = orig_link
+            return expressload(objects, opts={'order': captured['seg_order']})
+        return expressload(objects)
+    return _b
+
+
+def _build_tool_flat_fullfile(tool):
+    """Generic full ExpressLoad file builder for one toolcheck.TOOLMAP
+    flat single-segment tool (Tool026/029 — same shape as
+    diskbuilders/expressload_files.py's _build_tool, but for a Disk-3-only
+    tool with no existing diskbuilder entry)."""
+    def _b():
+        import toolcheck
+        from gsasm import asm, omf
+        from gsasm.expressload import expressload
+        subdir, srcs = toolcheck.TOOLMAP[tool]
+        objects = []
+        for r in srcs:
+            a = asm.assemble(f'{toolcheck.TB}/{subdir}/{r}', toolcheck.INCS)
+            objects.append((omf.emit(a), a))
+        return expressload(objects)
+    return _b
+
+
+def _build_tool032_fullfile():
+    import toolcheck                           # objsel-based (same shape as
+    from gsasm.expressload import expressload  # toolcheck.build_tool035_fullfile)
+    objects, seg_order = toolcheck.objsel_objects(toolcheck.TOOLMAP['032'][1]['objsel'])
+    return expressload(objects, opts={'order': seg_order})
+
+
+def _build_cdremote_data():
+    import appdatacheck                        # CDRemote NDA, expressload'd
+    return appdatacheck.build_app_data('CDRemote')
+
+
+def _build_findfile_rsrc():
+    import rezforkcheck                        # pure-Rez DA fork (no code rsrc)
+    return rezforkcheck.build_rez_fork('FindFile')
+
+
+def _build_advdiskutil_rsrc():
+    import rezforkcheck                        # ADU app rsrc fork (data fork
+    return rezforkcheck.build_rez_fork('Adv.Disk.Util')  # stays Pascal/substitute)
+
+
 # path -> (fork, builder()->bytes) per census disk label.  fork is the ACTUAL
 # on-disk fork the builder targets (Read.Me/MIDI build their resource forks;
 # Tool035 its data fork) — independent of the census's file-granular label.
@@ -433,6 +556,86 @@ DISK_BUILDER_REGISTRY = {
             ('data', _build_installer_data),
             ('rsrc', _build_installer_rsrc),
         ],
+    },
+    # Disk 3 (SystemTools1) — 30 of the census's 38 'built' forks.  8 driver
+    # forks (SCSI.Manager/SCSICD.Driver/SCSIScan.Driver/SCSITape.Driver/
+    # ImageWriter/ImageWriter.LQ/StyleWriter/Epson) are RESIDUAL, left OUT —
+    # see the residual note above _build_driver_fullfile()'s definition and
+    # D3_OVERLAY_REPORT.md for the full diagnosis (two distinct bug classes:
+    # a reloc-dictionary forward-pointer miscount on 8-13 object merges, and
+    # a separate mid-LCONST divergence for Epson's 2-object merge).  Both
+    # driver forks stay on disk as their original bytes.
+    'Disk 3 of 7 SystemTools1.2mg': {
+        # dual-fork: reuses the SAME '/System.Disk/System/Start' callables
+        # Disk 2 already gates (the census records Disk 3's Finder
+        # cmp-identical to Start's data+rsrc forks).
+        '/SystemTools1/System/Finder': [
+            ('data', SOURCE_BUILDERS[f'{V}/System/Start']),
+            ('rsrc', REZ_BUILDERS[f'{V}/System/Start']),
+        ],
+        # Printer/Slots/Time CDEVs are byte-identical shipping copies of the
+        # System-Disk CDEVs (cdevcheck.CDEVMAP's own golden for these three
+        # names is the Disk-2 copy) — reuse Disk 2's REZ_BUILDERS callables
+        # exactly, not a fresh D3-golden build.
+        '/SystemTools1/System/CDevs/Printer': (
+            'rsrc', REZ_BUILDERS[f'{V}/System/CDevs/Printer']),
+        '/SystemTools1/System/CDevs/Slots': (
+            'rsrc', REZ_BUILDERS[f'{V}/System/CDevs/Slots']),
+        '/SystemTools1/System/CDevs/Time': (
+            'rsrc', REZ_BUILDERS[f'{V}/System/CDevs/Time']),
+        # Disk-3-only CDEVs (cdevcheck.CDEVMAP already golds these against
+        # THIS disk directly).
+        '/SystemTools1/System/CDevs/DirectConnect': (
+            'rsrc', _build_cdev('DirectConnect')),
+        '/SystemTools1/System/CDevs/Keyboard': ('rsrc', _build_cdev('Keyboard')),
+        '/SystemTools1/System/CDevs/Modem': ('rsrc', _build_cdev('Modem')),
+        '/SystemTools1/System/CDevs/Monitor': ('rsrc', _build_cdev('Monitor')),
+        '/SystemTools1/System/CDevs/Sound': ('rsrc', _build_cdev('Sound')),
+        '/SystemTools1/System/Desk.Accs/CDRemote': ('data', _build_cdremote_data),
+        '/SystemTools1/System/Desk.Accs/FindFile': ('rsrc', _build_findfile_rsrc),
+        '/SystemTools1/Adv.Disk.Util': ('rsrc', _build_advdiskutil_rsrc),
+        # Drivers — full-file byte-exact (single or 2-object merges only;
+        # see the residual note above for the 8 left OUT).
+        '/SystemTools1/System/Drivers/A2.RAMCard': (
+            'data', _build_driver_fullfile('A2.RAMCard')),
+        '/SystemTools1/System/Drivers/RAM5': (
+            'data', _build_driver_fullfile('RAM5')),
+        '/SystemTools1/System/Drivers/Modem': (
+            'data', _build_driver_fullfile('Modem')),
+        '/SystemTools1/System/Drivers/Parallel.Card': (
+            'data', _build_driver_fullfile('Parallel.Card')),
+        '/SystemTools1/System/Drivers/Printer': (
+            'data', _build_driver_fullfile('Printer')),
+        '/SystemTools1/System/Drivers/Apple.Midi': (
+            'data', _build_driver_fullfile('Apple.Midi')),
+        '/SystemTools1/System/Drivers/Card6850.MIDI': (
+            'data', _build_driver_fullfile('Card6850.MIDI')),
+        # FSTs — all 5 full-file byte-exact, including MSDOS.FST's -lib
+        # packaging (see _build_fst_fullfile's docstring).
+        '/SystemTools1/System/FSTs/DOS3.3.FST': (
+            'data', _build_fst_fullfile('DOS3.3.FST')),
+        '/SystemTools1/System/FSTs/HFS.FST': (
+            'data', _build_fst_fullfile('HFS.FST')),
+        '/SystemTools1/System/FSTs/HS.FST': (
+            'data', _build_fst_fullfile('HS.FST')),
+        '/SystemTools1/System/FSTs/Pascal.FST': (
+            'data', _build_fst_fullfile('Pascal.FST')),
+        '/SystemTools1/System/FSTs/MSDOS.FST': (
+            'data', _build_fst_fullfile('MSDos.FST')),
+        # Tool025 is a byte-identical shipping copy of Disk 2's Tool025 —
+        # reuse the same SOURCE_BUILDERS callable.  Tool026/029/032 are
+        # Disk-3-only.
+        '/SystemTools1/System/Tools/Tool025': (
+            'data', SOURCE_BUILDERS[f'{V}/System/Tools/Tool025']),
+        '/SystemTools1/System/Tools/Tool026': (
+            'data', _build_tool_flat_fullfile('026')),
+        '/SystemTools1/System/Tools/Tool029': (
+            'data', _build_tool_flat_fullfile('029')),
+        '/SystemTools1/System/Tools/Tool032': ('data', _build_tool032_fullfile),
+        # BASIC.System is byte-identical on both shipping copies (basiccheck
+        # proves it against this Disk-3 copy explicitly) — reuse the same
+        # SOURCE_BUILDERS callable.
+        '/SystemTools1/BASIC.System': ('data', SOURCE_BUILDERS[f'{V}/BASIC.System']),
     },
 }
 
