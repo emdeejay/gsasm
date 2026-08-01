@@ -269,3 +269,24 @@ measurable defect; any target that matches is proven correct, not assumed.
   A fresh clone can run it; CI does, on every push.
 - The disk-image harness additionally needs the `a2til` disk-image tools
   (a sibling project; point `A2TIL_PATH` at a checkout).
+
+
+## 2026-08-01 — Tier A: the whole seven-disk set
+
+The completion arc closed in a single day (full commit trail on this date):
+
+- The SOW completion machinery survived (and was hardened by) an adversarial
+  review — typed builder proofs, a fork-granular census, hard-gated per-disk
+  physical byte-match, dated structured substitute-search evidence, and the
+  `manifestcheck --tier-a` completion command.
+- The last walls fell in the established pattern (decode the gold, never
+  trust a prose claim): Tool.Setup ("case-B wall" — stale), IWEM (a shell
+  script replay), the SCSI/printer-driver ExpressLoad dictionaries (the
+  exported-EQU kind fix), Epson and ATP1.ATROM (MPW module scoping),
+  VideoKeyboard (its own segment name), CloseView and LaserWriter (the
+  existing multiseg packager, simply never aimed at them), and a diagnosed
+  "badmin bug" that was proven never to have existed.
+- Final state: **all 7 disk images physically byte-identical
+  (819,264/819,264 each); 178/178 census-built forks wired and
+  logical-exact; zero residuals.**  Disk 7's HFS overlay writes through
+  a2til's engine (developed in tandem, upstreamed as a2til issue #9).

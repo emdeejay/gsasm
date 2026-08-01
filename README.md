@@ -29,11 +29,16 @@ binaries:
   multi-segment ExpressLoad tools (Window/Menu/Control Managers, QDAux,
   TextEdit …) with their linker-generated `~JumpTable` segments and full
   relocation dictionaries
-- **The whole System 6.0.1 System Disk** — every one of the 39 files the
-  disk harness rebuilds from source is logically byte-exact; the remaining
-  data/font/desktop-database files (which have no assembler source) are
-  carried verbatim from the original, so the packed 800K disk image matches
-  physically, all 819,264 bytes
+- **The complete System 6.0.1 seven-disk set** — every disk image
+  reconstructs physically byte-identical, all 819,264 bytes each: the 178
+  forks with producing source (assembler or Rez) are rebuilt and overlaid
+  from source (Install 39, System Disk 40, SystemTools1 38, SystemTools2 52,
+  Fonts 1, synthLAB 2, Apple II Setup 6 — including the HFS Disk 7, written
+  through a2til's allocation-preserving overlay engine), and every
+  no-source substitute is carried verbatim under a per-fork census with
+  dated, structured search evidence.  The completion gate
+  (`work/manifestcheck.py --tier-a`) passes on all six machine-checked
+  conditions
 - **Resource forks** (`gsrez`): `Sys.Resources`, `EasyMount`, all **19
   Control-Panel CDEVs**, the **Finder** (both forks — the 146 KB application
   itself rebuilds from source), the **Installer**, and **Teach** — the Rez
@@ -52,8 +57,9 @@ binaries:
 
 Every "proven limit" recorded along the way — a GS.OS "94-byte external
 floor", "absent" AppleShare sources, "unclosable" ExpressLoad relocation
-encodings — was eventually falsified as a nameable assembler or harness bug
-and closed. The full accounting, with the evidence trail for each, is in
+encodings, a "case-B wall", assorted "verified-no-source" claims, and even a
+diagnosed bug that turned out not to exist — was eventually falsified as a
+nameable assembler, linker, or harness issue and closed. The full accounting, with the evidence trail for each, is in
 [docs/RESULTS.md](docs/RESULTS.md).
 
 Byte-exact reproduction also makes the shipping binaries *subtractable*. For a

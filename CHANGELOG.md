@@ -5,6 +5,69 @@ on [Keep a Changelog](https://keepachangelog.com/); this project's version of
 "notable" is: which shipping Apple IIgs / GS/OS artifacts now rebuild
 **byte-exact** from source, plus toolchain/library changes.
 
+## [0.5.0] — 2026-08-01
+
+**Tier A: the complete System 6.0.1 seven-disk set reconstructs byte-exact.**
+One day, one arc: an adversarial review of the completion machinery in the
+morning; every one of its seven findings closed; every remaining wall cracked;
+zero unbuilt files by night.
+
+### Completion (the headline)
+
+- **All seven disk images reconstruct physically byte-identical**
+  (819,264/819,264 each): Disks 1–6 via the generalized ProDOS overlay,
+  Disk 7 (HFS-in-2IMG) via a2til's new allocation-preserving HFS overlay
+  engine (a2til issue #9, developed in tandem and merged upstream).
+- **Every fork with producing source is wired and logical-exact** — 178
+  registry entries across the set (Install 39, System Disk 40, SystemTools1
+  38, SystemTools2 52, Fonts 1, synthLAB 2, Apple II Setup 6). Zero
+  residuals: the census classifies no file as buildable-but-unbuilt.
+- **`work/manifestcheck.py --tier-a` passes** on all six machine-checked
+  conditions (inventory 7/7, substitutes confirmed AND structured with
+  dated search evidence, builders wired/exact with typed proofs, physical
+  7/7, no unaccepted technical exceptions).
+
+### Byte-exact reproduction (new since 0.4.0)
+
+- **Tool.Setup** (19,232 B, Disks 1+2) — the last TECHNICAL_EXCEPTION;
+  the "case-B wall" was stale, the residual was recipe drift.
+- **IWEM** (29,185 B, Disk 4) — the ImageWriter-Emulator PostScript proc
+  set, rebuilt by replaying the MPW `BuildIWEm` text-squeeze script.
+- **Adv.Disk.Util** resource fork (8,037 B) — the census's final
+  TODO_BUILDABLE.
+- **The SCSI family** — SCSI.Manager, SCSIHD/CD/Scan/Tape drivers — plus
+  **ImageWriter, ImageWriter.LQ, StyleWriter, Epson, ATP1.ATROM,
+  AppleShare.FST, VideoKeyboard, CloseView, LaserWriter** full ExpressLoad
+  files (previously only their de-ExpressLoad'd code images were proven).
+- Four literal-text data forks (Read.Me/Shortcuts/Whats.New/Fonts Read.Me,
+  30,520 B) gated 1:1 against their tracked sources.
+
+### Toolchain (three linker discoveries, each corpus-free-guarded)
+
+- **Exported-EQU symbol kinds** (`linkiigs.SymTab.kinds`): reloc
+  suppression for link-time constants now uses the assembler's structural
+  GEQU-vs-GLOBAL signal at per-object precedence, replacing a value-range
+  proxy that misfired on small constants (spurious SUPER/cRELOC records).
+- **Constant-shift resolution**: `#const>>16`-style shifts over exported
+  EQUs resolve at link time in the ExpressLoad single path (the SCSI
+  "badmin bug" that turned out never to exist).
+- **MPW module scoping**: a plain interior label is module-local — a
+  by-name reference binds the program-wide EXPORT even from a sibling
+  module of the same object; ENTRYs, unexported names, and segment names
+  are exempt (the TS2 private-wins shapes hold).
+- `expressload()` gains `opts['segname']` (a load segment's name is
+  byte-load-bearing: header + directory `entry_len`).
+
+### Verification machinery (the adversarial-review response)
+
+- Typed builder proofs (CallableProof/HarnessProof) replace label counts;
+  fork-granular census with machine-regenerated migration; physical
+  byte-match hard-gated per disk with enforced exit codes; technical-
+  exception acceptance markers; dated structured substitute-search
+  evidence (247 records re-searched); `--tier-a` completion command.
+- HFS access (read + overlay write) moved upstream to a2til
+  (`a2til.hfs.HfsVolume`); gsasm's vendored copy deleted.
+
 ## [0.4.0] — 2026-07-30
 
 Coverage beyond the System Disk, an internals refactor, and a Python-floor bump.

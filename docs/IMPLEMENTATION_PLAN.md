@@ -1,5 +1,13 @@
 # gsasm — Implementation Plan (execution of the Completion SOW)
 
+> **STATUS 2026-08-01: TIER A COMPLETE — every phase through P7 is DONE.**
+> All seven disks reconstruct physically byte-identical; every census-built
+> fork (178 registry entries) wires and overlays from source; zero
+> TODO_BUILDABLE, zero TECHNICAL_EXCEPTION, zero unwired residuals;
+> `manifestcheck --tier-a` passes all six conditions.  The phase tables
+> below are the historical execution record.  Remaining: P8 (release,
+> human-gated) and the P9/P10 refactor backlog.
+>
 > Companion to `docs/SOW_COMPLETION.md`. The SOW defines *what* Complete is and
 > the phase outline; this is the concrete *how*, grounded in the evidence-based
 > census (`docs/disk_census_2026-07-30.json`). Tier A+C, supervised-workflow
