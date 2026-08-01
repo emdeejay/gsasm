@@ -479,6 +479,80 @@ def _build_advdiskutil_rsrc():
     return rezforkcheck.build_rez_fork('Adv.Disk.Util')  # stays Pascal/substitute)
 
 
+# ---------------------------------------------------------------------------
+# Disk 4 (SystemTools2) — generic per-name wrapper factories, reused across
+# many of the disk's 47 wired forks (mirrors _build_cdev(name) above). Same
+# lazy-import discipline as every wrapper in this file.
+# ---------------------------------------------------------------------------
+def _build_rezforkcheck(name):
+    def _b():
+        import rezforkcheck                     # 8-target Rez fork harness
+        return rezforkcheck.build_rez_fork(name)  # (MediaControl/VideoMix NDAs,
+    return _b                                    # Pioneer4200 rsrc, Frog/Whoosh)
+
+
+def _build_appdatacheck(name):
+    def _b():
+        import appdatacheck                      # 4(+1)-target pure-ASM data
+        return appdatacheck.build_app_data(name)  # fork harness (Pioneer2000/
+    return _b                                    # EasyAccess/Pioneer4200)
+
+
+def _build_rezdatacheck(name):
+    def _b():
+        import rezdatacheck                      # template-free `data`-statement
+        return rezdatacheck.build_rez_fork(name)  # rsrc forks (10 Sounds + the
+    return _b                                    # 3 TeachText docs' rsrc fork)
+
+
+def _build_teach_rsrc():
+    import teachcheck                            # Pascal-walled Teach; Rez
+    return teachcheck.build_teach_fork()         # layer only (data fork substitute)
+
+
+def _build_text_source(relpath):
+    """Disk 4's Read.Me/Shortcuts/Whats.New DATA forks are shipped verbatim
+    from tracked source text (the makefiles' `Duplicate` rule) -- the SAME
+    equality work/textdatacheck.py already gates as TEXT_DATA_BYTES_EXACT,
+    wrapped here as a builder callable (open+read, no build step, exactly
+    like textdatacheck's own comparison)."""
+    def _b():
+        with open(os.path.join(ROOT, 'ref', 'GSOS_6', 'IIGS.601.SRC', relpath),
+                  'rb') as f:
+            return f.read()
+    return _b
+
+
+def _build_iwem_d4():
+    import iwemcheck                             # MPW BuildIWEm text-squeeze
+    return iwemcheck.build_iwem_disk4()          # replay (cracked 2026-08-01)
+
+
+def _build_quicklogoff():
+    import expressloadcheck
+    return expressloadcheck.build_quicklogoff()
+
+
+def _build_tool038():
+    import expressloadcheck
+    return expressloadcheck.build_tool038()
+
+
+def _build_atinit():
+    import expressloadcheck
+    return expressloadcheck.build_atinit()
+
+
+def _build_atresponder():
+    import expressloadcheck
+    return expressloadcheck.build_atresponder()
+
+
+def _build_net_start():
+    import expressloadcheck
+    return expressloadcheck.build_net_start()
+
+
 # path -> (fork, builder()->bytes) per census disk label.  fork is the ACTUAL
 # on-disk fork the builder targets (Read.Me/MIDI build their resource forks;
 # Tool035 its data fork) — independent of the census's file-granular label.
@@ -636,6 +710,144 @@ DISK_BUILDER_REGISTRY = {
         # proves it against this Disk-3 copy explicitly) — reuse the same
         # SOURCE_BUILDERS callable.
         '/SystemTools1/BASIC.System': ('data', SOURCE_BUILDERS[f'{V}/BASIC.System']),
+    },
+    # Disk 4 (SystemTools2) — 47 of the census's 52 'built' forks (fork-
+    # granular: the census marks some FILES pascal-c-nontarget overall while
+    # still classifying one of their two forks 'built' -- e.g. Teach, the
+    # MediaControl/VideoMix NDAs -- exactly the fork-granular reading this
+    # registry has used since Disk 1/3).  5 forks are RESIDUAL, left OUT (not
+    # force-wired) -- see the notes above each helper and D4_OVERLAY_REPORT.md
+    # for the full diagnosis:
+    #   VideoKeyboard, ATP1.ATROM  -- SAME reloc-dictionary forward-pointer
+    #     class as Disk 1's SCSIHD.Driver / Disk 3's 8 driver residuals (a
+    #     multi-object ExpressLoad merge's reloc weight lands in the wrong
+    #     directory slot).  VideoKeyboard: +18B, cascading diffs from offset
+    #     0 once the directory/reloc-dict size disagrees.  ATP1.ATROM: SAME
+    #     length (11080B) but 2 bytes differ at 0x144, inside a directory
+    #     forward-pointer field (0x0e56 vs 0x0e95).
+    #   LaserWriter  -- a genuinely NEW gap, not merely the above class: its
+    #     DRIVERMAP entry is a 2-load-segment jt_segments driver (like
+    #     Tool015/016/018), and drivercheck._link_jt_driver only ever
+    #     produces the CONCATENATED CODE IMAGE (36644B) that de_express(gold)
+    #     compares -- there is no jt-aware FULL ExpressLoad-file packager
+    #     (directory + per-segment reloc dicts + ~JumpTable) anywhere in the
+    #     codebase yet, so the 39779B on-disk file cannot be attempted.
+    #   CloseView  -- same gap as LaserWriter: expressloadcheck.
+    #     build_closeview_code() is explicitly documented as CODE-IMAGE-ONLY
+    #     (2-lseg INIT+NDA, no packaging modeled); full-file needs the same
+    #     unbuilt jt-aware ExpressLoad packager.
+    #   AppleShare.FST  -- the disk's own census notes flag this exact file as
+    #     the likely SCSI-class example; confirmed: a 25-object merge (24
+    #     modules + JudgeName), SAME length as gold (19950 vs 19948 -- +2B)
+    #     but diverges at offset 0x64, in the ~ExpressLoad directory.
+    # All 5 stay on disk as their original (untouched) bytes; only
+    # disk4_logical_exact's denominator is 47, not 52.
+    'Disk 4 of 7 SystemTools2.2mg': {
+        # AppleTalk net-boot trio + protocol/supervisory drivers -- generic
+        # full-file expressload(objects) recipe (same _build_driver_fullfile
+        # Disk 3's single/2-object drivers use); all confirmed byte-exact
+        # full-file (probe 2026-08-01), including the 18-object ATP2.ATRAM
+        # merge (object count alone does not predict the reloc-dict bug).
+        '/SystemTools2/AppleTalk/Boot.Driver': (
+            'data', _build_driver_fullfile('Boot.Driver')),
+        '/SystemTools2/System/Drivers/SCC.Manager': (
+            'data', _build_driver_fullfile('SCC.Manager')),
+        '/SystemTools2/System/Drivers/AppleTalk': (
+            'data', _build_driver_fullfile('AppleTalk')),
+        '/SystemTools2/System/Drivers/ATP2.ATRAM': (
+            'data', _build_driver_fullfile('ATP2.ATRAM')),
+        '/SystemTools2/System/Drivers/ATalk': (
+            'data', _build_driver_fullfile('ATalk')),
+        '/SystemTools2/System/Drivers/Media.Control/AppleCDSC': (
+            'data', _build_driver_fullfile('AppleCDSC')),
+        '/SystemTools2/System/System.Setup/AppleIIVOC': (
+            'data', _build_driver_fullfile('AppleIIVOC')),
+        # IWEM -- PostScript text-squeeze replay (NOT 65816 code), the
+        # BuildIWEm crack.
+        '/SystemTools2/System/Drivers/IWEM': ('data', _build_iwem_d4),
+        # expressloadcheck full-file builders (already whole-file, not code-
+        # image-only, per that module's own docstring/contract).
+        '/SystemTools2/AppleTalk/QuickLogoff': ('data', _build_quicklogoff),
+        '/SystemTools2/System/Tools/Tool038': ('data', _build_tool038),
+        '/SystemTools2/System/System.Setup/ATInit': ('data', _build_atinit),
+        '/SystemTools2/System/System.Setup/ATResponder': (
+            'data', _build_atresponder),
+        '/SystemTools2/AppleTalk/Start': ('data', _build_net_start),
+        # CDEVs -- rsrc only (data fork empty, no-source-substitute by
+        # census); reuse the generic _build_cdev(name) factory Disk 1/3 use.
+        '/SystemTools2/System/CDevs/AppleShare': (
+            'rsrc', _build_cdev('AppleShare')),
+        '/SystemTools2/System/CDevs/FolderPriv': (
+            'rsrc', _build_cdev('FolderPriv')),
+        '/SystemTools2/System/CDevs/MediaControl': (
+            'rsrc', _build_cdev('MediaControl')),
+        '/SystemTools2/System/CDevs/Namer': ('rsrc', _build_cdev('Namer')),
+        '/SystemTools2/System/CDevs/NetPrinter': (
+            'rsrc', _build_cdev('NetPrinter')),
+        '/SystemTools2/System/CDevs/Network': ('rsrc', _build_cdev('Network')),
+        # Pascal-walled Desk.Accs NDAs -- rsrc-only fork is 'built' even
+        # though the file overall is pascal-c-nontarget (fork-granular
+        # census reading, same as Teach below).
+        '/SystemTools2/System/Desk.Accs/MediaControl': (
+            'rsrc', _build_rezforkcheck('MediaControl')),
+        '/SystemTools2/System/Desk.Accs/VideoMix': (
+            'rsrc', _build_rezforkcheck('VideoMix')),
+        # Media.Control drivers -- Pioneer2000 (single-object expressload,
+        # appdatacheck), Pioneer4200 (BOTH forks: plain-load data fork via
+        # appdatacheck, rsrc via rezforkcheck).
+        '/SystemTools2/System/Drivers/Media.Control/Pioneer2000': (
+            'data', _build_appdatacheck('Pioneer2000')),
+        '/SystemTools2/System/Drivers/Media.Control/Pioneer4200': [
+            ('data', _build_appdatacheck('Pioneer4200')),
+            ('rsrc', _build_rezforkcheck('Pioneer4200')),
+        ],
+        # EasyAccess -- single-object expressload, appdatacheck.
+        '/SystemTools2/System/System.Setup/EasyAccess': (
+            'data', _build_appdatacheck('EasyAccess')),
+        # EasyMount -- dual-fork, cmp-identical to the System-Disk copy per
+        # the census; reuse the SAME Disk-2 SOURCE_BUILDERS/REZ_BUILDERS
+        # callables (not re-implemented here), exactly like Disk 3's Finder
+        # dual-fork reuse above. Confirmed logical-exact against THIS disk's
+        # own on-disk forks by the reconstruct() pre-overlay compare, not
+        # merely asserted.
+        '/SystemTools2/System/System.Setup/EasyMount': [
+            ('data', SOURCE_BUILDERS[f'{V}/System/System.Setup/EasyMount']),
+            ('rsrc', REZ_BUILDERS[f'{V}/System/System.Setup/EasyMount']),
+        ],
+        # Tool033 (VideoMix toolset) -- flat single-object link, same shape
+        # as Disk 3's Tool026/029 -- reuse the SAME generic helper.
+        '/SystemTools2/System/Tools/Tool033': (
+            'data', _build_tool_flat_fullfile('033')),
+        # 10 System Sounds -- template-free `data`-statement rsrc forks
+        # (rezdatacheck); 2 more (Frog/Whoosh) use the rSoundSample template
+        # instead and live in rezforkcheck (wired just above the Media.
+        # Control block via the SAME _build_rezforkcheck factory -- see
+        # Desk.Accs/MediaControl and VideoMix entries' factory reuse).
+        **{f'/SystemTools2/System/Sounds/{n}': ('rsrc', _build_rezdatacheck(n))
+           for n in ('Ahh', 'Doorbell', 'Droplet', 'Eastern', 'PipeOrgan',
+                     'Quack', 'SimpleBeep', 'Sosumi', 'Swish', 'Trumpets')},
+        '/SystemTools2/System/Sounds/Frog': ('rsrc', _build_rezforkcheck('Frog')),
+        '/SystemTools2/System/Sounds/Whoosh': (
+            'rsrc', _build_rezforkcheck('Whoosh')),
+        # Teach -- Pascal-walled editor; rsrc-only fork 'built' (data fork
+        # stays a no-source-substitute wall).
+        '/SystemTools2/Teach': ('rsrc', _build_teach_rsrc),
+        # Read.Me/Shortcuts/Whats.New -- DUAL-FORK: data is the verbatim
+        # tracked source text (textdatacheck's own comparison, wrapped as a
+        # builder callable), rsrc is the TeachText TE-record+style-block Rez
+        # fork (rezdatacheck, same pipeline as the Sounds above).
+        '/SystemTools2/Read.Me': [
+            ('data', _build_text_source('ToolBoxMisc/ReadMeFiles/Read.Me.text')),
+            ('rsrc', _build_rezdatacheck('Read.Me')),
+        ],
+        '/SystemTools2/Shortcuts': [
+            ('data', _build_text_source('ToolBoxMisc/ReadMeFiles/Shortcuts.text')),
+            ('rsrc', _build_rezdatacheck('Shortcuts')),
+        ],
+        '/SystemTools2/Whats.New': [
+            ('data', _build_text_source('ToolBoxMisc/ReadMeFiles/Whats.New.text')),
+            ('rsrc', _build_rezdatacheck('Whats.New')),
+        ],
     },
 }
 

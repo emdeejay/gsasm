@@ -212,6 +212,10 @@ FULL_CHECKS = [
         ('disk3_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac'),
         ('disk3_physical_exact',
          r'PHYSICAL image byte-match:\s*(\d+)/(\d+)', 'frac')]),
+    ('diskcheck4', ['diskcheck.py', '--disk', 'Disk 4 of 7 SystemTools2.2mg'], [
+        ('disk4_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac'),
+        ('disk4_physical_exact',
+         r'PHYSICAL image byte-match:\s*(\d+)/(\d+)', 'frac')]),
     # Disk 7 (HFS): whole-disk reconstruction via a2til's overlay writer
     # (issue #9 phase 2) — diskcheck.reconstruct_hfs overlays the six
     # disk7check-built data forks in place and demands whole-2IMG identity.

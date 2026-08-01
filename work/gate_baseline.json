@@ -31,6 +31,14 @@
     819264,
     0
   ],
+  "disk4_logical_exact": [
+    47,
+    0
+  ],
+  "disk4_physical_exact": [
+    819264,
+    0
+  ],
   "disk5_logical_exact": [
     1,
     0
@@ -124,8 +132,8 @@
     0
   ],
   "manifest_physical_exact": [
-    6,
-    1
+    7,
+    0
   ],
   "manifest_substitutes_confirmed": [
     243,
