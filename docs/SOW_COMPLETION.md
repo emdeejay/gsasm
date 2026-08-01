@@ -1,5 +1,17 @@
 # gsasm — Statement of Work: Path to "Complete"
 
+> **STATUS 2026-08-01: COMPLETE — Tier A achieved.**  The machine-checkable
+> target this SOW defines passes: `work/manifestcheck.py --tier-a` exits 0 on
+> all six conditions; all seven disk images reconstruct physically
+> byte-identical (819,264/819,264 each); every census-built fork (178) is
+> wired with a typed proof; zero TODO_BUILDABLE, zero TECHNICAL_EXCEPTION.
+> Executed 2026-07-30 → 2026-08-01 in the supervised-workflow mode described
+> below, including a mid-flight adversarial review of this SOW's own
+> machinery (docs/ADVERSARIAL_REVIEW_SOW_IMPLEMENTATION_2026-08-01.md) whose
+> seven findings were all closed before completion was claimed.  The
+> execution record: docs/IMPLEMENTATION_PLAN.md, docs/reports/2026-08-01/,
+> and the commit trail of those dates.
+>
 > Draft 2026-07-30. Purpose: define what **Complete** means for this project as a
 > single machine-checkable target, then lay out an execution plan structured so
 > the bulk of it can run **largely automated** (gate-oracled agent/workflow loops)

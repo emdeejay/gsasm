@@ -2205,6 +2205,13 @@ def expressload(
             Pre-seeded externals passed to the internal linker.
         ``kind``
             KIND override for single-segment output.
+        ``segname``
+            SEGNAME override (bytes) for single-segment output (default
+            ``b'main'``).  The name is byte-load-bearing: it rides into both
+            the load segment's header and the ``~ExpressLoad`` directory's
+            ``entry_len = 51 + len(SEGNAME)`` — VideoKeyboard's golden file
+            differs from a ``b'main'`` build by exactly its name's 9 bytes,
+            twice.  Multi-segment output names via ``segnames`` instead.
         ``obj_group``
             Opt-in per-FILE output groups: ``list[int]``, one entry per
             object in ``objects``, giving that object's output GROUP index

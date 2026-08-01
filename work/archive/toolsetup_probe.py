@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """toolsetup_probe.py — diagnostic for the Tool.Setup disk file.
 
+OBSOLETE (2026-08-01): Tool.Setup is BYTE-EXACT and wired
+(work/diskbuilders/toolsets.py::_build_toolsetup).  This probe's residual
+claims below were STALE RECIPE DRIFT, not a converter wall — it omitted
+tl.asm's `-d RAMVersion=0`, merged the CDAMenu/NDACalls double-pulls into
+single filter-list-order pulls, and its segment-name matcher missed
+interior-label filter names.  Kept only as the historical artifact that
+mis-shaped two investigations; trust toolsets.py and the makefile, not this.
+
+
 Reproduces the System.Setup/Tool.Setup ExpressLoad build (multi-object,
 segment-name-filtered, 2 -lseg groups `main`+`patches`) from clean-room source
 and diffs it against the shipping binary.  RESULT (see docs/design/FINAL_RUN.md):

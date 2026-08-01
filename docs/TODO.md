@@ -1,5 +1,13 @@
 # TODO — reopened leads (2026-07-14)
 
+> **STATUS 2026-08-01: every reproduction lead below is CLOSED.**  Case-B
+> flags, ~JumpTable generation, Tool.Setup, the multiseg standalone-reloc
+> gap, P8, SCSIHD, AppleShare — all fell (see docs/RESULTS.md's closing
+> section and CHANGELOG 0.4.0/0.5.0).  Tier A is complete; the only open
+> work is the refactor backlog (R10 cache; REFACTORING.md D1–D8) and
+> elective ambitions.  Kept as the historical record of what the leads
+> looked like when they were still walls.
+
 The SheepShaver image `ref/gsrom3/system500.hfv` (readable in place with
 `work/hfs.py`) contains the original **MPW IIgs tool binaries** and interface
 files under `MPW-GM/`. The limits in `RESULTS.md` were proven against the
