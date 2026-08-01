@@ -307,6 +307,55 @@ def _build_tool035_fullfile():
     return toolcheck.build_tool035_fullfile()  # (objsel link + single-seg wrap)
 
 
+# ---------------------------------------------------------------------------
+# Disk 1 (Install) — Disk-1-ONLY artifacts.  Everything else Disk 1 needs is a
+# duplicate-of-Disk-2 file (same clean-room ASM, same shipping bytes — the
+# census's "cmp-identical to the System-Disk copy" claim), so those entries
+# below reuse the SAME SOURCE_BUILDERS/REZ_BUILDERS callables registered for
+# the '/System.Disk/...' path above — NOT re-implemented here.  Same lazy-
+# import discipline as the wrappers above (avoids install*check/appdatacheck/
+# cdevcheck/expressloadcheck import cycles through diskcheck).
+# ---------------------------------------------------------------------------
+def _build_installer_data():
+    import installerdatacheck               # S16 app, multiseg jt_entries link
+    return installerdatacheck.build_installer_data()
+
+
+def _build_installer_rsrc():
+    import installercheck                    # Rez tier-1, self-contained dialect
+    return installercheck.build_installer_fork()
+
+
+def _build_controlpanel_data():
+    import appdatacheck                      # APPMAP['ControlPanel'] (NDA code,
+    return appdatacheck.build_app_data('ControlPanel')  # CtlPanel.aii+cbp.aii)
+
+
+def _build_setstart_rsrc():
+    import cdevcheck                          # CDEVMAP['SetStart'] (Install-only;
+    return cdevcheck.build_cdev_fork('SetStart')  # not in Disk-2 REZ_BUILDERS)
+
+
+def _build_install_start():
+    import expressloadcheck                   # 565B SetStart-generated launcher —
+    return expressloadcheck.build_start()      # NOT the Finder (System.Disk/Start
+                                                # is a wholly different file/recipe)
+
+
+def _build_unidisk35_fullfile():
+    import drivercheck                         # DRIVERMAP['UniDisk3.5'];
+    subdir, srcs, defines = drivercheck.DRIVERMAP['UniDisk3.5']  # Install-only
+    drv_dir = f'{drivercheck.SRC}/{subdir}'    # driver, so no Disk-2 REZ/SOURCE
+    incs = [drv_dir] + drivercheck.INCS        # entry exists to reuse; wraps the
+    from gsasm import asm, omf                 # SAME expressload() recipe
+    from gsasm.expressload import expressload   # expressload_files._build_driver
+    objects = []                                # uses for the Disk-2 drivers.
+    for r in srcs:
+        a = asm.assemble(f'{drv_dir}/{r}', incs, defines=defines or None)
+        objects.append((omf.emit(a), a))
+    return expressload(objects)
+
+
 # path -> (fork, builder()->bytes) per census disk label.  fork is the ACTUAL
 # on-disk fork the builder targets (Read.Me/MIDI build their resource forks;
 # Tool035 its data fork) — independent of the census's file-granular label.
@@ -318,7 +367,84 @@ DISK_BUILDER_REGISTRY = {
         '/synthLAB/MIDI': ('rsrc', _build_midi_rsrc),
         '/synthLAB/Tool035': ('data', _build_tool035_fullfile),
     },
+    # Disk 1 (Install) — 37 of the census's 39 'built' forks.  RESIDUAL (left
+    # OUT, not force-wired): /Install/System/Drivers/SCSI.Manager and
+    # .../SCSIHD.Driver.  Their DE-EXPRESSLOAD'D code images are proven
+    # byte-exact (work/drivercheck.py, closed 2026-07-18) — that is what the
+    # census's 'built' classification is backed by — but the FULL on-disk
+    # ExpressLoad'd file (this registry's surface, never gated before) is NOT:
+    # a small reloc-dictionary encoding difference (+8B / +14B respectively;
+    # first divergence in the ~ExpressLoad directory's forward-pointer fields,
+    # propagating from a reloc-run delta assigned to the wrong dict slot around
+    # the merged multi-file object — see the investigation in the M8 Disk-1
+    # overlay work). UniDisk3.5 (also Install-only, same recipe shape) full-file
+    # builds byte-exact and IS wired. Both SCSI files stay on-disk as the
+    # original (untouched) bytes, so the physical image match is unaffected —
+    # only disk1_logical_exact's denominator is 37, not 39.
+    'Disk 1 of 7 Install.2mg': {
+        '/Install/ProDOS': ('data', SOURCE_BUILDERS[f'{V}/ProDOS']),
+        '/Install/System/GS.OS': ('data', SOURCE_BUILDERS[f'{V}/System/GS.OS']),
+        '/Install/System/Start.GS.OS': (
+            'data', SOURCE_BUILDERS[f'{V}/System/Start.GS.OS']),
+        '/Install/System/Error.Msg': (
+            'data', SOURCE_BUILDERS[f'{V}/System/Error.Msg']),
+        '/Install/System/GS.OS.Dev': (
+            'data', SOURCE_BUILDERS[f'{V}/System/GS.OS.Dev']),
+        '/Install/System/FSTs/Pro.FST': (
+            'data', SOURCE_BUILDERS[f'{V}/System/FSTs/Pro.FST']),
+        '/Install/System/FSTs/Char.FST': (
+            'data', SOURCE_BUILDERS[f'{V}/System/FSTs/Char.FST']),
+        '/Install/System/Drivers/AppleDisk3.5': (
+            'data', SOURCE_BUILDERS[f'{V}/System/Drivers/AppleDisk3.5']),
+        '/Install/System/Drivers/AppleDisk5.25': (
+            'data', SOURCE_BUILDERS[f'{V}/System/Drivers/AppleDisk5.25']),
+        '/Install/System/Drivers/Console.Driver': (
+            'data', SOURCE_BUILDERS[f'{V}/System/Drivers/Console.Driver']),
+        '/Install/System/Drivers/UniDisk3.5': ('data', _build_unidisk35_fullfile),
+        '/Install/System/System.Setup/Tool.Setup': (
+            'data', SOURCE_BUILDERS[f'{V}/System/System.Setup/Tool.Setup']),
+        '/Install/System/System.Setup/TS2': (
+            'data', SOURCE_BUILDERS[f'{V}/System/System.Setup/TS2']),
+        '/Install/System/System.Setup/TS3': (
+            'data', SOURCE_BUILDERS[f'{V}/System/System.Setup/TS3']),
+        '/Install/System/System.Setup/Resource.Mgr': (
+            'data', SOURCE_BUILDERS[f'{V}/System/System.Setup/Resource.Mgr']),
+        '/Install/System/System.Setup/Sys.Resources': (
+            'rsrc', REZ_BUILDERS[f'{V}/System/System.Setup/Sys.Resources']),
+        '/Install/System/CDevs/SetStart': ('rsrc', _build_setstart_rsrc),
+        '/Install/System/CDevs/General': (
+            'rsrc', REZ_BUILDERS[f'{V}/System/CDevs/General']),
+        '/Install/System/CDevs/RAM': (
+            'rsrc', REZ_BUILDERS[f'{V}/System/CDevs/RAM']),
+        # dual-fork (like EasyMount/Start on Disk 2): a LIST of (fork, builder)
+        # pairs for the same path — data (NDA code, appdatacheck) AND rsrc
+        # (cdevcheck, same REZ_BUILDERS callable Disk 2's ControlPanel uses).
+        '/Install/System/Desk.Accs/ControlPanel': [
+            ('data', _build_controlpanel_data),
+            ('rsrc', REZ_BUILDERS[f'{V}/System/Desk.Accs/ControlPanel']),
+        ],
+        '/Install/System/Start': ('data', _build_install_start),
+        '/Install/System/P8': ('data', SOURCE_BUILDERS[f'{V}/System/P8']),
+        **{f'/Install/System/Tools/Tool{n}': (
+            'data', SOURCE_BUILDERS[f'{V}/System/Tools/Tool{n}'])
+           for n in ('014', '015', '016', '018', '019', '020', '021', '022',
+                     '023', '027', '028', '034')},
+        '/Install/Installer': [
+            ('data', _build_installer_data),
+            ('rsrc', _build_installer_rsrc),
+        ],
+    },
 }
+
+
+def _iter_registry(reg):
+    """Yield (path, fork, builder) for every registered fork of `reg`
+    (DISK_BUILDER_REGISTRY[disk_label]).  A path's value is either one
+    (fork, builder) tuple or a LIST of them (dual-fork files, e.g. Disk 1's
+    ControlPanel/Installer — data AND rsrc both wired for the same path)."""
+    for path, val in reg.items():
+        for fork, builder in (val if isinstance(val, list) else [val]):
+            yield path, fork, builder
 
 
 def reconstruct(disk_label):
@@ -335,10 +461,12 @@ def reconstruct(disk_label):
     vol = Volume(buf)
     entries = dict(_walk(vol, '/' + vol.name))
     reg = DISK_BUILDER_REGISTRY.get(disk_label, {})
+    reg_items = list(_iter_registry(reg))          # (path, fork, builder)*
+    total = len(reg_items)
 
     ok = 0
     notes = []
-    for path, (fork, builder) in reg.items():
+    for path, fork, builder in reg_items:
         if path not in entries:
             notes.append(f'{path}: not on disk (stale registry entry)')
             continue
@@ -362,12 +490,12 @@ def reconstruct(disk_label):
 
     match, n = byte_match(bytes(buf), orig)
     print(f"{disk_label}: {vol.name}  {vol.total_blocks} blocks")
-    print(f"  builders wired: {len(reg)}  logical-exact: {ok}/{len(reg)}")
+    print(f"  builders wired: {total}  logical-exact: {ok}/{total}")
     print(f"  PHYSICAL image byte-match: {match}/{n} ({100*match//n}%)")
     if notes:
         print("  builder logical mismatches:")
         print("\n".join(f'    {x}' for x in notes))
-    return match, n, ok, len(reg)
+    return match, n, ok, total
 
 
 def build_and_overlay(vol, f):

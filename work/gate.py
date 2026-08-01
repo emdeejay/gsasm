@@ -204,6 +204,10 @@ FULL_CHECKS = [
         ('disk6_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac'),
         ('disk6_physical_exact',
          r'PHYSICAL image byte-match:\s*(\d+)/(\d+)', 'frac')]),
+    ('diskcheck1', ['diskcheck.py', '--disk', 'Disk 1 of 7 Install.2mg'], [
+        ('disk1_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac'),
+        ('disk1_physical_exact',
+         r'PHYSICAL image byte-match:\s*(\d+)/(\d+)', 'frac')]),
     # P0: the 7-disk completion scoreboard (work/manifestcheck.py).  These are
     # the builder-correctness metrics from docs/SOW_COMPLETION.md §2 — physical
     # match alone is NOT the gate (a golden-carry disk is trivially 100%).

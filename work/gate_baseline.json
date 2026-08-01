@@ -11,6 +11,14 @@
     156917,
     0
   ],
+  "disk1_logical_exact": [
+    37,
+    0
+  ],
+  "disk1_physical_exact": [
+    819264,
+    0
+  ],
   "disk2_physical_exact": [
     819264,
     0
@@ -100,8 +108,8 @@
     0
   ],
   "manifest_physical_exact": [
-    3,
-    4
+    4,
+    3
   ],
   "manifest_substitutes_confirmed": [
     243,

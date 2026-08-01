@@ -229,8 +229,10 @@ def _wired_builders(disk_label=None):
 
       * diskcheck.SOURCE_BUILDERS  -> fork 'data'  (Disk 2 paths, `/System.Disk/...`)
       * diskcheck.REZ_BUILDERS     -> fork 'rsrc'  (Disk 2 paths)
-      * diskcheck.DISK_BUILDER_REGISTRY[disk_label] -> its own recorded fork
-        (Disk 5/6 First-Disks overlay; each entry is already (fork, builder))
+      * diskcheck.DISK_BUILDER_REGISTRY[disk_label] -> its own recorded fork(s)
+        (First-Disks overlay; each entry is (fork, builder), or a LIST of
+        those for a dual-fork path like Disk 1's ControlPanel/Installer —
+        see diskcheck._iter_registry())
 
     Imported lazily so a2til / ref/ are only needed when the caller actually
     has them (mirrors the original module's discipline).
@@ -242,7 +244,8 @@ def _wired_builders(disk_label=None):
     for path, builder in dc.REZ_BUILDERS.items():
         wired[(path, 'rsrc')] = builder
     if disk_label is not None:
-        for path, (fork, builder) in dc.DISK_BUILDER_REGISTRY.get(disk_label, {}).items():
+        reg = dc.DISK_BUILDER_REGISTRY.get(disk_label, {})
+        for path, fork, builder in dc._iter_registry(reg):
             wired[(path, fork)] = builder
     return wired
 
