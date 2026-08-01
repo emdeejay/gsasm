@@ -342,18 +342,33 @@ def _build_install_start():
                                                 # is a wholly different file/recipe)
 
 
-def _build_unidisk35_fullfile():
-    import drivercheck                         # DRIVERMAP['UniDisk3.5'];
-    subdir, srcs, defines = drivercheck.DRIVERMAP['UniDisk3.5']  # Install-only
-    drv_dir = f'{drivercheck.SRC}/{subdir}'    # driver, so no Disk-2 REZ/SOURCE
-    incs = [drv_dir] + drivercheck.INCS        # entry exists to reuse; wraps the
-    from gsasm import asm, omf                 # SAME expressload() recipe
-    from gsasm.expressload import expressload   # expressload_files._build_driver
-    objects = []                                # uses for the Disk-2 drivers.
-    for r in srcs:
-        a = asm.assemble(f'{drv_dir}/{r}', incs, defines=defines or None)
-        objects.append((omf.emit(a), a))
-    return expressload(objects)
+def _driver_fullfile(name):
+    """Full-file ExpressLoad builder for a drivercheck DRIVERMAP driver that
+    ships on a non-System disk (no Disk-2 SOURCE_BUILDERS entry to reuse) —
+    the generic assemble+expressload() recipe expressload_files._build_driver
+    uses for the Disk-2 drivers.  Returns a lazy builder callable.
+
+    Grew from the Disk-1 UniDisk3.5 one-off when the sym_kind fix
+    (gsasm/linkiigs.py SymTab.kinds — the exported-EQU spurious-reloc bug,
+    docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md) made seven more full driver
+    files byte-exact: SCSIHD (D1) + SCSICD/SCSIScan/SCSITape/ImageWriter/
+    ImageWriter.LQ/StyleWriter (D3)."""
+    def _build():
+        import drivercheck
+        subdir, srcs, defines = drivercheck.DRIVERMAP[name]
+        drv_dir = f'{drivercheck.SRC}/{subdir}'
+        incs = [drv_dir] + drivercheck.INCS
+        from gsasm import asm, omf
+        from gsasm.expressload import expressload
+        objects = []
+        for r in srcs:
+            a = asm.assemble(f'{drv_dir}/{r}', incs, defines=defines or None)
+            objects.append((omf.emit(a), a))
+        return expressload(objects)
+    return _build
+
+
+_build_unidisk35_fullfile = _driver_fullfile('UniDisk3.5')
 
 
 # ---------------------------------------------------------------------------
@@ -574,10 +589,12 @@ DISK_BUILDER_REGISTRY = {
     # first divergence in the ~ExpressLoad directory's forward-pointer fields,
     # propagating from a reloc-run delta assigned to the wrong dict slot around
     # the merged multi-file object — see the investigation in the M8 Disk-1
-    # overlay work). UniDisk3.5 (also Install-only, same recipe shape) full-file
-    # builds byte-exact and IS wired. Both SCSI files stay on-disk as the
-    # original (untouched) bytes, so the physical image match is unaffected —
-    # only disk1_logical_exact's denominator is 37, not 39.
+    # overlay work). 2026-08-01 UPDATE: the sym_kind fix
+    # (docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md) closed the reloc-dict class —
+    # SCSIHD.Driver is now byte-exact and WIRED (38 of 39). SCSI.Manager's
+    # dictionary is also exact but ONE body byte remains (the separate badmin
+    # ENTRY+EXPORT dual-definition bug, diagnosis §6) — it stays parked as the
+    # original (untouched) bytes, physical unaffected; denominator 38, not 39.
     'Disk 1 of 7 Install.2mg': {
         '/Install/ProDOS': ('data', SOURCE_BUILDERS[f'{V}/ProDOS']),
         '/Install/System/GS.OS': ('data', SOURCE_BUILDERS[f'{V}/System/GS.OS']),
@@ -598,6 +615,8 @@ DISK_BUILDER_REGISTRY = {
         '/Install/System/Drivers/Console.Driver': (
             'data', SOURCE_BUILDERS[f'{V}/System/Drivers/Console.Driver']),
         '/Install/System/Drivers/UniDisk3.5': ('data', _build_unidisk35_fullfile),
+        '/Install/System/Drivers/SCSIHD.Driver': (
+            'data', _driver_fullfile('SCSIHD.Driver')),
         '/Install/System/System.Setup/Tool.Setup': (
             'data', SOURCE_BUILDERS[f'{V}/System/System.Setup/Tool.Setup']),
         '/Install/System/System.Setup/TS2': (
@@ -670,6 +689,19 @@ DISK_BUILDER_REGISTRY = {
         '/SystemTools1/Adv.Disk.Util': ('rsrc', _build_advdiskutil_rsrc),
         # Drivers — full-file byte-exact (single or 2-object merges only;
         # see the residual note above for the 8 left OUT).
+        # sym_kind-fix graduates (2026-08-01): full files now byte-exact.
+        '/SystemTools1/System/Drivers/SCSICD.Driver': (
+            'data', _driver_fullfile('SCSICD.Driver')),
+        '/SystemTools1/System/Drivers/SCSIScan.Driver': (
+            'data', _driver_fullfile('SCSIScan.Driver')),
+        '/SystemTools1/System/Drivers/SCSITape.Driver': (
+            'data', _driver_fullfile('SCSITape.Driver')),
+        '/SystemTools1/System/Drivers/ImageWriter': (
+            'data', _driver_fullfile('ImageWriter')),
+        '/SystemTools1/System/Drivers/ImageWriter.LQ': (
+            'data', _driver_fullfile('ImageWriter.LQ')),
+        '/SystemTools1/System/Drivers/StyleWriter': (
+            'data', _driver_fullfile('StyleWriter')),
         '/SystemTools1/System/Drivers/A2.RAMCard': (
             'data', _build_driver_fullfile('A2.RAMCard')),
         '/SystemTools1/System/Drivers/RAM5': (
