@@ -1,8 +1,32 @@
 #!/usr/bin/env python3
-"""Minimal read-only HFS (standard) extractor. Handles extents-overflow."""
+"""Minimal read-only HFS (standard) extractor. Handles extents-overflow.
+
+MIGRATED UPSTREAM (2026-08-01): this implementation now lives in a2til as
+`a2til/hfs.py` — a2til issue #9 (HFS support: read now, overlay-capable write
+to follow) / PR #10, ported verbatim (cross-checked identical on the real
+Disk 7 image, 12 files both forks) plus a hand-laid HFS fixture volume and
+reader tests there.  Filesystem access is a2til's charter (it already owns
+the ProDOS side used by diskcheck); the P0d-2/P5 HFS WRITER — the overlay
+analogue that unlocks Disk 7 whole-disk physical reconstruction — is issue
+#9's remaining scope and should be built THERE, not here.
+
+This module now prefers the a2til implementation and keeps the original
+vendored copy ONLY as a fallback for checkouts whose a2til predates PR #10.
+Once the PR is merged and ~/src/a2til updated, `from a2til.hfs import HFS`
+resolves and the vendored class below is dead code — delete it then (the
+gate proves the swap: all Disk 7 metrics are byte-anchored).
+"""
 import struct, sys, os
 
-class HFS:
+sys.path.insert(0, os.path.expanduser(os.environ.get('A2TIL_PATH', '~/src/a2til')))
+try:
+    from a2til.hfs import HFS               # noqa: F401  (canonical, PR #10)
+    _VENDORED = False
+except ImportError:                          # pre-PR-#10 a2til: vendored copy
+    _VENDORED = True
+
+if _VENDORED:
+  class HFS:
     def __init__(self, path=None, data=None):
         img = data if data is not None else open(path, 'rb').read()
         # Accept a .2mg-wrapped image (Disk 7 net-boot): strip the 64-byte
