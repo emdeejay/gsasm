@@ -208,6 +208,15 @@ FULL_CHECKS = [
         ('disk1_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac'),
         ('disk1_physical_exact',
          r'PHYSICAL image byte-match:\s*(\d+)/(\d+)', 'frac')]),
+    # Disk 7 (HFS): whole-disk reconstruction via a2til's overlay writer
+    # (issue #9 phase 2) — diskcheck.reconstruct_hfs overlays the six
+    # disk7check-built data forks in place and demands whole-2IMG identity.
+    # NB distinct from disk7check's own disk7_bytes_exact (fork-builder
+    # correctness); this pair gates the OVERLAY surface.
+    ('diskcheck7', ['diskcheck.py', '--disk', 'Disk 7 of 7 Apple II Setup.2mg'], [
+        ('disk7_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac'),
+        ('disk7_physical_exact',
+         r'PHYSICAL image byte-match:\s*(\d+)/(\d+)', 'frac')]),
     # P0: the 7-disk completion scoreboard (work/manifestcheck.py).  These are
     # the builder-correctness metrics from docs/SOW_COMPLETION.md §2 — physical
     # match alone is NOT the gate (a golden-carry disk is trivially 100%).

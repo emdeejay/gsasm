@@ -43,6 +43,14 @@
     184262,
     0
   ],
+  "disk7_logical_exact": [
+    6,
+    0
+  ],
+  "disk7_physical_exact": [
+    819264,
+    0
+  ],
   "disk_logical_exact": [
     40,
     0
@@ -108,8 +116,8 @@
     0
   ],
   "manifest_physical_exact": [
-    4,
-    3
+    5,
+    2
   ],
   "manifest_substitutes_confirmed": [
     243,

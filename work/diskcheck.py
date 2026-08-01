@@ -447,6 +447,55 @@ def _iter_registry(reg):
             yield path, fork, builder
 
 
+def reconstruct_hfs(disk_label):
+    """Disk 7 (HFS) analogue of reconstruct(): overlay every registered fork
+    via a2til's HfsVolume.overlay (issue #9 phase 2 — in-place rewrite into
+    the fork's own extents, length changes refused, slack never written,
+    MDB/boot blocks outside the write device by construction), then confirm
+    the whole 2IMG image stays byte-identical.
+
+    Same contract and print/return shape as reconstruct(): build -> logical
+    compare vs the ORIGINAL fork BEFORE overlay -> overlay only a byte-exact
+    build -> whole-image physical compare.  The registry is disk7check's
+    _TARGETS (colon paths + builders — the six from-source data forks; the
+    Mac-'vers' resource forks are substitutes and are never touched).
+    Pre-wiring dress rehearsal 2026-08-01: self-overlay of all 24 forks
+    byte-identical on the real image; all 6 built forks overlay with whole-
+    image byte-identity; a corrupted build diffs exactly 1 in-fork byte
+    (a2til issue #9 comment 798).  Returns (match, n, ok, total)."""
+    from a2til.hfs import HfsVolume
+    import disk7check
+    disk_path = f'{DISKS}/{disk_label}'
+    orig = open(disk_path, 'rb').read()
+    buf = bytearray(orig)
+    vol = HfsVolume(buf)
+    reg = disk7check._TARGETS               # [(colon_path, builder)]
+    ok = 0
+    notes = []
+    for tpath, builder in reg:
+        try:
+            content = bytes(builder())
+        except Exception as e:                             # noqa: BLE001
+            notes.append(f'{tpath}: builder raised {type(e).__name__}: {e}')
+            continue
+        original = vol.read_file(tpath)     # logical compare (pre-overlay)
+        if content != original:
+            notes.append(f'{tpath}: logical differs at '
+                         f'{_first_diff(content, original)}')
+            continue
+        vol.overlay(tpath, content)         # only a byte-exact build
+        ok += 1
+    match, n = byte_match(bytes(buf), orig)
+    print(f"{disk_label}: {vol.volume_name}  HFS "
+          f"({vol.total_blocks} allocation blocks)")
+    print(f"  builders wired: {len(reg)}  logical-exact: {ok}/{len(reg)}")
+    print(f"  PHYSICAL image byte-match: {match}/{n} ({100*match//n}%)")
+    if notes:
+        print("  builder logical mismatches:")
+        print("\n".join(f'    {x}' for x in notes))
+    return match, n, ok, len(reg)
+
+
 def reconstruct(disk_label):
     """Generalized First-Disks overlay: build+overlay every registered fork for
     `disk_label`, then confirm the whole image stays byte-identical.
@@ -454,7 +503,10 @@ def reconstruct(disk_label):
     Mirrors check()'s per-file contract (build -> len==EOF -> logical-exact vs
     the ORIGINAL fork BEFORE overlay -> overlay only a byte-exact build), but is
     disk-agnostic and does NOT touch Disk-2's MANIFEST/catalog inventory gate
-    (that is diskmanifest/manifestcheck's job).  Returns (match, n, ok, total)."""
+    (that is diskmanifest/manifestcheck's job).  Returns (match, n, ok, total).
+
+    HFS Disk 7 routes to reconstruct_hfs() above (main() dispatches on the
+    label — the ProDOS Volume path below cannot read an HFS image)."""
     disk_path = f'{DISKS}/{disk_label}'
     orig = open(disk_path, 'rb').read()
     buf = bytearray(orig)
@@ -653,7 +705,9 @@ def main():
     if '--selftest' in sys.argv:
         sys.exit(0 if selftest() else 1)
     if '--disk' in sys.argv:                # First-Disks generalized overlay
-        match, n, ok, total = reconstruct(sys.argv[sys.argv.index('--disk') + 1])
+        label = sys.argv[sys.argv.index('--disk') + 1]
+        recon = reconstruct_hfs if label.startswith('Disk 7') else reconstruct
+        match, n, ok, total = recon(label)
         # Exit status is a hard signal (adversarial-review finding #1: the
         # physical result was printed but discarded, so a corrupted overlay
         # could pass as long as the pre-overlay logical compare succeeded).
