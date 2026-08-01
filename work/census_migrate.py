@@ -130,14 +130,15 @@ def live_forks_for_disk(disk_label):
     """{path: {'data': size} | {'data': size, 'rsrc': size}}."""
     import diskcheck as dc
     if disk_label.startswith('Disk 7'):
-        import hfs
-        v = hfs.HFS(path=os.path.join(dc.DISKS, disk_label))
+        sys.path.insert(0, os.path.expanduser(
+            os.environ.get('A2TIL_PATH', '~/src/a2til')))
+        from a2til.hfs import HfsVolume      # upstreamed (a2til #9 / PR #10)
+        v = HfsVolume(os.path.join(dc.DISKS, disk_label), readonly=True)
         out = {}
-        for (parID, name), (lg, _ext, _ft) in v.files.items():
-            rlg, _rext = v.rforks.get((parID, name), (0, []))
-            rel = v.path(parID)
-            full = '/' + (rel + '/' + name if rel else name)
-            out[full] = {'data': lg, 'rsrc': rlg}
+        for path, _dirs, files in v.walk():
+            base = path.rstrip('/')
+            for e in files:
+                out[f'{base}/{e.name}'] = {'data': e.size, 'rsrc': e.rsrc_size}
         return out
     from a2til.prodos import Volume
     vol = Volume(open(os.path.join(dc.DISKS, disk_label), 'rb').read())

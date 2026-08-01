@@ -26,7 +26,8 @@ ensure_repo_on_path()
 
 import diskcheck as dc                       # noqa: E402  (DISKS locator)
 import drivercheck                           # noqa: E402  (INCS)
-import hfs                                   # noqa: E402
+sys.path.insert(0, os.path.expanduser(os.environ.get('A2TIL_PATH', '~/src/a2til')))
+from a2til import hfs                        # noqa: E402  (HfsVolume, PR #10)
 import basiccheck                            # noqa: E402
 import diskbuilders.p8_driver as p8_driver   # noqa: E402
 from gsasm import asm as _asm, omf as _omf, linkiigs as _link, makebin as _mkb  # noqa: E402
@@ -191,23 +192,26 @@ def build_prodos16_image():
     return bytes(out)
 
 
-# (parID, name, builder) — parID from hfs.files (2 = root, 19 = System Folder)
+# (colon path, builder) — HFS Mac-syntax partial paths (':' is the one
+# character an HFS name cannot contain, so 'Apple //e Boot Blocks' is
+# addressable — a2til PR #10's fd207de).
 _TARGETS = [
-    (19, 'Basic.System', build_basic_system),
-    (2,  'IWEm',         build_iwem),
-    (19, 'p8',           build_p8),
-    (19, 'ProDOS16 Boot Blocks',  build_p16_boot_blocks),
-    (19, 'Apple //e Boot Blocks', build_iie_boot_blocks),
-    (19, 'ProDOS16 Image',        build_prodos16_image),
+    (':System Folder:Basic.System',          build_basic_system),
+    (':IWEm',                                build_iwem),
+    (':System Folder:p8',                    build_p8),
+    (':System Folder:ProDOS16 Boot Blocks',  build_p16_boot_blocks),
+    (':System Folder:Apple //e Boot Blocks', build_iie_boot_blocks),
+    (':System Folder:ProDOS16 Image',        build_prodos16_image),
 ]
 
 
 def run():
-    vol = hfs.HFS(path=_DISK)
+    vol = hfs.HfsVolume(_DISK, readonly=True)
     good = total = 0
     rows = []
-    for parID, name, builder in _TARGETS:
-        gold = bytes(vol.data(parID, name))
+    for tpath, builder in _TARGETS:
+        name = tpath.rsplit(':', 1)[1]
+        gold = bytes(vol.read_file(tpath))
         try:
             built = bytes(builder())
         except Exception as e:                # pragma: no cover

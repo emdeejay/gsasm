@@ -126,18 +126,19 @@ def live_forks_hfs(disk_path):
     B2 fix (adversarial-review finding #3): every HFS catalog file record
     structurally carries BOTH a data-fork and a resource-fork length field
     (filDLgLen / filRLgLen), even when one is 0 bytes — so both are ALWAYS
-    enumerated here, not just the data fork.  work/hfs.py's `HFS.rsrc()`
-    performs the actual resource-fork extent read (verified: reads all 12
-    Disk-7 files' resource forks, sizes matching the census exactly)."""
-    from hfs import HFS
-    v = HFS(disk_path)
+    enumerated here, not just the data fork.  HFS access is a2til's
+    (a2til.hfs.HfsVolume, upstreamed 2026-08-01 — a2til issue #9 / PR #10;
+    fork sizes come off each HfsEntry's own catalog record)."""
+    sys.path.insert(0, os.path.expanduser(
+        os.environ.get('A2TIL_PATH', '~/src/a2til')))
+    from a2til.hfs import HfsVolume
+    v = HfsVolume(disk_path, readonly=True)
     out = {}
-    for (parID, name), (lg, _ext, _ft) in v.files.items():
-        rel = v.path(parID)
-        full = '/' + (rel + '/' + name if rel else name)
-        rlg, _rext = v.rforks.get((parID, name), (0, []))
-        out[(full, 'data')] = lg
-        out[(full, 'rsrc')] = rlg
+    for path, _dirs, files in v.walk():
+        base = path.rstrip('/')
+        for e in files:
+            out[(f'{base}/{e.name}', 'data')] = e.size
+            out[(f'{base}/{e.name}', 'rsrc')] = e.rsrc_size
     return out, v
 
 
