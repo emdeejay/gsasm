@@ -1291,14 +1291,24 @@ def _build_single_output_seg(
     body_kinds: list[dict] = []      # per-seg KIND overlay, same precedence
     _sym_kinds = getattr(sym, 'kinds', {})
     for placed_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
-        recs2, _srels = _linkiigs._defer_shifts(recs)
         oi = placed_obj_idx[placed_i]
         og = obj_globals[oi]
         local_sym = sym if not og else {**sym, **og}
+        local_kinds = (_sym_kinds if not og
+                       else {**_sym_kinds, **getattr(og, 'kinds', {})})
+        # A shift over ONLY link-time constants must RESOLVE here, not defer:
+        # linkiigs.link() already passes its GEQU set for exactly this
+        # (`#work_vars_size>>16` must bake 89>>16 == 0, the value gold
+        # stores, not the unshifted 89) — this path historically passed
+        # nothing, which left the unshifted low word in the body once the
+        # spurious record itself was kind-suppressed (SCSI.Manager's last
+        # body byte, 0xe5d).  The kind table supplies the equ set at the
+        # same per-object precedence the body's own values resolve with.
+        equ_names = frozenset(n for n, k in local_kinds.items() if k == 'equ')
+        recs2, _srels = _linkiigs._defer_shifts(recs, equ_names)
         bodies.append(_omf._build_body(recs2, local_sym, seg_base))
         body_syms.append(local_sym)
-        body_kinds.append(_sym_kinds if not og
-                          else {**_sym_kinds, **getattr(og, 'kinds', {})})
+        body_kinds.append(local_kinds)
 
     # ---- Single-segment output (original behavior) ----
     merged_body = _linkiigs._merge_bodies(placed, bodies)

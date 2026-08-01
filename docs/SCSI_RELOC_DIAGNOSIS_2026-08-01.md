@@ -298,3 +298,22 @@ exposed).
   `probe_ts2b.py`, `probe_tool035.py` — hypothesis test + cross-corpus
   safety check (§4–§5), all via in-process monkeypatch, no repo files
   touched.
+
+
+## ADDENDUM (2026-08-01, post-implementation) — §6 was misattributed
+
+§6's "badmin ENTRY+EXPORT address-resolution" theory was WRONG, an artifact
+of a file-offset misalignment (the same 0x8F-displacement confusion nearly
+recurred during implementation).  Diffing the actual MERGED BODIES (not file
+offsets) pinpointed the single residual byte at body 0xe5d: the record is
+`dc.w work_vars_size>>16`-shaped ops `[sym WORK_VARS_SIZE, lit -16, SHL]` in
+segment SAVE_PTR — gold bakes the CONST-only shift at link time
+(89 >> 16 = 0x0000); the built body stored the unshifted 89 (0x0059)
+because expressload's single-path body loop called `_defer_shifts(recs)`
+WITHOUT the GEQU set that `linkiigs.link()` already passes for exactly this
+case (its docstring even cites `#work_vars_size>>16`).  All `badmin`
+reference sites were byte-identical all along; 0x59 is just
+WORK_VARS_SIZE's value.  Fix: derive the equ-name set from the (new)
+per-segment kind table and pass it as `_defer_shifts`' abs_syms.
+SCSI.Manager: BYTE-EXACT 10150/10150.  The separate-bug filing in §6 is
+hereby withdrawn — there was never a badmin bug.

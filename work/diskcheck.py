@@ -589,12 +589,14 @@ DISK_BUILDER_REGISTRY = {
     # first divergence in the ~ExpressLoad directory's forward-pointer fields,
     # propagating from a reloc-run delta assigned to the wrong dict slot around
     # the merged multi-file object — see the investigation in the M8 Disk-1
-    # overlay work). 2026-08-01 UPDATE: the sym_kind fix
-    # (docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md) closed the reloc-dict class —
-    # SCSIHD.Driver is now byte-exact and WIRED (38 of 39). SCSI.Manager's
-    # dictionary is also exact but ONE body byte remains (the separate badmin
-    # ENTRY+EXPORT dual-definition bug, diagnosis §6) — it stays parked as the
-    # original (untouched) bytes, physical unaffected; denominator 38, not 39.
+    # overlay work). 2026-08-01 UPDATE: BOTH closed, 39 of 39 wired. The
+    # sym_kind fix (docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md) closed the
+    # reloc-dict class (SCSIHD + the D3 five); SCSI.Manager's last body byte
+    # was NOT the diagnosis-§6 badmin theory but a deferred CONST-only shift
+    # (`#work_vars_size>>16` baking unshifted 89 instead of 0) — fixed by
+    # passing the kind-derived equ set to _defer_shifts in expressload's
+    # single path, exactly as linkiigs.link() already did (see the doc's
+    # 2026-08-01 addendum).
     'Disk 1 of 7 Install.2mg': {
         '/Install/ProDOS': ('data', SOURCE_BUILDERS[f'{V}/ProDOS']),
         '/Install/System/GS.OS': ('data', SOURCE_BUILDERS[f'{V}/System/GS.OS']),
@@ -617,6 +619,8 @@ DISK_BUILDER_REGISTRY = {
         '/Install/System/Drivers/UniDisk3.5': ('data', _build_unidisk35_fullfile),
         '/Install/System/Drivers/SCSIHD.Driver': (
             'data', _driver_fullfile('SCSIHD.Driver')),
+        '/Install/System/Drivers/SCSI.Manager': (
+            'data', _driver_fullfile('SCSI.Manager')),
         '/Install/System/System.Setup/Tool.Setup': (
             'data', SOURCE_BUILDERS[f'{V}/System/System.Setup/Tool.Setup']),
         '/Install/System/System.Setup/TS2': (
@@ -690,6 +694,8 @@ DISK_BUILDER_REGISTRY = {
         # Drivers — full-file byte-exact (single or 2-object merges only;
         # see the residual note above for the 8 left OUT).
         # sym_kind-fix graduates (2026-08-01): full files now byte-exact.
+        '/SystemTools1/System/Drivers/SCSI.Manager': (
+            'data', _driver_fullfile('SCSI.Manager')),
         '/SystemTools1/System/Drivers/SCSICD.Driver': (
             'data', _driver_fullfile('SCSICD.Driver')),
         '/SystemTools1/System/Drivers/SCSIScan.Driver': (
