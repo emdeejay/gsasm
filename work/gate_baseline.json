@@ -96,12 +96,20 @@
     0
   ],
   "manifest_physical_exact": [
-    3,
-    4
+    2,
+    5
   ],
   "manifest_substitutes_confirmed": [
     247,
     0
+  ],
+  "manifest_substitutes_structured": [
+    202,
+    45
+  ],
+  "manifest_technical_exceptions_accepted": [
+    0,
+    2
   ],
   "mountimage_data_bytes_exact": [
     5750,

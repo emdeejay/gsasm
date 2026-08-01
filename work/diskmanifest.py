@@ -160,10 +160,11 @@ class HarnessProof:
 
 class Entry:
     __slots__ = ('path', 'fork', 'state', 'kind', 'source_path', 'evidence',
-                 'proof', 'census_class', 'size')
+                 'proof', 'census_class', 'size', 'accepted', 'search')
 
     def __init__(self, path, fork, state, *, kind=None, source_path=None,
-                 evidence='', proof=None, census_class=None, size=None):
+                 evidence='', proof=None, census_class=None, size=None,
+                 accepted=None, search=None):
         self.path = path
         self.fork = fork
         self.state = state
@@ -173,6 +174,25 @@ class Entry:
         self.proof = proof               # CallableProof | HarnessProof | None
         self.census_class = census_class
         self.size = size                 # census-recorded fork size, if any
+        # C1 (finding #4): optional {"by", "date", "rationale"} human
+        # acceptance marker for a TECHNICAL_EXCEPTION fork. None means
+        # unaccepted -- never fabricated by generation, only ever set by a
+        # human editing the census (via census_migrate.py's `accepted=`
+        # OVERRIDES support).
+        self.accepted = accepted
+        # C2 (finding #5): optional {"searched_trees", "search_date",
+        # "search_patterns", "decision"} structured evidence for a
+        # SUBSTITUTE/TECHNICAL_EXCEPTION fork, folded in from
+        # docs/substitute_search_evidence_2026-08-01.json by
+        # work/census_migrate.py. None means no sidecar record matched this
+        # (disk, path) -- not the same as a matched record with null fields.
+        self.search = search
+
+    def is_accepted(self):
+        """True iff this TECHNICAL_EXCEPTION fork has a human-acceptance
+        marker with a non-empty `by`. Deliberately conservative: an
+        `accepted` dict with an empty/missing `by` does NOT count."""
+        return isinstance(self.accepted, dict) and bool(self.accepted.get('by'))
 
     def __repr__(self):
         return f'<{self.state} {self.path} ({self.fork})>'
@@ -295,7 +315,8 @@ def manifest_for(disk_label, census=None, wired=None, *,
             out[(path, fork)] = Entry(
                 path, fork, state, kind=_kind_for(cc),
                 source_path=fi.get('source_path'), evidence=fi.get('evidence', ''),
-                proof=proof, census_class=cc, size=fi.get('size'))
+                proof=proof, census_class=cc, size=fi.get('size'),
+                accepted=fi.get('accepted'), search=fi.get('search'))
     return out
 
 

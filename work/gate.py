@@ -199,12 +199,22 @@ FULL_CHECKS = [
          r'manifest_inventory_classified good=(\d+) bad=(\d+)', 'okbad'),
         ('manifest_substitutes_confirmed',
          r'manifest_substitutes_confirmed good=(\d+) bad=(\d+)', 'okbad'),
+        # C2 (finding #5): ratchet toward structured (searched_trees +
+        # search_patterns + search_date + decision) substitute evidence,
+        # instead of bare non-empty prose. Does NOT replace
+        # manifest_substitutes_confirmed above -- that stays the P0 hard gate.
+        ('manifest_substitutes_structured',
+         r'manifest_substitutes_structured good=(\d+) bad=(\d+)', 'okbad'),
         ('manifest_builders_wired',
          r'manifest_builders_wired (\d+)/(\d+)', 'frac'),
         ('manifest_builders_exact',
          r'manifest_builders_exact (\d+)/(\d+)', 'frac'),
         ('manifest_physical_exact',
-         r'manifest_physical_exact good=(\d+) bad=(\d+)', 'okbad')]),
+         r'manifest_physical_exact good=(\d+) bad=(\d+)', 'okbad'),
+        # C1 (finding #4): human-acceptance state for TECHNICAL_EXCEPTION
+        # forks (Tool.Setup, Disk 1 + Disk 2). Both currently unaccepted.
+        ('manifest_technical_exceptions_accepted',
+         r'manifest_technical_exceptions_accepted good=(\d+) bad=(\d+)', 'okbad')]),
 ]
 
 

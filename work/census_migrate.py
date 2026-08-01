@@ -66,6 +66,43 @@ inheriting `built` from the other fork.  Any OTHER 2-fork, both-nonzero,
 `built`/`pascal-c-nontarget` file with NO OVERRIDES entry makes this script
 raise `AssertionError` rather than guess — every such file in the v1 census
 as of 2026-08-01 has one.
+
+--- C1: TECHNICAL_EXCEPTION human-acceptance field (finding #4) -------------
+
+`_entry()` accepts an optional `accepted` dict (`{"by", "date", "rationale"}`)
+that, if given, is carried onto the fork record verbatim as `"accepted"`.
+Nothing in this script passes it today: neither of the two TECHNICAL_EXCEPTION
+forks (Tool.Setup, Disk 1 + Disk 2) has been accepted by a human, and this
+migration does NOT fabricate that acceptance.  The field exists so a future,
+deliberate edit (a human explicitly signing off) has somewhere machine-
+readable to go; work/manifestcheck.py's `manifest_technical_exceptions_accepted`
+metric reads it and — since it is absent from both records — reports
+good=0 bad=2.
+
+--- C2: structured substitute/exception search evidence (finding #5) -------
+
+docs/substitute_search_evidence_2026-08-01.json (see the sidecar's own
+extraction notes) holds, for 195 of the v1 census's SUBSTITUTE/
+TECHNICAL_EXCEPTION file records, the prose `evidence` string's content
+re-expressed as structured fields: `{searched_trees, search_date,
+search_patterns, decision}` (all nullable — the sidecar was built under a
+strict extract-never-invent rule, so a field with no anchor in the original
+prose stays `null` rather than being guessed).  This migration folds that
+sidecar in: after a file's forks are split (OVERRIDES or `default_split()`),
+every resulting fork whose classification is SUBSTITUTE/TECHNICAL_EXCEPTION
+(`_CENSUS_STATE` in work/diskmanifest.py — no-source-substitute,
+pascal-c-nontarget, or technical-exception) AND whose (disk, path) has a
+sidecar record gets a `"search"` object (`{searched_trees, search_date,
+search_patterns, decision}`, copied verbatim including any nulls).  A fork
+with no matching sidecar record — e.g. one of the per-fork splits above whose
+evidence was newly WRITTEN during this migration (OVERRIDES), which the v1
+file-granular sidecar extraction could not have seen — gets no `"search"`
+key at all; it is not backfilled or guessed.  This is deliberately a MATCH,
+not a guarantee: `search.decision` can still be null for a matched record
+(the sidecar's `search_date` is null for every one of its 195 records — no
+prose anchored a date), and `manifest_substitutes_structured` in
+work/manifestcheck.py only counts a fork "good" when `search.decision` is
+non-null.
 """
 import json
 import os
@@ -77,6 +114,8 @@ ensure_repo_on_path()
 
 OLD_CENSUS = os.path.join(ROOT, 'docs', 'disk_census_2026-07-30.json')
 NEW_CENSUS = os.path.join(ROOT, 'docs', 'disk_census_2026-08-01.json')
+SIDECAR_SEARCH_EVIDENCE = os.path.join(
+    ROOT, 'docs', 'substitute_search_evidence_2026-08-01.json')
 
 
 # ---------------------------------------------------------------------------
@@ -144,13 +183,59 @@ def _normalize_proven_by(pb):
     return _PROVEN_BY_ALIASES.get(pb, pb)
 
 
-def _entry(classification, proven_by=None, evidence='', source_path=None):
+def _entry(classification, proven_by=None, evidence='', source_path=None,
+           accepted=None):
     d = {'classification': classification, 'evidence': evidence}
     if proven_by:
         d['proven_by'] = proven_by
     if source_path:
         d['source_path'] = source_path
+    if accepted:
+        # C1 (finding #4): optional human-acceptance marker for a
+        # TECHNICAL_EXCEPTION fork -- {"by", "date", "rationale"}. Nothing in
+        # this script passes it today; see the module docstring's C1 section.
+        d['accepted'] = accepted
     return d
+
+
+# ---------------------------------------------------------------------------
+# C2 (finding #5): fold docs/substitute_search_evidence_2026-08-01.json's
+# structured {searched_trees, search_date, search_patterns, decision} fields
+# onto every SUBSTITUTE/TECHNICAL_EXCEPTION fork whose (disk, path) the
+# sidecar covers. See the module docstring's C2 section for the matching
+# rule and what is deliberately left unmatched.
+# ---------------------------------------------------------------------------
+def _substitute_tech_classes():
+    """Census classification strings that map to SUBSTITUTE or
+    TECHNICAL_EXCEPTION in work/diskmanifest.py's `_CENSUS_STATE` --
+    IMPORTED, not duplicated (same B1 discipline as `_harness_metrics_map`)."""
+    import diskmanifest as dm
+    return {cc for cc, state in dm._CENSUS_STATE.items()
+            if state in (dm.SUBSTITUTE, dm.TECHNICAL_EXCEPTION)}
+
+
+def _load_sidecar_search():
+    """{(disk, path): sidecar record} from the C2 evidence sidecar."""
+    if not os.path.exists(SIDECAR_SEARCH_EVIDENCE):
+        return {}
+    with open(SIDECAR_SEARCH_EVIDENCE) as fh:
+        data = json.load(fh)
+    return {(r['disk'], r['path']): r for r in data['records']}
+
+
+def _apply_search_evidence(disk_label, path, forkdict, sidecar, subtech_classes):
+    rec = sidecar.get((disk_label, path))
+    if rec is None:
+        return
+    for fork_name, sub in forkdict.items():
+        if sub.get('classification') not in subtech_classes:
+            continue
+        sub['search'] = {
+            'searched_trees': rec['searched_trees'],
+            'search_date': rec['search_date'],
+            'search_patterns': rec['search_patterns'],
+            'decision': rec['decision'],
+        }
 
 
 def default_split(f, live_sizes):
@@ -550,6 +635,8 @@ def migrate():
         old = json.load(fh)
     new = json.loads(json.dumps(old))   # deep copy; we mutate `files` in place
     used_overrides = set()
+    sidecar = _load_sidecar_search()
+    subtech_classes = _substitute_tech_classes()
     for disk_label, disk in new['disks'].items():
         live = live_forks_for_disk(disk_label)
         census_paths = set()
@@ -566,6 +653,8 @@ def migrate():
                 used_overrides.add((disk_label, path))
             for fork_name, sub in forkdict.items():
                 sub.setdefault('size', live[path][fork_name])
+            _apply_search_evidence(disk_label, path, forkdict, sidecar,
+                                    subtech_classes)
             f['forks_raw_v1'] = raw_forks
             f['forks'] = forkdict
         missing_live = set(live) - census_paths
@@ -585,7 +674,13 @@ def migrate():
         'Every file-level field is preserved verbatim from v1 (including the '
         'original `forks` prose string, now under `forks_raw_v1`); the new '
         '`forks` field is a {fork: {classification, proven_by?, source_path?, '
-        'size, evidence}} dict, one entry per fork the LIVE disk actually has. '
+        'size, evidence, search?, accepted?}} dict, one entry per fork the '
+        'LIVE disk actually has. `search` (finding #5, C2) is folded in from '
+        'docs/substitute_search_evidence_2026-08-01.json for every SUBSTITUTE/'
+        'TECHNICAL_EXCEPTION fork whose (disk, path) that sidecar covers; '
+        '`accepted` (finding #4, C1) is a human-acceptance marker for a '
+        'TECHNICAL_EXCEPTION fork that this script never fabricates (both '
+        'Tool.Setup records are unaccepted as of this migration). '
         'See work/census_migrate.py for the full migration rationale and '
         'per-file OVERRIDES audit trail.')
     with open(NEW_CENSUS, 'w') as fh:

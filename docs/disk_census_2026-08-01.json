@@ -259,7 +259,13 @@
               "classification": "technical-exception",
               "evidence": "Tool.Setup: asm toolset bundle, code segments byte-exact but full-file ExpressLoad case-B reloc encoding is NOT byte-exact (the converter wall); deliberately unwired, golden bytes carried. SOW P7 crack target -> promote to BUILT if cracked, else remains the one documented technical exception.",
               "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS toolset-bundle objects (same family as TS2/TS3)",
-              "size": 19232
+              "size": 19232,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "SOW P7 crack target -> promote to BUILT if cracked, else remains the one documented technical exception."
+              }
             }
           },
           "classification": "technical-exception",
@@ -429,7 +435,19 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary CDEV config data (2079B). Marked SUBSTITUTE in diskcheck manifest ('binary CDEV config data, no ASM source'). Searched IIGS.601.SRC (incl. A.U.G, SD.ODDS.N.Ends): no 'CDev.Data' producing source or verbatim copy present.",
-              "size": 2079
+              "size": 2079,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "A.U.G",
+                  "SD.ODDS.N.Ends"
+                ],
+                "search_date": null,
+                "search_patterns": [
+                  "CDev.Data"
+                ],
+                "decision": "no 'CDev.Data' producing source or verbatim copy present."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -490,7 +508,13 @@
               "classification": "no-source-substitute",
               "evidence": "20B config (Pascal string ':Install:Installer' + count). No build step, but a BYTE-IDENTICAL verbatim copy exists in the source tree at SD.ODDS.N.Ends/SetStart.data (cmp-identical) \u2014 fully reproducible by copy.",
               "source_path": "ref/GSOS_6/IIGS.601.SRC/SD.ODDS.N.Ends/SetStart.data",
-              "size": 20
+              "size": 20,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "No build step, but a BYTE-IDENTICAL verbatim copy exists in the source tree at SD.ODDS.N.Ends/SetStart.data (cmp-identical) \u2014 fully reproducible by copy."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -526,7 +550,17 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "28672B BIN font-cache data. Searched IIGS.601.SRC (grep 'fastfont' hits only unrelated GSToolbox/QD FastFontCache toolbox CODE + Build scripts that DUPLICATE the file); no producer and no verbatim copy of this data file. Build.Install duplicates it prebuilt.",
-              "size": 28672
+              "size": 28672,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC"
+                ],
+                "search_date": null,
+                "search_patterns": [
+                  "fastfont"
+                ],
+                "decision": "no producer and no verbatim copy of this data file."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -543,7 +577,17 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "70B CFG config data. Marked SUBSTITUTE in diskcheck manifest. Searched IIGS.601.SRC: no 'Font.Lists' producing source or verbatim copy.",
-              "size": 70
+              "size": 70,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC"
+                ],
+                "search_date": null,
+                "search_patterns": [
+                  "Font.Lists"
+                ],
+                "decision": "no 'Font.Lists' producing source or verbatim copy."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -788,7 +832,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop-DB file (246B, type FND). SUBSTITUTE by rule in diskcheck. No source (Finder-generated at runtime).",
-              "size": 246
+              "size": 246,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "SUBSTITUTE by rule in diskcheck. No source (Finder-generated at runtime)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -805,7 +855,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop-DB file (260B, type FND). SUBSTITUTE by rule; runtime-generated, no source.",
-              "size": 260
+              "size": 260,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "SUBSTITUTE by rule; runtime-generated, no source."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -823,7 +879,13 @@
               "classification": "no-source-substitute",
               "evidence": "12160B icon data (type FTD). Marked SUBSTITUTE in diskcheck. No build step, but a BYTE-IDENTICAL verbatim copy exists in the source tree at SD.ODDS.N.Ends/FType.Apple (cmp-identical) \u2014 reproducible by copy.",
               "source_path": "ref/GSOS_6/IIGS.601.SRC/SD.ODDS.N.Ends/FType.Apple",
-              "size": 12160
+              "size": 12160,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "No build step, but a BYTE-IDENTICAL verbatim copy exists in the source tree at SD.ODDS.N.Ends/FType.Apple (cmp-identical) \u2014 reproducible by copy."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -840,7 +902,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop-DB file (63B, type FND). SUBSTITUTE by rule; runtime-generated, no source.",
-              "size": 63
+              "size": 63,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "SUBSTITUTE by rule; runtime-generated, no source."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -881,7 +949,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT-format text data (magic 'SCRIPT\\rV2.00'). No assembler/rez/compiler produces it; Build.Install DUPLICATEs it verbatim. Verbatim copies of most Scripts exist in A.U.G/InstallerScripts/ (sampled 9/11 byte-identical; 2 are filename remaps).",
-              "size": 276
+              "size": 276,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Verbatim copies of most Scripts exist in A.U.G/InstallerScripts/ (sampled 9/11 byte-identical; 2 are filename remaps)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -899,7 +973,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/InstallerScripts/RAM5",
-              "size": 226
+              "size": 226,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -917,7 +997,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/ADV.DISK.UTIL",
-              "size": 296
+              "size": 296,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -935,7 +1021,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/Apple.Bowl (cmp-identical). No build step.",
               "source_path": "A.U.G/InstallerScripts/Apple.Bowl",
-              "size": 201
+              "size": 201,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/Apple.Bowl (cmp-identical)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -953,7 +1045,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/APPLE.MIDI",
-              "size": 367
+              "size": 367,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -971,7 +1069,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/APPLEDISK5.25",
-              "size": 282
+              "size": 282,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -989,7 +1093,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/APPLESHARE",
-              "size": 1401
+              "size": 1401,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1007,7 +1117,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/AppleShare3.5 (cmp-identical). No build step.",
               "source_path": "A.U.G/InstallerScripts/AppleShare3.5",
-              "size": 7512
+              "size": 7512,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/AppleShare3.5 (cmp-identical)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1025,7 +1141,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (ArchiverGS). No build step.",
               "source_path": "A.U.G/InstallerScripts/ArchiverGS",
-              "size": 262
+              "size": 262,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (ArchiverGS)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1043,7 +1165,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/Aristotle.Patch",
-              "size": 290
+              "size": 290,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1061,7 +1189,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/ATIMAGEWRITER",
-              "size": 1299
+              "size": 1299,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1079,7 +1213,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/ATIMAGEWRITERLQ",
-              "size": 1313
+              "size": 1313,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1096,7 +1236,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data. No producer; A.U.G/InstallerScripts holds the equivalent under a remapped name (GSCalc.NDA). No build step.",
-              "size": 332
+              "size": 332,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "A.U.G/InstallerScripts holds the equivalent under a remapped name (GSCalc.NDA)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1114,7 +1260,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/CARD6850.MIDI",
-              "size": 387
+              "size": 387,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1132,7 +1284,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/CDROM (cmp-identical). No build step.",
               "source_path": "A.U.G/InstallerScripts/CDROM",
-              "size": 564
+              "size": 564,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/CDROM (cmp-identical)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1150,7 +1308,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (CloseView.Init). No build step.",
               "source_path": "A.U.G/InstallerScripts/CloseView.Init",
-              "size": 437
+              "size": 437,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (CloseView.Init)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1168,7 +1332,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/DCIMAGEWRITER",
-              "size": 563
+              "size": 563,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1186,7 +1356,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/DCIMAGEWRITERLQ",
-              "size": 576
+              "size": 576,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1204,7 +1380,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/DOS3.3.FST",
-              "size": 303
+              "size": 303,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1222,7 +1404,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/Easy.Access",
-              "size": 488
+              "size": 488,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1240,7 +1428,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/EPSON",
-              "size": 660
+              "size": 660,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1258,7 +1452,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; equivalent in A.U.G/InstallerScripts/ (Find.File.NDA). No build step.",
               "source_path": "A.U.G/InstallerScripts/Find.File.NDA",
-              "size": 325
+              "size": 325,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; equivalent in A.U.G/InstallerScripts/ (Find.File.NDA)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1276,7 +1476,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/FONTS",
-              "size": 845
+              "size": 845,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1294,7 +1500,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Fonts.Max (cmp-identical). No build step.",
               "source_path": "A.U.G/InstallerScripts/Fonts.Max",
-              "size": 4392
+              "size": 4392,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Fonts.Max (cmp-identical)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1312,7 +1524,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/Fonts.Std",
-              "size": 2445
+              "size": 2445,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1330,7 +1548,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/HFS.FST",
-              "size": 311
+              "size": 311,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1348,7 +1572,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/INST.SYS.MIN",
-              "size": 6046
+              "size": 6046,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1366,7 +1596,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/INST.SYSF.NOFIN",
-              "size": 9501
+              "size": 9501,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1384,7 +1620,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/INSTAL.SYS.FILE (cmp-identical). No build step.",
               "source_path": "A.U.G/InstallerScripts/INSTAL.SYS.FILE",
-              "size": 10622
+              "size": 10622,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/INSTAL.SYS.FILE (cmp-identical)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1402,7 +1644,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/LASERWRITER",
-              "size": 1489
+              "size": 1489,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1420,7 +1668,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Local.Net.Boot (cmp-identical). No build step.",
               "source_path": "A.U.G/InstallerScripts/Local.Net.Boot",
-              "size": 7320
+              "size": 7320,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Local.Net.Boot (cmp-identical)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1438,7 +1692,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (MEDIACTRL). No build step.",
               "source_path": "A.U.G/InstallerScripts/MEDIACTRL",
-              "size": 1119
+              "size": 1119,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (MEDIACTRL)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1456,7 +1716,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/MediaCtrl.CDSC",
-              "size": 838
+              "size": 838,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1474,7 +1740,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/MediaCtrl.P2000",
-              "size": 621
+              "size": 621,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1492,7 +1764,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/MediaCtrl.P4200",
-              "size": 622
+              "size": 622,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1510,7 +1788,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/MSDOS.FST",
-              "size": 368
+              "size": 368,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1528,7 +1812,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/NAMER (cmp-identical). No build step.",
               "source_path": "A.U.G/InstallerScripts/NAMER",
-              "size": 376
+              "size": 376,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/NAMER (cmp-identical)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1546,7 +1836,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/Pascal.FST",
-              "size": 290
+              "size": 290,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1564,7 +1860,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/Quick.Logoff",
-              "size": 321
+              "size": 321,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1582,7 +1884,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/SCSI.HARD.DISK",
-              "size": 490
+              "size": 490,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1600,7 +1908,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; A.U.G/InstallerScripts holds SCSI-scanner scripts (Scanner.Driver/Scan6.0). No build step.",
               "source_path": "A.U.G/InstallerScripts/Scanner.Driver (equiv)",
-              "size": 415
+              "size": 415,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "A.U.G/InstallerScripts holds SCSI-scanner scripts (Scanner.Driver/Scan6.0)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1618,7 +1932,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; A.U.G/InstallerScripts holds SCSI-tape scripts (Tape.Driver/Tape6.0). No build step.",
               "source_path": "A.U.G/InstallerScripts/Tape.Driver (equiv)",
-              "size": 419
+              "size": 419,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "A.U.G/InstallerScripts holds SCSI-tape scripts (Tape.Driver/Tape6.0)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1636,7 +1956,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Server.Sys.File (cmp-identical). No build step.",
               "source_path": "A.U.G/InstallerScripts/Server.Sys.File",
-              "size": 8204
+              "size": 8204,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Server.Sys.File (cmp-identical)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1654,7 +1980,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/Sounds.All",
-              "size": 1167
+              "size": 1167,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1672,7 +2004,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/stylewriter",
-              "size": 538
+              "size": 538,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1690,7 +2028,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/synthLAB",
-              "size": 1750
+              "size": 1750,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1708,7 +2052,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data (verified magic 'SCRIPT\\rV2.00'). A.U.G/InstallerScripts holds it under remapped name TeachGS. No build step.",
               "source_path": "A.U.G/InstallerScripts/TeachGS (equiv)",
-              "size": 421
+              "size": 421,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "A.U.G/InstallerScripts holds it under remapped name TeachGS."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1726,7 +2076,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/UNIDISK3.5",
-              "size": 279
+              "size": 279,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1744,7 +2100,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step.",
               "source_path": "A.U.G/InstallerScripts/VideoKeyboard",
-              "size": 476
+              "size": 476,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1762,7 +2124,13 @@
               "classification": "no-source-substitute",
               "evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/VideoMix (cmp-identical). No build step.",
               "source_path": "A.U.G/InstallerScripts/VIDEOMIX",
-              "size": 526
+              "size": 526,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/VideoMix (cmp-identical)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1779,7 +2147,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop-DB file (1079B, type FND) inside Scripts dir. SUBSTITUTE by rule; runtime-generated, no source.",
-              "size": 1079
+              "size": 1079,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "SUBSTITUTE by rule; runtime-generated, no source."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -1796,7 +2170,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Volume-root Finder desktop-DB file (125B, type FND). SUBSTITUTE by rule; runtime-generated, no source.",
-              "size": 125
+              "size": 125,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "SUBSTITUTE by rule; runtime-generated, no source."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2034,7 +2414,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "diskcheck.py owner_for(): basename 'Finder.Data' is SUBSTITUTE by rule (Finder desktop database, no producing source in any tree).",
-              "size": 176
+              "size": 176,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "basename 'Finder.Data' is SUBSTITUTE by rule (Finder desktop database, no producing source in any tree)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2070,7 +2456,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "DATA/code fork core is FindFileDA.p (Pascal) -- outside the asm/rez target; carried verbatim (pascal-c-nontarget wall).",
-              "size": 11678
+              "size": 11678,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "but the code/data fork's core is FindFileDA.p (Pascal), so full byte-exact repro is blocked by the Pascal compiler."
+              }
             },
             "rsrc": {
               "classification": "built",
@@ -2094,7 +2486,13 @@
               "classification": "pascal-c-nontarget",
               "evidence": "Calculator = GSCalcNDA; only source is GSCalcNDA.pii, whose header says 'Converted to Max Pascal' \u2014 Pascal, non-target for the asm toolchain.",
               "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/GSCalcNDA/GSCalcNDA.pii",
-              "size": 16314
+              "size": 16314,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Calculator = GSCalcNDA; only source is GSCalcNDA.pii, whose header says 'Converted to Max Pascal' \u2014 Pascal, non-target for the asm toolchain."
+              }
             }
           },
           "classification": "pascal-c-nontarget",
@@ -2111,7 +2509,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
-              "size": 98
+              "size": 98,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2413,7 +2817,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
-              "size": 350
+              "size": 350,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2430,7 +2840,17 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data file. Searched IIGS.601.SRC (only GSToolbox/QD/font.asm \u2014 the QuickDraw renderer, not font bitmaps), ROM Source, Build.SysTools1 (Duplicates prebuilt) \u2014 no producing .r/.aii/.fnt source in any tree.",
-              "size": 2158
+              "size": 2158,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code",
+                  "Build.SysTools1"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing .r/.aii/.fnt source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2447,7 +2867,17 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source in IIGS.601.SRC/ROM/system500 (only QD font renderer, unrelated).",
-              "size": 2482
+              "size": 2482,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code",
+                  "system500"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Bitmap font data; no producing source in IIGS.601.SRC/ROM/system500 (only QD font renderer, unrelated)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2464,7 +2894,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 2802
+              "size": 2802,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2481,7 +2917,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 3458
+              "size": 3458,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2498,7 +2940,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 4750
+              "size": 4750,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2515,7 +2963,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 5904
+              "size": 5904,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2532,7 +2986,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 7194
+              "size": 7194,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2549,7 +3009,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 2221
+              "size": 2221,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2566,7 +3032,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 2755
+              "size": 2755,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2583,7 +3055,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 4031
+              "size": 4031,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2600,7 +3078,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 3127
+              "size": 3127,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2617,7 +3101,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 5327
+              "size": 5327,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2634,7 +3124,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 6311
+              "size": 6311,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2651,7 +3147,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 8031
+              "size": 8031,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2668,7 +3170,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 2200
+              "size": 2200,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2685,7 +3193,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 2418
+              "size": 2418,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2702,7 +3216,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 3000
+              "size": 3000,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2719,7 +3239,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 3404
+              "size": 3404,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2736,7 +3262,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 5112
+              "size": 5112,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2753,7 +3285,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 6694
+              "size": 6694,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2770,7 +3308,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 8180
+              "size": 8180,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2787,7 +3331,15 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data (the system UI font); no producing source in any tree \u2014 grep 'Shaston' hits only Build.SysTools1 Duplicate + QD renderer.",
-              "size": 5462
+              "size": 5462,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": [
+                  "Shaston"
+                ],
+                "decision": "Bitmap font data (the system UI font); no producing source in any tree \u2014 grep 'Shaston' hits only Build.SysTools1 Duplicate + QD renderer."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2804,7 +3356,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 2196
+              "size": 2196,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2821,7 +3379,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found. (diskcheck.py also lists Times.10 as SUBSTITUTE for the Disk-2 copy.)",
-              "size": 2414
+              "size": 2414,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2838,7 +3402,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 2824
+              "size": 2824,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2855,7 +3425,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 3596
+              "size": 3596,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2872,7 +3448,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 5036
+              "size": 5036,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2889,7 +3471,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 6798
+              "size": 6798,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2906,7 +3494,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 7988
+              "size": 7988,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2923,7 +3517,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 3625
+              "size": 3625,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2940,7 +3540,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 3625
+              "size": 3625,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2957,7 +3563,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Bitmap font data; no producing source found.",
-              "size": 11757
+              "size": 11757,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source found."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -2974,7 +3586,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
-              "size": 672
+              "size": 672,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3086,7 +3704,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
-              "size": 134
+              "size": 134,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3179,7 +3803,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
-              "size": 110
+              "size": 110,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3196,7 +3826,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
-              "size": 153
+              "size": 153,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3213,7 +3849,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
-              "size": 42
+              "size": 42,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3230,7 +3872,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Application code fork is Pascal (A.U.G/ADU has 11 .pii + 2 .aii + 1 adu.rii); outside the asm/rez target (pascal-c-nontarget wall).",
-              "size": 52803
+              "size": 52803,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "the application code fork is Pascal, so full byte-exact repro is blocked by the Pascal compiler."
+              }
             },
             "rsrc": {
               "classification": "buildable-rez",
@@ -3272,7 +3920,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
-              "size": 118
+              "size": 118,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3314,7 +3968,13 @@
               "classification": "no-source-substitute",
               "evidence": "GS.OS/MakeFiles/make.aristotle patches a prebuilt Aristotle menu-display binary (AristotlePatch/Display.0, 25490 B ~= 51 blocks, `file`=data) with a small asm patch applied by a C-built PatchTool (main.c). No assembler/rez source produces the display image itself; base blob is an opaque third-party binary. GSOSToDiskImage copies appletalk:DISPLAY.0 -> ST2 AppleTalk/Display.0.",
               "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/AristotlePatch/Display.0",
-              "size": 25570
+              "size": 25570,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "No assembler/rez source produces the display image itself; base blob is an opaque third-party binary."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3369,7 +4029,24 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder per-folder desktop database. Searched IIGS.601.SRC (A.U.G, GS.OS, GSToolbox, ToolBoxMisc, SD.ODDS.N.Ends) + fst/driver/tool/os_bin: no producing source; Finder.Data is runtime-generated metadata, never built.",
-              "size": 118
+              "size": 118,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "A.U.G",
+                  "GS.OS",
+                  "GSToolbox",
+                  "ToolBoxMisc",
+                  "SD.ODDS.N.Ends",
+                  "fst_bin",
+                  "driver_bin",
+                  "tool_bin",
+                  "os_bin"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source; Finder.Data is runtime-generated metadata, never built."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3530,7 +4207,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop DB; no producing source in any tree (runtime metadata).",
-              "size": 156
+              "size": 156,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder desktop DB; no producing source in any tree (runtime metadata)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3547,7 +4230,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "DATA/code fork built from Pascal (MediaCtlNDA.pii + MediaCtlUNIT.pii); non-target (pascal-c-nontarget wall).",
-              "size": 35208
+              "size": 35208,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "But DATA/code fork is built from Pascal (MediaCtlNDA.pii + MediaCtlUNIT.pii) -> outside gsasm asm/rez target; not reproducible."
+              }
             },
             "rsrc": {
               "classification": "built",
@@ -3589,7 +4278,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "DATA/code fork is Pascal (PokeyNDA.Pii + PokeyUnit.Pii); non-target (pascal-c-nontarget wall).",
-              "size": 25536
+              "size": 25536,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "DATA/code fork is Pascal (PokeyNDA.Pii + PokeyUnit.Pii) -> non-target."
+              }
             },
             "rsrc": {
               "classification": "built",
@@ -3612,7 +4307,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop DB; no producing source (runtime metadata).",
-              "size": 105
+              "size": 105,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder desktop DB; no producing source (runtime metadata)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3744,7 +4445,13 @@
               "classification": "no-source-substitute",
               "evidence": "SUBSTITUTE (VERIFY-NEGATIVE, all 3 source trees): golden is ASCII PostScript (%!PS-Adobe-2.0, type $04) produced by the MPW shell script BuildIWEm from IWEm.Src. The SHIPPED disk IWEM (29185B) DIVERGES after only 78 bytes from the only buildable IWEm.Src the tree can produce (28523B, which has no /IWEmDict Version guard block) -> the exact shipped bytes cannot be regenerated; the matching IWEm.Src version is not present. Carried verbatim.",
               "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/IWEm/IWEm.Src",
-              "size": 29185
+              "size": 29185,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Carried verbatim."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3823,7 +4530,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop DB; no producing source (runtime metadata).",
-              "size": 103
+              "size": 103,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder desktop DB; no producing source (runtime metadata)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3840,7 +4553,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop DB; no producing source (runtime metadata).",
-              "size": 195
+              "size": 195,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder desktop DB; no producing source (runtime metadata)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3857,7 +4576,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop DB; no producing source (runtime metadata).",
-              "size": 42
+              "size": 42,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder desktop DB; no producing source (runtime metadata)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -3893,7 +4618,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop DB; no producing source (runtime metadata).",
-              "size": 66
+              "size": 66,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder desktop DB; no producing source (runtime metadata)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4029,7 +4760,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop DB; no producing source (runtime metadata).",
-              "size": 157
+              "size": 157,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder desktop DB; no producing source (runtime metadata)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4084,7 +4821,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop DB; no producing source (runtime metadata).",
-              "size": 76
+              "size": 76,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder desktop DB; no producing source (runtime metadata)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4389,7 +5132,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop DB; no producing source (runtime metadata).",
-              "size": 240
+              "size": 240,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder desktop DB; no producing source (runtime metadata)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4406,7 +5155,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop DB; no producing source (runtime metadata).",
-              "size": 175
+              "size": 175,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder desktop DB; no producing source (runtime metadata)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4423,12 +5178,38 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "TBoxMiscToDiskImage: :ArchiverGS:Archiver.app -> ST2 Archiver (from work:gstoolboxMisc:ArchiverGS). Searched IIGS.601.SRC (ToolBoxMisc, A.U.G, GSToolbox, SD.ODDS.N.Ends) + all bin dirs: no ArchiverGS/Archiver.app source dir present -- only disk-image copy scripts reference it. Application binary, source not archived. FLAG: would be buildable if source surfaced.",
-              "size": 98483
+              "size": 98483,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ToolBoxMisc",
+                  "A.U.G",
+                  "GSToolbox",
+                  "SD.ODDS.N.Ends",
+                  "all bin dirs"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "FLAG: would be buildable if source surfaced."
+              }
             },
             "rsrc": {
               "classification": "no-source-substitute",
               "evidence": "TBoxMiscToDiskImage: :ArchiverGS:Archiver.app -> ST2 Archiver (from work:gstoolboxMisc:ArchiverGS). Searched IIGS.601.SRC (ToolBoxMisc, A.U.G, GSToolbox, SD.ODDS.N.Ends) + all bin dirs: no ArchiverGS/Archiver.app source dir present -- only disk-image copy scripts reference it. Application binary, source not archived. FLAG: would be buildable if source surfaced.",
-              "size": 18818
+              "size": 18818,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ToolBoxMisc",
+                  "A.U.G",
+                  "GSToolbox",
+                  "SD.ODDS.N.Ends",
+                  "all bin dirs"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "FLAG: would be buildable if source surfaced."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4445,7 +5226,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "DATA/code fork built from Pascal (uMenu.p, uWindow.p, uUtils.p, uGlobals.p, ...); non-target (pascal-c-nontarget wall).",
-              "size": 41628
+              "size": 41628,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "DATA/code fork built from Pascal (ToolBoxMisc/Teach/{uMenu.p,uWindow.p,uUtils.p,uGlobals.p,...} + teach.r) -> non-target."
+              }
             },
             "rsrc": {
               "classification": "built",
@@ -4515,7 +5302,13 @@
               "classification": "pascal-c-nontarget",
               "evidence": "ONEToDiskImage: duplicate SD.Odds.N.Ends:CLOCK.PATCH -> ST2 CLOCK.PATCH (verbatim copy, not built). `file` reports 'Applesoft BASIC program data' (tokenized); identical artifact present at SD.ODDS.N.Ends/CLOCK.PATCH (7769B) and GS.OS/P8/clock.patch (7655B). NON-TARGET language (Applesoft BASIC, not asm/rez/Pascal/C) -- no clean enum bucket; using pascal-c-nontarget as nearest non-target. FLAG for human decision.",
               "source_path": "ref/GSOS_6/IIGS.601.SRC/SD.ODDS.N.Ends/CLOCK.PATCH",
-              "size": 7769
+              "size": 7769,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "NON-TARGET language (Applesoft BASIC, not asm/rez/Pascal/C) -- no clean enum bucket; using pascal-c-nontarget as nearest non-target. FLAG for human decision."
+              }
             }
           },
           "classification": "pascal-c-nontarget",
@@ -4555,7 +5348,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop DB; no producing source (runtime metadata).",
-              "size": 201
+              "size": 201,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder desktop DB; no producing source (runtime metadata)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4577,7 +5376,19 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary IIgs font file ($C8). Searched ref/GSOS_6/IIGS.601.SRC + ROM Source + work/rincludes/system500 for 'Courier*' font-data source: absent. Only QuickDraw Font Manager engine code exists (work/includes/M16.Font, txt/QD/font.asm) which is the renderer, not the font files.",
-              "size": 9242
+              "size": 9242,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code",
+                  "system500"
+                ],
+                "search_date": null,
+                "search_patterns": [
+                  "Courier*"
+                ],
+                "decision": "Only QuickDraw Font Manager engine code exists (work/includes/M16.Font, txt/QD/font.asm) which is the renderer, not the font files."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4594,7 +5405,20 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no 'Courier*' producing source in IIGS.601.SRC/ROM Source/system500 (find -iname courier* returned nothing but the QD font engine).",
-              "size": 9174
+              "size": 9174,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code",
+                  "system500"
+                ],
+                "search_date": null,
+                "search_patterns": [
+                  "Courier*",
+                  "courier*"
+                ],
+                "decision": "Binary $C8 font data; no 'Courier*' producing source in IIGS.601.SRC/ROM Source/system500 (find -iname courier* returned nothing but the QD font engine)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4611,7 +5435,15 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no font-data source found in any of the three trees (find -iname courier* empty).",
-              "size": 11990
+              "size": 11990,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": [
+                  "courier*"
+                ],
+                "decision": "Binary $C8 font data; no font-data source found in any of the three trees (find -iname courier* empty)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4628,7 +5460,17 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no producing source in IIGS.601.SRC/ROM Source/system500.",
-              "size": 15910
+              "size": 15910,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code",
+                  "system500"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no producing source in IIGS.601.SRC/ROM Source/system500."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4645,7 +5487,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no producing source in any tree.",
-              "size": 22062
+              "size": 22062,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4662,7 +5510,19 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; find -iname helvetica* across IIGS.601.SRC/ROM Source/system500 returned nothing.",
-              "size": 11372
+              "size": 11372,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code",
+                  "system500"
+                ],
+                "search_date": null,
+                "search_patterns": [
+                  "helvetica*"
+                ],
+                "decision": "Binary $C8 font data; find -iname helvetica* across IIGS.601.SRC/ROM Source/system500 returned nothing."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4679,7 +5539,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
-              "size": 13372
+              "size": 13372,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no Helvetica source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4696,7 +5562,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
-              "size": 13660
+              "size": 13660,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no Helvetica source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4713,7 +5585,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
-              "size": 21588
+              "size": 21588,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no Helvetica source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4730,7 +5608,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
-              "size": 27860
+              "size": 27860,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no Helvetica source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4747,7 +5631,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
-              "size": 36092
+              "size": 36092,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no Helvetica source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4764,7 +5654,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
-              "size": 54936
+              "size": 54936,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no Helvetica source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4781,7 +5677,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
-              "size": 77868
+              "size": 77868,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no Helvetica source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4798,7 +5700,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no Helvetica source in any tree.",
-              "size": 71708
+              "size": 71708,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no Helvetica source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4815,7 +5723,19 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data. find -iname 'times.*' returned nothing under IIGS.601.SRC/ROM Source/system500 (the only 'Times' source is the Time CDEV, unrelated). No font-data source.",
-              "size": 10596
+              "size": 10596,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code",
+                  "system500"
+                ],
+                "search_date": null,
+                "search_patterns": [
+                  "times.*"
+                ],
+                "decision": "No font-data source."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4832,7 +5752,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no font-data source in any tree.",
-              "size": 13310
+              "size": 13310,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no font-data source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4849,7 +5775,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no font-data source in any tree.",
-              "size": 14064
+              "size": 14064,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no font-data source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4866,7 +5798,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no font-data source in any tree.",
-              "size": 18404
+              "size": 18404,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no font-data source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4883,7 +5821,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no font-data source in any tree.",
-              "size": 26362
+              "size": 26362,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no font-data source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4900,7 +5844,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no font-data source in any tree.",
-              "size": 34774
+              "size": 34774,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no font-data source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4917,7 +5867,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no font-data source in any tree.",
-              "size": 53182
+              "size": 53182,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no font-data source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4934,7 +5890,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no font-data source in any tree.",
-              "size": 76598
+              "size": 76598,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no font-data source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4951,7 +5913,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Binary $C8 font data; no font-data source in any tree.",
-              "size": 132132
+              "size": 132132,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Binary $C8 font data; no font-data source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4968,7 +5936,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop database (binary). work/diskcheck.py owner_for() hard-codes any basename 'Finder.Data' as SUBSTITUTE (line 121); no producing source exists \u2014 it is runtime-generated desktop state.",
-              "size": 57
+              "size": 57,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "no producing source exists \u2014 it is runtime-generated desktop state."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -4985,7 +5959,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "DATA fork (application) built by IntBasicIIGS, a custom BASIC->OMF compiler written in Pascal (Compiler/Basic.p etc); non-target (pascal-c-nontarget wall).",
-              "size": 19329
+              "size": 19329,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Hardest part (data fork) is Pascal-tool/BASIC, out of the ASM/Rez target scope."
+              }
             },
             "rsrc": {
               "classification": "built",
@@ -5031,7 +6011,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop database (binary, 1 block). diskcheck.py owner_for() rule: basename 'Finder.Data' -> SUBSTITUTE; no producing source (runtime-generated).",
-              "size": 79
+              "size": 79,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "diskcheck.py owner_for() rule: basename 'Finder.Data' -> SUBSTITUTE; no producing source (runtime-generated)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5049,7 +6035,13 @@
               "classification": "no-source-substitute",
               "evidence": "ProDOS/IIgs icon file (binary $CA icon data, 1 block). An identical authored copy exists in the source tree (A.U.G/Apple.Bowl/AppleBowl.Icon, 466 B) but it IS the data \u2014 no toolchain produces it. Apple.Bowl/Makefile has NO build rule for AppleBowl.Icon (only Apple.Bowl and Read.Me targets). Hand-authored binary icon data -> substitute (archived copy available).",
               "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/Apple.Bowl/AppleBowl.Icon",
-              "size": 466
+              "size": 466,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Hand-authored binary icon data -> substitute (archived copy available)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5066,7 +6058,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop database (binary, 1 block). diskcheck.py owner_for() rule maps basename 'Finder.Data' -> SUBSTITUTE; runtime-generated, no source.",
-              "size": 90
+              "size": 90,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "diskcheck.py owner_for() rule maps basename 'Finder.Data' -> SUBSTITUTE; runtime-generated, no source."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5083,7 +6081,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "ADDED 2026-07-30 (census agent dropped it; Codex review). Finder desktop database, no producing source (same class as the other Finder.Data files).",
-              "size": 66
+              "size": 66,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder desktop database, no producing source (same class as the other Finder.Data files)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5105,7 +6109,17 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "synthLAB application (212 blks, GS/OS S16). No producing source in any tree: searched IIGS.601.SRC + 'ROM Source Code' + work extractions \u2014 no synthlab source dir exists (only GSToolbox/MIDISynth+NoteSynth, unrelated tools). Build scripts SD.ODDS.N.Ends/APW.Scripts/Build.Synth and SD.ODDS.N.Ends/synthLABToDiskImage merely `Duplicate` a prebuilt binary from ':A2CE_Sources:System Disk 6.0:synthlab:synthLAB'. Basename absent as build target.",
-              "size": 108248
+              "size": 108248,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code",
+                  "work extractions"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Basename absent as build target."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5122,7 +6136,18 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder icon file (7 blks). Searched IIGS.601.SRC + ROM Source Code: only hits for 'SL.Icons' are QDAux/icon.asm (icon-mgr code, unrelated) and Build.Synth which just `Duplicate`s it verbatim. No .icons/.r/.rez source; SD.ODDS.N.Ends/Finder.Icons script does not mention SL.Icons.",
-              "size": 2952
+              "size": 2952,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code"
+                ],
+                "search_date": null,
+                "search_patterns": [
+                  "SL.Icons"
+                ],
+                "decision": "No .icons/.r/.rez source; SD.ODDS.N.Ends/Finder.Icons script does not mention SL.Icons."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5139,7 +6164,16 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop database (1 blk), generated at runtime by Finder, not built from source (per census rules Finder.Data is no-source-substitute). Absent as a build target in IIGS.601.SRC/ROM Source Code.",
-              "size": 60
+              "size": 60,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Absent as a build target in IIGS.601.SRC/ROM Source Code."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5199,7 +6233,18 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "synthLAB instrument-bank data (.bnk). Only tree reference is Build.Synth `Duplicate ... Synth.bnk` (verbatim copy). No producing source in IIGS.601.SRC/ROM Source Code; .aii hits for '.bnk' are incidental comments in unrelated sound-tool source.",
-              "size": 5632
+              "size": 5632,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code"
+                ],
+                "search_date": null,
+                "search_patterns": [
+                  ".bnk"
+                ],
+                "decision": ".aii hits for '.bnk' are incidental comments in unrelated sound-tool source."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5216,7 +6261,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "synthLAB sequence data (.seq). Only tree reference is Build.Synth `Duplicate ... Synth.seq`. No producing source in any tree searched.",
-              "size": 29468
+              "size": 29468,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "No producing source in any tree searched."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5233,7 +6284,17 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "synthLAB waveform data (.wav). Only tree reference is Build.Synth `Duplicate ... Synth.wav`. No producing source; searched IIGS.601.SRC + ROM Source Code + work extractions.",
-              "size": 67840
+              "size": 67840,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code",
+                  "work extractions"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "No producing source; searched IIGS.601.SRC + ROM Source Code + work extractions."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5250,7 +6311,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Bee.seq`; no producing source in any tree.",
-              "size": 22284
+              "size": 22284,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Bee.seq`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5267,7 +6334,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Capri.seq`; no producing source in any tree.",
-              "size": 28356
+              "size": 28356,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Capri.seq`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5284,7 +6357,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Instrument-bank data. Only reference Build.Synth `Duplicate ... Combo.bnk`; no producing source in any tree.",
-              "size": 5632
+              "size": 5632,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Combo.bnk`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5301,7 +6380,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Waveform data. Only reference Build.Synth `Duplicate ... Combo.wav`; no producing source in any tree.",
-              "size": 67840
+              "size": 67840,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Combo.wav`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5318,7 +6403,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Instrument-bank data. Only reference Build.Synth `Duplicate ... Demo.bnk`; no producing source in any tree.",
-              "size": 5632
+              "size": 5632,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Demo.bnk`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5335,7 +6426,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Waveform data. Only reference Build.Synth `Duplicate ... Demo.wav`; no producing source in any tree.",
-              "size": 67840
+              "size": 67840,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Demo.wav`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5352,7 +6449,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Fugue.seq`; no producing source in any tree.",
-              "size": 14020
+              "size": 14020,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Fugue.seq`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5369,7 +6472,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Midsummer.seq`; no producing source in any tree.",
-              "size": 38524
+              "size": 38524,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Midsummer.seq`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5386,7 +6495,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Instrument-bank data. Only reference Build.Synth `Duplicate ... Orch.bnk`; no producing source in any tree.",
-              "size": 5632
+              "size": 5632,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Orch.bnk`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5403,7 +6518,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Waveform data. Only reference Build.Synth `Duplicate ... Orch.wav`; no producing source in any tree.",
-              "size": 67840
+              "size": 67840,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Orch.wav`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5420,7 +6541,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Instrument-bank data. Only reference Build.Synth `Duplicate ... Piano.bnk`; no producing source in any tree.",
-              "size": 5632
+              "size": 5632,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Piano.bnk`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5437,7 +6564,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Waveform data. Only reference Build.Synth `Duplicate ... Piano.wav`; no producing source in any tree.",
-              "size": 67840
+              "size": 67840,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Piano.wav`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5454,7 +6587,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Rhythm.seq`; no producing source in any tree.",
-              "size": 17940
+              "size": 17940,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Rhythm.seq`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5471,7 +6610,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Sonata.seq`; no producing source in any tree.",
-              "size": 26196
+              "size": 26196,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Only reference Build.Synth `Duplicate ... Sonata.seq`; no producing source in any tree."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5488,7 +6633,16 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop database (1 blk) for the Seq.and.Instr folder, generated at runtime by Finder. Not a build target; absent from IIGS.601.SRC/ROM Source Code.",
-              "size": 365
+              "size": 365,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "ROM Source Code"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Not a build target; absent from IIGS.601.SRC/ROM Source Code."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5505,12 +6659,32 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "synthLAB reference document (114 blks; data fork 53839 B, rsrc fork 2108 B, verified via rezcheck volume read). Only tree reference is Build.Synth `Duplicate ... Reference` (verbatim copy). No .r/.rez/.p/.c source; 'Reference' hits under GSToolbox are incidental word matches in NoteSynth .aii comments, not this document.",
-              "size": 53839
+              "size": 53839,
+              "search": {
+                "searched_trees": [
+                  "GSToolbox"
+                ],
+                "search_date": null,
+                "search_patterns": [
+                  "Reference"
+                ],
+                "decision": "No .r/.rez/.p/.c source; 'Reference' hits under GSToolbox are incidental word matches in NoteSynth .aii comments, not this document."
+              }
             },
             "rsrc": {
               "classification": "no-source-substitute",
               "evidence": "synthLAB reference document (114 blks; data fork 53839 B, rsrc fork 2108 B, verified via rezcheck volume read). Only tree reference is Build.Synth `Duplicate ... Reference` (verbatim copy). No .r/.rez/.p/.c source; 'Reference' hits under GSToolbox are incidental word matches in NoteSynth .aii comments, not this document.",
-              "size": 2108
+              "size": 2108,
+              "search": {
+                "searched_trees": [
+                  "GSToolbox"
+                ],
+                "search_date": null,
+                "search_patterns": [
+                  "Reference"
+                ],
+                "decision": "No .r/.rez/.p/.c source; 'Reference' hits under GSToolbox are incidental word matches in NoteSynth .aii comments, not this document."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5527,7 +6701,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "Finder desktop database (1 blk) for the synthLAB volume root, generated at runtime by Finder. Not a build target; absent from all source trees searched.",
-              "size": 148
+              "size": 148,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Not a build target; absent from all source trees searched."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5692,7 +6872,16 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "data=0B; no data-fork content or claim (the payload is entirely the resource fork).",
-              "size": 0
+              "size": 0,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": [
+                  "Types.r",
+                  "InstallerTypes.r"
+                ],
+                "decision": "Carried verbatim."
+              }
             },
             "rsrc": {
               "classification": "buildable-rez",
@@ -5716,13 +6905,33 @@
               "classification": "no-source-substitute",
               "evidence": "Resource fork (132375 B) type list = Macintosh application: CODE(9), CDEF, LDEF, PROC, INIT, ptch, DLOG(11)/dctb(12)/DITL(22), SIZE, dcmp, icl8/icl4/ics8/ics4 icon families, BNDL/FREF/SIG#, bjbc(1). This is Apple's Macintosh Installer app (creator 'bjbc'), used on the Mac that builds this disk (build.disk: 'build to a Macintosh System Tools ... or Apple II Setup disk'). installercheck.py gates a DIFFERENT program \u2014 the IIgs Installer (A.U.G/Installer: Install.asm/Main.asm/Data.asm + Installer.r), 17,895 B / 90 resources on Disk 1. Searched IIGS.601.SRC (incl. A.U.G, GS.OS/NetBoot/Installer which holds only .r scripts): no 68k Mac Installer source. -> no-source-substitute.",
               "source_path": "ABSENT \u2014 no 68k Mac Installer source in any tree",
-              "size": 0
+              "size": 0,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "A.U.G",
+                  "GS.OS/NetBoot/Installer"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Searched IIGS.601.SRC (incl. A.U.G, GS.OS/NetBoot/Installer which holds only .r scripts): no 68k Mac Installer source. -> no-source-substitute."
+              }
             },
             "rsrc": {
               "classification": "no-source-substitute",
               "evidence": "Resource fork (132375 B) type list = Macintosh application: CODE(9), CDEF, LDEF, PROC, INIT, ptch, DLOG(11)/dctb(12)/DITL(22), SIZE, dcmp, icl8/icl4/ics8/ics4 icon families, BNDL/FREF/SIG#, bjbc(1). This is Apple's Macintosh Installer app (creator 'bjbc'), used on the Mac that builds this disk (build.disk: 'build to a Macintosh System Tools ... or Apple II Setup disk'). installercheck.py gates a DIFFERENT program \u2014 the IIgs Installer (A.U.G/Installer: Install.asm/Main.asm/Data.asm + Installer.r), 17,895 B / 90 resources on Disk 1. Searched IIGS.601.SRC (incl. A.U.G, GS.OS/NetBoot/Installer which holds only .r scripts): no 68k Mac Installer source. -> no-source-substitute.",
               "source_path": "ABSENT \u2014 no 68k Mac Installer source in any tree",
-              "size": 132375
+              "size": 132375,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC",
+                  "A.U.G",
+                  "GS.OS/NetBoot/Installer"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Searched IIGS.601.SRC (incl. A.U.G, GS.OS/NetBoot/Installer which holds only .r scripts): no 68k Mac Installer source. -> no-source-substitute."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5740,13 +6949,25 @@
               "classification": "no-source-substitute",
               "evidence": "type 'ttro' creator 'ttxt' = TeachText read-only document. An identically-named copy exists in the source archive (NetBoot/SpoolerIWEM/Spooler-Read Me) but it is authored prose, not produced by any asm/rez build step. -> no-source-substitute (data doc).",
               "source_path": "in-tree copy at ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/SpoolerIWEM/Spooler\u2014Read Me (authored content, not built)",
-              "size": 273
+              "size": 273,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "but it is authored prose, not produced by any asm/rez build step. -> no-source-substitute (data doc)."
+              }
             },
             "rsrc": {
               "classification": "no-source-substitute",
               "evidence": "type 'ttro' creator 'ttxt' = TeachText read-only document. An identically-named copy exists in the source archive (NetBoot/SpoolerIWEM/Spooler-Read Me) but it is authored prose, not produced by any asm/rez build step. -> no-source-substitute (data doc).",
               "source_path": "in-tree copy at ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/SpoolerIWEM/Spooler\u2014Read Me (authored content, not built)",
-              "size": 425
+              "size": 425,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "but it is authored prose, not produced by any asm/rez build step. -> no-source-substitute (data doc)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5764,13 +6985,29 @@
               "classification": "no-source-substitute",
               "evidence": "type 'FNDR' creator 'ERIK' = the classic Finder 'Desktop' database file (icon/bundle registry), generated at runtime by the Finder, not built from source. Searched IIGS.601.SRC: no producing source. -> no-source-substitute (per project rule for Finder.Data/Desktop desktop DBs).",
               "source_path": "none (Finder-generated runtime database)",
-              "size": 0
+              "size": 0,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Searched IIGS.601.SRC: no producing source. -> no-source-substitute (per project rule for Finder.Data/Desktop desktop DBs)."
+              }
             },
             "rsrc": {
               "classification": "no-source-substitute",
               "evidence": "type 'FNDR' creator 'ERIK' = the classic Finder 'Desktop' database file (icon/bundle registry), generated at runtime by the Finder, not built from source. Searched IIGS.601.SRC: no producing source. -> no-source-substitute (per project rule for Finder.Data/Desktop desktop DBs).",
               "source_path": "none (Finder-generated runtime database)",
-              "size": 33533
+              "size": 33533,
+              "search": {
+                "searched_trees": [
+                  "IIGS.601.SRC"
+                ],
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Searched IIGS.601.SRC: no producing source. -> no-source-substitute (per project rule for Finder.Data/Desktop desktop DBs)."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5788,13 +7025,25 @@
               "classification": "no-source-substitute",
               "evidence": "type 'p...'(pdos) creator 'pdos' = Finder metadata/data file. finderdatacheck.py exists but targets the GS/OS Finder's Finder.Data on the System/Tools disks, not this Apple-II-Setup root copy; no source builds this data. Project rule classifies Finder.Data as no-source-substitute.",
               "source_path": "none",
-              "size": 148
+              "size": 148,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Project rule classifies Finder.Data as no-source-substitute."
+              }
             },
             "rsrc": {
               "classification": "no-source-substitute",
               "evidence": "type 'p...'(pdos) creator 'pdos' = Finder metadata/data file. finderdatacheck.py exists but targets the GS/OS Finder's Finder.Data on the System/Tools disks, not this Apple-II-Setup root copy; no source builds this data. Project rule classifies Finder.Data as no-source-substitute.",
               "source_path": "none",
-              "size": 0
+              "size": 0,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Project rule classifies Finder.Data as no-source-substitute."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -5812,13 +7061,25 @@
               "classification": "no-source-substitute",
               "evidence": "type 'p...'(pdos) creator 'pdos', 161 B Finder data in the System Folder. Same as root Finder.Data \u2014 Finder-maintained data, no producing source in any tree. -> no-source-substitute.",
               "source_path": "none",
-              "size": 161
+              "size": 161,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder-maintained data, no producing source in any tree. -> no-source-substitute."
+              }
             },
             "rsrc": {
               "classification": "no-source-substitute",
               "evidence": "type 'p...'(pdos) creator 'pdos', 161 B Finder data in the System Folder. Same as root Finder.Data \u2014 Finder-maintained data, no producing source in any tree. -> no-source-substitute.",
               "source_path": "none",
-              "size": 0
+              "size": 0,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "Finder-maintained data, no producing source in any tree. -> no-source-substitute."
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6020,7 +7281,13 @@
             "data": {
               "classification": "technical-exception",
               "evidence": "source exists (asm toolset bundle) but ExpressLoad case-B reloc encoding not byte-exact; deliberately unwired, golden bytes carried. SOW P7 crack target.",
-              "size": 19232
+              "size": 19232,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "source exists (asm toolset bundle) but ExpressLoad case-B reloc encoding not byte-exact; deliberately unwired, golden bytes carried. SOW P7 crack target."
+              }
             }
           },
           "classification": "technical-exception",
@@ -6162,7 +7429,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
-              "size": 64
+              "size": 64,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6225,7 +7498,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
-              "size": 3449
+              "size": 3449,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6311,7 +7590,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
-              "size": 118
+              "size": 118,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6586,7 +7871,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
-              "size": 263
+              "size": 263,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6603,7 +7894,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
-              "size": 121
+              "size": 121,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6620,7 +7917,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
-              "size": 2414
+              "size": 2414,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6637,7 +7940,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
-              "size": 80
+              "size": 80,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6672,7 +7981,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
-              "size": 42
+              "size": 42,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6689,7 +8004,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
-              "size": 282
+              "size": 282,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6706,7 +8027,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
-              "size": 12160
+              "size": 12160,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6723,7 +8050,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
-              "size": 63
+              "size": 63,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6758,7 +8091,13 @@
             "data": {
               "classification": "no-source-substitute",
               "evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
-              "size": 111
+              "size": 111,
+              "search": {
+                "searched_trees": null,
+                "search_date": null,
+                "search_patterns": null,
+                "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+              }
             }
           },
           "classification": "no-source-substitute",
@@ -6785,5 +8124,5 @@
   "_disks": 7,
   "_migrated_from": "disk_census_2026-07-30.json",
   "_migration_script": "work/census_migrate.py",
-  "_migration_note": "Fork-granular migration of the file-granular v1 census (B2, docs/ADVERSARIAL_REVIEW_SOW_IMPLEMENTATION_2026-08-01.md finding #3). Every file-level field is preserved verbatim from v1 (including the original `forks` prose string, now under `forks_raw_v1`); the new `forks` field is a {fork: {classification, proven_by?, source_path?, size, evidence}} dict, one entry per fork the LIVE disk actually has. See work/census_migrate.py for the full migration rationale and per-file OVERRIDES audit trail."
+  "_migration_note": "Fork-granular migration of the file-granular v1 census (B2, docs/ADVERSARIAL_REVIEW_SOW_IMPLEMENTATION_2026-08-01.md finding #3). Every file-level field is preserved verbatim from v1 (including the original `forks` prose string, now under `forks_raw_v1`); the new `forks` field is a {fork: {classification, proven_by?, source_path?, size, evidence, search?, accepted?}} dict, one entry per fork the LIVE disk actually has. `search` (finding #5, C2) is folded in from docs/substitute_search_evidence_2026-08-01.json for every SUBSTITUTE/TECHNICAL_EXCEPTION fork whose (disk, path) that sidecar covers; `accepted` (finding #4, C1) is a human-acceptance marker for a TECHNICAL_EXCEPTION fork that this script never fabricates (both Tool.Setup records are unaccepted as of this migration). See work/census_migrate.py for the full migration rationale and per-file OVERRIDES audit trail."
 }

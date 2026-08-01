@@ -1,0 +1,3982 @@
+{
+ "records": [
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/RAM5",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Adv.Disk.Util",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Apple.MIDI",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/AppleDisk5.25",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/AppleShare",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Aristotle.Patch",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/ATImageWriter",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/ATImageWriterLQ",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Card6850.MIDI",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/DCImageWriter",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/DCImageWriterLQ",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/DOS3.3.FST",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Easy.Access",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Epson",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Fonts",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Fonts.Std",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/HFS.FST",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Inst.Sys.Min",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Inst.SysF.NoFin",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/LaserWriter",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/MediaCtrl.CDSC",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/MediaCtrl.P2000",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/MediaCtrl.P4200",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/MSDOS.FST",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Pascal.FST",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Quick.Logoff",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/SCSI.Hard.Disk",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Sounds.All",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/StyleWriter",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/synthLAB",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/UniDisk3.5",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/VideoKeyboard",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/.",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/. No build step."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.12",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.14",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.18",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.20",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.24",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.10",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.12",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.14",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.16",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.18",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.20",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.24",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.09",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.10",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.12",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.14",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.18",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.20",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.24",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.09",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.12",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.14",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.18",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.20",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.24",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Venice.12",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Venice.14",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Venice.24",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found."
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/Desk.Accs/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+   "original_evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/CDevs/CDev.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+   "original_evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/CDevs/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+   "original_evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/Tools/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+   "original_evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/Fonts/Font.Lists",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+   "original_evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/Fonts/Times.10",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+   "original_evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/Fonts/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+   "original_evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/FinderExtras/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+   "original_evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+   "original_evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/Icons/FType.Apple",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+   "original_evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/Icons/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+   "original_evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)",
+   "original_evidence": "not in diskcheck builder registry; data/font/desktop-DB carried verbatim (the 12 System-Disk substitutes)"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Desk.Accs/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder desktop DB; no producing source (runtime metadata).",
+   "original_evidence": "Finder desktop DB; no producing source (runtime metadata)."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Drivers/Media.Control/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder desktop DB; no producing source (runtime metadata).",
+   "original_evidence": "Finder desktop DB; no producing source (runtime metadata)."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Drivers/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder desktop DB; no producing source (runtime metadata).",
+   "original_evidence": "Finder desktop DB; no producing source (runtime metadata)."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Fonts/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder desktop DB; no producing source (runtime metadata).",
+   "original_evidence": "Finder desktop DB; no producing source (runtime metadata)."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/FSTs/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder desktop DB; no producing source (runtime metadata).",
+   "original_evidence": "Finder desktop DB; no producing source (runtime metadata)."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/System.Setup/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder desktop DB; no producing source (runtime metadata).",
+   "original_evidence": "Finder desktop DB; no producing source (runtime metadata)."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Tools/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder desktop DB; no producing source (runtime metadata).",
+   "original_evidence": "Finder desktop DB; no producing source (runtime metadata)."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Sounds/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder desktop DB; no producing source (runtime metadata).",
+   "original_evidence": "Finder desktop DB; no producing source (runtime metadata)."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder desktop DB; no producing source (runtime metadata).",
+   "original_evidence": "Finder desktop DB; no producing source (runtime metadata)."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder desktop DB; no producing source (runtime metadata).",
+   "original_evidence": "Finder desktop DB; no producing source (runtime metadata)."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Desk.Accs/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+   "original_evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Drivers/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+   "original_evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+   "original_evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/FSTs/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+   "original_evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Tools/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+   "original_evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+   "original_evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/Icons/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+   "original_evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule.",
+   "original_evidence": "diskcheck.py: 'Finder.Data' is SUBSTITUTE by rule."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.28",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no Helvetica source in any tree.",
+   "original_evidence": "Binary $C8 font data; no Helvetica source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.30",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no Helvetica source in any tree.",
+   "original_evidence": "Binary $C8 font data; no Helvetica source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.36",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no Helvetica source in any tree.",
+   "original_evidence": "Binary $C8 font data; no Helvetica source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.42",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no Helvetica source in any tree.",
+   "original_evidence": "Binary $C8 font data; no Helvetica source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.48",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no Helvetica source in any tree.",
+   "original_evidence": "Binary $C8 font data; no Helvetica source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.60",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no Helvetica source in any tree.",
+   "original_evidence": "Binary $C8 font data; no Helvetica source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.72",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no Helvetica source in any tree.",
+   "original_evidence": "Binary $C8 font data; no Helvetica source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.96",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no Helvetica source in any tree.",
+   "original_evidence": "Binary $C8 font data; no Helvetica source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.28",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no font-data source in any tree.",
+   "original_evidence": "Binary $C8 font data; no font-data source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.30",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no font-data source in any tree.",
+   "original_evidence": "Binary $C8 font data; no font-data source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.36",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no font-data source in any tree.",
+   "original_evidence": "Binary $C8 font data; no font-data source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.42",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no font-data source in any tree.",
+   "original_evidence": "Binary $C8 font data; no font-data source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.48",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no font-data source in any tree.",
+   "original_evidence": "Binary $C8 font data; no font-data source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.60",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no font-data source in any tree.",
+   "original_evidence": "Binary $C8 font data; no font-data source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.72",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no font-data source in any tree.",
+   "original_evidence": "Binary $C8 font data; no font-data source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.96",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no font-data source in any tree.",
+   "original_evidence": "Binary $C8 font data; no font-data source in any tree."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/System.Setup/Tool.Setup",
+   "classification": "technical-exception",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "SOW P7 crack target -> promote to BUILT if cracked, else remains the one documented technical exception.",
+   "original_evidence": "Tool.Setup: asm toolset bundle, code segments byte-exact but full-file ExpressLoad case-B reloc encoding is NOT byte-exact (the converter wall); deliberately unwired, golden bytes carried. SOW P7 crack target -> promote to BUILT if cracked, else remains the one documented technical exception."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/CDevs/CDev.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "A.U.G",
+    "SD.ODDS.N.Ends"
+   ],
+   "search_date": null,
+   "search_patterns": [
+    "CDev.Data"
+   ],
+   "decision": "no 'CDev.Data' producing source or verbatim copy present.",
+   "original_evidence": "Binary CDEV config data (2079B). Marked SUBSTITUTE in diskcheck manifest ('binary CDEV config data, no ASM source'). Searched IIGS.601.SRC (incl. A.U.G, SD.ODDS.N.Ends): no 'CDev.Data' producing source or verbatim copy present."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/SetStart.data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "No build step, but a BYTE-IDENTICAL verbatim copy exists in the source tree at SD.ODDS.N.Ends/SetStart.data (cmp-identical) \u2014 fully reproducible by copy.",
+   "original_evidence": "20B config (Pascal string ':Install:Installer' + count). No build step, but a BYTE-IDENTICAL verbatim copy exists in the source tree at SD.ODDS.N.Ends/SetStart.data (cmp-identical) \u2014 fully reproducible by copy."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/Fonts/FastFont",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC"
+   ],
+   "search_date": null,
+   "search_patterns": [
+    "fastfont"
+   ],
+   "decision": "no producer and no verbatim copy of this data file.",
+   "original_evidence": "28672B BIN font-cache data. Searched IIGS.601.SRC (grep 'fastfont' hits only unrelated GSToolbox/QD FastFontCache toolbox CODE + Build scripts that DUPLICATE the file); no producer and no verbatim copy of this data file. Build.Install duplicates it prebuilt."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/Fonts/Font.Lists",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC"
+   ],
+   "search_date": null,
+   "search_patterns": [
+    "Font.Lists"
+   ],
+   "decision": "no 'Font.Lists' producing source or verbatim copy.",
+   "original_evidence": "70B CFG config data. Marked SUBSTITUTE in diskcheck manifest. Searched IIGS.601.SRC: no 'Font.Lists' producing source or verbatim copy."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/Tools/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "SUBSTITUTE by rule in diskcheck. No source (Finder-generated at runtime).",
+   "original_evidence": "Finder desktop-DB file (246B, type FND). SUBSTITUTE by rule in diskcheck. No source (Finder-generated at runtime)."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "SUBSTITUTE by rule; runtime-generated, no source.",
+   "original_evidence": "Finder desktop-DB file (260B, type FND). SUBSTITUTE by rule; runtime-generated, no source."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Icons/FType.Apple",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "No build step, but a BYTE-IDENTICAL verbatim copy exists in the source tree at SD.ODDS.N.Ends/FType.Apple (cmp-identical) \u2014 reproducible by copy.",
+   "original_evidence": "12160B icon data (type FTD). Marked SUBSTITUTE in diskcheck. No build step, but a BYTE-IDENTICAL verbatim copy exists in the source tree at SD.ODDS.N.Ends/FType.Apple (cmp-identical) \u2014 reproducible by copy."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Icons/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "SUBSTITUTE by rule; runtime-generated, no source.",
+   "original_evidence": "Finder desktop-DB file (63B, type FND). SUBSTITUTE by rule; runtime-generated, no source."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/A2.RAMCard",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Verbatim copies of most Scripts exist in A.U.G/InstallerScripts/ (sampled 9/11 byte-identical; 2 are filename remaps).",
+   "original_evidence": "Installer SCRIPT-format text data (magic 'SCRIPT\\rV2.00'). No assembler/rez/compiler produces it; Build.Install DUPLICATEs it verbatim. Verbatim copies of most Scripts exist in A.U.G/InstallerScripts/ (sampled 9/11 byte-identical; 2 are filename remaps)."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Apple.Bowl",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/Apple.Bowl (cmp-identical).",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/Apple.Bowl (cmp-identical). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/AppleShare3.5",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/AppleShare3.5 (cmp-identical).",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/AppleShare3.5 (cmp-identical). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Archiver",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (ArchiverGS).",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (ArchiverGS). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Calculator",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "A.U.G/InstallerScripts holds the equivalent under a remapped name (GSCalc.NDA).",
+   "original_evidence": "Installer SCRIPT text data. No producer; A.U.G/InstallerScripts holds the equivalent under a remapped name (GSCalc.NDA). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/CDROM",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/CDROM (cmp-identical).",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/CDROM (cmp-identical). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/CloseView",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (CloseView.Init).",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (CloseView.Init). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/FindFile",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; equivalent in A.U.G/InstallerScripts/ (Find.File.NDA).",
+   "original_evidence": "Installer SCRIPT text data; equivalent in A.U.G/InstallerScripts/ (Find.File.NDA). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Fonts.Max",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Fonts.Max (cmp-identical).",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Fonts.Max (cmp-identical). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Instal.Sys.File",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/INSTAL.SYS.FILE (cmp-identical).",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/INSTAL.SYS.FILE (cmp-identical). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Local.Net.Boot",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Local.Net.Boot (cmp-identical).",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Local.Net.Boot (cmp-identical). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/MediaControl",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (MEDIACTRL).",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy in A.U.G/InstallerScripts/ (MEDIACTRL). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Namer",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/NAMER (cmp-identical).",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/NAMER (cmp-identical). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/SCSI.Scanner",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "A.U.G/InstallerScripts holds SCSI-scanner scripts (Scanner.Driver/Scan6.0).",
+   "original_evidence": "Installer SCRIPT text data; A.U.G/InstallerScripts holds SCSI-scanner scripts (Scanner.Driver/Scan6.0). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/SCSI.Tape",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "A.U.G/InstallerScripts holds SCSI-tape scripts (Tape.Driver/Tape6.0).",
+   "original_evidence": "Installer SCRIPT text data; A.U.G/InstallerScripts holds SCSI-tape scripts (Tape.Driver/Tape6.0). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Server.Sys.File",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Server.Sys.File (cmp-identical).",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/Server.Sys.File (cmp-identical). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Teach",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "A.U.G/InstallerScripts holds it under remapped name TeachGS.",
+   "original_evidence": "Installer SCRIPT text data (verified magic 'SCRIPT\\rV2.00'). A.U.G/InstallerScripts holds it under remapped name TeachGS. No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/VideoMix",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/VideoMix (cmp-identical).",
+   "original_evidence": "Installer SCRIPT text data; verbatim copy A.U.G/InstallerScripts/VideoMix (cmp-identical). No build step."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "SUBSTITUTE by rule; runtime-generated, no source.",
+   "original_evidence": "Finder desktop-DB file (1079B, type FND) inside Scripts dir. SUBSTITUTE by rule; runtime-generated, no source."
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "SUBSTITUTE by rule; runtime-generated, no source.",
+   "original_evidence": "Volume-root Finder desktop-DB file (125B, type FND). SUBSTITUTE by rule; runtime-generated, no source."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/CDevs/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "basename 'Finder.Data' is SUBSTITUTE by rule (Finder desktop database, no producing source in any tree).",
+   "original_evidence": "diskcheck.py owner_for(): basename 'Finder.Data' is SUBSTITUTE by rule (Finder desktop database, no producing source in any tree)."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Desk.Accs/FindFile",
+   "classification": "pascal-c-nontarget",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "but the code/data fork's core is FindFileDA.p (Pascal), so full byte-exact repro is blocked by the Pascal compiler.",
+   "original_evidence": "rezforkcheck.py builds the resource fork byte-exact from ToolBoxMisc/FindFileGS/Findfile.rez; but the code/data fork's core is FindFileDA.p (Pascal), so full byte-exact repro is blocked by the Pascal compiler. Hardest part = data fork."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Desk.Accs/Calculator",
+   "classification": "pascal-c-nontarget",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Calculator = GSCalcNDA; only source is GSCalcNDA.pii, whose header says 'Converted to Max Pascal' \u2014 Pascal, non-target for the asm toolchain.",
+   "original_evidence": "Calculator = GSCalcNDA; only source is GSCalcNDA.pii, whose header says 'Converted to Max Pascal' \u2014 Pascal, non-target for the asm toolchain."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.09",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code",
+    "Build.SysTools1"
+   ],
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing .r/.aii/.fnt source in any tree.",
+   "original_evidence": "Bitmap font data file. Searched IIGS.601.SRC (only GSToolbox/QD/font.asm \u2014 the QuickDraw renderer, not font bitmaps), ROM Source, Build.SysTools1 (Duplicates prebuilt) \u2014 no producing .r/.aii/.fnt source in any tree."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.10",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code",
+    "system500"
+   ],
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Bitmap font data; no producing source in IIGS.601.SRC/ROM/system500 (only QD font renderer, unrelated).",
+   "original_evidence": "Bitmap font data; no producing source in IIGS.601.SRC/ROM/system500 (only QD font renderer, unrelated)."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Shaston.16",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": [
+    "Shaston"
+   ],
+   "decision": "Bitmap font data (the system UI font); no producing source in any tree \u2014 grep 'Shaston' hits only Build.SysTools1 Duplicate + QD renderer.",
+   "original_evidence": "Bitmap font data (the system UI font); no producing source in any tree \u2014 grep 'Shaston' hits only Build.SysTools1 Duplicate + QD renderer."
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.10",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source found.",
+   "original_evidence": "Bitmap font data; no producing source found. (diskcheck.py also lists Times.10 as SUBSTITUTE for the Disk-2 copy.)"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/Adv.Disk.Util",
+   "classification": "pascal-c-nontarget",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "the application code fork is Pascal, so full byte-exact repro is blocked by the Pascal compiler.",
+   "original_evidence": "A.U.G/Build.All: 'directory ADU / BuildProgram ADV.DISK.UTIL'. A.U.G/ADU has 11 .pii (Pascal) + 2 .aii + 1 adu.rii; the application code fork is Pascal, so full byte-exact repro is blocked by the Pascal compiler. Hardest part = data fork."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/AppleTalk/Display.0",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "No assembler/rez source produces the display image itself; base blob is an opaque third-party binary.",
+   "original_evidence": "GS.OS/MakeFiles/make.aristotle patches a prebuilt Aristotle menu-display binary (AristotlePatch/Display.0, 25490 B ~= 51 blocks, `file`=data) with a small asm patch applied by a C-built PatchTool (main.c). No assembler/rez source produces the display image itself; base blob is an opaque third-party binary. GSOSToDiskImage copies appletalk:DISPLAY.0 -> ST2 AppleTalk/Display.0."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/AppleTalk/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "A.U.G",
+    "GS.OS",
+    "GSToolbox",
+    "ToolBoxMisc",
+    "SD.ODDS.N.Ends",
+    "fst_bin",
+    "driver_bin",
+    "tool_bin",
+    "os_bin"
+   ],
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source; Finder.Data is runtime-generated metadata, never built.",
+   "original_evidence": "Finder per-folder desktop database. Searched IIGS.601.SRC (A.U.G, GS.OS, GSToolbox, ToolBoxMisc, SD.ODDS.N.Ends) + fst/driver/tool/os_bin: no producing source; Finder.Data is runtime-generated metadata, never built."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/CDevs/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder desktop DB; no producing source in any tree (runtime metadata).",
+   "original_evidence": "Finder desktop DB; no producing source in any tree (runtime metadata)."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Desk.Accs/MediaControl",
+   "classification": "pascal-c-nontarget",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "But DATA/code fork is built from Pascal (MediaCtlNDA.pii + MediaCtlUNIT.pii) -> outside gsasm asm/rez target; not reproducible.",
+   "original_evidence": "NDA. rsrc fork proven byte-exact by rezforkcheck (MediaControl -> MediaCtlNDA.rii, REZFORK_BYTES_EXACT). But DATA/code fork is built from Pascal (MediaCtlNDA.pii + MediaCtlUNIT.pii) -> outside gsasm asm/rez target; not reproducible. Hardest part = Pascal data fork."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Desk.Accs/VideoMix",
+   "classification": "pascal-c-nontarget",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "DATA/code fork is Pascal (PokeyNDA.Pii + PokeyUnit.Pii) -> non-target.",
+   "original_evidence": "NDA. rsrc fork proven byte-exact by rezforkcheck (VideoMix -> VideoMixNDA.rii, REZFORK_BYTES_EXACT). DATA/code fork is Pascal (PokeyNDA.Pii + PokeyUnit.Pii) -> non-target. Hardest part = Pascal data fork. (Distinct from Tool033 = VideoMix toolset, which IS built.)"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Drivers/IWEM",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Carried verbatim.",
+   "original_evidence": "SUBSTITUTE (VERIFY-NEGATIVE, all 3 source trees): golden is ASCII PostScript (%!PS-Adobe-2.0, type $04) produced by the MPW shell script BuildIWEm from IWEm.Src. The SHIPPED disk IWEM (29185B) DIVERGES after only 78 bytes from the only buildable IWEm.Src the tree can produce (28523B, which has no /IWEmDict Version guard block) -> the exact shipped bytes cannot be regenerated; the matching IWEm.Src version is not present. Carried verbatim."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/Archiver",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ToolBoxMisc",
+    "A.U.G",
+    "GSToolbox",
+    "SD.ODDS.N.Ends",
+    "all bin dirs"
+   ],
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "FLAG: would be buildable if source surfaced.",
+   "original_evidence": "TBoxMiscToDiskImage: :ArchiverGS:Archiver.app -> ST2 Archiver (from work:gstoolboxMisc:ArchiverGS). Searched IIGS.601.SRC (ToolBoxMisc, A.U.G, GSToolbox, SD.ODDS.N.Ends) + all bin dirs: no ArchiverGS/Archiver.app source dir present -- only disk-image copy scripts reference it. Application binary, source not archived. FLAG: would be buildable if source surfaced."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/Teach",
+   "classification": "pascal-c-nontarget",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "DATA/code fork built from Pascal (ToolBoxMisc/Teach/{uMenu.p,uWindow.p,uUtils.p,uGlobals.p,...} + teach.r) -> non-target.",
+   "original_evidence": "rsrc fork proven byte-exact by teachcheck.py (TEACH_RSRC_BYTES_EXACT). DATA/code fork built from Pascal (ToolBoxMisc/Teach/{uMenu.p,uWindow.p,uUtils.p,uGlobals.p,...} + teach.r) -> non-target. Hardest part = Pascal data fork (wall)."
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/CLOCK.PATCH",
+   "classification": "pascal-c-nontarget",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "NON-TARGET language (Applesoft BASIC, not asm/rez/Pascal/C) -- no clean enum bucket; using pascal-c-nontarget as nearest non-target. FLAG for human decision.",
+   "original_evidence": "ONEToDiskImage: duplicate SD.Odds.N.Ends:CLOCK.PATCH -> ST2 CLOCK.PATCH (verbatim copy, not built). `file` reports 'Applesoft BASIC program data' (tokenized); identical artifact present at SD.ODDS.N.Ends/CLOCK.PATCH (7769B) and GS.OS/P8/clock.patch (7655B). NON-TARGET language (Applesoft BASIC, not asm/rez/Pascal/C) -- no clean enum bucket; using pascal-c-nontarget as nearest non-target. FLAG for human decision."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Courier.27",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code",
+    "system500"
+   ],
+   "search_date": null,
+   "search_patterns": [
+    "Courier*"
+   ],
+   "decision": "Only QuickDraw Font Manager engine code exists (work/includes/M16.Font, txt/QD/font.asm) which is the renderer, not the font files.",
+   "original_evidence": "Binary IIgs font file ($C8). Searched ref/GSOS_6/IIGS.601.SRC + ROM Source + work/rincludes/system500 for 'Courier*' font-data source: absent. Only QuickDraw Font Manager engine code exists (work/includes/M16.Font, txt/QD/font.asm) which is the renderer, not the font files."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Courier.28",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code",
+    "system500"
+   ],
+   "search_date": null,
+   "search_patterns": [
+    "Courier*",
+    "courier*"
+   ],
+   "decision": "Binary $C8 font data; no 'Courier*' producing source in IIGS.601.SRC/ROM Source/system500 (find -iname courier* returned nothing but the QD font engine).",
+   "original_evidence": "Binary $C8 font data; no 'Courier*' producing source in IIGS.601.SRC/ROM Source/system500 (find -iname courier* returned nothing but the QD font engine)."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Courier.30",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": [
+    "courier*"
+   ],
+   "decision": "Binary $C8 font data; no font-data source found in any of the three trees (find -iname courier* empty).",
+   "original_evidence": "Binary $C8 font data; no font-data source found in any of the three trees (find -iname courier* empty)."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Courier.36",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code",
+    "system500"
+   ],
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no producing source in IIGS.601.SRC/ROM Source/system500.",
+   "original_evidence": "Binary $C8 font data; no producing source in IIGS.601.SRC/ROM Source/system500."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Courier.42",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Binary $C8 font data; no producing source in any tree.",
+   "original_evidence": "Binary $C8 font data; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.27",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code",
+    "system500"
+   ],
+   "search_date": null,
+   "search_patterns": [
+    "helvetica*"
+   ],
+   "decision": "Binary $C8 font data; find -iname helvetica* across IIGS.601.SRC/ROM Source/system500 returned nothing.",
+   "original_evidence": "Binary $C8 font data; find -iname helvetica* across IIGS.601.SRC/ROM Source/system500 returned nothing."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.27",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code",
+    "system500"
+   ],
+   "search_date": null,
+   "search_patterns": [
+    "times.*"
+   ],
+   "decision": "No font-data source.",
+   "original_evidence": "Binary $C8 font data. find -iname 'times.*' returned nothing under IIGS.601.SRC/ROM Source/system500 (the only 'Times' source is the Time CDEV, unrelated). No font-data source."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "no producing source exists \u2014 it is runtime-generated desktop state.",
+   "original_evidence": "Finder desktop database (binary). work/diskcheck.py owner_for() hard-codes any basename 'Finder.Data' as SUBSTITUTE (line 121); no producing source exists \u2014 it is runtime-generated desktop state."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/Goodies/Apple.Bowl",
+   "classification": "pascal-c-nontarget",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Hardest part (data fork) is Pascal-tool/BASIC, out of the ASM/Rez target scope.",
+   "original_evidence": "data+rsrc. RSRC FORK is byte-exact: rezforkcheck.py REZMAP['Apple.Bowl'] builds Bowl.r -> 863 B, PASS (rezforkcheck REZFORK_BYTES_EXACT 4515/4515). DATA FORK (app, ~40 blocks S16) is NOT reproducible via the AsmIIGS target: Makefile links Apple.Bowl from Bowl.obj = 'IntBasicIIGS Bowl.bas -o Bowl.obj', where IntBasicIIGS is a custom BASIC->OMF compiler written in Pascal (Compiler/Basic.p, Parser.p, Scanner.p, CodeGen.p, BasicCom.p). Hardest part (data fork) is Pascal-tool/BASIC, out of the ASM/Rez target scope."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/Goodies/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "diskcheck.py owner_for() rule: basename 'Finder.Data' -> SUBSTITUTE; no producing source (runtime-generated).",
+   "original_evidence": "Finder desktop database (binary, 1 block). diskcheck.py owner_for() rule: basename 'Finder.Data' -> SUBSTITUTE; no producing source (runtime-generated)."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/Icons/AppleBowl.Icon",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Hand-authored binary icon data -> substitute (archived copy available).",
+   "original_evidence": "ProDOS/IIgs icon file (binary $CA icon data, 1 block). An identical authored copy exists in the source tree (A.U.G/Apple.Bowl/AppleBowl.Icon, 466 B) but it IS the data \u2014 no toolchain produces it. Apple.Bowl/Makefile has NO build rule for AppleBowl.Icon (only Apple.Bowl and Read.Me targets). Hand-authored binary icon data -> substitute (archived copy available)."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "diskcheck.py owner_for() rule maps basename 'Finder.Data' -> SUBSTITUTE; runtime-generated, no source.",
+   "original_evidence": "Finder desktop database (binary, 1 block). diskcheck.py owner_for() rule maps basename 'Finder.Data' -> SUBSTITUTE; runtime-generated, no source."
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/Icons/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder desktop database, no producing source (same class as the other Finder.Data files).",
+   "original_evidence": "ADDED 2026-07-30 (census agent dropped it; Codex review). Finder desktop database, no producing source (same class as the other Finder.Data files)."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/synthLAB",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code",
+    "work extractions"
+   ],
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Basename absent as build target.",
+   "original_evidence": "synthLAB application (212 blks, GS/OS S16). No producing source in any tree: searched IIGS.601.SRC + 'ROM Source Code' + work extractions \u2014 no synthlab source dir exists (only GSToolbox/MIDISynth+NoteSynth, unrelated tools). Build scripts SD.ODDS.N.Ends/APW.Scripts/Build.Synth and SD.ODDS.N.Ends/synthLABToDiskImage merely `Duplicate` a prebuilt binary from ':A2CE_Sources:System Disk 6.0:synthlab:synthLAB'. Basename absent as build target."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Icons/SL.Icons",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code"
+   ],
+   "search_date": null,
+   "search_patterns": [
+    "SL.Icons"
+   ],
+   "decision": "No .icons/.r/.rez source; SD.ODDS.N.Ends/Finder.Icons script does not mention SL.Icons.",
+   "original_evidence": "Finder icon file (7 blks). Searched IIGS.601.SRC + ROM Source Code: only hits for 'SL.Icons' are QDAux/icon.asm (icon-mgr code, unrelated) and Build.Synth which just `Duplicate`s it verbatim. No .icons/.r/.rez source; SD.ODDS.N.Ends/Finder.Icons script does not mention SL.Icons."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Icons/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code"
+   ],
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Absent as a build target in IIGS.601.SRC/ROM Source Code.",
+   "original_evidence": "Finder desktop database (1 blk), generated at runtime by Finder, not built from source (per census rules Finder.Data is no-source-substitute). Absent as a build target in IIGS.601.SRC/ROM Source Code."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Synth.bnk",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code"
+   ],
+   "search_date": null,
+   "search_patterns": [
+    ".bnk"
+   ],
+   "decision": ".aii hits for '.bnk' are incidental comments in unrelated sound-tool source.",
+   "original_evidence": "synthLAB instrument-bank data (.bnk). Only tree reference is Build.Synth `Duplicate ... Synth.bnk` (verbatim copy). No producing source in IIGS.601.SRC/ROM Source Code; .aii hits for '.bnk' are incidental comments in unrelated sound-tool source."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Synth.seq",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "No producing source in any tree searched.",
+   "original_evidence": "synthLAB sequence data (.seq). Only tree reference is Build.Synth `Duplicate ... Synth.seq`. No producing source in any tree searched."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Synth.wav",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code",
+    "work extractions"
+   ],
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "No producing source; searched IIGS.601.SRC + ROM Source Code + work extractions.",
+   "original_evidence": "synthLAB waveform data (.wav). Only tree reference is Build.Synth `Duplicate ... Synth.wav`. No producing source; searched IIGS.601.SRC + ROM Source Code + work extractions."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Bee.seq",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Bee.seq`; no producing source in any tree.",
+   "original_evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Bee.seq`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Capri.seq",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Capri.seq`; no producing source in any tree.",
+   "original_evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Capri.seq`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Combo.bnk",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Combo.bnk`; no producing source in any tree.",
+   "original_evidence": "Instrument-bank data. Only reference Build.Synth `Duplicate ... Combo.bnk`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Combo.wav",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Combo.wav`; no producing source in any tree.",
+   "original_evidence": "Waveform data. Only reference Build.Synth `Duplicate ... Combo.wav`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Demo.bnk",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Demo.bnk`; no producing source in any tree.",
+   "original_evidence": "Instrument-bank data. Only reference Build.Synth `Duplicate ... Demo.bnk`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Demo.wav",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Demo.wav`; no producing source in any tree.",
+   "original_evidence": "Waveform data. Only reference Build.Synth `Duplicate ... Demo.wav`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Fugue.seq",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Fugue.seq`; no producing source in any tree.",
+   "original_evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Fugue.seq`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Midsummer.seq",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Midsummer.seq`; no producing source in any tree.",
+   "original_evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Midsummer.seq`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Orch.bnk",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Orch.bnk`; no producing source in any tree.",
+   "original_evidence": "Instrument-bank data. Only reference Build.Synth `Duplicate ... Orch.bnk`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Orch.wav",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Orch.wav`; no producing source in any tree.",
+   "original_evidence": "Waveform data. Only reference Build.Synth `Duplicate ... Orch.wav`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Piano.bnk",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Piano.bnk`; no producing source in any tree.",
+   "original_evidence": "Instrument-bank data. Only reference Build.Synth `Duplicate ... Piano.bnk`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Piano.wav",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Piano.wav`; no producing source in any tree.",
+   "original_evidence": "Waveform data. Only reference Build.Synth `Duplicate ... Piano.wav`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Rhythm.seq",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Rhythm.seq`; no producing source in any tree.",
+   "original_evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Rhythm.seq`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Sonata.seq",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Only reference Build.Synth `Duplicate ... Sonata.seq`; no producing source in any tree.",
+   "original_evidence": "Sequence data. Only reference Build.Synth `Duplicate ... Sonata.seq`; no producing source in any tree."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "ROM Source Code"
+   ],
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Not a build target; absent from IIGS.601.SRC/ROM Source Code.",
+   "original_evidence": "Finder desktop database (1 blk) for the Seq.and.Instr folder, generated at runtime by Finder. Not a build target; absent from IIGS.601.SRC/ROM Source Code."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Reference",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "GSToolbox"
+   ],
+   "search_date": null,
+   "search_patterns": [
+    "Reference"
+   ],
+   "decision": "No .r/.rez/.p/.c source; 'Reference' hits under GSToolbox are incidental word matches in NoteSynth .aii comments, not this document.",
+   "original_evidence": "synthLAB reference document (114 blks; data fork 53839 B, rsrc fork 2108 B, verified via rezcheck volume read). Only tree reference is Build.Synth `Duplicate ... Reference` (verbatim copy). No .r/.rez/.p/.c source; 'Reference' hits under GSToolbox are incidental word matches in NoteSynth .aii comments, not this document."
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Not a build target; absent from all source trees searched.",
+   "original_evidence": "Finder desktop database (1 blk) for the synthLAB volume root, generated at runtime by Finder. Not a build target; absent from all source trees searched."
+  },
+  {
+   "disk": "Disk 7 of 7 Apple II Setup.2mg",
+   "path": "/Apple II Script",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": [
+    "Types.r",
+    "InstallerTypes.r"
+   ],
+   "decision": "Carried verbatim.",
+   "original_evidence": "SUBSTITUTE (VERIFY-NEGATIVE, all 3 source trees): data fork is 0 bytes; the payload is a Macintosh Installer RESOURCE fork compiled by Mac Rez from Apple2GSInstallerScript.r, whose #include 'Types.r','InstallerTypes.r' templates are absent from every source tree (Mac Rez, not IIgs Rez). No data-fork build exists to attempt. Carried verbatim."
+  },
+  {
+   "disk": "Disk 7 of 7 Apple II Setup.2mg",
+   "path": "/Installer",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC",
+    "A.U.G",
+    "GS.OS/NetBoot/Installer"
+   ],
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Searched IIGS.601.SRC (incl. A.U.G, GS.OS/NetBoot/Installer which holds only .r scripts): no 68k Mac Installer source. -> no-source-substitute.",
+   "original_evidence": "Resource fork (132375 B) type list = Macintosh application: CODE(9), CDEF, LDEF, PROC, INIT, ptch, DLOG(11)/dctb(12)/DITL(22), SIZE, dcmp, icl8/icl4/ics8/ics4 icon families, BNDL/FREF/SIG#, bjbc(1). This is Apple's Macintosh Installer app (creator 'bjbc'), used on the Mac that builds this disk (build.disk: 'build to a Macintosh System Tools ... or Apple II Setup disk'). installercheck.py gates a DIFFERENT program \u2014 the IIgs Installer (A.U.G/Installer: Install.asm/Main.asm/Data.asm + Installer.r), 17,895 B / 90 resources on Disk 1. Searched IIGS.601.SRC (incl. A.U.G, GS.OS/NetBoot/Installer which holds only .r scripts): no 68k Mac Installer source. -> no-source-substitute."
+  },
+  {
+   "disk": "Disk 7 of 7 Apple II Setup.2mg",
+   "path": "/Spooler\u2014Read Me",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "but it is authored prose, not produced by any asm/rez build step. -> no-source-substitute (data doc).",
+   "original_evidence": "type 'ttro' creator 'ttxt' = TeachText read-only document. An identically-named copy exists in the source archive (NetBoot/SpoolerIWEM/Spooler-Read Me) but it is authored prose, not produced by any asm/rez build step. -> no-source-substitute (data doc)."
+  },
+  {
+   "disk": "Disk 7 of 7 Apple II Setup.2mg",
+   "path": "/Desktop",
+   "classification": "no-source-substitute",
+   "searched_trees": [
+    "IIGS.601.SRC"
+   ],
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Searched IIGS.601.SRC: no producing source. -> no-source-substitute (per project rule for Finder.Data/Desktop desktop DBs).",
+   "original_evidence": "type 'FNDR' creator 'ERIK' = the classic Finder 'Desktop' database file (icon/bundle registry), generated at runtime by the Finder, not built from source. Searched IIGS.601.SRC: no producing source. -> no-source-substitute (per project rule for Finder.Data/Desktop desktop DBs)."
+  },
+  {
+   "disk": "Disk 7 of 7 Apple II Setup.2mg",
+   "path": "/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Project rule classifies Finder.Data as no-source-substitute.",
+   "original_evidence": "type 'p...'(pdos) creator 'pdos' = Finder metadata/data file. finderdatacheck.py exists but targets the GS/OS Finder's Finder.Data on the System/Tools disks, not this Apple-II-Setup root copy; no source builds this data. Project rule classifies Finder.Data as no-source-substitute."
+  },
+  {
+   "disk": "Disk 7 of 7 Apple II Setup.2mg",
+   "path": "/System Folder/Finder.Data",
+   "classification": "no-source-substitute",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "Finder-maintained data, no producing source in any tree. -> no-source-substitute.",
+   "original_evidence": "type 'p...'(pdos) creator 'pdos', 161 B Finder data in the System Folder. Same as root Finder.Data \u2014 Finder-maintained data, no producing source in any tree. -> no-source-substitute."
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/System.Setup/Tool.Setup",
+   "classification": "technical-exception",
+   "searched_trees": null,
+   "search_date": null,
+   "search_patterns": null,
+   "decision": "source exists (asm toolset bundle) but ExpressLoad case-B reloc encoding not byte-exact; deliberately unwired, golden bytes carried. SOW P7 crack target.",
+   "original_evidence": "source exists (asm toolset bundle) but ExpressLoad case-B reloc encoding not byte-exact; deliberately unwired, golden bytes carried. SOW P7 crack target."
+  }
+ ],
+ "gaps": [
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/RAM5",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Adv.Disk.Util",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Apple.MIDI",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/AppleDisk5.25",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/AppleShare",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Aristotle.Patch",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/ATImageWriter",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/ATImageWriterLQ",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Card6850.MIDI",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/DCImageWriter",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/DCImageWriterLQ",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/DOS3.3.FST",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Easy.Access",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Epson",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Fonts",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Fonts.Std",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/HFS.FST",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Inst.Sys.Min",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Inst.SysF.NoFin",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/LaserWriter",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/MediaCtrl.CDSC",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/MediaCtrl.P2000",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/MediaCtrl.P4200",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/MSDOS.FST",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Pascal.FST",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Quick.Logoff",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/SCSI.Hard.Disk",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Sounds.All",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/StyleWriter",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/synthLAB",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/UniDisk3.5",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/VideoKeyboard",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.12",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.14",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.18",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.20",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.24",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.10",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.12",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.14",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.16",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.18",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.20",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Geneva.24",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.09",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.10",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.12",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.14",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.18",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.20",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Helvetica.24",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.09",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.12",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.14",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.18",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.20",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.24",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Venice.12",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Venice.14",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Venice.24",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/Desk.Accs/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/CDevs/CDev.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/CDevs/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/Tools/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/Fonts/Font.Lists",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/Fonts/Times.10",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/Fonts/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/FinderExtras/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/Icons/FType.Apple",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/Icons/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Desk.Accs/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Drivers/Media.Control/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Drivers/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Fonts/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/FSTs/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/System.Setup/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Tools/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Sounds/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Desk.Accs/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Drivers/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/FSTs/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Tools/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/Icons/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.28",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.30",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.36",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.42",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.48",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.60",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.72",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.96",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.28",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.30",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.36",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.42",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.48",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.60",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.72",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.96",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/System.Setup/Tool.Setup",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: record documents a build-fidelity technical exception (source is known to exist), not a 'no source found' search claim -- no search description is present | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: record documents a build-fidelity technical exception (source is known to exist), not a 'no source found' search claim -- no search description is present"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/CDevs/CDev.Data",
+   "missing": [
+    "search_date"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/SetStart.data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/Fonts/FastFont",
+   "missing": [
+    "search_date"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/Fonts/Font.Lists",
+   "missing": [
+    "search_date"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/Tools/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/System/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Icons/FType.Apple",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Icons/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/A2.RAMCard",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Apple.Bowl",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/AppleShare3.5",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Archiver",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Calculator",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/CDROM",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/CloseView",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/FindFile",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Fonts.Max",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Instal.Sys.File",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Local.Net.Boot",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/MediaControl",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Namer",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/SCSI.Scanner",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/SCSI.Tape",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Server.Sys.File",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Teach",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/VideoMix",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Scripts/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 1 of 7 Install.2mg",
+   "path": "/Install/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/CDevs/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Desk.Accs/FindFile",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Desk.Accs/Calculator",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.09",
+   "missing": [
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Courier.10",
+   "missing": [
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Shaston.16",
+   "missing": [
+    "searched_trees",
+    "search_date"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/System/Fonts/Times.10",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 3 of 7 SystemTools1.2mg",
+   "path": "/SystemTools1/Adv.Disk.Util",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/AppleTalk/Display.0",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/AppleTalk/Finder.Data",
+   "missing": [
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/CDevs/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Desk.Accs/MediaControl",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Desk.Accs/VideoMix",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/System/Drivers/IWEM",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence states a count of trees searched (e.g. 'all 3 source trees') but does not name them in this record | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/Archiver",
+   "missing": [
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/Teach",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 4 of 7 SystemTools2.2mg",
+   "path": "/SystemTools2/CLOCK.PATCH",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Courier.27",
+   "missing": [
+    "search_date"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Courier.28",
+   "missing": [
+    "search_date"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Courier.30",
+   "missing": [
+    "searched_trees",
+    "search_date"
+   ],
+   "note": "searched_trees: evidence states a count of trees searched (e.g. 'all 3 source trees') but does not name them in this record | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Courier.36",
+   "missing": [
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Courier.42",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Helvetica.27",
+   "missing": [
+    "search_date"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Fonts/Times.27",
+   "missing": [
+    "search_date"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/System/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/Goodies/Apple.Bowl",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/Goodies/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/Icons/AppleBowl.Icon",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 5 of 7 Fonts.2mg",
+   "path": "/Fonts/Icons/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: evidence contains a date (2026-07-30) but it documents when the census ROW was added/reviewed, not when a source search occurred | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/synthLAB",
+   "missing": [
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Icons/SL.Icons",
+   "missing": [
+    "search_date"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Icons/Finder.Data",
+   "missing": [
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Synth.bnk",
+   "missing": [
+    "search_date"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Synth.seq",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Synth.wav",
+   "missing": [
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Bee.seq",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Capri.seq",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Combo.bnk",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Combo.wav",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Demo.bnk",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Demo.wav",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Fugue.seq",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Midsummer.seq",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Orch.bnk",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Orch.wav",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Piano.bnk",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Piano.wav",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Rhythm.seq",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Sonata.seq",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Seq.and.Instr/Finder.Data",
+   "missing": [
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Reference",
+   "missing": [
+    "search_date"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 6 of 7 synthLAB.2mg",
+   "path": "/synthLAB/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 7 of 7 Apple II Setup.2mg",
+   "path": "/Apple II Script",
+   "missing": [
+    "searched_trees",
+    "search_date"
+   ],
+   "note": "searched_trees: evidence states a count of trees searched (e.g. 'all 3 source trees') but does not name them in this record | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence"
+  },
+  {
+   "disk": "Disk 7 of 7 Apple II Setup.2mg",
+   "path": "/Installer",
+   "missing": [
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 7 of 7 Apple II Setup.2mg",
+   "path": "/Spooler\u2014Read Me",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence identifies a source/copy location directly (pascal-c-nontarget or verbatim-copy-found case) rather than stating trees that were searched and came up empty | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 7 of 7 Apple II Setup.2mg",
+   "path": "/Desktop",
+   "missing": [
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 7 of 7 Apple II Setup.2mg",
+   "path": "/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: classification is rule-based (e.g. Finder.Data basename rule, diskcheck SUBSTITUTE-by-rule) -- evidence does not describe a tree search at all | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 7 of 7 Apple II Setup.2mg",
+   "path": "/System Folder/Finder.Data",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: evidence says source is absent from 'any tree' / 'every source tree' / a counted-but-unnamed set generically, without naming which trees were searched | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: no quoted grep/find search term appears in this record's evidence"
+  },
+  {
+   "disk": "Disk 2 of 7 System Disk.2mg",
+   "path": "/System.Disk/System/System.Setup/Tool.Setup",
+   "missing": [
+    "searched_trees",
+    "search_date",
+    "search_patterns"
+   ],
+   "note": "searched_trees: record documents a build-fidelity technical exception (source is known to exist), not a 'no source found' search claim -- no search description is present | search_date: no absolute or anchorable search date is stated anywhere in this record's evidence | search_patterns: record documents a build-fidelity technical exception (source is known to exist), not a 'no source found' search claim -- no search description is present"
+  }
+ ]
+}
