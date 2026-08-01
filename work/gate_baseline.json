@@ -89,11 +89,11 @@
   ],
   "manifest_builders_exact": [
     176,
-    3
+    1
   ],
   "manifest_builders_wired": [
     176,
-    3
+    1
   ],
   "manifest_inventory_classified": [
     7,
@@ -104,12 +104,12 @@
     4
   ],
   "manifest_substitutes_confirmed": [
-    245,
+    247,
     0
   ],
   "manifest_substitutes_structured": [
     200,
-    45
+    47
   ],
   "manifest_technical_exceptions_accepted": [
     0,

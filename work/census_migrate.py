@@ -538,9 +538,14 @@ def _d7_data():
 
 _add(D7, '/System Folder/Basic.System',
      data=_d7_data(),
-     rsrc=_entry('buildable-rez', None,
-                 'Resource fork buildable from Basic.r + SetVersion vers, '
-                 'not yet wired into any gate harness.',
+     rsrc=_entry('no-source-substitute', None,
+                 'RECLASSIFIED 2026-08-01 (was buildable-rez): the live fork '
+                 'is a MAC resource fork (header dataOff=0x100, single Mac '
+                 "'vers' resource, 416B) -- same container class as the "
+                 'boot-block rsrc forks. Basic.r (NetBoot/Installer/) is a '
+                 'MAC Rez source for the Mac Installer support set; gsrez '
+                 'emits IIgs-format forks, so the container format can never '
+                 'byte-match. Carried verbatim.',
                  source_path='ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Installer/Basic.r'))
 _add(D7, '/IWEm',
      data=_d7_data(),
@@ -550,9 +555,14 @@ _add(D7, '/IWEm',
                  'other five, no .r file is cited) -- carried verbatim.'))
 _add(D7, '/System Folder/p8',
      data=_d7_data(),
-     rsrc=_entry('buildable-rez', None,
-                 'Resource fork buildable from P8.r, not yet wired into any '
-                 'gate harness.',
+     rsrc=_entry('no-source-substitute', None,
+                 'RECLASSIFIED 2026-08-01 (was buildable-rez): the live fork '
+                 'is a MAC resource fork (header dataOff=0x100, single Mac '
+                 "'vers' resource, 409B) -- same container class as the "
+                 'boot-block rsrc forks. P8.r (NetBoot/Installer/) is a MAC '
+                 'Rez source for the Mac Installer support set; gsrez emits '
+                 'IIgs-format forks, so the container format can never '
+                 'byte-match. Carried verbatim.',
                  source_path='ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Installer/P8.r'))
 _add(D7, '/System Folder/Apple //e Boot Blocks',
      data=_d7_data(),
