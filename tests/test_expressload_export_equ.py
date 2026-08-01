@@ -11,14 +11,18 @@ signal (`symtype == 'equ'`, OMF GEQU vs GLOBAL) through
 ``linkiigs._build_symtab`` as ``SymTab.kinds``, resolved at the SAME
 per-object precedence as the symbol's value.
 
-Two properties are asserted, per the diagnosis §7 fixture spec:
+Three properties are asserted (diagnosis §7 fixture spec + the 2026-08-01
+module-privacy rule the ATP1.ATROM/Epson golds forced):
 
 1. A cross-object reference to an EXPORT-EQU whose small value (3) lands
    INSIDE the body range — reproducing the exact coincidence that hid the
    bug — bakes the literal and emits NO reloc record for its site.
-2. Collision safety (the TS2 regression case): an unrelated object's OWN
-   private label with the SAME folded name still gets its normal
-   relocation — a flat "known EQU names" union would wrongly suppress it.
+2. A plain INTERIOR label sharing the export's folded name is module-LOCAL
+   (MPW scoping): the by-name ref binds the EXPORT — no reloc (ATP1.ATROM's
+   CMDADDRS CloseSkt, gold-proven 0x1E95 over the private 0x656).
+3. A SEGMENT/PROC name sharing the name stays object-locally visible
+   (pass (a)): its own object's refs keep their reloc (the TS2
+   DUMMYTABLE/TLBootInit shape, gold-proven) — the collision-safety line.
 
 Run either as:
     python3 -m pytest tests/test_expressload_export_equ.py
@@ -59,10 +63,12 @@ SRC_B = (
     '\tEND\n'
 )
 
-# Object C: an unrelated file whose OWN private label happens to share the
-# folded name; the reference is CROSS-SEGMENT within the same object (the
-# TS2 collision shape — a same-segment ref would fold to a segment-name
-# expr and never carry the label's name), and must KEEP its relocation.
+# Object C: an unrelated file whose OWN private INTERIOR label shares the
+# folded name, referenced cross-module within the same object.  MPW module
+# scoping makes a plain interior label module-LOCAL, so the by-name ref
+# binds the program-wide EXPORT — here object A's EQU constant, hence NO
+# reloc (the ATP1.ATROM CloseSkt rule, gold-proven: CMDADDRS binds
+# ApTalk.aii's exported CloseSkt, not ATP_includes' private label).
 SRC_C = (
     'Cseg\tPROC\n'
     '\tlda\t#small_const\n'
@@ -74,11 +80,27 @@ SRC_C = (
     '\tEND\n'
 )
 
+# Object D: a PROC (segment) NAMED like the export.  Segment names are
+# seeded by _build_symtab pass (a) and stay object-private-but-visible —
+# D's own reference keeps binding its own PROC (the TS2 DUMMYTABLE /
+# TLBootInit shape, gold-proven) and therefore KEEPS its relocation.
+SRC_D = (
+    'Dseg\tPROC\n'
+    '\tlda\t#small_const\n'
+    '\trts\n'
+    '\tENDP\n'
+    'small_const\tPROC\n'
+    '\tdc.w\t0\n'
+    '\tENDP\n'
+    '\tEND\n'
+)
+
 
 def _objects():
     out = []
     with tempfile.TemporaryDirectory() as tmp:
-        for name, src in (('a.aii', SRC_A), ('b.aii', SRC_B), ('c.aii', SRC_C)):
+        for name, src in (('a.aii', SRC_A), ('b.aii', SRC_B),
+                          ('c.aii', SRC_C), ('d.aii', SRC_D)):
             p = os.path.join(tmp, name)
             with open(p, 'w') as fh:
                 fh.write(src)
@@ -119,9 +141,14 @@ def test_kind_tables_resolve_with_per_object_precedence():
     placed, sym, obj_globals, body_kinds = _pipeline(objects)
     # Global view: the EXPORT-EQU is an 'equ'.
     assert sym.kinds.get('SMALL_CONST') == 'equ', sym.kinds
-    # Object C's own view: its private label wins — kind 'label'.
-    c_kinds = getattr(obj_globals[2], 'kinds', {})
-    assert c_kinds.get('SMALL_CONST') == 'label', c_kinds
+    # Object C's plain interior label is module-private (MPW): it is
+    # EXCLUDED from C's per-object table, so the name resolves via the
+    # global sym to A's export — kind 'equ'.
+    assert 'SMALL_CONST' not in obj_globals[2], dict(obj_globals[2])
+    # Object D's PROC name IS in its per-object table (pass (a) segment
+    # seeding) — kind 'label', so D's own refs keep their reloc.
+    d_kinds = getattr(obj_globals[3], 'kinds', {})
+    assert d_kinds.get('SMALL_CONST') == 'label', d_kinds
 
 
 def test_export_equ_reference_needs_no_reloc():
@@ -131,12 +158,18 @@ def test_export_equ_reference_needs_no_reloc():
     assert sites, 'no reference sites found — fixture drifted'
     b_sites = [(i, ops) for i, ops in sites if placed[i][0] == 'BSEG']
     c_sites = [(i, ops) for i, ops in sites if placed[i][0] == 'CSEG']
-    assert b_sites and c_sites, [placed[i][0] for i, _ in sites]
+    d_sites = [(i, ops) for i, ops in sites if placed[i][0] == 'DSEG']
+    assert b_sites and c_sites and d_sites, [placed[i][0] for i, _ in sites]
     # 1. B's references bind the EXPORT-EQU -> link-time constant, NO reloc.
     for seg_i, ops in b_sites:
         assert not _needs_reloc(ops, body_kinds[seg_i]), (seg_i, ops)
-    # 2. C's reference binds its OWN private label -> reloc KEPT.
+    # 2. C's plain INTERIOR label is module-local (MPW): the by-name ref
+    #    binds A's exported EQU -> also NO reloc (ATP1.ATROM CloseSkt rule).
     for seg_i, ops in c_sites:
+        assert not _needs_reloc(ops, body_kinds[seg_i]), (seg_i, ops)
+    # 3. D's SEGMENT name stays visible object-locally (pass (a)): its own
+    #    ref binds its own PROC -> reloc KEPT (TS2 DUMMYTABLE shape).
+    for seg_i, ops in d_sites:
         assert _needs_reloc(ops, body_kinds[seg_i]), (seg_i, ops)
 
 
@@ -156,8 +189,10 @@ def test_full_expressload_emits_no_record_for_equ_sites():
                   for i in range(len(placed))}
     b_lo, b_hi = seg_ranges['BSEG']
     c_lo, c_hi = seg_ranges['CSEG']
+    d_lo, d_hi = seg_ranges['DSEG']
     assert not any(b_lo <= o < b_hi for o in all_offsets), (all_offsets, seg_ranges)
-    assert any(c_lo <= o < c_hi for o in all_offsets), (all_offsets, seg_ranges)
+    assert not any(c_lo <= o < c_hi for o in all_offsets), (all_offsets, seg_ranges)
+    assert any(d_lo <= o < d_hi for o in all_offsets), (all_offsets, seg_ranges)
     # And the whole pipeline still emits a well-formed file.
     blob = expressload(objects, opts={})
     assert blob[:4] != b'', 'empty output'

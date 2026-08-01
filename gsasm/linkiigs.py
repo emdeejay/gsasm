@@ -439,8 +439,23 @@ def _build_symtab(
                 if is_single_obj or is_public:
                     _kind_setdefault(sym, lab, abs_val, _kind_b)
 
-                # Per-object table: ALL labels (for intra-object resolution)
-                _kind_setdefault(obj_globals[obj_idx], lab, abs_val, _kind_b)
+                # Per-object table: ALL labels (for intra-object resolution) —
+                # EXCEPT a PLAIN interior label (neither EXPORTed nor ENTRYed
+                # here) whose name another object EXPORTs.  MPW module scoping
+                # makes such a label module-LOCAL: a by-name OMF reference
+                # from a sibling module of the SAME object legally binds the
+                # program-wide EXPORT, not the private label (ATP1.ATROM's
+                # CMDADDRS `dc.l CloseSkt` must bind ApTalk.aii's exported
+                # CloseSkt at 0x1E95, not ATP_includes' own private label at
+                # 0x656 — gold-proven).  An ENTRY here still goes in (its own
+                # object's refs bind it — the Finder GetFileInfo rule), and a
+                # name nobody exports still resolves intra-object as before.
+                if not (is_single_obj
+                        or lab in asm_obj.exports or lab in asm_obj.entries
+                        or lab not in _all_exports):
+                    pass                    # module-private; export wins
+                else:
+                    _kind_setdefault(obj_globals[obj_idx], lab, abs_val, _kind_b)
 
     # (c) GLOBAL / GEQU records from all OMF bodies (setdefault — lower priority)
     #

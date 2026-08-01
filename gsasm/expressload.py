@@ -1267,10 +1267,14 @@ def _build_single_output_seg(
         super_classes: frozenset,
         kind_override: int | None,
         loadfile_name: bytes | None,
+        segname_override: bytes | None = None,
 ) -> bytes:
     """Single-segment ExpressLoad output (the original, non-multiseg
     path): every input object collapses into one ``'main'`` load
-    segment.  Extracted verbatim from ``expressload()`` (R9 decomposition,
+    segment (``opts['segname']`` overrides the name — VideoKeyboard's
+    golden link named its segment after the DA, and the SEGNAME rides
+    into both the segment header and the ~ExpressLoad directory's
+    ``entry_len = 51 + len(SEGNAME)``, so the name is byte-load-bearing).  Extracted verbatim from ``expressload()`` (R9 decomposition,
     byte-identical) — builds each placed segment's body (Passes 3/4),
     merges them, classifies the standalone / case-B / SUPER relocation
     records, and frames the single ``~ExpressLoad`` directory tail."""
@@ -1392,7 +1396,7 @@ def _build_single_output_seg(
 
     all_relocs = bytes(standalone) + bytes(super_records)
     first_hdr   = placed[0][3]
-    out_name    = b'main'
+    out_name    = segname_override or b'main'
     out_kind    = kind_override or first_hdr['KIND']
     out_align   = max((p[3].get('ALIGN') or 0) for p in placed)
     reloc_size_val = len(all_relocs) - 1  # exclude trailing END byte
@@ -2296,7 +2300,8 @@ def expressload(
         # Single-segment output (all input objects -> one 'main' segment).
         return _build_single_output_seg(
             placed, sym, obj_globals, placed_obj_idx,
-            super_classes, opts.get('kind'), loadfile_name)
+            super_classes, opts.get('kind'), loadfile_name,
+            segname_override=opts.get('segname'))
     # Multi-segment output (one load segment per object / obj_group).
     return _build_multiseg_output(
         placed, placed_obj_idx, sym, obj_globals, n_objs, opts,

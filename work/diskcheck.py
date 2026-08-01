@@ -342,6 +342,84 @@ def _build_install_start():
                                                 # is a wholly different file/recipe)
 
 
+def _build_appleshare_fullfile():
+    """AppleShare.FST full ExpressLoad file: fstcheck's own 25-object recipe
+    (APPLESHARE_ORDER + DebugCode=0 + the equates LOAD replay) wrapped in
+    expressload() instead of linkiigs.link(merge=True) — byte-exact once the
+    exported-EQU sym_kind fix landed (2026-08-01)."""
+    import fstcheck
+    from gsasm import asm as _a, omf as _o
+    from gsasm.expressload import expressload as _ex
+    src = fstcheck.APPLESHARE_DIR
+    files = {f.lower(): f for f in os.listdir(src) if f.endswith('.aii')}
+    incs = [src] + fstcheck.INCS
+    objs = []
+    for base in fstcheck.APPLESHARE_ORDER:
+        a = _a.assemble(os.path.join(src, files[base.lower() + '.aii']), incs,
+                        defines={'DebugCode': 0},
+                        loads={'equates.dump': 'Equates.aii'})
+        objs.append((_o.emit(a), a))
+    return _ex(objs)
+
+
+def _build_videokeyboard_fullfile():
+    """VideoKeyboard DA full file: the 5-object DRIVERMAP recipe with the
+    golden segment identity (SEGNAME b'VideoKeyboard' + KIND 0x1000 — the
+    name rides into both the segment header and the ~ExpressLoad directory
+    entry_len, 18 bytes of the file)."""
+    import drivercheck
+    from gsasm import asm as _a, omf as _o
+    from gsasm.expressload import expressload as _ex
+    subdir, srcs, defines = drivercheck.DRIVERMAP['VideoKeyboard']
+    d = f'{drivercheck.SRC}/{subdir}'
+    objs = []
+    for r in srcs:
+        a = _a.assemble(f'{d}/{r}', [d] + drivercheck.INCS, defines=defines or None)
+        objs.append((_o.emit(a), a))
+    return _ex(objs, opts={'kind': 0x1000, 'segname': b'VideoKeyboard'})
+
+
+def _build_closeview_fullfile():
+    """CloseView full file: the CloseView.make 2-lseg shape (INIT 0x4000 +
+    NDA 0x0000) through the proven multiseg machinery — byte-exact first
+    try; the 'packaging gap' was only that nobody had pointed the TS2/TS3
+    machinery at it."""
+    import drivercheck
+    from _common import gsos_source_root
+    from gsasm import asm as _a, omf as _o
+    from gsasm.expressload import expressload as _ex
+    cv = os.path.join(gsos_source_root(), 'A.U.G', 'CloseView')
+    objs = []
+    for n in ('Core.aii', 'Patches.aii', 'Data.aii', 'NDA.aii'):
+        a = _a.assemble(os.path.join(cv, n), [cv] + drivercheck.INCS)
+        objs.append((_o.emit(a), a))
+    return _ex(objs, opts={
+        'multiseg': True, 'obj_group': [0, 0, 0, 1],
+        'segnames': [b'INIT', b'NDA'], 'segkinds': [0x4000, 0x0000]})
+
+
+def _build_laserwriter_fullfile():
+    """LaserWriter full file: MAIN + ~JumpTable + dynamic PREPFILE (the
+    Tool016 shape) — jt_entries from toolcheck's gate-proven reference-scan
+    link, wrapped by the multiseg packager."""
+    import toolcheck as _tc
+    import drivercheck
+    from gsasm import asm as _a, omf as _o
+    from gsasm.expressload import expressload as _ex
+    segs = drivercheck.DRIVERMAP['LaserWriter']['jt_segments']
+    _imgs, jt_entries, _jsn, _sn = _tc._link_jt_tool('PrinterDrivers/LW', segs)
+    lw = f'{_tc.TB}/PrinterDrivers/LW'
+    objs, grp = [], []
+    for gi, (name, kind, srcs) in enumerate(segs):
+        for r in srcs:
+            a = _a.assemble(f'{lw}/{r}', [lw] + _tc.INCS)
+            objs.append((_o.emit(a), a)); grp.append(gi)
+    return _ex(objs, opts={
+        'multiseg': True, 'obj_group': grp,
+        'segnames': [b'MAIN', b'PREPFILE'], 'segkinds': [0x0000, 0x8000],
+        'jt_entries': jt_entries})
+
+
 def _driver_fullfile(name):
     """Full-file ExpressLoad builder for a drivercheck DRIVERMAP driver that
     ships on a non-System disk (no Disk-2 SOURCE_BUILDERS entry to reuse) —
@@ -708,6 +786,9 @@ DISK_BUILDER_REGISTRY = {
             'data', _driver_fullfile('ImageWriter.LQ')),
         '/SystemTools1/System/Drivers/StyleWriter': (
             'data', _driver_fullfile('StyleWriter')),
+        # module-privacy rule graduate (2026-08-01, linkiigs pass (b)):
+        '/SystemTools1/System/Drivers/Epson': (
+            'data', _driver_fullfile('Epson')),
         '/SystemTools1/System/Drivers/A2.RAMCard': (
             'data', _build_driver_fullfile('A2.RAMCard')),
         '/SystemTools1/System/Drivers/RAM5': (
@@ -781,6 +862,24 @@ DISK_BUILDER_REGISTRY = {
     # All 5 stay on disk as their original (untouched) bytes; only
     # disk4_logical_exact's denominator is 47, not 52.
     'Disk 4 of 7 SystemTools2.2mg': {
+        # sym_kind + const-shift fix graduate (2026-08-01): the 25-object
+        # AppleShare merge's full ExpressLoad file is now byte-exact
+        # (was +2B in the ~ExpressLoad directory, the diagnosed family).
+        '/SystemTools2/System/FSTs/AppleShare.FST': (
+            'data', _build_appleshare_fullfile),
+        # module-privacy rule graduate (2026-08-01): CMDADDRS `dc.l CloseSkt`
+        # must bind ApTalk.aii's EXPORT, not ATP_includes' private label.
+        '/SystemTools2/System/Drivers/ATP1.ATROM': (
+            'data', _driver_fullfile('ATP1.ATROM')),
+        # the last three (2026-08-01): segment-identity opts + the multiseg
+        # packager pointed at shapes it already handled — census now has
+        # ZERO unbuilt files.
+        '/SystemTools2/System/Desk.Accs/VideoKeyboard': (
+            'data', _build_videokeyboard_fullfile),
+        '/SystemTools2/System/System.Setup/CloseView': (
+            'data', _build_closeview_fullfile),
+        '/SystemTools2/System/Drivers/LaserWriter': (
+            'data', _build_laserwriter_fullfile),
         # AppleTalk net-boot trio + protocol/supervisory drivers -- generic
         # full-file expressload(objects) recipe (same _build_driver_fullfile
         # Disk 3's single/2-object drivers use); all confirmed byte-exact
