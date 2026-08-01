@@ -59,6 +59,13 @@ CHECKS = [
     # the tree's prebuilt stripped artifact instead of replaying the script).
     ('iwemcheck', ['iwemcheck.py'], [
         ('iwem_bytes_exact', r'IWEM_BYTES_EXACT (\d+)/(\d+)', 'frac')]),
+    # The four literal-text DATA forks (Disk 4 Read.Me/Shortcuts/Whats.New +
+    # Disk 5 Fonts Read.Me): shipped verbatim from tracked source text files
+    # (makefile Duplicate rules); this harness is the 1:1 byte comparison the
+    # census gap-list said was missing (see work/textdatacheck.py).
+    ('textdatacheck', ['textdatacheck.py'], [
+        ('text_data_bytes_exact',
+         r'TEXT_DATA_BYTES_EXACT (\d+)/(\d+)', 'frac')]),
     ('bytecheck', ['bytecheck.py'], [
         ('opcode_bytes', r'OPCODE bytes:\s*(\d+) ok / (\d+) bad', 'okbad'),
         ('operand_values', r'OPERAND values[^:]*:\s*(\d+) ok / (\d+) bad', 'okbad')]),

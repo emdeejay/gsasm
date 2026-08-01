@@ -451,17 +451,22 @@ _add(D4, '/SystemTools2/System/System.Setup/EasyMount',
                  'work/easymountcheck.py (rez_easymount_rsrc_bytes_exact).'))
 
 # --- Read.Me / Shortcuts / Whats.New (Disk 4) + Fonts Read.Me (Disk 5):
-# rezdatacheck proves ONLY the resource fork (a TE-record + style-block pair);
-# the literal text DATA fork is byte-identical to a tracked source file but NO
-# gate harness currently performs that comparison -- an honest GAP (flagged
-# in B_REPORT.md), not a fabricated proof.
+# rezdatacheck proves ONLY the resource fork (a TE-record + style-block pair).
+# The literal text DATA fork is shipped verbatim from a tracked source file
+# (makefile Duplicate rule); the missing 1:1 byte comparison — an honest GAP
+# in B_REPORT.md until 2026-08-01 — is now wired as work/textdatacheck.py
+# (gate metric text_data_bytes_exact, 30520/30520), so both forks are built.
 def _readme_pair(rsrc_size, src_hint, text_src):
     return (
-        _entry('no-source-substitute', None,
-               f'DATA fork is the literal TeachText text, byte-identical to '
-               f'the tracked source {text_src}, but NO gate harness currently '
-               f'performs that byte comparison -- carried verbatim pending a '
-               f'wired check (GAP; see B_REPORT.md).'),
+        _entry('built', 'textdatacheck',
+               f'DATA fork is the literal TeachText text, shipped verbatim '
+               f'from the tracked source {text_src} (makefile Duplicate '
+               f'rule); proven byte-exact by work/textdatacheck.py '
+               f'(TEXT_DATA_BYTES_EXACT — the comparison the B_REPORT gap '
+               f'list flagged as missing, wired 2026-08-01; independently '
+               f'byte-verified by both dated-search backfill agents the '
+               f'same day).',
+               source_path=f'ref/GSOS_6/IIGS.601.SRC/{text_src}'),
         _entry('built', 'rezdatacheck',
                f'RESOURCE fork ({rsrc_size}B, TE record + style block) proven '
                f'byte-exact by work/rezdatacheck.py ({src_hint}, '

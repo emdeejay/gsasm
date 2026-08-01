@@ -5243,8 +5243,10 @@
           "path": "/SystemTools2/Read.Me",
           "forks": {
             "data": {
-              "classification": "no-source-substitute",
-              "evidence": "DATA fork is the literal TeachText text, byte-identical to the tracked source ToolBoxMisc/ReadMeFiles/Read.Me.text, but NO gate harness currently performs that byte comparison -- carried verbatim pending a wired check (GAP; see B_REPORT.md).",
+              "classification": "built",
+              "evidence": "DATA fork is the literal TeachText text, shipped verbatim from the tracked source ToolBoxMisc/ReadMeFiles/Read.Me.text (makefile Duplicate rule); proven byte-exact by work/textdatacheck.py (TEXT_DATA_BYTES_EXACT \u2014 the comparison the B_REPORT gap list flagged as missing, wired 2026-08-01; independently byte-verified by both dated-search backfill agents the same day).",
+              "proven_by": "textdatacheck",
+              "source_path": "ref/GSOS_6/IIGS.601.SRC/ToolBoxMisc/ReadMeFiles/Read.Me.text",
               "size": 2150
             },
             "rsrc": {
@@ -5266,8 +5268,10 @@
           "path": "/SystemTools2/Shortcuts",
           "forks": {
             "data": {
-              "classification": "no-source-substitute",
-              "evidence": "DATA fork is the literal TeachText text, byte-identical to the tracked source ToolBoxMisc/ReadMeFiles/Shortcuts.text, but NO gate harness currently performs that byte comparison -- carried verbatim pending a wired check (GAP; see B_REPORT.md).",
+              "classification": "built",
+              "evidence": "DATA fork is the literal TeachText text, shipped verbatim from the tracked source ToolBoxMisc/ReadMeFiles/Shortcuts.text (makefile Duplicate rule); proven byte-exact by work/textdatacheck.py (TEXT_DATA_BYTES_EXACT \u2014 the comparison the B_REPORT gap list flagged as missing, wired 2026-08-01; independently byte-verified by both dated-search backfill agents the same day).",
+              "proven_by": "textdatacheck",
+              "source_path": "ref/GSOS_6/IIGS.601.SRC/ToolBoxMisc/ReadMeFiles/Shortcuts.text",
               "size": 19939
             },
             "rsrc": {
@@ -5313,8 +5317,10 @@
           "path": "/SystemTools2/Whats.New",
           "forks": {
             "data": {
-              "classification": "no-source-substitute",
-              "evidence": "DATA fork is the literal TeachText text, byte-identical to the tracked source ToolBoxMisc/ReadMeFiles/Whats.New.text, but NO gate harness currently performs that byte comparison -- carried verbatim pending a wired check (GAP; see B_REPORT.md).",
+              "classification": "built",
+              "evidence": "DATA fork is the literal TeachText text, shipped verbatim from the tracked source ToolBoxMisc/ReadMeFiles/Whats.New.text (makefile Duplicate rule); proven byte-exact by work/textdatacheck.py (TEXT_DATA_BYTES_EXACT \u2014 the comparison the B_REPORT gap list flagged as missing, wired 2026-08-01; independently byte-verified by both dated-search backfill agents the same day).",
+              "proven_by": "textdatacheck",
+              "source_path": "ref/GSOS_6/IIGS.601.SRC/ToolBoxMisc/ReadMeFiles/Whats.New.text",
               "size": 5102
             },
             "rsrc": {
@@ -5976,8 +5982,10 @@
           "path": "/Fonts/Goodies/Read.Me",
           "forks": {
             "data": {
-              "classification": "no-source-substitute",
-              "evidence": "DATA fork is the literal TeachText text, byte-identical to the tracked source A.U.G/Apple.Bowl/Read.Me.txt, but NO gate harness currently performs that byte comparison -- carried verbatim pending a wired check (GAP; see B_REPORT.md).",
+              "classification": "built",
+              "evidence": "DATA fork is the literal TeachText text, shipped verbatim from the tracked source A.U.G/Apple.Bowl/Read.Me.txt (makefile Duplicate rule); proven byte-exact by work/textdatacheck.py (TEXT_DATA_BYTES_EXACT \u2014 the comparison the B_REPORT gap list flagged as missing, wired 2026-08-01; independently byte-verified by both dated-search backfill agents the same day).",
+              "proven_by": "textdatacheck",
+              "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/Apple.Bowl/Read.Me.txt",
               "size": 3329
             },
             "rsrc": {

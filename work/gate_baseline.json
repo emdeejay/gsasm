@@ -88,11 +88,11 @@
     0
   ],
   "manifest_builders_exact": [
-    176,
+    180,
     1
   ],
   "manifest_builders_wired": [
-    176,
+    180,
     1
   ],
   "manifest_inventory_classified": [
@@ -104,12 +104,12 @@
     4
   ],
   "manifest_substitutes_confirmed": [
-    247,
+    243,
     0
   ],
   "manifest_substitutes_structured": [
     200,
-    47
+    43
   ],
   "manifest_technical_exceptions_accepted": [
     0,
@@ -157,6 +157,10 @@
   ],
   "teach_rsrc_bytes_exact": [
     7333,
+    0
+  ],
+  "text_data_bytes_exact": [
+    30520,
     0
   ],
   "tool_bytes": [
