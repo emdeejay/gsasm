@@ -266,7 +266,9 @@ technical-exception).
 `tech-exc` = `Tool.Setup` on Disks 1 & 2 (source present, not byte-exact; P7
 crack target). 0 unknown (`oos:0`).
 
-**The remaining reproduction work is 58 buildable files** — most are new
+**The remaining reproduction work is 57 buildable files** (58 until the
+2026-08-01 Apple II Script correction — it is a Mac-Rez artifact, see
+IMPLEMENTATION_PLAN §3) — most are new
 *instances of already-proven builder types*: printer/AppleTalk/MIDI drivers (the
 driver builder proves 12), Tool025/029/032/035/038 (the tool builder proves 14),
 the Printer/Slots/Time CDEVs and 12 Sound resources (the Rez pipeline proves 19

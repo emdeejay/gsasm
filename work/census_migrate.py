@@ -581,39 +581,41 @@ _add(D7, '/System Folder/ProDOS16 Image',
                  'verified negative -- SUBSTITUTE.',
                  source_path='ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Installer/Image.r'))
 
-# --- Apple II Script (Disk 7): B3 explicit reclassification. v1 classifies
-# this file 'no-source-substitute' with a STRONG verified-negative evidence
-# string ("VERIFY-NEGATIVE, all 3 source trees ... #include 'Types.r',
-# 'InstallerTypes.r' templates are absent from every source tree (Mac Rez,
-# not IIgs Rez). No data-fork build exists to attempt."). BUT
-# docs/IMPLEMENTATION_PLAN.md Section 3's build catalog explicitly lists
-# "Apple II Script" among the 5 buildable text-rez files
-# ("text-rez | 5 | Read.Me x2, Shortcuts, Whats.New, Apple II Script | Rez
-# text/`rTextForScript`"). Per this packet's B3 instruction, the plan's
-# build-catalog claim wins: the resource fork is represented TODO_BUILDABLE
-# (kind rez). THIS IS A DOCUMENTED TENSION, not a resolved fact -- v1's own
-# search evidence argues the opposite. Flagged prominently in B_REPORT.md;
-# a human/P4b session should resolve which is right (either the plan's
-# catalog entry is stale, or the census's template-search was incomplete)
-# before actually attempting to build this fork.
+# --- Apple II Script (Disk 7): CONTRADICTION RESOLVED 2026-08-01 (was the B3
+# "documented tension": v1's census said verified-no-source, the plan's build
+# catalog listed it among the buildable text-rez files). Settled by direct
+# artifact evidence, three independent axes:
+#   (1) the golden 6421-byte rsrc fork parses as a MAC resource fork (header
+#       dataOff=0x100/mapOff=0x16bd, self-consistent) whose type list is the
+#       Mac Installer 3.x script set: inpk/infr/inrl/infs x10/infa x5/incd
+#       (+PICT/vers) -- NOT an IIgs resource fork;
+#   (2) the source (Apple2GSInstallerScript.r, which DOES exist) says in its
+#       own header comment it is a script for "Installer 3.0.1" -- the Mac
+#       68k /Installer shipped on this same HFS disk;
+#   (3) its #includes 'Types.r' + 'InstallerTypes.r' are Mac system/Installer
+#       templates, absent from every ref tree (re-verified by find).
+# Even WITH the templates, gsrez emits IIgs-format resource forks -- the
+# container format itself could never byte-match. Same family as the three
+# Mac-Rez boot-block rsrc forks above. The plan's catalog entry was the
+# error (fixed same day: text-rez 5->4, buildable 58->57);
+# docs/IMPLEMENTATION_PLAN.md Section 3 now records the removal.
 _add(D7, '/Apple II Script',
      data=_entry('no-source-substitute', None,
                  'data=0B; no data-fork content or claim (the payload is '
                  'entirely the resource fork).'),
-     rsrc=_entry('buildable-rez', None,
-                 'RECLASSIFIED 2026-08-01 per docs/IMPLEMENTATION_PLAN.md '
-                 'Section 3\'s build catalog, which lists "Apple II Script" '
-                 'among the 5 buildable text-rez files. NOTE (loud, '
-                 'unresolved tension): v1\'s own classification here was '
-                 '"no-source-substitute" with a VERIFY-NEGATIVE evidence '
-                 'string: "all 3 source trees ... #include \'Types.r\', '
-                 '\'InstallerTypes.r\' templates are absent from every source '
-                 'tree (Mac Rez, not IIgs Rez). No data-fork build exists to '
-                 'attempt." That search evidence directly contradicts this '
-                 'TODO_BUILDABLE label. Left as TODO_BUILDABLE per explicit '
-                 'packet instruction, but NOT verified true here -- a human '
-                 'must reconcile the plan catalog against the census\'s own '
-                 'negative search before this is actually attempted.',
+     rsrc=_entry('no-source-substitute', None,
+                 'VERIFIED 2026-08-01 (contradiction resolved in favor of '
+                 'v1): golden fork is a MAC resource fork (header 0x100, '
+                 'Mac Installer 3.x script types inpk/infr/inrl/infs/infa/'
+                 'incd + PICT/vers) built by Mac Rez from '
+                 'Apple2GSInstallerScript.r ("installer script ... for '
+                 'Installer 3.0.1" per its own header) for the Mac 68k '
+                 'Installer on this disk; #include Types.r/InstallerTypes.r '
+                 'are Mac templates absent from all ref trees, and gsrez '
+                 'emits IIgs-format forks so the container format can never '
+                 'match. Carried verbatim. (The IMPLEMENTATION_PLAN Section-3 '
+                 '"text-rez" catalog entry was the stale claim; removed '
+                 '2026-08-01.)',
                  source_path='ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Installer/Apple2GSInstallerScript.r'))
 
 

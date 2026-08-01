@@ -10,7 +10,8 @@
 From the census (355 files, 7 disks, `oos:0` — authoritative rev2):
 
 - **104 built** — already byte-exact; P2 wires them into per-disk manifests.
-- **58 buildable** — the real reproduction work, and **~42 reuse a proven
+- **57 buildable** (58 until 2026-08-01 — Apple II Script removed, see §3) — the
+  real reproduction work, and **~42 reuse a proven
   builder pattern** (see §3). Only ~16 are genuinely new (Disk-7 boot infra,
   AppleTalk setup DAs).
 - **183 no-source substitute** + **8 Pascal/C non-target** — declared verbatim
@@ -105,14 +106,15 @@ to the already-gated source artifact** before the builder is reused (don't assum
 "same name ⇒ same bytes"). `disk_required_builders_wired` and
 `disk_required_builders_exact` must climb to match the expected-built count.
 
-## 3. Build catalog — the 58 buildable files by pattern
+## 3. Build catalog — the 57 buildable files by pattern
 
 | Type | N | Files | Proven pattern to reuse |
 |------|--:|-------|--------------------------|
 | **driver** | 17 | Modem, Parallel.Card, Printer, Epson, ImageWriter(.LQ), StyleWriter, Apple.Midi, Card6850.MIDI, A2.RAMCard *(Slinky)*, AppleTalk, ATP1.ATROM, ATP2.ATRAM, LaserWriter, IWEM, Boot.Driver, AppleCDSC | `drivercheck` DRIVERMAP (proves 12) — add entries + `-d` defines |
 | **sound-rez** | 12 | Ahh, Doorbell, Droplet, Eastern, Frog, PipeOrgan, Quack, SimpleBeep, Sosumi, Swish, Trumpets, Whoosh | Rez pipeline (`rezbuildcheck`/`rezforkcheck`) |
 | **toolset** | 5 | Tool025, Tool029, Tool032, Tool035, Tool038 | `toolcheck` TOOLMAP (proves 14) |
-| **text-rez** | 5 | Read.Me ×2, Shortcuts, Whats.New, Apple II Script | Rez text/`rTextForScript` |
+| **text-rez** | 4 | Read.Me ×2, Shortcuts, Whats.New | Rez text/`rTextForScript` |
+| ~~Apple II Script~~ *(removed 2026-08-01 — was wrongly counted here)* | — | *golden rsrc is a MAC resource fork (header `0x100`, Installer-3.0.1 script types `inpk`/`infa`/`infs`/`inrl`/`incd`) built by Mac Rez from `Apple2GSInstallerScript.r` for the Mac 68k Installer on the same disk; `Types.r`/`InstallerTypes.r` templates absent from all trees AND gsrez emits IIgs-format forks — the container format itself can never match. Census's verify-negative was right; SUBSTITUTE.* | — |
 | **cdev-rez** | 3 | Printer, Slots, Time CDEVs | `cdevcheck` (proves 19; code payload extraction-fed) |
 | **asm-other** | 10 | ControlPanel NDA, SetStart `Start` launchers ×2, Installer, QuickLogoff, VideoKeyboard, AppleIIVOC, ATInit, ATResponder, CloseView | asm assemble+link+expressload (per-file makefile recipe) |
 | **boot/p8** | 6 | Basic.System, p8, `//e` + ProDOS16 Boot Blocks, ProDOS16 Image, IWEm *(Disk 7)* | `p8check`/`basiccheck` + NetBoot `Makefile` |
@@ -139,7 +141,7 @@ at 100%; `builder` = disks fully builder-exact.
 | **P4a** | 3,4 drivers | 17 via drivercheck pattern | 17 drivers logical-exact |
 | **P4b** | 4 sounds + 3,4 text/cdev | 12 sound-rez + 3 cdev-rez + 4 text-rez | those logical-exact |
 | **P4c** | 3 toolsets + asm-other | Tool025/029/032/038 + 10 asm-other (CRACK as needed) | Disks 3,4 done; **Disk 1 phys&accounted but NOT builder-exact (Tool.Setup)** → phys **6/7**, builder **5/7** |
-| **P5** | 7 Apple II Setup | HFS overlay (§1 P0d) + 6 boot/p8 + Apple II Script | phys **7/7**, builder **6/7** (Disks 1,2 still hold Tool.Setup) |
+| **P5** | 7 Apple II Setup | HFS overlay (§1 P0d) + 6 boot/p8 (Apple II Script = Mac-Rez SUBSTITUTE, see §3) | phys **7/7**, builder **6/7** (Disks 1,2 still hold Tool.Setup) |
 | **P7** | Tool.Setup ×2 | case-B CRACK → promote both to BUILT; **else human-gate the TECHNICAL_EXCEPTION** | builder **7/7**, OR Tier A stated as "phys 7/7 + fully accounted, Tool.Setup the one exception" |
 | **P8** | — | **Tier A complete** (all 5 metrics); version bump + release | 5 metrics satisfied; gate green |
 | **P9** | refactor | R10 cache, D1 `_common.py`, D5 asm internals | gate metrics **unchanged** (refactor discipline) |
