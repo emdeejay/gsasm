@@ -11,12 +11,24 @@
     156917,
     0
   ],
+  "disk2_physical_exact": [
+    819264,
+    0
+  ],
   "disk5_logical_exact": [
     1,
     0
   ],
+  "disk5_physical_exact": [
+    819264,
+    0
+  ],
   "disk6_logical_exact": [
     2,
+    0
+  ],
+  "disk6_physical_exact": [
+    819264,
     0
   ],
   "disk7_bytes_exact": [

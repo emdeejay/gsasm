@@ -525,12 +525,17 @@ def main():
     if '--selftest' in sys.argv:
         sys.exit(0 if selftest() else 1)
     if '--disk' in sys.argv:                # First-Disks generalized overlay
-        reconstruct(sys.argv[sys.argv.index('--disk') + 1])
-        return
+        match, n, ok, total = reconstruct(sys.argv[sys.argv.index('--disk') + 1])
+        # Exit status is a hard signal (adversarial-review finding #1: the
+        # physical result was printed but discarded, so a corrupted overlay
+        # could pass as long as the pre-overlay logical compare succeeded).
+        sys.exit(0 if (match == n and ok == total) else 1)
     mb = 0
     if '--min-built' in sys.argv:
         mb = int(sys.argv[sys.argv.index('--min-built') + 1])
-    check(verbose=('-v' in sys.argv or '--verbose' in sys.argv), min_built=mb)
+    match, n = check(verbose=('-v' in sys.argv or '--verbose' in sys.argv),
+                     min_built=mb)
+    sys.exit(0 if match == n else 1)
 
 
 if __name__ == '__main__':

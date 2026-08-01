@@ -34,9 +34,14 @@ DISKROOT = os.path.join(
     ROOT, 'ref', 'GSOS_6', 'System601_disks', 'System 6.0.1')
 
 # Disks with a working whole-disk overlay whose reconstructed image byte-matches
-# the golden (i.e. RECONSTRUCTED, gated by diskcheck.check(D) in the same pass).
-# Only Disk 2 today; the First-Disks phase adds 5 & 6, etc. Being merely
-# builder-complete (0 TODO) does NOT put a disk here — the overlay must exist.
+# the golden (RECONSTRUCTED).  Membership here is BACKED by hard gate metrics in
+# the same --full pass: disk2/5/6_physical_exact scrape diskcheck's PHYSICAL
+# line, and diskcheck exits nonzero on any physical mismatch (which gate.py now
+# treats as fatal).  A disk must NOT be added here without also adding its
+# physical metric to work/gate.py FULL_CHECKS — otherwise physical_exact would
+# revert to an unbacked label count (adversarial-review finding #1).  Being
+# merely builder-complete (0 TODO) does NOT put a disk here — the overlay must
+# exist.
 OVERLAID_DISKS = {'Disk 2', 'Disk 5', 'Disk 6'}
 
 
@@ -145,7 +150,10 @@ def run():
         # false-greening physical.
         builder_complete = (st[dm.TODO_BUILDABLE] == 0)
         reconstructed = any(label.startswith(d) for d in OVERLAID_DISKS)
-        if reconstructed:
+        # The docstring's predicate, enforced: physical-100% (OVERLAID_DISKS,
+        # backed by the gated disk*_physical_exact metrics) AND builder-complete
+        # — previously builder_complete was computed but not required here.
+        if reconstructed and builder_complete:
             phys_good += 1
 
         short = label.split(' of 7 ')[-1].replace('.2mg', '')

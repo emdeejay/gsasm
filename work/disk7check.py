@@ -227,4 +227,7 @@ def run():
 
 
 if __name__ == '__main__':
-    run()
+    good, total = run()
+    # Exit status is a hard signal for gate.py (which now fails on nonzero
+    # returncodes), not just the parsed DISK7_BYTES_EXACT line.
+    sys.exit(0 if good == total else 1)

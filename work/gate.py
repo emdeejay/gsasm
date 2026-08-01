@@ -171,17 +171,25 @@ CHECKS = [
 
 FULL_CHECKS = [
     ('diskcheck', ['diskcheck.py'], [
-        ('disk_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac')]),
+        ('disk_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac'),
+        ('disk2_physical_exact',
+         r'PHYSICAL image byte-match:\s*(\d+)/(\d+)', 'frac')]),
     # First-Disks phase: the generalized whole-disk overlay reconstructs the
-    # first NON-System disks (Fonts, synthLAB) byte-exact.  The GATED metric is
-    # the byte-exact-builder count (logical-exact) — NOT the raw physical match,
-    # which is trivially 100% for a no-builder run (a failed build is simply not
-    # overlaid).  These proofs back manifestcheck's OVERLAID_DISKS promotion,
-    # exactly as the `diskcheck` entry above backs Disk 2's.
+    # first NON-System disks (Fonts, synthLAB) byte-exact.  BOTH metrics are
+    # gated per disk: logical-exact (the builder count — physical alone is
+    # trivially 100% for a no-builder run, since a failed build is simply not
+    # overlaid) AND the raw physical byte-match (a corrupted overlay path can
+    # break physical while logical stays green — adversarial-review finding #1).
+    # These proofs back manifestcheck's OVERLAID_DISKS promotion, exactly as
+    # the `diskcheck` entry above backs Disk 2's.
     ('diskcheck5', ['diskcheck.py', '--disk', 'Disk 5 of 7 Fonts.2mg'], [
-        ('disk5_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac')]),
+        ('disk5_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac'),
+        ('disk5_physical_exact',
+         r'PHYSICAL image byte-match:\s*(\d+)/(\d+)', 'frac')]),
     ('diskcheck6', ['diskcheck.py', '--disk', 'Disk 6 of 7 synthLAB.2mg'], [
-        ('disk6_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac')]),
+        ('disk6_logical_exact', r'logical-exact:\s*(\d+)/(\d+)', 'frac'),
+        ('disk6_physical_exact',
+         r'PHYSICAL image byte-match:\s*(\d+)/(\d+)', 'frac')]),
     # P0: the 7-disk completion scoreboard (work/manifestcheck.py).  These are
     # the builder-correctness metrics from docs/SOW_COMPLETION.md §2 — physical
     # match alone is NOT the gate (a golden-carry disk is trivially 100%).
@@ -259,6 +267,14 @@ def run_check(name, argv, specs):
         [sys.executable, os.path.join(ROOT, 'work', argv[0]), *argv[1:]],
         cwd=ROOT, capture_output=True, text=True)
     out = proc.stdout + proc.stderr
+    # A nonzero exit is a HARD failure even if every metric line parses: check
+    # scripts signal "headline not fully exact" (or fatal validation after the
+    # metric print) via returncode, and ignoring it here was adversarial-review
+    # finding #7 (docs/ADVERSARIAL_REVIEW_SOW_IMPLEMENTATION_2026-08-01.md).
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f'{name}: exited {proc.returncode}.\n'
+            f'--- tail of output ---\n' + '\n'.join(out.splitlines()[-15:]))
     metrics = {}
     for metric, rx, kind in specs:
         m = re.search(rx, out)
