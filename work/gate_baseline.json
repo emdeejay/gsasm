@@ -36,7 +36,7 @@
     0
   ],
   "disk_logical_exact": [
-    39,
+    40,
     0
   ],
   "driver_bytes": [
@@ -84,11 +84,11 @@
     0
   ],
   "manifest_builders_exact": [
-    173,
+    175,
     3
   ],
   "manifest_builders_wired": [
-    173,
+    175,
     3
   ],
   "manifest_inventory_classified": [
@@ -96,20 +96,20 @@
     0
   ],
   "manifest_physical_exact": [
-    2,
-    5
+    3,
+    4
   ],
   "manifest_substitutes_confirmed": [
-    248,
+    246,
     0
   ],
   "manifest_substitutes_structured": [
-    203,
+    201,
     45
   ],
   "manifest_technical_exceptions_accepted": [
     0,
-    2
+    0
   ],
   "mountimage_data_bytes_exact": [
     5750,

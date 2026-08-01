@@ -71,13 +71,13 @@ as of 2026-08-01 has one.
 
 `_entry()` accepts an optional `accepted` dict (`{"by", "date", "rationale"}`)
 that, if given, is carried onto the fork record verbatim as `"accepted"`.
-Nothing in this script passes it today: neither of the two TECHNICAL_EXCEPTION
-forks (Tool.Setup, Disk 1 + Disk 2) has been accepted by a human, and this
-migration does NOT fabricate that acceptance.  The field exists so a future,
-deliberate edit (a human explicitly signing off) has somewhere machine-
-readable to go; work/manifestcheck.py's `manifest_technical_exceptions_accepted`
-metric reads it and — since it is absent from both records — reports
-good=0 bad=2.
+Nothing in this script passes it today.  As of 2026-08-01 there are ZERO
+TECHNICAL_EXCEPTION records left: the two Tool.Setup forks (Disks 1 + 2) —
+the exceptions this field was added for — were CRACKED to BUILT the same day
+(see the Tool.Setup OVERRIDES entry below), so
+`manifest_technical_exceptions_accepted` reports good=0 bad=0.  The field
+and the blocking semantics remain for any future exception; this script
+still never fabricates an acceptance.
 
 --- C2: structured substitute/exception search evidence (finding #5) -------
 
@@ -618,6 +618,41 @@ _add(D7, '/Apple II Script',
                  '2026-08-01.)',
                  source_path='ref/GSOS_6/IIGS.601.SRC/GS.OS/NetBoot/Installer/Apple2GSInstallerScript.r'))
 
+# --- Tool.Setup (Disks 1 + 2): the project's LAST TECHNICAL_EXCEPTION x2 —
+# CRACKED 2026-08-01 (SOW P7). The "case-B wall" label was STALE: the E2
+# multiseg-dictionary work (2026-07-19) had already closed the reloc-encoding
+# gap, and the residual reported by work/archive/toolsetup_probe.py was that
+# probe's own recipe drift vs GSToolbox/Patch/Setup/makefile (no
+# `-d RAMVersion=0` on tl.asm; CDAMenu/NDACalls double-pulls merged; filter-
+# list order instead of _part's natural-order rule). Transcribed verbatim
+# through the proven TS2/TS3 machinery
+# (work/diskbuilders/toolsets.py::_build_toolsetup), the build is BYTE-EXACT:
+# 19232/19232 (~ExpressLoad 228 + main 1460 + patches 17544, incl. reloc
+# dictionaries). Disk-1 vs Disk-2 copies cmp-verified byte-identical (19232B
+# both) before reusing the proof for both disk paths (the P2 duplicate rule).
+_TOOLSETUP_EV = (
+    'DATA fork (19232B, the toolset-patch bundle ExpressLoad file) proven '
+    'byte-exact by work/diskbuilders/toolsets.py::_build_toolsetup — the '
+    'GSToolbox/Patch/Setup/makefile linkiigs section (-lseg:$3000 main + '
+    '-lseg patches, tl.asm -d RAMVersion=0, CDAMenu/NDACalls two-pull '
+    'references) through the TS2/TS3 _whole/_part/_expressload_groups '
+    'machinery. Was TECHNICAL_EXCEPTION ("case-B wall") until 2026-08-01; '
+    'the wall was stale post-E2 (see toolsets.py Tool.Setup section header). ')
+_add(D1, '/Install/System/System.Setup/Tool.Setup',
+     data=_entry('built', 'diskcheck',
+                 _TOOLSETUP_EV +
+                 'Disk-1 copy cmp-verified byte-identical to the Disk-2 copy '
+                 'that diskcheck gates (build_and_overlay logical-exact, '
+                 'disk_logical_exact).',
+                 source_path='ref/GSOS_6/IIGS.601.SRC/GSToolbox/Patch/Setup/makefile'))
+_add(D2, '/System.Disk/System/System.Setup/Tool.Setup',
+     data=_entry('built', 'diskcheck',
+                 _TOOLSETUP_EV +
+                 'Wired as a diskcheck SOURCE_BUILDER (CallableProof) via '
+                 'diskbuilders auto-discovery; overlaid + logical-exact in '
+                 'the Disk-2 pass.',
+                 source_path='ref/GSOS_6/IIGS.601.SRC/GSToolbox/Patch/Setup/makefile'))
+
 
 def migrate_file(disk_label, f, live_sizes):
     key = (disk_label, f['path'])
@@ -681,8 +716,9 @@ def migrate():
         'docs/substitute_search_evidence_2026-08-01.json for every SUBSTITUTE/'
         'TECHNICAL_EXCEPTION fork whose (disk, path) that sidecar covers; '
         '`accepted` (finding #4, C1) is a human-acceptance marker for a '
-        'TECHNICAL_EXCEPTION fork that this script never fabricates (both '
-        'Tool.Setup records are unaccepted as of this migration). '
+        'TECHNICAL_EXCEPTION fork that this script never fabricates (zero '
+        'TECHNICAL_EXCEPTION records remain as of 2026-08-01 — Tool.Setup '
+        'x2 cracked to built). '
         'See work/census_migrate.py for the full migration rationale and '
         'per-file OVERRIDES audit trail.')
     with open(NEW_CENSUS, 'w') as fh:

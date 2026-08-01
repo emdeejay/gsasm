@@ -16,8 +16,9 @@ From the census (355 files, 7 disks, `oos:0` — authoritative rev2):
   AppleTalk setup DAs).
 - **183 no-source substitute** + **8 Pascal/C non-target** — declared verbatim
   with cited evidence.
-- **2 TECHNICAL_EXCEPTION** — `Tool.Setup` (Disks 1 & 2): source present, not
-  byte-exact (case-B wall); P7 crack target.
+- **0 TECHNICAL_EXCEPTION** (was 2 — `Tool.Setup`, Disks 1 & 2, CRACKED
+  2026-08-01: the case-B wall was stale post-E2; byte-exact 19232/19232 via
+  `work/diskbuilders/toolsets.py::_build_toolsetup`, the P7 target closed early).
 
 Completion predicate (machine-checkable) — **NOT physical match alone** (a
 no-builder run is trivially 100%; see SOW §2 + `diskcheck.py:13`): `gate.py`
@@ -118,7 +119,7 @@ to the already-gated source artifact** before the builder is reused (don't assum
 | **cdev-rez** | 3 | Printer, Slots, Time CDEVs | `cdevcheck` (proves 19; code payload extraction-fed) |
 | **asm-other** | 10 | ControlPanel NDA, SetStart `Start` launchers ×2, Installer, QuickLogoff, VideoKeyboard, AppleIIVOC, ATInit, ATResponder, CloseView | asm assemble+link+expressload (per-file makefile recipe) |
 | **boot/p8** | 6 | Basic.System, p8, `//e` + ProDOS16 Boot Blocks, ProDOS16 Image, IWEm *(Disk 7)* | `p8check`/`basiccheck` + NetBoot `Makefile` |
-| **Tool.Setup** *(not counted in 58 — TECHNICAL_EXCEPTION ×2, Disks 1&2)* | — | Tool.Setup *(case-B wall)* | P7 CRACK → promote to BUILT if cracked, else stays the documented exception |
+| **Tool.Setup** *(was TECHNICAL_EXCEPTION ×2; CRACKED 2026-08-01 → BUILT)* | — | Tool.Setup *(19232/19232 byte-exact; the "case-B wall" was stale post-E2 — see toolsets.py)* | ✅ done (P7 closed early) |
 
 **~42 files (driver/sound/toolset/text/cdev) are "point the proven builder at N
 more instances"** — the CRACK workflow is only expected for `asm-other`
@@ -142,7 +143,7 @@ at 100%; `builder` = disks fully builder-exact.
 | **P4b** | 4 sounds + 3,4 text/cdev | 12 sound-rez + 3 cdev-rez + 4 text-rez | those logical-exact |
 | **P4c** | 3 toolsets + asm-other | Tool025/029/032/038 + 10 asm-other (CRACK as needed) | Disks 3,4 done; **Disk 1 phys&accounted but NOT builder-exact (Tool.Setup)** → phys **6/7**, builder **5/7** |
 | **P5** | 7 Apple II Setup | HFS overlay (§1 P0d) + 6 boot/p8 (Apple II Script = Mac-Rez SUBSTITUTE, see §3) | phys **7/7**, builder **6/7** (Disks 1,2 still hold Tool.Setup) |
-| **P7** | Tool.Setup ×2 | case-B CRACK → promote both to BUILT; **else human-gate the TECHNICAL_EXCEPTION** | builder **7/7**, OR Tier A stated as "phys 7/7 + fully accounted, Tool.Setup the one exception" |
+| **P7** | Tool.Setup ×2 | ✅ **DONE 2026-08-01 (early)** — both promoted to BUILT (byte-exact via toolsets.py; stale-wall diagnosis) | builder track no longer blocked by any exception |
 | **P8** | — | **Tier A complete** (all 5 metrics); version bump + release | 5 metrics satisfied; gate green |
 | **P9** | refactor | R10 cache, D1 `_common.py`, D5 asm internals | gate metrics **unchanged** (refactor discipline) |
 | **P10** | refactor | D3 multiseg phase-split, D4 OMF classifier | metrics unchanged; **Tier A+C complete** |

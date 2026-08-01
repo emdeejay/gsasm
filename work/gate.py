@@ -212,7 +212,9 @@ FULL_CHECKS = [
         ('manifest_physical_exact',
          r'manifest_physical_exact good=(\d+) bad=(\d+)', 'okbad'),
         # C1 (finding #4): human-acceptance state for TECHNICAL_EXCEPTION
-        # forks (Tool.Setup, Disk 1 + Disk 2). Both currently unaccepted.
+        # forks. Zero such forks remain since the 2026-08-01 Tool.Setup
+        # crack (good=0 bad=0); the metric stays as the standing guard for
+        # any future exception.
         ('manifest_technical_exceptions_accepted',
          r'manifest_technical_exceptions_accepted good=(\d+) bad=(\d+)', 'okbad')]),
 ]

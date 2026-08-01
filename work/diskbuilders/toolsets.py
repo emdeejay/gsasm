@@ -469,20 +469,83 @@ def _build_ts3():
 
 
 # ---------------------------------------------------------------------------
+# Tool.Setup — GSToolbox/Patch/Setup/makefile  (linkiigs section)
+#
+# CRACKED 2026-08-01 (was the project's last TECHNICAL_EXCEPTION ×2, the
+# "case-B wall").  The wall label was STALE: the E2 multiseg dictionary work
+# (2026-07-19) had already closed the reloc-record-encoding gap this file was
+# blocked on, and the archived probe (work/archive/toolsetup_probe.py) that
+# kept reporting a residual had three recipe errors vs the real makefile —
+# no `-d RAMVersion=0` on tl.asm, the CDAMenu/NDACalls double-pulls merged
+# into single filter lists, and filter-LIST order instead of `_part`'s
+# reconciled natural-order rule.  Transcribed verbatim through the proven
+# TS2/TS3 machinery above, the build is BYTE-EXACT first try: 19232/19232
+# (~ExpressLoad 228 + main 1460 + patches 17544, incl. reloc dictionaries).
+# Ships byte-identical on Disk 1 (/Install/...) and Disk 2 (cmp-verified).
+# ---------------------------------------------------------------------------
+_SETUP = f'{_TB}/Patch/Setup'
+
+
+def _build_toolsetup():
+    # -lseg:$3000 main
+    main = [_whole(f'{_SETUP}/setup.asm')]
+
+    # -lseg patches  (makefile order; CDAMenu.asm.obj and NDACalls.asm.obj are
+    # each referenced TWICE — two pulls, each natural-order, per _part's rule)
+    patches = [
+        _part(f'{_P3}/Locator.pch', ['GODDAMMIT', 'GETMSGHANDLE', 'MCGETFIRSTMESSAGE',
+                                     'MCGETNEXTMESSAGE', 'ACCEPTREQUESTS', 'SENDREQUEST',
+                                     'ADDTBNOTIFYPROC', 'ADDTBREQUESTHANDLER',
+                                     'UNKNOWNDISKREQPROC']),
+        _whole(f'{_TL}/startstop.asm'),
+        _part(f'{_TL}/loading.asm', ['LOADONETOOL', 'LOADTOOLS', 'LOADTHISTOOL', 'TLGETMEM',
+                                     'MAKEIDNUM', 'GETSPECIALFLAG', 'UNLOADONETOOL',
+                                     'UNLOADTOOLS', 'DUMMYTABLE', 'REPORTIFMISSING']),
+        _part(f'{_TL}/tl.asm', ['TLMEMROUTINES', 'DUMMYTABLE'], {'RAMVersion': 0}),
+        _whole(f'{_TB}/common/common.asm'),
+        _part(f'{_P3}/Misc.tools.pch', ['UNPACKBYTES', 'CONVSECONDS', 'SYSBEEP2',
+                                        'VERSIONSTRING', 'WAITUNTIL', 'STRINGTOTEXT',
+                                        'SHOWBOOTINFO', 'SCANDEVICES', 'TOBRAMSETUPPATCH',
+                                        'ALERTMESSAGE', 'DOSYSPREFS']),
+        _part(f'{_DESK}/CDAMenu.asm', ['DAHANDLER', 'DOCDAMENU', 'SORTCDAS', 'CHOOSECDA',
+                                       'INITSTUFF', 'GOTRETURN', 'MONKEYIN', 'EVNTKEYIN',
+                                       'UPDATECDAMENU', 'PRINTDALIST', 'WRITEDANAME',
+                                       'SETUPTAB', 'OPENDA', 'DEREF', 'DISPLAYDATA', 'COUT',
+                                       'MYCOUT', 'MYWRITECSTRING', 'MYWRITELINE']),
+        _part(f'{_DESK}/CDAMenu.asm', ['SETSCREENLOC', 'DEREFCDAY', 'PANELACTIVE',
+                                       'GETCDANUM', 'SEARCHCDALETTER']),
+        _part(f'{_DESK}/NDACalls.asm', ['SYSTEMEVENT', 'CALLCDAMENU', 'CHECKNDASTUFF',
+                                        'STARTNDACALL', 'DESKUTILS', 'AREWETOP', 'ENDNDACALL',
+                                        'FINDTHISWINDOW', 'SENDACTION', 'SENDOPEN', 'SENDINIT',
+                                        'SENDCLOSE', 'FUTZRESIDS', 'FRONTTOAX']),
+        _part(f'{_DESK}/NDACalls.asm', ['SYSTEMCLICK', 'SYSTEMEDIT', 'SYSTEMTASK',
+                                        'CLOSENDABYWINPTR', 'CLOSEALLNDAS2', 'DIEHORRIBLY',
+                                        'FIXAPPLEMENU2', 'REMOVENDA', 'GETDESKACCINFO',
+                                        'CALLDESKACC', 'GETDESKGLOBAL', 'DOCLOSESTUFF',
+                                        'EXECUTERUNITEM']),
+    ]
+
+    return _expressload_groups([
+        (main,    b'main',    0x3000),
+        (patches, b'patches', 0x0000),
+    ])
+
+
+# ---------------------------------------------------------------------------
 # Public entry point — auto-discovered by diskcheck.diskbuilders.load()
 # ---------------------------------------------------------------------------
 def builders(V):
     """Return {disk_path: callable() -> bytes} for the Tool Setup bundles.
 
-    V is the volume prefix, e.g. '/System.Disk'.  Each callable returns the full
-    ExpressLoad'd OMF file.  Both currently produce a precise LOGICAL RESIDUAL
-    (correct segment structure + exact code-image lengths) — see this module's
-    top-of-file STATUS/RESIDUAL note for the current gap (a `_part` segment-
-    selection-ORDER question, not symbol scoping). diskcheck's contract
-    compares logical bytes before overlay, so a non-exact build is reported as
-    a worklist item and NOT overlaid — the image stays 100%.
+    V is the volume prefix, e.g. '/System.Disk'.  Each callable returns the
+    full ExpressLoad'd OMF file.  All three are BYTE-EXACT (TS2 36665, TS3
+    41700, Tool.Setup 19232) — see the STATUS note (TS2/TS3) and the
+    Tool.Setup section header above.  diskcheck's contract compares logical
+    bytes before overlay, so any future non-exact build is reported as a
+    worklist item and NOT overlaid — the image stays 100%.
     """
     return {
         f'{V}/System/System.Setup/TS2': _build_ts2,
         f'{V}/System/System.Setup/TS3': _build_ts3,
+        f'{V}/System/System.Setup/Tool.Setup': _build_toolsetup,
     }

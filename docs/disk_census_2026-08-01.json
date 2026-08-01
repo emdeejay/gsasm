@@ -256,16 +256,11 @@
           "path": "/Install/System/System.Setup/Tool.Setup",
           "forks": {
             "data": {
-              "classification": "technical-exception",
-              "evidence": "Tool.Setup: asm toolset bundle, code segments byte-exact but full-file ExpressLoad case-B reloc encoding is NOT byte-exact (the converter wall); deliberately unwired, golden bytes carried. SOW P7 crack target -> promote to BUILT if cracked, else remains the one documented technical exception.",
-              "source_path": "ref/GSOS_6/IIGS.601.SRC/GS.OS toolset-bundle objects (same family as TS2/TS3)",
-              "size": 19232,
-              "search": {
-                "searched_trees": null,
-                "search_date": null,
-                "search_patterns": null,
-                "decision": "SOW P7 crack target -> promote to BUILT if cracked, else remains the one documented technical exception."
-              }
+              "classification": "built",
+              "evidence": "DATA fork (19232B, the toolset-patch bundle ExpressLoad file) proven byte-exact by work/diskbuilders/toolsets.py::_build_toolsetup \u2014 the GSToolbox/Patch/Setup/makefile linkiigs section (-lseg:$3000 main + -lseg patches, tl.asm -d RAMVersion=0, CDAMenu/NDACalls two-pull references) through the TS2/TS3 _whole/_part/_expressload_groups machinery. Was TECHNICAL_EXCEPTION (\"case-B wall\") until 2026-08-01; the wall was stale post-E2 (see toolsets.py Tool.Setup section header). Disk-1 copy cmp-verified byte-identical to the Disk-2 copy that diskcheck gates (build_and_overlay logical-exact, disk_logical_exact).",
+              "proven_by": "diskcheck",
+              "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/Patch/Setup/makefile",
+              "size": 19232
             }
           },
           "classification": "technical-exception",
@@ -7288,15 +7283,11 @@
           "path": "/System.Disk/System/System.Setup/Tool.Setup",
           "forks": {
             "data": {
-              "classification": "technical-exception",
-              "evidence": "source exists (asm toolset bundle) but ExpressLoad case-B reloc encoding not byte-exact; deliberately unwired, golden bytes carried. SOW P7 crack target.",
-              "size": 19232,
-              "search": {
-                "searched_trees": null,
-                "search_date": null,
-                "search_patterns": null,
-                "decision": "source exists (asm toolset bundle) but ExpressLoad case-B reloc encoding not byte-exact; deliberately unwired, golden bytes carried. SOW P7 crack target."
-              }
+              "classification": "built",
+              "evidence": "DATA fork (19232B, the toolset-patch bundle ExpressLoad file) proven byte-exact by work/diskbuilders/toolsets.py::_build_toolsetup \u2014 the GSToolbox/Patch/Setup/makefile linkiigs section (-lseg:$3000 main + -lseg patches, tl.asm -d RAMVersion=0, CDAMenu/NDACalls two-pull references) through the TS2/TS3 _whole/_part/_expressload_groups machinery. Was TECHNICAL_EXCEPTION (\"case-B wall\") until 2026-08-01; the wall was stale post-E2 (see toolsets.py Tool.Setup section header). Wired as a diskcheck SOURCE_BUILDER (CallableProof) via diskbuilders auto-discovery; overlaid + logical-exact in the Disk-2 pass.",
+              "proven_by": "diskcheck",
+              "source_path": "ref/GSOS_6/IIGS.601.SRC/GSToolbox/Patch/Setup/makefile",
+              "size": 19232
             }
           },
           "classification": "technical-exception",
@@ -8133,5 +8124,5 @@
   "_disks": 7,
   "_migrated_from": "disk_census_2026-07-30.json",
   "_migration_script": "work/census_migrate.py",
-  "_migration_note": "Fork-granular migration of the file-granular v1 census (B2, docs/ADVERSARIAL_REVIEW_SOW_IMPLEMENTATION_2026-08-01.md finding #3). Every file-level field is preserved verbatim from v1 (including the original `forks` prose string, now under `forks_raw_v1`); the new `forks` field is a {fork: {classification, proven_by?, source_path?, size, evidence, search?, accepted?}} dict, one entry per fork the LIVE disk actually has. `search` (finding #5, C2) is folded in from docs/substitute_search_evidence_2026-08-01.json for every SUBSTITUTE/TECHNICAL_EXCEPTION fork whose (disk, path) that sidecar covers; `accepted` (finding #4, C1) is a human-acceptance marker for a TECHNICAL_EXCEPTION fork that this script never fabricates (both Tool.Setup records are unaccepted as of this migration). See work/census_migrate.py for the full migration rationale and per-file OVERRIDES audit trail."
+  "_migration_note": "Fork-granular migration of the file-granular v1 census (B2, docs/ADVERSARIAL_REVIEW_SOW_IMPLEMENTATION_2026-08-01.md finding #3). Every file-level field is preserved verbatim from v1 (including the original `forks` prose string, now under `forks_raw_v1`); the new `forks` field is a {fork: {classification, proven_by?, source_path?, size, evidence, search?, accepted?}} dict, one entry per fork the LIVE disk actually has. `search` (finding #5, C2) is folded in from docs/substitute_search_evidence_2026-08-01.json for every SUBSTITUTE/TECHNICAL_EXCEPTION fork whose (disk, path) that sidecar covers; `accepted` (finding #4, C1) is a human-acceptance marker for a TECHNICAL_EXCEPTION fork that this script never fabricates (zero TECHNICAL_EXCEPTION records remain as of 2026-08-01 \u2014 Tool.Setup x2 cracked to built). See work/census_migrate.py for the full migration rationale and per-file OVERRIDES audit trail."
 }

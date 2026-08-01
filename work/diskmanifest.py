@@ -13,8 +13,10 @@ FORK (not file — see B2 below) is in exactly one state:
                         fork (blocks Tier A until promoted to BUILT)
     SUBSTITUTE          no producing source (verified); carried verbatim.
                         Includes gold-fed/extraction-fed embedded payloads.
-    TECHNICAL_EXCEPTION source present but not byte-exact (Tool.Setup, case-B
-                        wall); human-gated.
+    TECHNICAL_EXCEPTION source present but not byte-exact; human-gated (an
+                        unaccepted one blocks builder-complete).  Zero remain
+                        since 2026-08-01 — Tool.Setup x2, the class's founding
+                        members, were cracked to BUILT (toolsets.py).
 
 The manifest is GENERATED from the validated, FORK-GRANULAR census
 (docs/disk_census_2026-08-01.json — a machine-generated migration of
