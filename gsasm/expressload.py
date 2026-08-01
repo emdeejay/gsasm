@@ -322,10 +322,18 @@ def _has_sym_ref(ops: list) -> bool:
     return any(isinstance(op, tuple) and op[0].startswith('sym') for op in ops)
 
 
-def _reloc_weight(ops: list) -> int | None:
+def _reloc_weight(ops: list, kinds: dict | None = None) -> int | None:
     """Net segment-relocation weight of an OMF expression op-list.
 
     Each relocatable label reference contributes +1; a constant contributes 0.
+    When *kinds* is supplied (the SymTab kind table resolved at the SAME
+    per-object precedence as the referencing segment's own symbol values —
+    see linkiigs.SymTab), a symbol whose kind is 'equ' is a link-time
+    CONSTANT and contributes 0 exactly like a literal: MPW LinkIIgs emits no
+    relocation for a reference that binds to an EXPORT-EQU (the SCSI-family
+    +8B/+14B falsifying case — docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md; this
+    is the structural form of the value-range drop in _scan_relocs, which
+    stays as a fallback for absolute externs with no GEQU behind them).
     ADD combines the two operands' weights, SUB subtracts them, and a shift
     (SHL/`>>`) leaves the shifted value's weight unchanged.  The result is the
     net number of segment biases the loader would add at load time:
@@ -350,7 +358,8 @@ def _reloc_weight(ops: list) -> int | None:
             return None
         tag = op[0]
         if tag.startswith('sym'):
-            stack.append(1)
+            stack.append(0 if (kinds is not None
+                               and kinds.get(op[1]) == 'equ') else 1)
         elif tag == 'lit':
             stack.append(0)
         elif tag == 'op':
@@ -373,16 +382,18 @@ def _reloc_weight(ops: list) -> int | None:
     return stack[0]
 
 
-def _needs_reloc(ops: list) -> bool:
+def _needs_reloc(ops: list, kinds: dict | None = None) -> bool:
     """True iff *ops* requires a load-time relocation record.
 
     A pure literal (no symbol) never does.  An expression whose net
-    relocation weight is exactly 0 (a same-segment label difference) is a
-    link-time constant and does not either.  Everything else does.
+    relocation weight is exactly 0 (a same-segment label difference, or —
+    when *kinds* is supplied — a reference binding to an EXPORT-EQU
+    constant) is a link-time constant and does not either.  Everything else
+    does.
     """
     if not _has_sym_ref(ops):
         return False
-    return _reloc_weight(ops) != 0
+    return _reloc_weight(ops, kinds) != 0
 
 
 def _addend_of(ops: list) -> int:
@@ -442,6 +453,7 @@ def _scan_relocs(
         super_classes: frozenset = _ALL_SUPER_CLASSES,
         body_syms: list[dict] | None = None,
         body_len: int | None = None,
+        body_kinds: list[dict] | None = None,
 ) -> dict[int, list[int]]:
     """Scan LEXPR/BEXPR/EXPR records in all placed segments and return
     ``{super_type: sorted_list_of_absolute_byte_offsets}``
@@ -469,7 +481,8 @@ def _scan_relocs(
             elif nm in ('LEXPR', 'BEXPR', 'EXPR'):
                 size = d[0]
                 ops  = d[1]
-                if _needs_reloc(ops):
+                if _needs_reloc(ops, body_kinds[seg_i]
+                                if body_kinds is not None else None):
                     # Range-check the net SYMBOL address (target minus its
                     # folded addend), NOT the raw target: gsasm folds
                     # `Label±N` into `SEGNAME + (offset±N)`, so the DISPATCH
@@ -506,6 +519,7 @@ def _scan_relocs(
 def _scan_standalone_relocs(
         placed: list[tuple[str, list, int, dict, Any]],
         super_classes: frozenset = _ALL_SUPER_CLASSES,
+        body_kinds: list[dict] | None = None,
 ) -> list[tuple[int, int, int, list, int]]:
     """Relocations MPW ExpressLoad emits as individual cRELOC/RELOC records
     rather than folding into a SUPER record.
@@ -538,7 +552,8 @@ def _scan_standalone_relocs(
             elif nm in ('LEXPR', 'BEXPR', 'EXPR'):
                 size = d[0]
                 ops = d[1]
-                if _needs_reloc(ops):
+                if _needs_reloc(ops, body_kinds[seg_i]
+                                if body_kinds is not None else None):
                     shift = _get_shift(ops)
                     if ((size, shift) not in _SUPER_TYPE
                             or (size, shift) not in super_classes):
@@ -1273,12 +1288,17 @@ def _build_single_output_seg(
     # not the plain multi-object-shared `sym`.
     bodies: list[bytes] = []
     body_syms: list[dict] = []
+    body_kinds: list[dict] = []      # per-seg KIND overlay, same precedence
+    _sym_kinds = getattr(sym, 'kinds', {})
     for placed_i, (_segname, recs, seg_base, _hdr, _asm) in enumerate(placed):
         recs2, _srels = _linkiigs._defer_shifts(recs)
         oi = placed_obj_idx[placed_i]
-        local_sym = sym if not obj_globals[oi] else {**sym, **obj_globals[oi]}
+        og = obj_globals[oi]
+        local_sym = sym if not og else {**sym, **og}
         bodies.append(_omf._build_body(recs2, local_sym, seg_base))
         body_syms.append(local_sym)
+        body_kinds.append(_sym_kinds if not og
+                          else {**_sym_kinds, **getattr(og, 'kinds', {})})
 
     # ---- Single-segment output (original behavior) ----
     merged_body = _linkiigs._merge_bodies(placed, bodies)
@@ -1300,7 +1320,7 @@ def _build_single_output_seg(
     #            flagged value (see _scan_case_b).
     combined: list[tuple[int, int, int, int]] = []
     for offset, size, shift, ops, seg_i in _scan_standalone_relocs(
-            placed, super_classes):
+            placed, super_classes, body_kinds=body_kinds):
         if (size, shift) == (2, 16):
             # A forced-standalone bank-byte site: the image word holds
             # the SHIFTED value (the bank), but the golden $F5 record's
@@ -1346,7 +1366,8 @@ def _build_single_output_seg(
     # already claimed as standalone (it cannot ALSO ride a SUPER page
     # list — that is the whole point of the flag).
     relocs_by_type = _scan_relocs(placed, super_classes,
-                                  body_syms, len(merged_body))
+                                  body_syms, len(merged_body),
+                                  body_kinds=body_kinds)
     case_b_offsets = {r[0] for r in case_b}
     if case_b_offsets:
         for stype in list(relocs_by_type):
@@ -1644,6 +1665,16 @@ def _build_multiseg_output(
             # _scan_relocs returns joint absolute offsets; we need group-relative offsets.
             # Also detect cross-group interseg references (type-2) from type-1 relocs.
             # And correct bank-byte SUPER type (type-27/28/...) based on target group.
+            # NOTE: the multiseg scans deliberately take NO kind table.
+            # This path already classifies an absolute GEQU target the
+            # golden way — `_group_of(target) is None` drops the record AND
+            # the site flows through the body patch that resolves a
+            # deferred `#^Const` shift to its link-time value (TS2's
+            # UserDummyTable $FE01EF -> $00FE bakes).  Kind-suppressing the
+            # site at scan level starves that body patch and regresses TS2
+            # at 0x88a (the first attempt did exactly that).  The kind
+            # table fixes the SINGLE-output path, which has no _group_of
+            # mechanism — see _build_single_output_seg.
             group_relocs_raw = _scan_relocs(group_placed)
 
             # Case-A standalone relocs (size,shift) with NO SUPER encoding at all —

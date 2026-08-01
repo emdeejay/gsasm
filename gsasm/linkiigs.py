@@ -221,6 +221,46 @@ def _merge_bodies(placed, bodies) -> bytes:
     return bytes(out)
 
 
+class SymTab(dict):
+    """A symbol table that also carries each name's KIND.
+
+    Transparent ``dict[str, int]`` for every existing consumer; kind-aware
+    consumers (gsasm/expressload's reloc classification) read ``.kinds`` —
+    ``{name: 'label' | 'equ'}``, populated by ``_build_symtab`` at the SAME
+    insertion points and SAME precedence as the value itself, so whichever
+    definition won the VALUE resolution is also the one the kind lookup
+    reports.  That precedence-parity is the load-bearing property: a flat
+    "known EQU names" set unioned across a multi-object link mis-classifies
+    a private label in one file that happens to share a folded name with an
+    EXPORT-EQU constant in another (TS2's 37 such collisions —
+    docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md §5).
+
+    Kinds: ``'equ'`` = a link-time CONSTANT (assembler ``symtype == 'equ'``
+    interior definitions, OMF GEQU records) whose reference needs NO
+    relocation record; ``'label'`` = a relocatable address (interior labels,
+    segment names, OMF GLOBAL records, caller externs — externs default to
+    'label' so the value-range fallback in expressload._scan_relocs still
+    covers absolute externs with no GEQU behind them).
+    """
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.kinds: dict[str, str] = {}
+
+
+def _kind_setdefault(t: 'SymTab', name, val, kind):
+    """``t.setdefault(name, val)`` that keeps ``t.kinds`` in lock-step."""
+    if name not in t:
+        t[name] = val
+        t.kinds[name] = kind
+
+
+def _kind_override(t: 'SymTab', name, val, kind):
+    """``t[name] = val`` that keeps ``t.kinds`` in lock-step."""
+    t[name] = val
+    t.kinds[name] = kind
+
+
 def _build_symtab(
         objects: list[tuple[bytes, Any | None]],
         placed: list,
@@ -271,11 +311,12 @@ def _build_symtab(
     if extern is None:
         extern = {}
 
-    sym: dict[str, int] = {'__LOC__': 0}
+    sym = SymTab({'__LOC__': 0})
+    sym.kinds['__LOC__'] = 'label'
     # Per-object label/GLOBAL maps: indexed by obj_idx.  Accumulated through
     # both pass (b) and pass (c) so that all symbols from an object override
     # the global sym when building that object's segment bodies in Pass 3.
-    obj_globals: list[dict[str, int]] = [{} for _ in objects]
+    obj_globals: list[dict[str, int]] = [SymTab() for _ in objects]
 
     # We process segment-name/interior-label pairs per object.  The placed list
     # is ordered globally (an explicit `order` interleaves objects); group its
@@ -327,9 +368,9 @@ def _build_symtab(
                 if home is not None and 0 <= home < len(_asm.segs):
                     clobbered = _asm._fold(_asm.segs[home].name or '') != segname
             if len(objects) == 1 or clobbered:
-                sym.setdefault(segname, seg_base)
+                _kind_setdefault(sym, segname, seg_base, 'label')
             # Always add to per-object map so intra-object cross-segment refs work.
-            obj_globals[obj_idx].setdefault(segname, seg_base)
+            _kind_setdefault(obj_globals[obj_idx], segname, seg_base, 'label')
 
         # (b) Interior labels from this Asm object.
         #
@@ -382,11 +423,24 @@ def _build_symtab(
                 is_public = (lab in asm_obj.exports
                              or (lab in asm_obj.entries
                                  and lab not in _all_exports))
+                # KIND rides along — but ONLY an EXPORTED equ is marked
+                # 'equ' (the validated suppression set,
+                # docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md §4): an exported
+                # `name equ N` is the construct that emits an OMF GEQU and
+                # that MPW resolves as a link-time constant.  A NON-exported
+                # interior equ stays 'label': a proc-local equ may alias a
+                # relocatable address (`devName equ ParBlock+2`), and
+                # marking those 'equ' leaks constant-kinds into the multiseg
+                # fallback union — the exact TS2 0x88a regression shape the
+                # diagnosis's §5 predicts for any over-broad set.
+                _kind_b = ('equ' if (asm_obj.symtype.get(lab) == 'equ'
+                                     and lab in asm_obj.exports)
+                           else 'label')
                 if is_single_obj or is_public:
-                    sym.setdefault(lab, abs_val)
+                    _kind_setdefault(sym, lab, abs_val, _kind_b)
 
                 # Per-object table: ALL labels (for intra-object resolution)
-                obj_globals[obj_idx].setdefault(lab, abs_val)
+                _kind_setdefault(obj_globals[obj_idx], lab, abs_val, _kind_b)
 
     # (c) GLOBAL / GEQU records from all OMF bodies (setdefault — lower priority)
     #
@@ -419,12 +473,12 @@ def _build_symtab(
                     pass
                 elif len(objects) == 1:
                     # Single-object link: first-wins (original behaviour).
-                    sym.setdefault(label, val)
+                    _kind_setdefault(sym, label, val, 'label')
                 else:
                     # Multi-object link: last-wins for public EXPORT GLOBALs.
                     # This ensures that the "canonical" library module (typically
                     # linked last, e.g. wcm.asm) wins over earlier duplicates.
-                    sym[label] = val
+                    _kind_override(sym, label, val, 'label')
                 # Per-object: ALL globals (including private) go here so that
                 # intra-object cross-segment references resolve correctly.
                 #
@@ -443,16 +497,18 @@ def _build_symtab(
                 # there, and the PUSHRECT per-object-preference behaviour is
                 # unchanged.
                 if objects[oi][1] is None:
-                    obj_globals[oi].setdefault(label, val)
+                    _kind_setdefault(obj_globals[oi], label, val, 'label')
                 else:
-                    obj_globals[oi][label] = val
+                    _kind_override(obj_globals[oi], label, val, 'label')
             elif nm == 'GEQU':
                 label = d['label']
-                sym.setdefault(label, _omf._eval(d['expr'], sym))
+                _kind_setdefault(sym, label, _omf._eval(d['expr'], sym), 'equ')
 
-    # Caller-supplied externals (e.g. from linkrom's rommap) — last-wins
+    # Caller-supplied externals (e.g. from linkrom's rommap) — last-wins.
+    # Kind 'label': no GEQU record backs these, so reloc suppression for an
+    # absolute extern stays with _scan_relocs's value-range fallback.
     for k, v in extern.items():
-        sym[k.upper()] = v
+        _kind_override(sym, k.upper(), v, 'label')
 
     return sym, obj_globals
 
