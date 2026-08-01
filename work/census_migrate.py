@@ -384,10 +384,17 @@ _add(D3, '/SystemTools1/Adv.Disk.Util',
                  'Application code fork is Pascal (A.U.G/ADU has 11 .pii + 2 '
                  '.aii + 1 adu.rii); outside the asm/rez target '
                  '(pascal-c-nontarget wall).'),
-     rsrc=_entry('buildable-rez', None,
-                 'Resource fork buildable from adu.rii (Rez) but not yet '
-                 'wired into any gate harness -- TODO_BUILDABLE, not proven.',
-                 source_path='ref/GSOS_6/IIGS.601.SRC/A.U.G/ADU/adu.rii'))
+     rsrc=_entry('built', 'rezforkcheck',
+                 'RESOURCE fork (8037B) proven byte-exact by '
+                 'work/rezforkcheck.py from A.U.G/ADU/adu.rii '
+                 '(REZFORK_BYTES_EXACT). Its `read rSCSIDrvr` statement is '
+                 'fed from the corpus-local A.U.G/ADU/mac.driver SCSI '
+                 'boot-block file (READ_FILES), not gold-extracted. Needed '
+                 'one gsasm/rez/gen.py addition: the `nonpurgeable` '
+                 'attribute keyword (ATTR_BITS, purge-field value 0x0000, '
+                 'the field\'s existing default made explicit). Was '
+                 'buildable-rez/TODO_BUILDABLE ("not yet wired into any '
+                 'gate harness"); now wired and gated.'))
 _add(D4, '/SystemTools2/System/Desk.Accs/MediaControl',
      data=_entry('no-source-substitute', None,
                  'DATA/code fork built from Pascal (MediaCtlNDA.pii + '

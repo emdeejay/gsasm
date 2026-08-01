@@ -88,12 +88,12 @@
     0
   ],
   "manifest_builders_exact": [
-    180,
-    1
+    181,
+    0
   ],
   "manifest_builders_wired": [
-    180,
-    1
+    181,
+    0
   ],
   "manifest_inventory_classified": [
     7,
@@ -152,7 +152,7 @@
     0
   ],
   "rezfork_bytes_exact": [
-    21170,
+    29207,
     0
   ],
   "teach_rsrc_bytes_exact": [

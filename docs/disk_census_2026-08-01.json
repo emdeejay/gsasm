@@ -3876,9 +3876,9 @@
               }
             },
             "rsrc": {
-              "classification": "buildable-rez",
-              "evidence": "Resource fork buildable from adu.rii (Rez) but not yet wired into any gate harness -- TODO_BUILDABLE, not proven.",
-              "source_path": "ref/GSOS_6/IIGS.601.SRC/A.U.G/ADU/adu.rii",
+              "classification": "built",
+              "evidence": "RESOURCE fork (8037B) proven byte-exact by work/rezforkcheck.py from A.U.G/ADU/adu.rii (REZFORK_BYTES_EXACT). Its `read rSCSIDrvr` statement is fed from the corpus-local A.U.G/ADU/mac.driver SCSI boot-block file (READ_FILES), not gold-extracted. Needed one gsasm/rez/gen.py addition: the `nonpurgeable` attribute keyword (ATTR_BITS, purge-field value 0x0000, the field's existing default made explicit). Was buildable-rez/TODO_BUILDABLE (\"not yet wired into any gate harness\"); now wired and gated.",
+              "proven_by": "rezforkcheck",
               "size": 8037
             }
           },

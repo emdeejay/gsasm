@@ -371,6 +371,16 @@ ATTR_BITS = {
     'purgeable1': 0x0100,
     'purgeable2': 0x0200,
     'purgeable3': 0x0300,
+    # `nonpurgeable` is the explicit purge-level-0 keyword (Adv.Disk.Util's
+    # `read rSCSIDrvr (0x00000001, preload, nonpurgeable) "mac.driver";` —
+    # A.U.G/ADU/adu.rii): it occupies the same 2-bit purge field as
+    # purgeable1-3 above, at the all-zero value that field already defaults
+    # to when no purge keyword is given at all. Contributes 0x0000; kept as
+    # its own entry (rather than silently ignored) so the keyword is
+    # recognized and its bit position documented, matching golden attr word
+    # 0x0040 (preload only) for both ADU `read`-adjacent entries (rSCSIDrvr,
+    # rSCSIDescDrvr) once combined with `preload`.
+    'nonpurgeable': 0x0000,
 }
 
 

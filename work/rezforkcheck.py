@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""rezforkcheck.py — rebuild seven small A.U.G/ToolBoxMisc resource forks
+"""rezforkcheck.py — rebuild eight small A.U.G/ToolBoxMisc resource forks
 from their archived Rez sources, byte-exact, through the SAME clean-room
 pipeline cdevcheck.py/findercheck.py already exercise: `gsasm.rez.parser`
 + `gen` + `emit`, with the clean-room `gsasm/rez/include/TypesIIGS.r`
 providing every template (`RezIIGS: 1` predefined). The first five needed
 no gsasm pipeline change; Frog/Whoosh added the `rSoundSample` template and
 generalized rResName synthesis to one holder per named resource type (id
-0x10000 | type) — see gsasm/rez/gen.py and tests/test_rez_gen.py.
+0x10000 | type); ADU added the `nonpurgeable` attribute keyword (purge-field
+value 0x0000, the field's existing default made explicit — gsasm/rez/gen.py
+ATTR_BITS) — see gsasm/rez/gen.py and tests/test_rez_gen.py.
 
     FindFile     — Desk Accessory (ToolBoxMisc/FindFileGS/Findfile.rez).
                    Ships as /SystemTools1/System/Desk.Accs/FindFile on
@@ -33,19 +35,34 @@ generalized rResName synthesis to one holder per named resource type (id
                    /SystemTools2/System/Sounds/Whoosh on Disk 4.  (The other
                    10 System Sounds use template-free `data` statements and
                    live in rezdatacheck.py.)
+    Adv.Disk.Util — app (A.U.G/ADU/adu.rii).  Ships as
+                   /SystemTools1/Adv.Disk.Util on Disk 3 (its DATA fork is
+                   Pascal-built and stays a substitute — this is the
+                   RESOURCE fork only).  One `read rSCSIDrvr` statement
+                   pulls the 6,144-byte SCSI boot-block blob from the
+                   CORPUS-LOCAL `A.U.G/ADU/mac.driver` file sitting right
+                   next to the .rii — genuinely source-built, not
+                   gold-fed (see READ_FILES below). 25 resources: rVersion/
+                   rComment, the SCSI read + its rSCSIDescDrvr (custom
+                   `reversebytes{longint;}` fields + a wide byte array —
+                   both types declared right in adu.rii), one rWindParam1/
+                   rControlList dialog, and 9 buttons' rControlTemplate/
+                   rpString/rTextForLETextBox2.
 
-None of the seven sources declare a `read` resource, so — unlike
+None of the first seven sources declare a `read` resource, so — unlike
 cdevcheck's rCDEVCode/rCodeResource extraction-feed — no golden bytes need
-splicing in here. `build_rez_fork` still DETECTS any `kind == 'read'`
-entry generically (matching cdevcheck's rCDEVCode/rCodeResource types plus
-any other `read`) and gold-feeds it from the golden fork's raw resource
-data, so the harness doesn't silently break if a future target needs it.
+splicing in for them. `build_rez_fork` DETECTS any `kind == 'read'` entry
+generically (matching cdevcheck's rCDEVCode/rCodeResource types plus any
+other `read`): a `(type, id)` key listed in READ_FILES is read straight
+from its corpus-local file (ADU's `mac.driver`); anything else falls back
+to gold-feeding from the golden fork's raw resource data, so the harness
+doesn't silently break if a future target needs the CDEV-style fallback.
 
-Deliberately NOT wired into work/diskcheck.py (none of these seven files
+Deliberately NOT wired into work/diskcheck.py (none of these eight files
 are on the System Disk diskcheck walks) — standalone runner + the gate's
 rezfork_bytes_exact metric source, same footing as cdevcheck/appdatacheck.
 
-    python3 work/rezforkcheck.py            # summary over all 7 targets
+    python3 work/rezforkcheck.py            # summary over all 8 targets
     python3 work/rezforkcheck.py FindFile   # one target, verbose diff
 """
 import sys, os
@@ -94,6 +111,20 @@ REZMAP = {
     'Whoosh': (
         D4, '/SystemTools2/System/Sounds/Whoosh',
         'A.U.G/CtlPanel/SoundCDEV/Sounds/Whoosh.r'),
+    'Adv.Disk.Util': (
+        D3, '/SystemTools1/Adv.Disk.Util',
+        'A.U.G/ADU/adu.rii'),
+}
+
+# {target: {(rtype, rid): path relative to SRC_ROOT}} — corpus-local `read`
+# payloads to splice in verbatim (no Convert transform declared) instead of
+# gold-feeding. adu.rii's `read rSCSIDrvr (0x00000001, preload,
+# nonpurgeable) "mac.driver";` names the file but gen.generate()'s GenEntry
+# deliberately drops read filenames (module docstring: the placeholder only
+# preserves the (rtype, rid) key, "R6 packet's job" to supply the bytes) —
+# rtype 0x4D61 = the .rii's `#define rSCSIDrvr $4D61`, id 1 from the header.
+READ_FILES = {
+    'Adv.Disk.Util': {(0x4D61, 1): 'A.U.G/ADU/mac.driver'},
 }
 
 
@@ -109,14 +140,27 @@ def build_rez_fork(name):
     stmts = parser.parse(src, include_dirs=INC, predefined={'RezIIGS': 1})
     entries = gen.generate(stmts)
     # Any `read` (kind == 'read') entry is opaque input Rez never
-    # generates itself (see gen.to_emit_tuples' docstring); gold-feed it
-    # from the golden fork's raw resource data by (type, id), exactly as
-    # cdevcheck.py does for rCDEVCode/rCodeResource. None of the seven
-    # REZMAP sources currently declare one, but this stays generic rather
-    # than hardcoding "no reads here".
-    read_types = {e.rtype for e in entries if e.kind == 'read'}
-    read_data = {(e.type, e.id): gold.raw[e.offset:e.offset + e.size]
-                 for e in gold.used if e.type in read_types}
+    # generates itself (see gen.to_emit_tuples' docstring). Prefer a
+    # corpus-local file (READ_FILES) when this target names one — ADU's
+    # `mac.driver` SCSI blob ships right in the source tree, so that's a
+    # genuine source-built read, not a gold-feed. Anything else falls back
+    # to gold-feeding from the golden fork's raw resource data by (type,
+    # id), exactly as cdevcheck.py does for rCDEVCode/rCodeResource — kept
+    # generic so the harness doesn't silently break if a future target
+    # needs the fallback.
+    read_keys = {(e.rtype, e.rid) for e in entries if e.kind == 'read'}
+    corpus_files = READ_FILES.get(name, {})
+    read_data = {}
+    for key in read_keys:
+        rel = corpus_files.get(key)
+        if rel is not None:
+            with open(os.path.join(SRC_ROOT, rel), 'rb') as f:
+                read_data[key] = f.read()
+    missing_types = {t for (t, i) in read_keys if (t, i) not in read_data}
+    if missing_types:
+        for e in gold.used:
+            if e.type in missing_types and (e.type, e.id) not in read_data:
+                read_data[(e.type, e.id)] = gold.raw[e.offset:e.offset + e.size]
     tuples = gen.to_emit_tuples(entries, read_data)
     meta = rec._meta_from_golden(gold)
     return emit.emit_fork(tuples, meta)
