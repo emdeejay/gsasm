@@ -157,3 +157,14 @@ gated on `work/gate.py` staying green at every step.
    harnesses; keep copyrighted golden data under `ref/` (gitignored).
 5. Behavioral discoveries get a corpus-free fixture in `tests/` so they stay
    pinned on machines without the golden refs.
+
+
+## 2026-08-01/02 — M9: Tier A (v0.5.0)
+
+All seven System 6.0.1 disk images reconstruct physically byte-identical
+(819,264/819,264 each); every census-built fork — 181 across the set —
+wires and overlays from source (Disk 7 via a2til's HFS overlay engine);
+`work/manifestcheck.py --tier-a` passes all six conditions.  The day's
+record: docs/reports/2026-08-01/, docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md,
+CHANGELOG 0.5.0.  Tier C (R10 + D1/D3/D4/D5 refactors) remains the open
+half of the SOW's locked scope.

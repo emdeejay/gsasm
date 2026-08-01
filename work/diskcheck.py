@@ -278,6 +278,21 @@ def _build_finder_data():
 SOURCE_BUILDERS[f'{V}/System/Start'] = _build_finder_data
 
 
+# ControlPanel is dual-fork the same way: its RESOURCE fork builds via the
+# REZ builder (cdevcheck), and its DATA fork -- the 15,110-byte NDA 65816
+# code -- via appdatacheck's APPMAP entry, wired as a dual-fork
+# SOURCE_BUILDERS entry exactly like EasyMount/Start.  (Release-review find:
+# this was the one Disk-2 census-built fork with a harness proof but no
+# overlay wiring -- byte-identical either way, since a build that exact
+# overlays into identical bytes, but wired > carried.)
+def _build_controlpanel_data_d2():
+    import appdatacheck
+    return appdatacheck.build_app_data('ControlPanel')
+
+
+SOURCE_BUILDERS[f'{V}/System/Desk.Accs/ControlPanel'] = _build_controlpanel_data_d2
+
+
 # ---------------------------------------------------------------------------
 # First-Disks phase — a manifest-driven whole-disk overlay for ANY disk, so
 # non-System disks reconstruct byte-exact too (SOW physical_exact 1/7 -> 3/7).
@@ -295,6 +310,19 @@ SOURCE_BUILDERS[f'{V}/System/Start'] = _build_finder_data
 def _build_fonts_readme_rsrc():
     import rezdatacheck                       # rez `data` fork (TeachText Read.Me)
     return rezdatacheck.build_rez_fork('Fonts.Read.Me')
+
+
+def _build_fonts_readme_data():
+    import textdatacheck
+    for _disk, path, src in textdatacheck.TARGETS:
+        if path == '/Fonts/Goodies/Read.Me':
+            return open(src, 'rb').read()
+    raise KeyError('/Fonts/Goodies/Read.Me not in textdatacheck.TARGETS')
+
+
+def _build_applebowl_rsrc():
+    import rezforkcheck
+    return rezforkcheck.build_rez_fork('Apple.Bowl')
 
 
 def _build_midi_rsrc():
@@ -651,7 +679,13 @@ def _build_net_start():
 # Tool035 its data fork) — independent of the census's file-granular label.
 DISK_BUILDER_REGISTRY = {
     'Disk 5 of 7 Fonts.2mg': {
-        '/Fonts/Goodies/Read.Me': ('rsrc', _build_fonts_readme_rsrc),
+        '/Fonts/Goodies/Read.Me': [
+            ('rsrc', _build_fonts_readme_rsrc),
+            # data fork = the literal TeachText text, gated 1:1 by
+            # work/textdatacheck.py against the tracked source
+            ('data', _build_fonts_readme_data),
+        ],
+        '/Fonts/Goodies/Apple.Bowl': ('rsrc', _build_applebowl_rsrc),
     },
     'Disk 6 of 7 synthLAB.2mg': {
         '/synthLAB/MIDI': ('rsrc', _build_midi_rsrc),

@@ -1,6 +1,8 @@
 # gsasm — Statement of Work: Path to "Complete"
 
-> **STATUS 2026-08-01: COMPLETE — Tier A achieved.**  The machine-checkable
+> **STATUS 2026-08-01: TIER A COMPLETE.**  (The SOW's locked scope is Tier
+> A + Tier C; **Tier C — R10 + D1/D3/D4/D5 — remains open**, targeted at
+> 0.6.0.)  The machine-checkable
 > target this SOW defines passes: `work/manifestcheck.py --tier-a` exits 0 on
 > all six conditions; all seven disk images reconstruct physically
 > byte-identical (819,264/819,264 each); every census-built fork (178) is
