@@ -317,6 +317,9 @@ def link_finder():
     reloc_dicts = {}
     for name, kind, _srcs in SEGS:
         objs = seg_objs[name]
+        # KIND bit 0x0100 is literally named for this rule in the decoder's
+        # own source: `BankRel_Segment EQU $0100` (GS.OS/Loader/Loader.Equates
+        # — the 2026-08-02 grounding survey, docs/reports/2026-08-02/).
         own_bankrel = bool(kind & 0x0100)
         own_seg = segnum[name]
 

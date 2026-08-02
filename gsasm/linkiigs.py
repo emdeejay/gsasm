@@ -51,7 +51,7 @@ def _decode_segname(h: dict) -> str:
     """Return the upper-cased, stripped segment name from a parsed header."""
     # Read the SEGNAME AS-IS: omf writes it already folded (upper unless the
     # source set CASE ON), so the object bytes are authoritative. Re-folding here
-    # would upper-case a case-sensitive Loader.a segname. (docs/design/CASE_ON.md)
+    # would upper-case a case-sensitive Loader.a segname. (MPW Asm Ref p.98-99, CASE directive)
     return h['SEGNAME'].decode('mac_roman', 'replace').rstrip('\x00').strip()
 
 
@@ -271,7 +271,11 @@ def _build_symtab(
     """Pass-2: build the global symbol table.
 
     Symbol resolution order — processed per object in link order so that
-    first-definition wins (matching MPW LinkIIgs behaviour):
+    first-definition wins (matching MPW LinkIIgs behaviour; the 68K-family
+    MPW linker documents exactly this — "the first definition is used, and
+    all references are treated as references to the first definition", MPW
+    3.0 Reference Vol.1 p.291 — 68K-side evidence, IIgs linker itself
+    undocumented in held refs; grounding survey docs/reports/2026-08-02/):
 
     For each object in link order:
       a. Segment names from that object's placement (pass 1 result)
@@ -442,7 +446,12 @@ def _build_symtab(
                 # Per-object table: ALL labels (for intra-object resolution) —
                 # EXCEPT a PLAIN interior label (neither EXPORTed nor ENTRYed
                 # here) whose name another object EXPORTs.  MPW module scoping
-                # makes such a label module-LOCAL: a by-name OMF reference
+                # makes such a label module-LOCAL — DOCUMENTED, not empirical:
+                # "Labels defined inside a code module are local to that
+                # module. The only way to make these labels accessible to
+                # other modules is to declare them as EXPORT or ENTRY inside
+                # the module." (MPW Asm Ref p.63; scope rules p.15-17;
+                # grounding survey docs/reports/2026-08-02/): a by-name OMF reference
                 # from a sibling module of the SAME object legally binds the
                 # program-wide EXPORT, not the private label (ATP1.ATROM's
                 # CMDADDRS `dc.l CloseSkt` must bind ApTalk.aii's exported

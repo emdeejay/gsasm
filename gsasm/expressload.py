@@ -342,7 +342,13 @@ def _reloc_weight(ops: list, kinds: dict | None = None) -> int | None:
       * weight == 0  -> a link-time CONSTANT such as a same-segment
                         ``End-Start`` difference (both labels relocate by the
                         same bias, which cancels) — it needs NO relocation
-                        record.  MPW LinkIIGS/ExpressLoad emits no reloc here;
+                        record.  The cancellation core is DOCUMENTED algebra:
+                        a pair of same-segment, opposite-sign relocatable
+                        terms "cancels the effect of relocation, thus
+                        producing an absolute value" (MPW Asm Ref p.31-33);
+                        the generalization to arbitrary ADD/SUB chains and
+                        shift-riding is gsasm's (corpus-anchored — see the
+                        2026-08-02 grounding survey).  MPW LinkIIGS/ExpressLoad emits no reloc here;
                         we must not either (Tool038/MediaCtlTool's per-message
                         length words ``EndMsg-Msg`` were the falsifying case).
 
@@ -1929,6 +1935,10 @@ def _build_multiseg_output(
 
                     elif stype == 27:
                         # Bank-byte reloc: type = 25 + target_output_segnum.
+                        # The 13+segnum / 25+segnum subtype formulas match the
+                        # decoder's own branch logic (GS.OS/Loader/Relocation.a
+                        # Do_SUPER; opcodes+layouts per Loader.Equates —
+                        # DOCUMENTED, 2026-08-02 grounding survey).
                         # Determine which segment's bank byte this references by looking
                         # up the EXPR's symbol value in the joint symbol table.
                         # The body has been group-adjusted, so the stored 2-byte value is

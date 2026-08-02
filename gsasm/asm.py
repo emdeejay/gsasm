@@ -600,7 +600,7 @@ class Asm:
         # CASE ON (Loader.a, line 1) makes symbols case-SENSITIVE. It is the only
         # file in the whole corpus that sets it; _fold() folds through str.upper
         # for every other module, so this stays byte-neutral. See _fold below and
-        # docs/design/CASE_ON.md.
+        # MPW Asm Ref p.98-99, CASE directive.
         self.case_sensitive = False
         self.import_wins = {self._fold(n) for n in self.import_wins}
         self.case_equ_variants = {
@@ -666,7 +666,7 @@ class Asm:
         case-SENSITIVE; every other module folds to upper, so `_fold ≡ str.upper`
         and the whole non-CASE-ON corpus is byte-neutral BY CONSTRUCTION. INVARIANT:
         a name is folded EXACTLY once — on entry to a table or the OMF bytes — then
-        carried/compared/emitted as-is, never re-folded (docs/design/CASE_ON.md)."""
+        carried/compared/emitted as-is, never re-folded (MPW Asm Ref p.98-99, CASE directive)."""
         return name if self.case_sensitive else name.upper()
 
     def _symkey(self, name):
@@ -3555,6 +3555,16 @@ def assemble(path, include_paths, passes=3, defines=None, sysdate=None,
     set do not clobber same-named IMPORT declarations outside their own PROC.
     `case_equ_variants` is an opt-in set of folded names whose file-scope EQU
     definitions retain exact-spelling variants (Finder DP handle/Ptr collision).
+
+    ARCHITECTURAL NOTE (2026-08-02 grounding survey): the real MPW Assembler
+    is a fixed TWO-pass design — one whole-file pass defining all symbols and
+    producing a per-module postfix IR, then a per-module pass emitting bytes
+    (MPW Asm Ref p.6).  gsasm instead re-runs the entire source, reseeding
+    symbol values AND kinds from the previous run; equivalence with the
+    two-pass architecture is CORPUS-ANCHORED (every golden byte agrees), not
+    derived.  A novel source construct whose sizing oscillates between runs
+    would converge differently — there is currently no convergence check
+    (see docs/ARCHITECTURE_REVIEW_2026-08-02.md finding ASM#3).
 
     Three passes are needed for correct @-label forward-reference sizing when a
     PROC-local EQU (e.g. a stack-frame offset) shares a name with a code label
