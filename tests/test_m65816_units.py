@@ -779,20 +779,44 @@ def test_blockmove_bank_byte_is_the_operand_shifted_right_16():
     assert enc_b('MVP', '$FF,$FF') == '440000'
     assert enc_b('MVN', '$E10000,$E00000') == '54e0e1'
     assert enc_b('MVP', '$012345,$0067FF') == '440001'
+    # the corpus also spells a block move with a blank after the comma --
+    # GQuit.src:1068 `mvn 0, $E10000`, gold `54 E1 00` (GQuit006800.asm:205)
+    assert enc_b('MVN', '0, $E10000') == '54e100'
 
 
-def test_blockmove_treats_missing_or_unresolved_banks_as_zero():
-    """SUSPICIOUS (pinned, not fixed).
+def test_blockmove_reports_a_bank_it_cannot_account_for():
+    """RESOLVED (was SUSPICIOUS): bank 0 is now only baked for an owner.
 
-    A block move never produces a Fixup: an unresolvable or absent operand
-    silently contributes bank 0, so a forward-referenced bank symbol bakes
-    `00`.  (Symbolic/relocatable bank operands are handled in omf.py via an
-    explicit `>>16` expression, which is why this has never bitten.)
+    A block move cannot come back as a Fixup — it has two operand fields and
+    `encode` returns at most one, at a patch offset asm.py fixes at 1.  So
+    an operand `encode` cannot account for used to contribute bank 0 in
+    silence.  Wrong arity and unresolvable expressions are now reported;
+    bank 0 survives only for the two operands somebody else owns (see
+    `_deferred_bank`), which is the case the corpus actually uses.
     """
-    assert enc_b('MVN', '$010000') == '540001'         # missing dest -> bank 0
-    assert enc_b('MVN', '') == '540000'
-    assert enc_b('MVN', 'Fwd,Fwd') == '540000'
-    assert enc_b('MVN', '$010000,$020000,$030000') == '540201'   # extras ignored
+    assert raises(EncodeError, 'MVN', '$010000') == (
+        "MVN takes exactly two operands (source,destination), got '$010000'")
+    assert raises(EncodeError, 'MVN', '')
+    assert raises(EncodeError, 'MVN', '$010000,')
+    assert raises(EncodeError, 'MVN', ',$010000')
+    assert raises(EncodeError, 'MVN', '$010000,$020000,$030000')  # no longer ignored
+    assert raises(EncodeError, 'MVN', '$010000,$02 0000') == (
+        "MVN: cannot resolve bank of '$02 0000'")
+
+
+def test_blockmove_still_bakes_bank_zero_for_an_operand_the_linker_owns():
+    """The two accountable cases, kept exactly as they were.
+
+    omf.py rewrites a relocatable or undefined-external block-move operand
+    into an explicit `expr>>16` RELEXPR, and multi-pass assembly resolves a
+    not-yet-defined identifier on a later run.  Both must keep their bank-0
+    placeholder or `mvn main,databank` (20 corpus uses) would break.
+    """
+    assert enc_b('MVN', 'Fwd,Fwd') == '540000'                     # identifiers
+    assert enc_b('MVN', 'main,databank') == '540000'
+    assert enc_b('MVN', 'Fwd,$E10000', reloc=reloc_for('Fwd')) == '54e100'
+    # a resolved identifier is not deferred at all — it contributes its bank
+    assert enc_b('MVN', 'LONGVAL,BANK2END') == '540203'
 
 
 # --------------------------------------------------------------------------
@@ -951,8 +975,9 @@ def test_indirect_form_unsupported_by_the_mnemonic_raises_keyerror():
 def test_encode_never_raises_for_any_table_mnemonic_with_a_plain_operand():
     """Smoke sweep: every mnemonic in the table (plus every alias) encodes a
     bare direct-page operand without blowing up, and returns either bytes or
-    the (None, None) unknown-mnemonic signal."""
-    for mnem in sorted(MNEMONICS):
+    the (None, None) unknown-mnemonic signal.  MVN/MVP are excluded: a block
+    move needs two operands and now says so rather than inventing a bank."""
+    for mnem in sorted(MNEMONICS - BLOCKMOVE):
         b, f = encode(mnem, '$10', False, False, ev, 0)
         assert b is None or (isinstance(b, bytes) and 1 <= len(b) <= 4), mnem
         assert f is None or isinstance(f, Fixup), mnem

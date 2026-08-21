@@ -16,6 +16,8 @@ Addressing-mode keys:
 """
 from __future__ import annotations
 
+import re
+
 IMM_A = {'ADC', 'AND', 'BIT', 'CMP', 'EOR', 'LDA', 'ORA', 'SBC'}
 IMM_X = {'CPX', 'CPY', 'LDX', 'LDY'}
 IMM_1 = {'REP', 'SEP', 'BRK', 'COP', 'WDM'}
@@ -155,6 +157,33 @@ class Fixup:
         self.shift = shift    # for 'byte': right-shift before masking to 1 byte
 
 
+#: An operand that is a bare identifier (same spelling rule as omf.py's
+#: `_bank_reloc`).  See `_deferred_bank`.
+_IDENT = re.compile(r'[A-Za-z_~@?.][\w~@?.$]*')
+
+
+def _deferred_bank(p, reloc):
+    """True when a block-move operand's bank byte is somebody ELSE's job.
+
+    `encode` bakes 0 for such an operand.  That is only legitimate when a
+    later stage overwrites it, and exactly two things do:
+
+      * a relocatable / import reference, which `omf.py` rewrites into an
+        explicit `expr>>16` RELEXPR record (see its `_bank_reloc`), and
+      * a bare identifier that has not been defined YET -- multi-pass
+        assembly resolves it on a later run, and `omf.py`'s `_bank_reloc`
+        accepts the same spelling for the undefined-external case.
+
+    Anything else -- an unresolvable expression, a typo'd literal -- has no
+    later owner, so baking 0 would ship a block move from the wrong bank
+    with nothing said.
+    """
+    p = p.strip()
+    if reloc is not None and reloc(p):
+        return True
+    return bool(_IDENT.fullmatch(p))
+
+
 def _unpfx(e):
     """Strip a leading size/dp prefix (< > | !) from an inner expression."""
     e = e.strip()
@@ -264,12 +293,27 @@ def encode(mnem, operand, longa, longi, evaluate, pc, reloc=None):
     # source spells a placeholder that is self-modified at run time (MIDI
     # midi.main dp_code), and gold ships `44 00 00`.  (Reloc/symbolic bank
     # operands are handled in omf.py via an explicit `>>16` expression.)
+    #   A block move cannot come back as a Fixup: it has TWO operand fields
+    # and `encode` returns at most one, whose patch offset asm.py fixes at 1.
+    # So an operand this function cannot account for used to contribute bank
+    # 0 in silence.  The two accountable cases are enumerated explicitly
+    # below and everything else is reported.
     if m in BLOCKMOVE:
         parts = op.split(',')
-        s = evaluate(parts[0]) if parts else None
-        d = evaluate(parts[1]) if len(parts) > 1 else None
-        bank = lambda v: ((v or 0) >> 16) & 0xFF
-        return bytes([tab['bmv'], bank(d), bank(s)]), None
+        if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
+            raise EncodeError(
+                f'{m} takes exactly two operands (source,destination), '
+                f'got {operand.strip()!r}')
+        banks = []
+        for p in (parts[1], parts[0]):     # image order: dest bank, src bank
+            v = evaluate(p)
+            if v is None:
+                if not _deferred_bank(p, reloc):
+                    raise EncodeError(
+                        f'{m}: cannot resolve bank of {p.strip()!r}')
+                v = 0                      # placeholder; see _deferred_bank
+            banks.append((v >> 16) & 0xFF)
+        return bytes([tab['bmv']] + banks), None
 
     # PEI is dp-indirect; PEA pushes an absolute word. Both may be written with
     # a leading '#'. Handle before the generic immediate case.

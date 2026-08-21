@@ -134,6 +134,43 @@ def test_a_forward_reference_is_not_accused_during_pass_one():
 
 
 # --------------------------------------------------------------------------
+# defect 5: a block move used to invent bank 0 for an operand it could not
+# account for
+# --------------------------------------------------------------------------
+
+def test_block_move_with_one_operand_is_a_located_error():
+    _assert_reports('\tmvn\t$010000\n',
+                    'MVN takes exactly two operands')
+
+
+def test_block_move_with_an_unresolvable_bank_is_a_located_error():
+    _assert_reports('\tmvn\t$010000,)\n', "cannot resolve bank of ')'")
+
+
+def test_block_move_of_labels_still_assembles():
+    """`mvn main,databank` -- 20 corpus uses -- must not be accused.
+
+    The bank bytes are bank 0 placeholders that omf.py rewrites into
+    `expr>>16` RELEXPR records; that is the whole reason `_deferred_bank`
+    exists.
+    """
+    a = _assemble('main\tds.b\t4\n\tmvn\tmain,main\n')
+    assert _encode_errors(a) == [], a.errors
+
+
+def test_block_move_with_a_blank_after_the_comma_still_assembles():
+    """GQuit.src:1068 `mvn 0, $E10000`; gold GQuit006800.asm:205 `54 E1 00`."""
+    a = _assemble('\tmvn\t0, $E10000\n')
+    assert _encode_errors(a) == [], a.errors
+    for _at, ln, barr in a.emitted:
+        if (ln.op or '').upper() == 'MVN':
+            assert bytes(barr) == b'\x54\xe1\x00', bytes(barr).hex()
+            break
+    else:
+        raise AssertionError('no MVN emitted')
+
+
+# --------------------------------------------------------------------------
 # the negative control: valid source produces NO encode errors
 # --------------------------------------------------------------------------
 
