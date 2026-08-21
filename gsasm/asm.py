@@ -330,9 +330,24 @@ def first_field(s, expr_cont=False, num_cont=False, count_dir=False):
     return s
 
 
+# NOT is deliberately ABSENT from this alternation.  It is a UNARY operator
+# (Asm Ref Table 2-2 groups it with `~` and unary negation; p.29: "Only
+# parentheses and the +, -, ~, and NOT operators are allowed at the start of
+# an expression"), so it can never JOIN two terms -- `X NOT Y` would be "two
+# terms in succession", which p.29 forbids.  Treating it as a continuation
+# operator folded prose comments into data operands.  The captured MPW
+# listings prove the cut:
+#   work/romsrc/GS_ROM/ControlMgr/ControlMgr.asm.lst:4959
+#     `00CC1 00B6 00BE   dc.w NotSpecial<TAB>not used???`
+#   work/romsrc/GS_ROM/WindMgr/NewCalls.asm.lst:2973
+#     `00588 0588 00000032   p_wdefProc equ p_wInfoH+2<TAB>NOT USED.`
+# -- MPW emitted NotSpecial ($00BE) and p_wInfoH+2 ($32), i.e. it stopped the
+# operand at the first blank and read `not used???` / `NOT USED.` as an
+# unmarked comment.  gsasm folded them in and expr.py then silently dropped
+# the leftover tokens; the strict parse (0.6.0) exposed the pair.
 _EXPR_TAIL_OP = re.compile(
     r'(\+\+|--|<<|>>|[+\-*/&|])'
-    r'|((?:OR|AND|EOR|XOR|MOD|DIV|NOT)\b)', re.I)
+    r'|((?:OR|AND|EOR|XOR|MOD|DIV)\b)', re.I)
 _EXPR_TAIL_TERM = re.compile(
     r"[<>^]?(?:[A-Za-z_@?.&][\w@?.&]*|\$[0-9A-Fa-f]+|%[01]+|\d+|'[^']*')")
 
@@ -827,8 +842,20 @@ class Asm:
         # must pass the fixup's own pc so `*`-relative operands (e.g. `bcc *+8`)
         # resolve against the instruction's location, not the end of assembly.
         # MSB ON sets the high bit of character constants ('A' -> $C1).
-        return expr.try_eval(text, self.resolve, self.loc if pc is None else pc,
-                             msb=(self.msb == 'ON'))
+        try:
+            return expr.evaluate(text, self.resolve,
+                                 self.loc if pc is None else pc,
+                                 msb=(self.msb == 'ON'))
+        except expr.BadExpression as e:
+            # Malformed operand TEXT (leftover tokens, unclosed paren) is a
+            # real diagnostic, not a forward reference: report it through the
+            # one existing error channel (`a.errors`, via _err) and still
+            # return None so every caller's "no value yet" path is unchanged.
+            self._err(str(e))
+            return None
+        except expr.Unresolved:
+            # Undefined symbol / no PC: normal on pass 1, stays silent.
+            return None
 
     # ----------------------------------------------------------------
     # & substitution
@@ -2007,12 +2034,9 @@ class Asm:
         # &addr[1:1] -> '<') can't merge with the following '=' into a spurious
         # '<=' (which broke PushWord/PushLong with a '<'/'>' operand).
         t = text.strip()
-        if t.upper().endswith(' THEN'):
-            t = t[:-5].strip()
-        elif t.upper().endswith(' DO'):
-            t = t[:-3].strip()
-        elif t.upper() in ('THEN', 'DO'):
+        if t.upper() in ('THEN', 'DO'):
             return True
+        t = _strip_cond_tail(t)
         t = t.replace('≠', '<>').replace('≤', '<=').replace('≥', '>=')
         # With NO relational operator (= <> < > <= >=), AND/OR/EOR are BITWISE
         # operators inside ONE arithmetic expression — MPW `IF size AND $1`
@@ -3482,6 +3506,49 @@ def _find_op(s, opref):
             return i
         i += 1
     return None
+
+
+_COND_TAIL_KW = re.compile(r'(?i)(THEN|DO)(?=[ \t]|$)')
+
+
+def _strip_cond_tail(t):
+    """Cut `IF expr THEN` / `WHILE expr DO` at the trailing keyword.
+
+    The keyword TERMINATES the conditional expression; whatever follows it is
+    commentary.  This used to be `t.upper().endswith(' THEN')` -- a LITERAL
+    space and nothing after -- which missed the two forms the corpus actually
+    writes most:
+
+      * tab separation.  `if 0<TAB>then` (GS.OS NuMustang Format.aii:1,
+        SCSI `if scsi_dtype = direct_acc<TAB>THEN`, ...): 6,288 evaluations
+        across 43 distinct texts in the gate corpus leaked the word `THEN`
+        into the expression, where expr.py silently dropped it as a trailing
+        token.  Two bugs cancelling; only the strict parse (0.6.0) saw it.
+      * a comment AFTER the keyword: `if 0 then<TAB>This isn't used by
+        anything, is it?`.
+
+    A quoted operand is skipped so a literal " THEN" inside a string constant
+    is not mistaken for the keyword.  Byte-neutral on the gate corpus: every
+    site was already producing the right answer by accident.
+    """
+    i, n, quote = 0, len(t), ''
+    while i < n:
+        c = t[i]
+        if quote:
+            if c == quote:
+                quote = ''
+        elif c in "'\"":
+            quote = c
+        elif c in ' \t':
+            j = i
+            while j < n and t[j] in ' \t':
+                j += 1
+            if _COND_TAIL_KW.match(t, j):
+                return t[:i].strip()
+            i = j
+            continue
+        i += 1
+    return t.strip()
 
 
 def _compare(asm, lhs, rhs, op):
