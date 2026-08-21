@@ -2150,8 +2150,16 @@ def _classify_super_relocs(
                                 field_size, 0, rel_off, tgt_segnum, off_in_tgt)))
                         continue
                     # Cross-group: encode as SUPER type-2 (INTERSEG, FileNum=1,
-                    # SegNum = target group's output segnum).
-                    tgt_segnum = tgt_group + 2   # segnum 2 = first load seg
+                    # SegNum = target group's output segnum).  Every arm of the
+                    # if/else below assigns tgt_segnum before the image patch
+                    # reads it — including the dynamic one, which only reaches
+                    # `tgt_segnum = jt_segnum` past a raise — so there is no
+                    # initial value to give it here.  (`tgt_group + 2`, the
+                    # dead store this replaces, is the same "segnum 2 = first
+                    # load seg" arithmetic the stype == 27 arm below still
+                    # applies live on its no-JT path; §1.1 of
+                    # docs/CONTRACT_EXPRESSLOAD_RELOC.md is where that identity
+                    # is written down.)
                     if jt_enabled:
                         if dyn_flags[tgt_group]:
                             # A reference into a DYNAMIC (on-demand) group cannot
