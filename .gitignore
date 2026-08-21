@@ -8,9 +8,13 @@ __pycache__/
 .DS_Store
 
 # extracted Apple ROM source and includes (must be supplied separately)
+work/romsrc
 work/romsrc/
+work/includes
 work/includes/
+work/rincludes
 work/rincludes/
+work/txt
 work/txt/
 
 # linker working directory (generated artifacts)
@@ -25,6 +29,15 @@ work/*.bin
 work/*.img
 
 # reference materials (copyrighted Apple disk images, PDFs, ROM files)
+#
+# Both the bare name and the trailing-slash form: in the main checkout these
+# are directories, but a git worktree bootstraps them as SYMLINKS to the main
+# checkout (they are far too large to duplicate), and a trailing-slash pattern
+# matches a directory only -- so `ref/` alone leaves the symlink UNTRACKED and
+# a `git add -A` in a worktree silently commits 789MB of copyrighted Apple
+# material.  Found the hard way, 2026-08-22.
+ref
 ref/
+tmp
 tmp/
 .claude/
