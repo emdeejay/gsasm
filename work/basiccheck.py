@@ -127,13 +127,8 @@ _COPIES = [
 def _disk_copies():
     """Read the on-disk BASIC.System from both shipping disks via a2til.
     Returns [(label, bytes), ...]; skips a disk that is not present."""
-    from _common import ROOT
-    for p in (os.environ.get('A2TIL_PATH'),
-              os.path.join(os.path.dirname(ROOT), 'a2til'),
-              os.path.expanduser('~/src/a2til')):
-        if p and os.path.isdir(os.path.join(p, 'a2til')):
-            sys.path.insert(0, p)
-            break
+    from _common import ensure_a2til_on_path
+    ensure_a2til_on_path('basiccheck')
     from a2til.prodos import Volume
     out = []
     for disk, path in _COPIES:

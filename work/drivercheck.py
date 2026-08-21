@@ -76,6 +76,7 @@ Status:
 import sys, os
 from _common import (
     byte_match,
+    ensure_a2til_on_path,
     ensure_repo_on_path,
     first_existing_path,
     gate_result,
@@ -98,7 +99,6 @@ DBIN  = 'ref/GSOS_6/driver_bin'
 # For drivers whose golden binary was never cadius-extracted into DBIN, read the
 # shipping fork straight out of the System 6.0.1 disk image with a2til (NO
 # cadius).  name -> (2mg filename under DISK_DIR, ProDOS path of the driver).
-A2TIL_ROOT = os.path.expanduser('~/src/a2til')
 DISK_DIR = 'ref/GSOS_6/System601_disks/System 6.0.1'
 DRIVER_DISK = {
     'A2.RAMCard':    ('Disk 3 of 7 SystemTools1.2mg',
@@ -148,8 +148,7 @@ def _extract_from_disk(name: str) -> bytes | None:
         return None
     if name in _DISK_RAW_CACHE:
         return _DISK_RAW_CACHE[name]
-    if A2TIL_ROOT not in sys.path:
-        sys.path.insert(0, A2TIL_ROOT)
+    ensure_a2til_on_path('drivercheck')
     from a2til.prodos import Volume
     disk_file, path = disk
     with open(os.path.join(DISK_DIR, disk_file), 'rb') as f:

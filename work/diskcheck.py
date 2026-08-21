@@ -27,25 +27,21 @@ a builder-correctness gate; a no-builder run is trivially 100%):
 """
 import sys, os
 
-from _common import ROOT, byte_match, ensure_repo_on_path, first_diff
+from _common import (ROOT, byte_match, ensure_a2til_on_path,
+                     ensure_repo_on_path, first_diff)
 ensure_repo_on_path()
 
 
 def _find_a2til():
-    """Locate the a2til toolkit without a hard-coded absolute path (P3)."""
-    for p in (os.environ.get('A2TIL_PATH'),
-              os.path.join(os.path.dirname(ROOT), 'a2til'),  # sibling
-              os.path.expanduser('~/src/a2til')):
-        if p and os.path.isdir(os.path.join(p, 'a2til')):
-            return p
-    return None
+    """Locate the a2til toolkit and put it on sys.path (see _common).
+
+    Kept as a module-level name because several harnesses call
+    `diskcheck._find_a2til()` before importing `a2til.*` themselves.
+    """
+    return ensure_a2til_on_path('diskcheck')
 
 
 _A2TIL = _find_a2til()
-if not _A2TIL:
-    sys.exit("diskcheck: a2til not found — set A2TIL_PATH, or place it as a sibling "
-             "of gsasm (…/a2til/a2til/prodos.py). See docs/design/M8_DISK_IMAGES.md.")
-sys.path.insert(0, _A2TIL)
 from a2til.prodos import Volume, ST_EXTENDED        # noqa: E402
 
 DISKS = 'ref/GSOS_6/System601_disks/System 6.0.1'

@@ -109,7 +109,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import ROOT, ensure_repo_on_path  # noqa: E402
+from _common import ROOT, ensure_a2til_on_path, ensure_repo_on_path  # noqa: E402
 ensure_repo_on_path()
 
 OLD_CENSUS = os.path.join(ROOT, 'docs', 'disk_census_2026-07-30.json')
@@ -130,8 +130,7 @@ def live_forks_for_disk(disk_label):
     """{path: {'data': size} | {'data': size, 'rsrc': size}}."""
     import diskcheck as dc
     if disk_label.startswith('Disk 7'):
-        sys.path.insert(0, os.path.expanduser(
-            os.environ.get('A2TIL_PATH', '~/src/a2til')))
+        ensure_a2til_on_path('census_migrate')
         from a2til.hfs import HfsVolume      # upstreamed (a2til #9 / PR #10)
         v = HfsVolume(os.path.join(dc.DISKS, disk_label), readonly=True)
         out = {}

@@ -240,6 +240,21 @@ original build — Apple's source, listings, objects, and shipping binaries —
 which are copyrighted and **not included** (everything under `ref/` and
 `work/romsrc/` is gitignored; supply your own).
 
+The harnesses that read or rebuild the shipping disk images (`diskcheck.py`,
+`drivercheck.py`, `disk7check.py`, `manifestcheck.py` and friends) also need
+`a2til`, the downstream ProDOS/HFS/2IMG disk-image library — a separate
+checkout, deliberately never vendored here. They all
+locate it through one mechanism (`work/_common.ensure_a2til_on_path`):
+
+```sh
+A2TIL_PATH=/path/to/a2til python3 work/diskcheck.py
+```
+
+With `A2TIL_PATH` unset the search falls back to a checkout beside this one
+(`../a2til`), then `~/src/a2til`. An `A2TIL_PATH` that is set but does not
+hold an a2til package is a hard error with a clear message — never a silent
+fall-back to another layout.
+
 | Script | What it validates |
 |---|---|
 | `gate.py` | Runs every harness below against a committed baseline; fails on any regression |

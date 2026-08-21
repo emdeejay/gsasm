@@ -21,12 +21,12 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import ensure_repo_on_path
+from _common import ensure_a2til_on_path, ensure_repo_on_path
 ensure_repo_on_path()
 
 import diskcheck as dc                       # noqa: E402  (DISKS locator)
 import drivercheck                           # noqa: E402  (INCS)
-sys.path.insert(0, os.path.expanduser(os.environ.get('A2TIL_PATH', '~/src/a2til')))
+ensure_a2til_on_path('disk7check')
 from a2til import hfs                        # noqa: E402  (HfsVolume, PR #10)
 import basiccheck                            # noqa: E402
 import diskbuilders.p8_driver as p8_driver   # noqa: E402

@@ -25,8 +25,8 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.environ.get('A2TIL_PATH',
-                                  os.path.expanduser('~/src/a2til')))
+from _common import ensure_a2til_on_path        # noqa: E402
+ensure_a2til_on_path('toolsetup_probe')
 from gsasm import asm, omf
 from gsasm.expressload import expressload
 import diskbuilders.expressload_files as ef

@@ -78,7 +78,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import ROOT, ensure_repo_on_path  # noqa: E402
+from _common import ROOT, ensure_a2til_on_path, ensure_repo_on_path  # noqa: E402
 ensure_repo_on_path()
 
 import diskmanifest as dm  # noqa: E402
@@ -108,7 +108,7 @@ def live_forks_prodos(disk_path):
     contributes only its 'data' key; an extended-storage-type file
     contributes both 'data' and 'rsrc' (even if one is 0 bytes — the key
     block genuinely exists on disk)."""
-    sys.path.insert(0, os.path.expanduser(os.environ.get('A2TIL_PATH', '~/src/a2til')))
+    ensure_a2til_on_path('manifestcheck')
     from a2til.prodos import Volume
     import diskcheck as dc
     vol = Volume(open(disk_path, 'rb').read())
@@ -130,8 +130,7 @@ def live_forks_hfs(disk_path):
     enumerated here, not just the data fork.  HFS access is a2til's
     (a2til.hfs.HfsVolume, upstreamed 2026-08-01 — a2til issue #9 / PR #10;
     fork sizes come off each HfsEntry's own catalog record)."""
-    sys.path.insert(0, os.path.expanduser(
-        os.environ.get('A2TIL_PATH', '~/src/a2til')))
+    ensure_a2til_on_path('manifestcheck')
     from a2til.hfs import HfsVolume
     v = HfsVolume(disk_path, readonly=True)
     out = {}

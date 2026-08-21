@@ -22,6 +22,65 @@ def ensure_repo_on_path(*extra: str) -> None:
             sys.path.insert(0, path)
 
 
+# --- a2til discovery -------------------------------------------------------
+# a2til is the DOWNSTREAM disk-image library (ProDOS / HFS / 2IMG).  It is a
+# separate checkout on purpose — filesystems live downstream of the assembler
+# and are deliberately never vendored here — so the harnesses have to locate
+# it.  ONE mechanism: $A2TIL_PATH is the override; if it is NOT set, we search
+#   1. …/a2til       a checkout sitting beside this one
+#   2. ~/src/a2til   the historical default
+# A candidate counts only if it really holds the package (…/a2til/a2til/).
+# An override that is set but wrong is a hard error, never a silent fall-back
+# to somebody else's layout — that is the whole point of having an override.
+A2TIL_ENV = 'A2TIL_PATH'
+A2TIL_HINT = (f'set ${A2TIL_ENV} to an a2til checkout, or place one beside '
+              'gsasm (…/a2til/a2til/prodos.py). See README.md / docs/RESULTS.md.')
+
+
+def a2til_candidates() -> list[str]:
+    """Return the a2til search path, in precedence order (unfiltered).
+
+    When the override is set it is the ONLY candidate.
+    """
+    override = os.environ.get(A2TIL_ENV)
+    if override:
+        return [os.path.expanduser(override)]
+    return [os.path.join(os.path.dirname(ROOT), 'a2til'),
+            os.path.expanduser('~/src/a2til')]
+
+
+def find_a2til() -> str | None:
+    """Return the a2til checkout root, or None when it cannot be found."""
+    for path in a2til_candidates():
+        if os.path.isdir(os.path.join(path, 'a2til')):
+            return path
+    return None
+
+
+def a2til_root(who: str = 'gsasm') -> str:
+    """Return the a2til checkout root, or exit with a clear diagnostic.
+
+    Exiting here keeps a missing/misconfigured a2til from surfacing as an
+    obscure `ModuleNotFoundError: No module named 'a2til'` later on.
+    """
+    root = find_a2til()
+    if not root:
+        tried = ', '.join(a2til_candidates())
+        why = (f'${A2TIL_ENV} does not point at an a2til checkout'
+               if os.environ.get(A2TIL_ENV) else 'a2til not found')
+        sys.exit(f'{who}: {why} — {A2TIL_HINT}\n'
+                 f'  tried: {tried}')
+    return root
+
+
+def ensure_a2til_on_path(who: str = 'gsasm') -> str:
+    """Put the a2til checkout on sys.path (idempotent); return its root."""
+    root = a2til_root(who)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    return root
+
+
 def work_rel(*parts: str) -> str:
     """Return a repo-relative path under work/."""
     return os.path.join('work', *parts)

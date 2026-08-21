@@ -34,7 +34,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import ROOT, ensure_repo_on_path  # noqa: E402
+from _common import ROOT, ensure_a2til_on_path, ensure_repo_on_path  # noqa: E402
 ensure_repo_on_path()
 
 SRC = os.path.join(ROOT, 'ref', 'GSOS_6', 'IIGS.601.SRC', 'GSToolbox',
@@ -97,8 +97,7 @@ def build_iwem_disk4():
 
 
 def golden():
-    sys.path.insert(0, os.path.expanduser(
-        os.environ.get('A2TIL_PATH', '~/src/a2til')))
+    ensure_a2til_on_path('iwemcheck')
     from a2til.prodos import Volume
     return Volume(open(DISK4, 'rb').read()).read_file(GOLD_PATH)
 

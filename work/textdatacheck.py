@@ -22,7 +22,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import ROOT, ensure_repo_on_path  # noqa: E402
+from _common import ROOT, ensure_a2til_on_path, ensure_repo_on_path  # noqa: E402
 ensure_repo_on_path()
 
 DISKS = os.path.join(ROOT, 'ref', 'GSOS_6', 'System601_disks', 'System 6.0.1')
@@ -42,8 +42,7 @@ TARGETS = [
 
 
 def run():
-    sys.path.insert(0, os.path.expanduser(
-        os.environ.get('A2TIL_PATH', '~/src/a2til')))
+    ensure_a2til_on_path('textdatacheck')
     from a2til.prodos import Volume
     vols = {}
     good = total = 0
