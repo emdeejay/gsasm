@@ -606,6 +606,27 @@ def _emit(opcode, expr, nbytes, kind, evaluate, pc, shift=0):
     return bytes(out), None
 
 
-def instr_length(mnem, operand, longa, longi, evaluate):
-    b, _ = encode(mnem, operand, longa, longi, evaluate, 0)
+def instr_length(mnem, operand, longa, longi, evaluate, pc=0, reloc=None):
+    """Encoded length in bytes of one instruction; 1 for an unknown mnemonic.
+
+    `pc` and `reloc` are the same arguments `encode` takes and must be given
+    the same values, or this disagrees with the encoder.  They used to be
+    hard-coded to 0 and None, which made cross-bank sizing wrong by
+    construction: `instr_length('JMP', '$030000', ...)` answered 4 (JML)
+    for an instruction `encode` sizes as 3 (JMP abs) anywhere in bank 3.
+
+    KEPT RATHER THAN DELETED, deliberately.  It has no callers anywhere in
+    the tree -- asm.py sizes through `encode` directly, which is why the
+    disagreement never bit -- so deleting it would cost nothing internally.
+    But `gsasm` is a published library (PyPI) and this is module-level
+    public API with no underscore and no deprecation notice; removing it is
+    a breaking change for a consumer we cannot see, and it buys only the
+    three lines it occupies.  Defaulted parameters make the correct sizing
+    reachable while every existing five-argument call keeps working
+    unchanged, which is the smaller change of the two.
+
+    Note this now propagates EncodeError for an unencodable operand, exactly
+    as `encode` does -- a shape with no encoding has no length either.
+    """
+    b, _ = encode(mnem, operand, longa, longi, evaluate, pc, reloc)
     return len(b) if b else 1

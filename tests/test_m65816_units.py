@@ -1001,18 +1001,38 @@ def test_instr_length_reports_one_for_an_unknown_mnemonic():
     assert instr_length('XYZZY', '', False, False, ev) == 1
 
 
-def test_instr_length_always_sizes_at_pc_zero():
-    """SUSPICIOUS (pinned, not fixed).
+def test_instr_length_can_be_told_the_pc_and_then_agrees_with_encode():
+    """RESOLVED (was SUSPICIOUS): pc/reloc are parameters, not hard-coded 0.
 
-    `instr_length` hard-codes pc=0, so any cross-bank sizing decision is
-    made as if the instruction lived in bank 0: it reports 4 for a target
-    that `encode` would size as 3 bytes at the real PC.  Harmless today —
-    the function has NO callers anywhere in the tree (asm.py sizes via
-    encode() directly) — but it is public API and would mis-size the moment
-    someone used it for a bank-N segment.
+    `instr_length` hard-coded pc=0, so every cross-bank sizing decision was
+    made as if the instruction lived in bank 0 — it answered 4 for a target
+    `encode` sizes as 3 bytes at the real PC.  The function is kept rather
+    than deleted (it is public API of a published package and has no
+    underscore), with `pc` and `reloc` added as DEFAULTED parameters so the
+    old five-argument call shape is untouched.
     """
+    # unchanged when the caller does not say otherwise
     assert instr_length('JMP', '$030000', False, False, ev) == 4
-    assert len(encode('JMP', '$030000', False, False, ev, 0x030000)[0]) == 3
+    # ... and now able to agree with encode() at the real PC
+    for pc in (0, 0x1234, 0x030000, 0xFE0000):
+        assert instr_length('JMP', '$030000', False, False, ev, pc) == \
+            len(encode('JMP', '$030000', False, False, ev, pc)[0]), hex(pc)
+    # the reloc predicate reaches encode too (a relocatable target never
+    # promotes to a long jump)
+    r = reloc_for('LONGVAL')
+    assert instr_length('JMP', 'LONGVAL', False, False, ev) == 4
+    assert instr_length('JMP', 'LONGVAL', False, False, ev, 0, r) == 3
+
+
+def test_instr_length_propagates_an_unencodable_shape():
+    """A shape with no encoding has no length either."""
+    assert raises(EncodeError, 'STZ', '$10,y')
+    try:
+        instr_length('STZ', '$10,y', False, False, ev)
+    except EncodeError:
+        pass
+    else:
+        raise AssertionError('instr_length swallowed an EncodeError')
 
 
 # --------------------------------------------------------------------------
