@@ -202,16 +202,36 @@ def overlay(host_bytes: bytes,
             patches: list[tuple[bytes, int]]) -> bytes:
     """Lay driver images into *host_bytes* at fixed offsets.
 
-    *patches* is a list of (driver_bytes, offset) pairs.  Each driver image is
-    copied into the host at the given offset, overwriting whatever was there.
-    The host length is unchanged.
+    *patches* is a list of (driver_bytes, offset) pairs, applied IN ORDER: each
+    image is copied into the host at the given offset, overwriting whatever was
+    there, so a later patch may overwrite the tail of an earlier one.
 
-    This is the Python equivalent of OverlayIIgs.
+    **The host GROWS** when a patch reaches past its end, and any gap between
+    the old end and the patch offset is ZERO-FILLED.  That is the real
+    OverlayIIgs model, and it is load-bearing here: `GS.OS/MakeFiles/make.p8`
+    builds System/P8 by laying twelve driver images onto ProdosBIN and relies on
+    the destination extending as it goes (the recipe transcript and the
+    17128/17128 byte proof are in `work/diskbuilders/p8_driver.py` /
+    `work/p8check.py`).  The docstring used to claim "The host length is
+    unchanged", which contradicted both the code and the only model that
+    reproduces P8 — the DOCSTRING was the bug, and this is its correction.
+
+    The zero fill, by contrast, is a genuine code fix: `bytearray` slice
+    assignment CLAMPS, so a patch wholly past the end used to land at
+    ``len(host)`` — silently, at the wrong offset, with no gap and no error.
+    OverlayIIgs extends the destination file, so the gap is zeros and the patch
+    lands where it was asked to.
+
+    This is the Python equivalent of OverlayIIgs; `p8_driver._overlay` is the
+    in-place wrapper the P8 recipe reads through, and it delegates here so the
+    model has one home rather than two (docs/ARCHITECTURE_REVIEW_2026-08-02.md
+    finding 4).
     """
     buf = bytearray(host_bytes)
     for driver, off in patches:
-        n = len(driver)
-        buf[off:off + n] = driver
+        if off > len(buf):
+            buf.extend(b'\x00' * (off - len(buf)))   # gap -> zero fill
+        buf[off:off + len(driver)] = driver
     return bytes(buf)
 
 

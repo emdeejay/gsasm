@@ -386,17 +386,31 @@ def test_overlay_does_not_mutate_the_host_bytes():
 
 
 def test_overlay_past_the_end_GROWS_the_host():
-    # PINNED (surprising): the docstring says "The host length is unchanged",
-    # but bytearray slice assignment extends.  A patch straddling the end
-    # lengthens the image instead of being rejected or clipped.
+    # CONTRACT (was "PINNED (surprising)"): growth is the OverlayIIgs model,
+    # not a slice-assignment accident — make.p8 overlays twelve drivers onto a
+    # 6367-byte ProdosBIN and depends on the destination extending.  The old
+    # "The host length is unchanged" docstring was the drifted half.
     assert makebin.overlay(b'\x00' * 4, [(b'\xaa\xbb', 3)]) == \
         b'\x00\x00\x00\xaa\xbb'
 
 
-def test_overlay_wholly_past_the_end_APPENDS_at_the_wrong_offset():
-    # PINNED (surprising): offset 5 into a 2-byte host does not zero-fill the
-    # gap — the patch lands at offset 2.
-    assert makebin.overlay(b'\x00\x00', [(b'\xaa', 5)]) == b'\x00\x00\xaa'
+def test_overlay_wholly_past_the_end_ZERO_FILLS_THE_GAP():
+    # FIXED: offset 5 into a 2-byte host used to land at offset 2 (bytearray
+    # slice assignment clamps) — silently the wrong address.  OverlayIIgs
+    # extends the destination, so the gap is zeros and the patch lands at 5.
+    assert makebin.overlay(b'\x00\x00', [(b'\xaa', 5)]) == \
+        b'\x00\x00\x00\x00\x00\xaa'
+
+
+def test_overlay_gap_fill_then_a_later_patch_into_the_gap():
+    # The P8 shape in miniature: a far patch extends the image, a later one
+    # writes into the zeros it created.
+    out = makebin.overlay(b'\x11', [(b'\xaa', 4), (b'\xbb\xcc', 1)])
+    assert out == b'\x11\xbb\xcc\x00\xaa'
+
+
+def test_overlay_exactly_at_the_end_appends_without_a_gap():
+    assert makebin.overlay(b'\x11\x22', [(b'\x33', 2)]) == b'\x11\x22\x33'
 
 
 def test_catenate_joins_in_order():

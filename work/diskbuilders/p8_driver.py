@@ -159,14 +159,14 @@ def _parse_segs(obj_bytes):
 def _overlay(dest: bytearray, src_bytes: bytes, offset: int) -> None:
     """Lay *src_bytes* into *dest* at *offset*, extending with zeros if needed.
 
-    Mirrors OverlayIIgs.  The destination is extended in-place when
-    offset + len(src_bytes) > len(dest).  src_bytes is NOT truncated — the
-    caller is responsible for clipping if a known final size is required.
+    The OverlayIIgs model itself lives in `gsasm.makebin.overlay`; this is only
+    the in-place wrapper that lets the P8 recipe below read one line per
+    make.p8 line.  It used to be a second copy of the model, which is how
+    makebin.overlay's docstring drifted into claiming the host length never
+    changes while this one (correctly) extended the destination.  One fact, one
+    ledger: delegate.  src_bytes is NOT truncated — the caller clips.
     """
-    needed = offset + len(src_bytes)
-    if needed > len(dest):
-        dest.extend(b'\x00' * (needed - len(dest)))
-    dest[offset:offset + len(src_bytes)] = src_bytes
+    dest[:] = _makebin.overlay(bytes(dest), [(src_bytes, offset)])
 
 
 # ---------------------------------------------------------------------------
