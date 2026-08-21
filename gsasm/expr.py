@@ -21,6 +21,20 @@ class Unresolved(Exception):
     """Raised when an expression references a symbol with no known value."""
 
 
+class BadExpression(Unresolved):
+    """Raised when the expression TEXT is malformed, not merely unresolved.
+
+    Deliberately a subclass of `Unresolved` so that every existing caller
+    keeps its present behaviour: `try_eval` and the `except Unresolved` sites
+    in asm.py/omf.py still see "no value available" and fall through to their
+    fixup/defer paths rather than growing a second failure mode.  What the
+    subclass buys is that `Asm.evaluate` can catch this narrower case FIRST
+    and file a diagnostic in `a.errors` -- an undefined forward reference must
+    stay silent (it is normal on pass 1), a syntactically broken operand
+    must not.
+    """
+
+
 _TWO = ('<<', '>>', '**', '++', '--', '<>', '<=', '>=', '//')
 
 
@@ -106,12 +120,25 @@ def _idchar(c):
     return c.isalnum() or c in '_~@?.$'
 
 
+def _tokstr(tok):
+    """Render a token for a diagnostic message."""
+    if isinstance(tok, tuple):
+        kind, val = tok
+        if kind == 'end':
+            return 'end of expression'
+        if kind == 'num':
+            return 'number %d' % val
+        return '%s %r' % (kind, val)
+    return 'operator %r' % (tok,)
+
+
 class _Parser:
-    def __init__(self, toks, resolve, pc):
+    def __init__(self, toks, resolve, pc, text=''):
         self.t = toks
         self.i = 0
         self.resolve = resolve
         self.pc = pc
+        self.text = text          # original source text, for diagnostics only
 
     def peek(self):
         return self.t[self.i]
@@ -121,6 +148,20 @@ class _Parser:
 
     def parse(self):
         v = self.cmp()
+        t = self.peek()
+        if t != ('end', None):
+            # The token stream must be fully consumed.  Without this check
+            # `2 3` evaluated to 2, `5 BAR` to 5 and `1)` to 1 -- a malformed
+            # operand silently produced the value of its first complete
+            # subexpression instead of a diagnostic.
+            #
+            # DOCUMENTED: Asm Ref p.29, rules for writing expressions --
+            # "An expression may not contain two terms or two operators
+            # (other than parentheses) in succession."  Leftover tokens after
+            # a complete expression are exactly that violation, so rejecting
+            # them is the manual's rule, not a tightening of our own.
+            raise BadExpression("trailing %s in expression %r"
+                                % (_tokstr(t), self.text))
         return v
 
     def cmp(self):
@@ -249,8 +290,13 @@ class _Parser:
         t = self.next()
         if t == '(':
             v = self.cmp()
-            if self.peek() == ')':
-                self.next()
+            if self.peek() != ')':
+                # `(1+2` used to evaluate to 3: the missing ')' was simply not
+                # consumed.  Asm Ref p.29: "Subexpressions are designated by
+                # enclosing the subexpression in parentheses" -- an unclosed
+                # one is not a subexpression.
+                raise BadExpression("missing ')' in expression %r" % (self.text,))
+            self.next()
             return v
         if t == '*':
             if self.pc is None:
@@ -269,13 +315,25 @@ class _Parser:
 
 
 def evaluate(text, resolve=lambda n: None, pc=None, msb=False):
-    """Evaluate `text` -> int. Raises Unresolved if a symbol/PC is unknown."""
-    toks = tokenize(text.strip(), msb)
-    return _Parser(toks, resolve, pc).parse()
+    """Evaluate `text` -> int.
+
+    Raises `Unresolved` if a symbol/PC is unknown, and its subclass
+    `BadExpression` if the text is malformed (leftover tokens, unclosed
+    parenthesis).  Callers that only want a value use `try_eval`; callers
+    that want a diagnostic (`Asm.evaluate`) catch `BadExpression` first.
+    """
+    src = text.strip()
+    toks = tokenize(src, msb)
+    return _Parser(toks, resolve, pc, src).parse()
 
 
 def try_eval(text, resolve=lambda n: None, pc=None, msb=False):
-    """Like evaluate but returns None instead of raising Unresolved."""
+    """Like evaluate but returns None instead of raising Unresolved.
+
+    `BadExpression` is an `Unresolved` subclass, so a malformed expression
+    also returns None here -- probing callers (omf.py's relocation
+    classifiers) must not have to grow a second exception handler.
+    """
     try:
         return evaluate(text, resolve, pc, msb)
     except Unresolved:

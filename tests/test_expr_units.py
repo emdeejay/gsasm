@@ -44,6 +44,15 @@ def raises_unresolved(text, **kw):
     return False
 
 
+def raises_bad(text, **kw):
+    """True iff evaluating *text* raises expr.BadExpression (malformed text)."""
+    try:
+        expr.evaluate(text, **kw)
+    except expr.BadExpression:
+        return True
+    return False
+
+
 # --------------------------------------------------------------------------
 # Division: MPW truncates toward zero (Do-Not-Touch registry: "expr.py
 # division/*-PC/MSB semantics ... MPW truncating division")
@@ -208,9 +217,9 @@ def test_bare_radix_prefix_is_zero():
 
 
 def test_radix_scan_stops_at_the_first_out_of_range_digit():
-    # PINNED: '%12' is binary 1 followed by the decimal literal 2 — and the
-    # trailing 2 is then silently dropped (see the trailing-token test below).
-    assert ev('%12') == 1
+    # PINNED: '%12' lexes as binary 1 followed by the decimal literal 2.  The
+    # TOKENIZER is unchanged; since 0.6.0 the PARSER rejects the leftover
+    # rather than dropping it (see test_trailing_tokens_are_rejected).
     assert expr.tokenize('%12') == [('num', 1), ('num', 2), ('end', None)]
     # hex stops at 'g', which starts a symbol
     assert expr.tokenize(DOLLAR + '1Ag') == [('num', 0x1A), ('sym', 'g'),
@@ -411,18 +420,50 @@ def test_truncated_expression_is_unresolved():
     assert raises_unresolved('(')
 
 
-def test_trailing_tokens_are_silently_ignored():
-    # PINNED (surprising): parse() never asserts it reached ('end', None), so
-    # junk after a complete expression is dropped rather than diagnosed.
-    assert ev('2 3') == 2
-    assert ev('1)') == 1
-    assert ev('5 BAR') == 5                # ...even an undefined symbol
+def test_trailing_tokens_are_rejected():
+    # ASSERTIONS CHANGED in 0.6.0: parse() now asserts it reached
+    # ('end', None).  These used to evaluate to 2, 1 and 5 respectively.
+    # DOCUMENTED (Asm Ref p.29): "An expression may not contain two terms or
+    # two operators (other than parentheses) in succession."
+    assert raises_bad('2 3')
+    assert raises_bad('1)')
+    assert raises_bad('5 BAR')             # ...even an undefined symbol
+    assert raises_bad('%12')               # binary 1 then a stray decimal 2
 
 
-def test_missing_close_paren_is_tolerated():
-    # `if self.peek() == ')'` — a missing ')' is simply not consumed.
-    assert ev('(1+2') == 3
-    assert ev('(1+2*3') == 7
+def test_missing_close_paren_is_rejected():
+    # ASSERTION CHANGED in 0.6.0: these used to evaluate to 3 and 7 — the
+    # missing ')' was simply not consumed.
+    assert raises_bad('(1+2')
+    assert raises_bad('(1+2*3')
+    assert ev('(1+2)') == 3                # the well-formed form still works
+    assert ev('((1+2)*3)') == 9
+
+
+def test_bad_expressions_are_a_subclass_of_unresolved():
+    # So `try_eval` and every `except Unresolved` site keeps working: a
+    # malformed operand reads as "no value", exactly as an undefined symbol
+    # does.  Only Asm.evaluate tells the two apart (it files a diagnostic in
+    # a.errors for BadExpression and stays silent for plain Unresolved).
+    assert issubclass(expr.BadExpression, expr.Unresolved)
+    assert raises_unresolved('2 3')
+    assert expr.try_eval('2 3') is None
+    assert expr.try_eval('(1+2') is None
+
+
+def test_bad_expression_message_names_the_offending_text():
+    try:
+        ev('5 BAR')
+    except expr.BadExpression as exc:
+        assert '5 BAR' in str(exc) and 'BAR' in str(exc)
+    else:
+        raise AssertionError('5 BAR was accepted')
+    try:
+        ev('(1+2')
+    except expr.BadExpression as exc:
+        assert ')' in str(exc) and '(1+2' in str(exc)
+    else:
+        raise AssertionError('(1+2 was accepted')
 
 
 def test_whitespace_is_insignificant():
