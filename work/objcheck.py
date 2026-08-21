@@ -61,6 +61,14 @@ def show(src):
 
 def summary():
     exact = total = 0
+    # An assembly that RAISES is not a byte mismatch.  This loop used to say
+    # `except Exception: pass`, which made the two indistinguishable: a crashing
+    # module fell out of `exact` and landed in the accepted-21 remainder, and
+    # the only reason the count stayed honest was that linkcheck.py independently
+    # lists exactly those 21 objects -- a coincidence of two harnesses, not a
+    # mechanism.  Crashes are now their own tally, with their own acceptance
+    # (zero) and their own printed lines.
+    crashed = []
     for objf in sorted(glob.glob(ROOT + '/**/*.obj', recursive=True)):
         src = src_for(objf)
         if not src:
@@ -68,15 +76,25 @@ def summary():
         total += 1
         try:
             mine, orig = one(src, objf)
-            if mine == orig:
-                exact += 1
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001
+            crashed.append(f'{os.path.relpath(objf, ROOT)}  '
+                           f'{type(exc).__name__}: {exc}')
+            continue
+        if mine == orig:
+            exact += 1
     print(f"OBJ byte-identical: {exact}/{total}")
+    print(f"objects whose assembly raised: {len(crashed)}")
+    for line in crashed:
+        print(f"  {line}")
     # 21 accepted: those objects are NOT byte-identical but ARE link-identical
     # (cosmetic OMF encoding choices the linker collapses -- linkcheck.py proves
     # it, docs/REFACTORING.md 0).  A 22nd is a regression.
-    return gate_result(obj_identical=(total - exact, 21))
+    # obj_assembly_errors accepts NOTHING: a crash proves nothing about the
+    # emitter and cannot be a known-benign residual.  It is reported separately
+    # so `obj_identical`'s 21 keeps meaning "encoded differently, links the
+    # same" instead of "differs, for one of two reasons we did not record".
+    return gate_result(obj_identical=(total - exact, 21),
+                       obj_assembly_errors=len(crashed))
 
 
 if __name__ == '__main__':
