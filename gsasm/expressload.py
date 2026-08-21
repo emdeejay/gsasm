@@ -1667,8 +1667,36 @@ def _build_multiseg_output(
                         {k: _adj(v) for k, v in og.items()} if og else None)
                 return _adj_og_cache[oi_seg]
 
+            # ONE walk of each placed segment's record stream: formerly three
+            # walks of the very same records — this body build, the ``expr_at``
+            # index, and a per-type-27-reloc re-scan that searched every segment
+            # again for the EXPR at one offset.  None of the three EMITS
+            # anything (each only fills a list or a lookup table consumed
+            # further down), so merging them reorders no record emission; every
+            # per-record rule below is verbatim from the walk it came from.
             group_bodies: list[bytes] = []
-            for placed_i in indices:
+            # abs_off -> (size, ops, seg_i) for every EXPR-family record in this
+            # group, in the SAME (un-deferred) record basis _scan_relocs itself
+            # scans — lets the stype==0/1 cross-group branches below RE-EVALUATE
+            # an expression's true joint-space target directly (robust against
+            # the 16-bit wraparound a "read the group-adjusted stored bytes back"
+            # trick suffers when the target group's base and the calling group's
+            # base straddle a 64K boundary, or the field is a `dc.l routine-1`
+            # dispatch-table entry, e.g. Tool018 SeedFill/Pictures -> PixelMap2Rgn).
+            # Later segments overwrite an earlier one's entry, as before.
+            expr_at: dict[int, tuple[int, list, int]] = {}
+            # abs_off -> joint symbol value, for the SUPER type-27 (bank-byte)
+            # classification below.  Read off the RAW record where the old
+            # per-reloc search read the DEFERRED one — equivalent because
+            # ``_defer_shifts`` emits exactly one output record per input record
+            # with the same name and size (identical body offsets) and rewrites
+            # an EXPR only by stripping the trailing ``lit, >>, end`` triple,
+            # which holds no symbol operand, so the FIRST ``sym*`` operand — all
+            # this lookup reads — is the same in both.  Segments are visited in
+            # ``indices`` order and the first that resolves an offset keeps it,
+            # exactly as the old search's ``break`` did.
+            bank_sym_at: dict[int, int] = {}
+            for seg_i, placed_i in enumerate(indices):
                 _segname, recs, seg_base, _hdr, _asm = placed[placed_i]
                 recs2, _srels = _linkiigs._defer_shifts(recs)
                 oi_seg = placed_obj_idx[placed_i]
@@ -1677,6 +1705,51 @@ def _build_multiseg_output(
                 # Adjust seg_base to be group-relative (subtract group_base).
                 adj_seg_base = seg_base - group_base
                 group_bodies.append(_omf._build_body(recs2, local_sym, adj_seg_base))
+
+                seg_bank: dict[int, int] = {}
+                body_off_e = 0
+                for _, nm_e, d_e in recs:
+                    if nm_e == 'END':
+                        break
+                    if nm_e in ('CONST', 'LCONST'):
+                        body_off_e += len(d_e)
+                    elif nm_e in ('LEXPR', 'BEXPR', 'EXPR'):
+                        abs_e = seg_base + body_off_e
+                        expr_at[abs_e] = (d_e[0], d_e[1], seg_i)
+                        # Extract symbol name and look up in joint sym.
+                        for op2 in d_e[1]:
+                            if isinstance(op2, tuple) and op2[0].startswith('sym'):
+                                sname2 = op2[1]
+                                # Try joint sym then obj_globals; a "combo"
+                                # group's private export (see _fallback_sym's
+                                # docstring) is in neither, so fall further back
+                                # to _fallback_sym rather than silently leaving
+                                # sym_joint unresolved (measured against TS2
+                                # INIT's ORIGBELLVECTOR bank-byte ref,
+                                # docs/EXPRESSLOAD_TIER2_PLAN.md E2). Scoped to
+                                # the no-JT path — jt_enabled tools already
+                                # resolve correctly via sym/obj_globals[oi]
+                                # alone. ``oi_seg`` here is THIS segment's OWN
+                                # owning object (placed_obj_idx[placed_i]) — a
+                                # group may span several per-file objects
+                                # (opts['obj_group']), so the outer group loop's
+                                # ``g`` is not an object index.
+                                jv = sym.get(sname2)
+                                if jv is None:
+                                    og2 = obj_globals[oi_seg]
+                                    jv = og2.get(sname2) if og2 else None
+                                if jv is None and not jt_enabled:
+                                    jv = _fallback_sym.get(sname2)
+                                if isinstance(jv, int):
+                                    seg_bank[abs_e] = jv
+                                break
+                        body_off_e += d_e[0]
+                    elif nm_e == 'RELEXPR':
+                        body_off_e += d_e[0]
+                    elif nm_e == 'DS':
+                        body_off_e += d_e
+                for _boff, _bval in seg_bank.items():
+                    bank_sym_at.setdefault(_boff, _bval)
 
             merged = b''.join(group_bodies)
             merged_arr = bytearray(merged)   # mutable — may be patched for type-2 relocs
@@ -1731,31 +1804,6 @@ def _build_multiseg_output(
                 og_seg = obj_globals[placed_obj_idx[placed_i]]
                 grp_body_syms.append(
                     _fallback_sym if not og_seg else {**_fallback_sym, **og_seg})
-
-            # abs_off -> (size, ops, seg_i) for every EXPR-family record in this
-            # group, in the SAME (un-deferred) record basis _scan_relocs itself
-            # scans — lets the stype==0/1 cross-group branches below RE-EVALUATE
-            # an expression's true joint-space target directly (robust against
-            # the 16-bit wraparound a "read the group-adjusted stored bytes back"
-            # trick suffers when the target group's base and the calling group's
-            # base straddle a 64K boundary, or the field is a `dc.l routine-1`
-            # dispatch-table entry, e.g. Tool018 SeedFill/Pictures -> PixelMap2Rgn).
-            expr_at: dict[int, tuple[int, list, int]] = {}
-            for seg_i, placed_i in enumerate(indices):
-                _sn, recs_e, sb_e, _hdr_e, _a_e = placed[placed_i]
-                body_off_e = 0
-                for _, nm_e, d_e in recs_e:
-                    if nm_e == 'END':
-                        break
-                    if nm_e in ('CONST', 'LCONST'):
-                        body_off_e += len(d_e)
-                    elif nm_e in ('LEXPR', 'BEXPR', 'EXPR'):
-                        expr_at[sb_e + body_off_e] = (d_e[0], d_e[1], seg_i)
-                        body_off_e += d_e[0]
-                    elif nm_e == 'RELEXPR':
-                        body_off_e += d_e[0]
-                    elif nm_e == 'DS':
-                        body_off_e += d_e
 
             for offset, size, shift, ops, seg_i in _scan_standalone_relocs(group_placed):
                 rel_off = offset - group_base
@@ -1944,60 +1992,10 @@ def _build_multiseg_output(
                         # The body has been group-adjusted, so the stored 2-byte value is
                         # (sym_joint_value - group_base) >> 16 — usually 0 for relocs
                         # within the address space.  We need the JOINT value to classify.
-                        # Walk the records to find the EXPR at abs_off.
-                        sym_joint: int | None = None
-                        for placed_i in indices:
-                            _sn2, recs2_raw, sb2, _h2, _a2 = placed[placed_i]
-                            recs2_d, _ = _linkiigs._defer_shifts(recs2_raw)
-                            body_off2 = 0
-                            for _, nm2, d2 in recs2_d:
-                                if nm2 == 'END':
-                                    break
-                                if nm2 in ('CONST', 'LCONST'):
-                                    body_off2 += len(d2)
-                                elif nm2 in ('LEXPR', 'BEXPR', 'EXPR'):
-                                    if sb2 + body_off2 == abs_off:
-                                        # Evaluate expression WITHOUT shift to get joint addr
-                                        ops2 = d2[1]
-                                        # Extract symbol name and look up in joint sym
-                                        for op2 in ops2:
-                                            if isinstance(op2, tuple) and op2[0].startswith('sym'):
-                                                sname2 = op2[1]
-                                                # Try joint sym then obj_globals; a
-                                                # "combo" group's private export
-                                                # (see _fallback_sym's docstring)
-                                                # is in neither, so fall further
-                                                # back to _fallback_sym rather
-                                                # than silently leaving sym_joint
-                                                # unresolved (measured against TS2
-                                                # INIT's ORIGBELLVECTOR bank-byte
-                                                # ref, docs/EXPRESSLOAD_TIER2_PLAN.md
-                                                # E2). Scoped to the no-JT path —
-                                                # jt_enabled tools already resolve
-                                                # correctly via sym/obj_globals[oi]
-                                                # alone. ``oi`` here is THIS
-                                                # segment's OWN owning object
-                                                # (placed_obj_idx[placed_i]) — a
-                                                # group may span several per-file
-                                                # objects (opts['obj_group']), so
-                                                # the outer group loop's ``g`` is
-                                                # not an object index.
-                                                jv = sym.get(sname2)
-                                                if jv is None:
-                                                    og2 = obj_globals[placed_obj_idx[placed_i]]
-                                                    jv = og2.get(sname2) if og2 else None
-                                                if jv is None and not jt_enabled:
-                                                    jv = _fallback_sym.get(sname2)
-                                                if isinstance(jv, int):
-                                                    sym_joint = jv
-                                                break
-                                    body_off2 += d2[0]
-                                elif nm2 == 'RELEXPR':
-                                    body_off2 += d2[0]
-                                elif nm2 == 'DS':
-                                    body_off2 += d2
-                            if sym_joint is not None:
-                                break
+                        # Resolved by the single record walk above; None here is
+                        # the old search falling through every segment without
+                        # resolving a symbol.
+                        sym_joint: int | None = bank_sym_at.get(abs_off)
 
                         if sym_joint is not None:
                             tgt_group = _group_of(sym_joint)
