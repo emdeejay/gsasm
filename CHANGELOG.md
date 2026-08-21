@@ -7,7 +7,7 @@ on [Keep a Changelog](https://keepachangelog.com/); this project's version of
 
 ## [Unreleased]
 
-## [0.5.5] — 2026-08-21
+## [0.6.0] — 2026-08-22
 
 **The pay-down release.** No new reproduction claims and not one output byte
 changed: all seven disks still reconstruct at 819,264/819,264, the ROM still
@@ -163,10 +163,10 @@ diverges, so a silently-closed gap fails as loudly as a newly-opened one.
 - The documented gate runtime ("~2 minutes") was stale and is corrected to the
   measured 3m42s.
 
-### Recorded, deliberately not fixed
+### Defects found by the new tests and contracts
 
-Found by the new tests and contracts; each is pinned as current behaviour so
-that changing it is a deliberate, gated act:
+The tests below were written to pin current behaviour; what they pinned, in
+several cases, was a defect.  Each fix is its own gated commit:
 
 - `BLE`/`BGT` are listed in `BRANCH8` but wired through neither `OPTABLE` nor
   `ALIAS`, so `encode('BLE', …)` returns `(None, None)` — while
