@@ -158,6 +158,16 @@ exact for that reason plus the separately-documented symbol-scoping residual
 (`toolsets.py`'s module docstring). Extending standalone-reloc support
 (case A and case B both) to the multi-segment path is future work.
 
+> **SUPERSEDED (E2/E2c, and again by the 2026-08-21 contract packet.)** That
+> "future work" landed: `_build_multiseg_output` now calls both
+> `_scan_standalone_relocs` and `_scan_case_b`, emits standalone
+> `cRELOC`/`RELOC`/`cINTERSEG`/`INTERSEG` where gold does, and TS2/TS3 are
+> byte-exact (36665/36665 and 41700/41700).  The two paths' standalone
+> semantics are *not* identical, though — see
+> `docs/CONTRACT_EXPRESSLOAD_RELOC.md` §4 D4/D5 for how each frames its
+> `relOffset` and which golden artifact forced each framing, and §5 for the
+> rule that decides which path a new reloc discovery belongs to.
+
 **Scope re-check (2026-07-18) — Tool016 root-caused, and the earlier framing
 was WRONG.** The `tool_bytes` residual was 554 B, dominated by **Tool016
 ControlMgr (451 B)**. An earlier draft of this note called Tool016 a

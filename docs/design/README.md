@@ -9,7 +9,11 @@ README is the shared context the individual designs assume:
 - `linkiigs.md` — the general OMF load-file linker (implemented: `gsasm/linkiigs.py`)
 - `makebin.md` — MakeBin/Overlay/catenate packaging (implemented: `gsasm/makebin.py`)
 - `expressload.md` — the ExpressLoad relinker, including the analysis of the
-  relocation-encoding limit (implemented: `gsasm/expressload.py`)
+  relocation-encoding limit (implemented: `gsasm/expressload.py`).  For the
+  *relocation semantics* of its two output paths — and the rule for routing a
+  new reloc discovery to the right one — read
+  `../CONTRACT_EXPRESSLOAD_RELOC.md` first; it supersedes this design's
+  scattered case-A/case-B notes.
 - `rez.md` — a Rez resource-compiler stretch design (not implemented)
 - `P3_DECOMPOSE.md` — a planned refactor unifying `omf.py`'s relocation detectors
 

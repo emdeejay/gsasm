@@ -94,7 +94,17 @@ def _defer_shifts(recs, abs_syms=frozenset()):
     ``abs_syms`` names the GEQU (link-time CONSTANT) symbols: a right shift whose
     value references ONLY constants (e.g. the SCSI Manager's `#work_vars_size>>16`
     where work_vars_size is an exported EQU) is NOT placement-dependent, so it
-    resolves now (`89 >> 16 == 0`) rather than deferring a spurious load reloc."""
+    resolves now (`89 >> 16 == 0`) rather than deferring a spurious load reloc.
+
+    ``abs_syms`` is derived THREE different ways across five call sites (this
+    function's contract is the same at each; what differs is what the caller
+    considers constant, and why).  The table — and in particular why
+    ``expressload._build_multiseg_output`` deliberately passes NOTHING, so that
+    the deferred `#^Const` placeholder survives to be baked by that path's
+    `_group_of(...) is None` branch — is
+    ``docs/CONTRACT_EXPRESSLOAD_RELOC.md`` section 8.  Read it before changing
+    this signature or the ``const_only`` predicate: all five sites change
+    meaning at once."""
     out = []
     relocs = []
     pos = 0
