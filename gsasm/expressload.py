@@ -1789,8 +1789,13 @@ def _build_group_image(
     # ``indices`` order and the first that resolves an offset keeps it,
     # exactly as the old search's ``break`` did.
     bank_sym_at: dict[int, int] = {}
+    # This group's placed tuples in ``indices`` order — the same list the
+    # driver calls ``group_placed`` — kept so the merge below can consult each
+    # segment's header ALIGN (contract D9).
+    group_placed: list = []
     for seg_i, placed_i in enumerate(indices):
         _segname, recs, seg_base, _hdr, _asm = placed[placed_i]
+        group_placed.append(placed[placed_i])
         recs2, _srels = _linkiigs._defer_shifts(recs)
         oi_seg = placed_obj_idx[placed_i]
         adj_og = _adj_og(oi_seg)
@@ -1844,7 +1849,22 @@ def _build_group_image(
         for _boff, _bval in seg_bank.items():
             bank_sym_at.setdefault(_boff, _bval)
 
-    merged = b''.join(group_bodies)
+    # Contract D9: merge through ``_linkiigs._merge_bodies``, the SAME merge
+    # the single-segment path uses, so an ALIGN-induced gap is zero-filled.
+    # ``_place`` rounds a segment's base up to its header ALIGN, and the body
+    # above is resolved at ``adj_seg_base = seg_base - group_base``, i.e. at
+    # the ROUNDED base — so a bare ``b''.join`` would give an image whose byte
+    # offsets disagree with the addresses its own EXPRs were resolved against
+    # for any group whose second-or-later segment carries ``PROC align``.
+    # ``_merge_bodies`` derives its origin as ``placed[0][2]``, which for this
+    # list is exactly the driver's ``group_base``, so the gap it computes is
+    # the group-relative one.  For every group without such a gap it is
+    # byte-identical to ``b''.join(group_bodies)`` (its docstring), and no
+    # corpus group has one — measured across a full ``--full`` gate: every
+    # ``_merge_bodies`` call from this phase reports gap == 0 at every
+    # segment.  The fix closes the trap ahead of the multiseg target that
+    # first carries an aligned segment.
+    merged = _linkiigs._merge_bodies(group_placed, group_bodies)
     return merged, expr_at, bank_sym_at
 
 

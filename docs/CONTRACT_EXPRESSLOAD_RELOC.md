@@ -21,8 +21,10 @@ paraphrased from the source named at that point and marked **[LOADER]** — that
 source is the runtime decoder of everything these paths emit, so it is a
 specification by construction (`docs/GROUNDING_2026-08-02.md`).  Every
 statement about *why gsasm does X* names the golden artifact that forced it and
-is marked **[GOLD]**.  Two divergences are forced by nothing at all; they are
-marked **[UNFORCED]** and are hazards, not contract.
+is marked **[GOLD]**.  Two divergences — D8 and D9 — were forced by nothing at
+all and were marked **[UNFORCED]**: hazards, not contract.  Both were **closed
+in 0.6.0** and their sections now record what was done and why; no divergence
+in this document is unforced today.
 
 ---
 
@@ -260,9 +262,12 @@ thunk's JSL.  Path A cannot reach this code and never will.
 
 ## 4. The divergences, one by one, with the artifact that forced each
 
-`D8`/`D9` are the two marked **[UNFORCED]**: nothing golden demands them and
-nothing golden falsifies them.  They are recorded so that the next person does
-not mistake them for contract.
+`D8`/`D9` were the two marked **[UNFORCED]**: nothing golden demanded them and
+nothing golden falsified them.  They were recorded so that the next person did
+not mistake them for contract, and both were closed in 0.6.0 — D8 by rejecting
+the option on Path B, D9 by giving Path B the same merge.  Their sections keep
+the full reasoning, because *why* an unforced divergence was closed the way it
+was is the part that does not survive in the diff.
 
 ### D1 — Reloc **suppression** mechanism: symbol KIND vs group membership
 
@@ -404,16 +409,45 @@ encoder, so nothing forces or falsifies this.  A caller passing
 `super_classes` **silently ignored**.  (`super_classes` is also absent from
 `expressload()`'s docstring opts table.)
 
-### D9 — ALIGN gap filling reaches only Path A **[UNFORCED]**
+### D9 — ALIGN gap filling now reaches both paths
 
 `_place` rounds a segment's base up to its header `ALIGN`.  Path A merges with
-`_linkiigs._merge_bodies`, which zero-fills exactly those rounding gaps.  Path B
-merges with `b''.join(group_bodies)` while still resolving each body at
-`adj_seg_base = seg_base - group_base` — i.e. at the *rounded* base.  A group
-whose second-or-later segment carries `PROC align` would therefore emit an
-image whose byte offsets disagree with the addresses its own EXPRs were
-resolved against.  No corpus group exercises this; treat it as a live trap when
-a new multiseg target does.
+`_linkiigs._merge_bodies`, which zero-fills exactly those rounding gaps.  Until
+0.6.0 Path B merged with `b''.join(group_bodies)` while still resolving each
+body at `adj_seg_base = seg_base - group_base` — i.e. at the *rounded* base — so
+a group whose second-or-later segment carried `PROC align` emitted an image
+whose byte offsets disagreed with the addresses its own EXPRs *and its own
+relocation records* were resolved against.
+
+Phase 3 now calls the same `_merge_bodies`, over this group's placed tuples in
+`indices` order.  `_merge_bodies` derives its origin as `placed[0][2]`, which
+for that list is exactly the driver's `group_base`, so the gap it computes is
+the group-relative one; and for a group with no such gap it is byte-identical
+to `b''.join` (its own docstring).
+
+**No corpus group has one.**  Established positively, not by absence of
+symptoms: an out-of-tree `sitecustomize` hook wrapped `linkiigs._merge_bodies`
+across a full `--full` gate and logged, per call, the caller, the first
+SEGNAMEs, the per-segment `(ALIGN, gap)` pairs, and whether the result differed
+from `b''.join(bodies)`.  **59** calls originate in phase 3 — groups of 1 to
+322 placed segments — and every one reports `ALIGN 0` and `gap 0` at *every*
+segment, hence `differs=False`.
+
+The measurement is not vacuous, because `PROC align` *is* live in this corpus:
+**AppleDisk5.25** (`ref/GSOS_6/…/GS.OS/Drivers/AppleDisk5.25/AppleDisk5.25.src`)
+declares `align 256` on `driver_data`, `rdadr16`, `read16`, `write16` and
+`format16`, and its 22-segment link is the **only** artifact in the gate whose
+merge fills anything — 173, 12, 22 and 9 zero bytes.  It reaches
+`_merge_bodies` twice, through `linkiigs.link` and through Path A's
+`_build_single_output_seg`, and never through Path B.  That is the whole shape
+of D9: the one aligned artifact is single-segment, so the multiseg path was
+never asked the question it was answering wrongly.
+
+The trap is pinned corpus-free by `tests/test_expressload_multiseg_align.py`:
+a 3-byte segment followed by an `align 16` one, in one multiseg group.  Before
+the fix that group's image was the 6 bytes `11 22 33 aa 10 00` while the `dc.w`
+stored `$0010` and the SUPER record named offset `$11` — both past the end of
+a 6-byte image.
 
 ### D10 — Symbol tables for re-evaluation
 
@@ -618,8 +652,14 @@ against this test.
 
 ## 10. Open items this contract does not settle
 
-- **D8 / D9** are unforced and unpinned; the first is a silently-ignored opt,
-  the second a latent offset bug awaiting a multiseg group with `PROC align`.
+- ~~**D8 / D9** are unforced and unpinned~~ — **closed in 0.6.0**.  D8 is now a
+  `ValueError` on Path B (and `super_classes` is documented in `expressload()`'s
+  opts table), pinned by `tests/test_expressload_super_classes.py`; D9 now uses
+  `_merge_bodies` on both paths, pinned by
+  `tests/test_expressload_multiseg_align.py`.  What is still open is the
+  *discovery* D8 refuses to guess at: whether a multi-segment file built by the
+  30-Apr-93 encoder exists at all, and if one turns up, what phase 5 must do
+  with the demoted classes' image writes.
 - **`BankRel`** is modelled only in the third producer (§6).  Whether Path B
   should implement it — and whether Path A ever needs it — is undetermined; no
   single-segment golden exercises a bank-aligned KIND.
