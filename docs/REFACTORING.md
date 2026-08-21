@@ -26,11 +26,15 @@ GS.OS, P8, tools, drivers, and FSTs byte-for-byte from the original source.
 Refactoring here means **changing the shape of the code without changing a
 single output byte**. The safety net already exists and is non-negotiable:
 
-- `python3 tests/run_fixtures.py` — 62 corpus-free fixtures (~seconds).
-- `python3 work/gate.py` — the full golden gate (~2 min, needs `ref/`).
-  24 metrics, all currently at 100% except `obj_identical` (40/61, cosmetic —
-  the 21 remainder are link-identical) and `operand_values` (745 known-benign
-  relocation-base deltas).
+- `python3 tests/run_fixtures.py` — 75 corpus-free fixtures (~seconds).
+- `python3 work/gate.py` — the full golden gate. **Measured 3m42s** on an
+  Apple-silicon laptop, 2026-08-21 (the long-standing "~2 min" claim here was
+  stale; the 2026-08-02 architecture review measured 3:46 and was right).
+  Needs `ref/`.  29 metrics, all currently at 100% except `obj_identical`
+  (40/61, cosmetic — the 21 remainder are link-identical) and
+  `operand_values` (745 known-benign relocation-base deltas).
+  With R10's opt-in cache (`GSASM_CACHE=1`) a re-run on an unchanged tree is
+  **2m31s**; see R10 for what that does and does not cover.
 - `python3 work/buildrom.py` — the shipping ROM 03 must stay byte-identical.
 
 **Rules:**
@@ -49,7 +53,7 @@ single output byte**. The safety net already exists and is non-negotiable:
 ### Verification recipe (run for every packet)
 
 ```sh
-python3 tests/run_fixtures.py                 # 62/62, fast inner loop
+python3 tests/run_fixtures.py                 # 75/75, fast inner loop
 python3 work/gate.py                          # PASS, all metrics AT baseline
 python3 work/buildrom.py | tail -3            # "verified byte-identical"
 git diff --stat                               # only the files your packet names
@@ -312,19 +316,60 @@ a verbatim move; the "six golden rules" reloc comments moved verbatim with
 their code.  Verified gate-stdout byte-identical + buildrom byte-identical +
 fixtures 62/62.
 
-### R10. Opt-in assembly cache for the gate's inner loop
+### R10. Opt-in assembly cache for the gate's inner loop (DONE)
 
-**Problem.** `gate.py` takes ~100s; kernelcheck/toolcheck/fstcheck/drivercheck
-each re-assemble overlapping sources (12 different `os.walk` include sweeps).
-During a debugging session you often run 3-4 checks back-to-back on an
-unchanged tree.
+**Problem.** `gate.py` takes 3m42s (not the ~100s this doc used to claim);
+kernelcheck/toolcheck/fstcheck/drivercheck each re-assemble overlapping
+sources (12 different `os.walk` include sweeps). During a debugging session
+you often run 3-4 checks back-to-back on an unchanged tree.
 
-**Plan:** a keyed cache (`source mtimes + defines + sysdate → emitted OMF`)
-in `work/_common.py`, **opt-in via `GSASM_CACHE=1`** and disabled in `gate.py`
-runs by default. It must be impossible for the cache to be on during a
-baseline-updating (`--update`) or blessing run — assert against it. The cache
-lives in `work/.cache/` (gitignore it). This is a pure harness accelerant;
-the risk (stale cache masking a real diff) is why it stays opt-in. ~1 day.
+**Shipped:** `cached_assemble_emit()` in `work/_common.py`, a persistent memo
+of `omf.emit(asm.assemble(...)) → (obj_bytes, a.errors)` under `work/.cache/`
+(gitignored), **opt-in via `GSASM_CACHE=1`**. `gate.py` never enables it; with
+the variable unset the helper is a passthrough that stats nothing and writes
+nothing.  Measured: `objcheck` 31.3s → 0.2s, `linkcheck` 33.4s → 1.8s, whole
+fast gate 3m42s → 2m31s, with every one of the 29 metric lines byte-identical
+between a cache-off and a cache-warm run.
+
+The plan's sketched key (`source mtimes + defines + sysdate`) was **not
+enough** and is not what landed. The key is
+`{cache format, interpreter, content digest of the imported gsasm package,
+resolved source path, ordered include paths, every assemble() kwarg}`, and a
+hit additionally REPLAYS a recorded filesystem oracle before it is served:
+every `_find_ci` include probe (misses included) is re-asked and every file
+`read_text` opened is re-hashed. Three of those matter more than the sketch
+suggests:
+
+- **Content, not mtimes.** `git checkout` of an older revision restores old
+  bytes with a new mtime; `touch` does the reverse. Only bytes cannot lie.
+- **gsasm's own code is in the key.** A version string is constant across a
+  refactor while the code changes every few minutes, so a version-keyed cache
+  would serve the previous edit's output — exactly the failure that makes the
+  gate lie. The digest covers data files too (`gsasm/rez/include/*.r`).
+- **Probe misses are recorded.** Include resolution stops at the first hit, so
+  a file *added* ahead of the winner shadows it while every previously read
+  file stays byte-identical. Content hashing alone cannot see that; the
+  recorded `(base, name) → None` probes can.
+
+**Boundary:** the helper returns bytes, not the `Asm`. `linkiigs.link()` takes
+`(obj, asm)` pairs and seeds itself from the `Asm`'s internal symbol table, so
+kernelcheck/toolcheck/fstcheck/drivercheck/disk7check/finderdatacheck cannot
+use the cache without a reconstructed `Asm` — and a proxy `Asm` that silently
+answered a newly-consulted attribute wrong is precisely the class of bug this
+packet exists to prevent. Extending the cache there needs the linker's binding
+contract written down first (2026-08-02 review, slate item 2) so the cached
+surface is a declared interface rather than a guess. `objcheck` and
+`linkcheck` — the two harnesses that only ever want the emitted OMF — are
+wired today.
+
+**Interlocks:** `gate.py --update` and `run_fixtures.py --bless` both call
+`assert_cache_disabled()` before they can write anything, and it *raises*
+AssertionError rather than using the `assert` statement so `python3 -O` cannot
+strip it. `tests/test_assembly_cache.py` (10 corpus-free tests, in the gate's
+unit-test hard gate) pins all of the above, including the shadowing case.
+
+**Housekeeping:** entries are never evicted; every gsasm edit mints a fresh
+generation of keys (~1 MB per full ROM-corpus sweep). `rm -rf work/.cache`.
 
 ---
 
@@ -379,7 +424,7 @@ behavior, not style.
 | 7 | R6 dispatch split | med | 2d |
 | 8 | R7 define_label predicates | med | 1-2d |
 | 9 | R9 expressload decomposition (remaining half) | med | ✅ 3ec5eb4 |
-| 10 | R10 assembly cache | med (opt-in) | 1d |
+| 10 | R10 assembly cache | med (opt-in) | ✅ done |
 
 Each packet independently shippable; stop anywhere.  (R9's "land before the
 multi-segment packaging feature" advice is moot — the feature landed first

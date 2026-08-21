@@ -23,6 +23,8 @@ import re
 import subprocess
 import sys
 
+from _common import assert_cache_disabled
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASELINE = os.path.join(ROOT, 'work', 'gate_baseline.json')
 
@@ -355,6 +357,16 @@ def run_check(name, argv, specs):
 
 def main():
     update = '--update' in sys.argv
+    if update:
+        # R10 interlock: --update rewrites gate_baseline.json, i.e. it mints the
+        # numbers every later run is measured against.  Those numbers may only
+        # come from checks that actually assembled their sources, so the opt-in
+        # assembly cache (GSASM_CACHE=1) is forbidden here.  This is an assert
+        # that fires, not a convention: it raises before any check runs, and it
+        # is a raise rather than an `assert` statement so `python3 -O` cannot
+        # strip it.  The gate NEVER enables the cache itself; it merely inherits
+        # (and here refuses) the caller's environment.
+        assert_cache_disabled('a gate baseline update (gate.py --update)')
     full = '--full' in sys.argv or update
     # --skip-fixtures: the run_fixtures --bless interlock calls gate.py to confirm
     # the CORPUS is green BEFORE it mints a new/changed fixture's expected bytes;

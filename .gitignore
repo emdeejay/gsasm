@@ -16,6 +16,9 @@ work/txt/
 # linker working directory (generated artifacts)
 work/link/
 
+# R10 opt-in assembly cache (GSASM_CACHE=1); derived bytes, never truth
+work/.cache/
+
 # built ROM images
 work/*.built
 work/*.bin

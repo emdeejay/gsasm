@@ -12,10 +12,16 @@ bytes differ from the original (cosmetic OMF encoding choices the linker
 collapses).
 """
 import sys, os, glob, subprocess, struct, re
-from _common import (ensure_repo_on_path, gate_result, romsrc_incs,
-                     romsrc_root, work_rel)
+from _common import (
+    cached_assemble_emit,
+    ensure_repo_on_path,
+    gate_result,
+    romsrc_incs,
+    romsrc_root,
+    work_rel,
+)
 ensure_repo_on_path()
-from gsasm import asm, omf
+from gsasm import omf
 from gsasm import link as _gs_link
 
 ROOT = romsrc_root()
@@ -112,11 +118,13 @@ def check(src, objf, use_gs=False):
     # Use makefile defines only when needed: if assembly without defines already
     # produces the same obj as orig, the defines are irrelevant (or wrong).
     defs = _makefile_defines(src)
-    a = asm.assemble(src, INCS, defines={})
-    mine_obj = omf.emit(a)
+    # R10: this harness only ever wants the emitted OMF, so both assemblies go
+    # through the opt-in cache (inert unless GSASM_CACHE=1).  The two calls
+    # differ in `defines`, which is part of the cache key, so they cannot
+    # collide.
+    mine_obj, _errors = cached_assemble_emit(src, INCS, defines={})
     if defs and mine_obj != orig_obj:
-        a = asm.assemble(src, INCS, defines=defs)
-        mine_obj = omf.emit(a)
+        mine_obj, _errors = cached_assemble_emit(src, INCS, defines=defs)
     byte_id = (mine_obj == orig_obj)
     if use_gs:
         o_out, o_log = gs_link(orig_obj)

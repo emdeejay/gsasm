@@ -35,8 +35,12 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXDIR = os.path.join(REPO, 'tests', 'fixtures')
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, 'tests'))
+# APPENDED, not prepended: work/ is only here for the R10 cache interlock in
+# _common, and must not get the chance to shadow anything already importable.
+sys.path.append(os.path.join(REPO, 'work'))
 
 from gsasm import asm, omf, link  # noqa: E402
+from _common import assert_cache_disabled  # noqa: E402
 import omfdump  # noqa: E402
 
 
@@ -126,6 +130,11 @@ def main():
         return 1
 
     if args.bless:
+        # R10 interlock: blessing mints permanent expected bytes.  They may only
+        # ever come from an assembly this process actually performed, so the
+        # opt-in assembly cache is forbidden here — and it is an assert, not a
+        # convention.  (Raised, not `assert`ed, so `python3 -O` cannot strip it.)
+        assert_cache_disabled('a fixture bless (run_fixtures.py --bless)')
         if args.no_gate:
             print('WARNING: blessing WITHOUT the golden-corpus gate. Only do this\n'
                   'for fixtures whose expected bytes you have verified by hand.')

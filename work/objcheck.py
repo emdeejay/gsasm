@@ -4,9 +4,15 @@ Usage: python3 work/objcheck.py [module.asm]   (one module, shows record diff)
        python3 work/objcheck.py                  (whole corpus summary)
 """
 import sys, os, glob
-from _common import ensure_repo_on_path, gate_result, romsrc_incs, romsrc_root
+from _common import (
+    cached_assemble_emit,
+    ensure_repo_on_path,
+    gate_result,
+    romsrc_incs,
+    romsrc_root,
+)
 ensure_repo_on_path()
-from gsasm import asm, omf
+from gsasm import omf
 
 ROOT = romsrc_root()
 INCS = romsrc_incs(ROOT)
@@ -26,8 +32,9 @@ def src_for(objf):
 
 
 def one(src, objf):
-    a = asm.assemble(src, INCS)
-    mine = omf.emit(a)
+    # R10: the emitted OMF is all this harness ever wanted from the Asm, so it
+    # goes through the opt-in assembly cache (inert unless GSASM_CACHE=1).
+    mine, _errors = cached_assemble_emit(src, INCS)
     orig = open(objf, 'rb').read()
     return mine, orig
 
