@@ -11,12 +11,22 @@ tmp/, no Apple material.  The synthetic OMF is deliberately hand-encoded rather
 than produced by gsasm+linkiigs, so that these tests fail for makebin's reasons
 only.
 
-Where makebin's behaviour is surprising (a patch past the end of the host
-GROWS it; segment bases come from the declared header LENGTH while the output
-comes from the actual body bytes; only TWO GEQU resolution passes run, so a
-three-deep forward chain resolves wrong) the test says "PINNED (surprising)"
-and asserts what the code does TODAY.  That is the point: these are tripwires,
-not endorsements.
+Three of the behaviours this file first pinned as "PINNED (surprising)" were
+defects, and 0.6.0 fixed them; the assertions moved with the code and say so:
+
+  * a patch wholly past the end of the host used to land at len(host) — it now
+    zero-fills the gap and lands at its offset (growth itself was always the
+    OverlayIIgs contract; only the docstring disagreed);
+  * segment bases came from the declared header LENGTH while the output carried
+    only the emitted body bytes — the declared tail is now zero-padded, so the
+    image and the symbol table describe one layout;
+  * exactly TWO GEQU resolution passes ran, so a three-deep forward chain
+    resolved wrong — resolution now iterates to a fixed point and raises on a
+    cycle.
+
+What remains marked PINNED is behaviour that is odd but correct (unknown
+symbols evaluating to 0, upper-case folding, a GEQU beating a colliding
+GLOBAL).  Those are tripwires, not endorsements.
 
 Run either as:
     python3 -m pytest tests/test_makebin_units.py
@@ -324,18 +334,40 @@ def test_gequ_overrides_a_colliding_global_after_the_seed_pass():
 
 
 # --------------------------------------------------------------------------
-# makebin: placement uses the DECLARED length
+# makebin: the image IS the declared length
 # --------------------------------------------------------------------------
-def test_placement_uses_the_header_length_while_output_uses_real_bytes():
-    # PINNED (surprising): `base += seg['length']` trusts the OMF header, but
-    # the returned image is the concatenation of the ACTUAL bodies.  A segment
-    # whose declared LENGTH exceeds its emitted bytes (RESSPC-style tail) makes
-    # the next segment's ADDRESSES advance by 8 while the IMAGE advances by 2.
+def test_a_declared_length_longer_than_the_body_is_zero_padded():
+    # FIXED: `base += seg['length']` trusts the OMF header (correctly — LENGTH
+    # is the segment's memory-image size), but the returned image used to be
+    # the concatenation of the ACTUAL bodies only.  A segment declaring 8 and
+    # emitting 2 advanced the next segment's ADDRESSES by 8 and the IMAGE by 2,
+    # so the flat binary and its own symbol table disagreed from there on.  The
+    # declared tail is now zero-filled, exactly as the loader would.
     one = _segment('ONE', [lconst(b'\x11\x22')], length=8, segnum=1)
     two = _segment('TWO', [expr_rec(2, e_sym('TWO'))], segnum=2)
     out = makebin.makebin(one + two, 0x100)
-    assert out == b'\x11\x22' + b'\x08\x01'     # TWO based at $0108
-    assert len(out) == 4                        # ...but only 4 bytes long
+    assert out == b'\x11\x22' + b'\x00' * 6 + b'\x08\x01'   # TWO based at $0108
+    assert len(out) == 10                       # ...and TWO's bytes sit at 8
+
+
+def test_an_exactly_declared_length_adds_no_padding():
+    # The universal case for anything gsasm emits: omf.emit writes LENGTH from
+    # the bytes it is about to write, so padding must be a no-op there.
+    one = _segment('ONE', [lconst(b'\x11\x22')], segnum=1)
+    two = _segment('TWO', [expr_rec(2, e_sym('TWO'))], segnum=2)
+    assert makebin.makebin(one + two, 0x100) == b'\x11\x22' + b'\x02\x01'
+
+
+def test_a_body_longer_than_the_declared_length_raises():
+    # No padding can reconcile this one: the image would overrun the next
+    # segment's address range, so it is a malformed object, not a layout.
+    seg = _segment('ONE', [lconst(b'\x11\x22\x33\x44')], length=2)
+    try:
+        makebin.makebin(seg, 0x100)
+    except ValueError as exc:
+        assert 'LENGTH=2' in str(exc) and 'ONE' in str(exc)
+    else:
+        raise AssertionError('an over-long segment body must raise')
 
 
 # --------------------------------------------------------------------------

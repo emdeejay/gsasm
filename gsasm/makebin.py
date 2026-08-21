@@ -137,6 +137,12 @@ def _build_sym(segs: list[dict], org: int) -> dict[str, int]:
 
     Returns a symbol dict mapping upper-case name → integer value suitable for
     passing to omf._build_body.
+
+    Placement advances by the DECLARED ``LENGTH``, which is the OMF rule: a
+    segment's LENGTH is the size of its *memory image*, and a segment may
+    declare more than its records carry (an uninitialised RESSPC-style tail the
+    loader zero-fills).  The next segment starts after that whole image, not
+    after the last emitted byte.
     """
     sym: dict[str, int] = {}
     base = org
@@ -174,7 +180,34 @@ def makebin(load_file_bytes: bytes, org: int) -> bytes:
     Segments are placed sequentially starting at *org*.  All LEXPR/BEXPR/EXPR
     expressions are evaluated with the resulting symbol table; RELEXPR
     (PC-relative) expressions are evaluated against the current PC.  DS records
-    produce zero-fill.  The concatenated segment bodies are returned.
+    produce zero-fill.  The concatenated segment images are returned.
+
+    A segment's IMAGE is its emitted body zero-padded up to the declared header
+    ``LENGTH``, because that is what ``LENGTH`` means: the size of the memory
+    image, which a segment may declare larger than its records carry (a
+    RESSPC-style uninitialised tail the loader zero-fills).  Placement uses the
+    same number, so the returned bytes and the symbol table `makebin` resolved
+    them against describe one memory layout.
+
+    They did not always.  Placement advanced by ``LENGTH`` while the output
+    concatenated only the emitted bodies, so a segment declaring more than it
+    emits moved the next segment's ADDRESSES without moving the IMAGE -- the
+    flat binary and its own symbol table disagreed from that point on, by
+    exactly the shortfall, with nothing reporting it.  Padding is the half that
+    was missing; advancing by ``LENGTH`` was right.
+
+    This is not a byte-level change to anything the project builds, and that is
+    checkable rather than hopeful: every OMF gsasm emits sets ``LENGTH`` from
+    the bytes it is about to write (``omf.emit`` uses ``Segment.length()`` =
+    code + DS; ``omf._make_segment`` uses ``len(body)``), so the divergence
+    cannot arise from this toolchain -- measured across all 38 segments the
+    makebin consumers flatten (probootcheck, p8check, basiccheck, kernelcheck),
+    zero divergences.  The padding therefore exists for OMF that gsasm did not
+    produce, and for the day an emitter grows a RESSPC tail.
+
+    A body LONGER than the declared ``LENGTH`` is a malformed segment: no
+    padding can reconcile it, and silently emitting more bytes than declared
+    would overlap the next segment's address range.  It raises.
 
     This is the Python equivalent of ``makebiniigs -org $NNNN``.
     """
@@ -189,7 +222,14 @@ def makebin(load_file_bytes: bytes, org: int) -> bytes:
         seg_base = sym[seg['name']]
         body = _omf._build_body(seg['recs'], dict(sym, __LOC__=seg_base),
                                   seg_base)
+        declared = seg['length']
+        if len(body) > declared:
+            raise ValueError(
+                f"makebin: segment {seg['name']} emits {len(body)} bytes but "
+                f'its OMF header declares LENGTH={declared}; the image would '
+                f'overrun the next segment\'s address range')
         result.extend(body)
+        result.extend(b'\x00' * (declared - len(body)))   # RESSPC-style tail
     return bytes(result)
 
 
