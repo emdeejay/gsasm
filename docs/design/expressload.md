@@ -61,7 +61,8 @@ bytes as decoded above (inverse of the walker).
 ## Integration
 - `gsasm/expressload.py`: `expressload(load_file_bytes) -> bytes`,
   `de_express(bytes)` (move the working one from `toolcheck.py` here),
-  `parse_super(seg)` / `emit_super(type, offsets)`.
+  `parse_super(seg)` / `emit_super(type, offsets)` (the codec itself moved to
+  `gsasm/omf.py` in 0.6.0 and is re-exported here; see omf's SUPER section).
 - Pipeline for a tool: `omf.emit` → `linkiigs.link(segmented)` →
   `expressload(...)` → compare vs `ref/GSOS_6/tool_bin/ToolNNN`.
 

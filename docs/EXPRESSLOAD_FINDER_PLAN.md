@@ -255,6 +255,8 @@ Must-not-regress baselines: `tool_bytes 186110/0`, `fst_bytes 111584/0`, `driver
 Per segment print `end2end/hdr/lconst/reloc` + reloc-byte delta. Split via `header[:DISPDATA] + F2/len + LCONST[DISPDATA+5:+5+lcsz] + reloc[…]` (confirmed: each gold body is a single $F2 LCONST). Because each load segment carries its own BYTECNT, `iter_segments` walks the built fork even when the directory is wrong → load-segment reloc (Stages 1-3) is gate-checkable **independent of** the directory (Stage 4). Reuse `scratchpad/finalize_spike.py`'s `split_seg`.
 
 ### D.3 Manual $F7 walk for histograms (F6 — mandatory)
+> **SUPERSEDED (0.6.0):** `omf.parse_records` now has a real SUPER decode branch — it returns one record per SUPER with `{'type', 'offsets', 'pagelist'}` and keeps walking, so `iter_segments(records=True)` no longer lumps or truncates and a manual walk is no longer required.  The paragraph below records what was true when this plan was executed.
+
 `omf.iter_segments(records=True)` **lumps** SUPER (reports 1 record for FINDER's 16). Any SUPER/subtype histogram or tool before/after diff MUST use a manual walk: `$F7; total=LE-u32@+1; subtype@+5; page_list=seg[+6:+5+total]` → `_decode_page_list` (as in `scratchpad/decode_reloc.py`). Add an assertion that the harness's per-record count equals the manual walk on a known gold segment.
 
 ### D.4 Shared-path regression guard

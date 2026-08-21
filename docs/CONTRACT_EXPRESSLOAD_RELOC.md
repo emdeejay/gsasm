@@ -608,7 +608,7 @@ fork them "for safety."
 | `_get_shift`, `_has_sym_ref`, `_addend_of`, `_reloc_target_addr` | expression-shape utilities; no path-specific meaning. |
 | `_reloc_weight` / `_needs_reloc` | the suppression predicate.  Path B calls them with `kinds=None`; that is the divergence (D1), not a defect in these functions. |
 | `_scan_relocs`, `_scan_standalone_relocs`, `_scan_case_b` | the record **walkers**.  Both paths use them; the arguments differ (D1/D2/D8), the walking never does. |
-| `emit_super` / `_encode_page_list` / `_decode_page_list` | the codec, verified round-trip against `de_express` and specified by `Do_SUPER` (§1.2). |
+| `emit_super` / `_encode_page_list` / `_decode_page_list` | the codec, verified round-trip against `de_express` and specified by `Do_SUPER` (§1.2).  **Defined in `gsasm/omf.py`** since 0.6.0 (SUPER is an OMF record and `omf.parse_records` decodes it); `expressload` re-exports the same objects, so every name here still resolves. |
 | `emit_creloc` / `emit_reloc` / `emit_cinterseg` / `emit_interseg` | record layouts, `Loader.Equates` opcodes. |
 | the width rule `offset < 0x10000 and value < 0x10000 → compressed` | applied identically in both paths, at three sites. |
 | standalone-records-first, each block sorted by **ascending site offset** | **[GOLD]** the golden corpus's standalone records are offset-ordered regardless of case A/B or record type (TS3 INIT/MAIN, D4/D5). |
