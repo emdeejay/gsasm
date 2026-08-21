@@ -2092,31 +2092,34 @@ def _classify_super_relocs(
             rel_off = abs_off - group_base   # group-relative offset
 
             if stype == 1:
-                # 3-byte (type-1) reloc: check if target is in a different group.
-                if jt_enabled:
-                    # Re-evaluate the expression directly against the joint
-                    # symbol table rather than reading the group-adjusted
-                    # stored bytes back — robust against 16-bit wraparound
-                    # when the calling and target groups' bases straddle a
-                    # 64K boundary, and against the `dc.l routine-1`
-                    # dispatch-table idiom (the literal -1 evaluates along
-                    # with the symbol, giving exactly the value that must
-                    # be stored relative to whichever base applies).
-                    _esz, _eops, _eseg_i = expr_at[abs_off]
-                    joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
-                    field_size = _esz
-                else:
-                    # No ~JumpTable in play (E2): same robust re-evaluation
-                    # as the jt_enabled branch — reading the group-adjusted
-                    # stored bytes back (the old approach here) silently
-                    # resolves an unresolved cross-object symbol (a "combo"
-                    # group's private export, see _fallback_sym's docstring)
-                    # to 0 instead of raising, misclassifying it as same-
-                    # group (measured against TS2 INIT's QDCALLTABLE2/
-                    # ORIGBELLVECTOR refs — docs/EXPRESSLOAD_TIER2_PLAN.md E2).
-                    _esz, _eops, _eseg_i = expr_at[abs_off]
-                    joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
-                    field_size = _esz
+                # 3-byte (type-1) reloc: check if target is in a different
+                # group.  ONE rule, reached by TWO discoveries — the arms were
+                # written separately (jt_enabled for E1, no-JT for E2) and
+                # became character-for-character identical once the triple
+                # record-stream walk collapsed into phase 3's `expr_at`
+                # (93f8519).  Both comments are kept because each records a
+                # different situation the same re-evaluation had to answer:
+                #
+                #   E1 (jt_enabled): re-evaluate the expression directly
+                #     against the joint symbol table rather than reading the
+                #     group-adjusted stored bytes back — robust against 16-bit
+                #     wraparound when the calling and target groups' bases
+                #     straddle a 64K boundary, and against the `dc.l
+                #     routine-1` dispatch-table idiom (the literal -1
+                #     evaluates along with the symbol, giving exactly the
+                #     value that must be stored relative to whichever base
+                #     applies).
+                #   E2 (no ~JumpTable): same robust re-evaluation — reading
+                #     the group-adjusted stored bytes back (the old approach
+                #     here) silently resolves an unresolved cross-object
+                #     symbol (a "combo" group's private export, see
+                #     _fallback_sym's docstring) to 0 instead of raising,
+                #     misclassifying it as same-group (measured against TS2
+                #     INIT's QDCALLTABLE2/ORIGBELLVECTOR refs —
+                #     docs/EXPRESSLOAD_TIER2_PLAN.md E2).
+                _esz, _eops, _eseg_i = expr_at[abs_off]
+                joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
+                field_size = _esz
                 tgt_group = _group_of(joint_target)
                 if tgt_group is None:
                     # Absolute target (e.g. TS2 `OENDCALL4 equ $feffc2`
