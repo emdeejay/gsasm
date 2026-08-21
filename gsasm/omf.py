@@ -43,8 +43,33 @@ REC = {0xE0: 'ALIGN', 0xE1: 'ORG', 0xE2: 'RELOC', 0xE3: 'INTERSEG',
        0xF5: 'cRELOC', 0xF6: 'cINTERSEG', 0xF7: 'SUPER', 0x00: 'END'}
 
 
+class OMFParseError(ValueError):
+    """A record declares more bytes than the byte string actually holds.
+
+    parse_records used to return the short slice and a cursor PAST the end of
+    the buffer, which a caller cannot tell from a clean parse: an LCONST
+    claiming 16 bytes with 2 present returned `end = start + 21` on a 7-byte
+    buffer, and anything walking from `end` walked off the file.  A truncated
+    record is a corrupt (or mis-framed) file, so it is now raised, not
+    returned.
+    """
+
+
+def _need(d, i, n, what, at):
+    """Bounds-check one record field: *n* bytes must be readable at *i*."""
+    if n < 0 or i + n > len(d):
+        raise OMFParseError(
+            f'truncated {what} record at offset {at}: needs {n} byte(s) at '
+            f'{i}, but only {max(len(d) - i, 0)} remain')
+
+
 def parse_records(d, start, numlen=4, lablen=0):
-    """Yield (offset, opcode_name, detail) for each body record."""
+    """Yield (offset, opcode_name, detail) for each body record.
+
+    Raises OMFParseError if any record runs past the end of *d*.  An unknown
+    opcode is NOT an error: it is reported as ('?XX', 'UNHANDLED') and stops
+    the walk, because its length is unknown and continuing would mis-frame
+    everything after it."""
     i = start
     n = len(d)
     out = []
@@ -55,19 +80,26 @@ def parse_records(d, start, numlen=4, lablen=0):
         if op == 0x00:
             out.append((at, 'END', None)); break
         if 1 <= op <= 0xDF:                     # CONST: op literal bytes
+            _need(d, i, op, 'CONST', at)
             out.append((at, 'CONST', d[i:i+op])); i += op; continue
         name = REC.get(op, f'?{op:02X}')
         if op == 0xF2:                          # LCONST: numlen count + bytes
+            _need(d, i, numlen, name, at)
             cnt = int.from_bytes(d[i:i+numlen], 'little'); i += numlen
+            _need(d, i, cnt, name, at)
             out.append((at, 'LCONST', d[i:i+cnt])); i += cnt; continue
         if op == 0xF1:                          # DS: numlen count of zeros
+            _need(d, i, numlen, name, at)
             cnt = int.from_bytes(d[i:i+numlen], 'little'); i += numlen
             out.append((at, 'DS', cnt)); continue
         if op == 0xE1:                          # ORG
+            _need(d, i, numlen, name, at)
             out.append((at, 'ORG', int.from_bytes(d[i:i+numlen], 'little'))); i += numlen; continue
         if op == 0xE0:                          # ALIGN
+            _need(d, i, numlen, name, at)
             out.append((at, 'ALIGN', int.from_bytes(d[i:i+numlen], 'little'))); i += numlen; continue
         if op in (0xE2, 0xF5):                  # RELOC / cRELOC
+            _need(d, i, 2 + 2*numlen if op == 0xE2 else 6, name, at)
             if op == 0xE2:
                 size = d[i]; shift = d[i+1]
                 off = int.from_bytes(d[i+2:i+2+numlen], 'little')
@@ -80,6 +112,7 @@ def parse_records(d, start, numlen=4, lablen=0):
                 i += 6
             out.append((at, name, (size, shift, off, ref))); continue
         if op in (0xE3, 0xF6):                  # INTERSEG / cINTERSEG
+            _need(d, i, 6 + 2*numlen if op == 0xE3 else 7, name, at)
             if op == 0xE3:
                 size = d[i]; shift = d[i+1]
                 off = int.from_bytes(d[i+2:i+2+numlen], 'little')
@@ -96,11 +129,13 @@ def parse_records(d, start, numlen=4, lablen=0):
                 i += 7
             out.append((at, name, (size, shift, off, fileno, segno, segoff))); continue
         if op == 0xEE:                          # RELEXPR: size(1) + origin(numlen) + expr
+            _need(d, i, 1 + numlen, name, at)
             size = d[i]; i += 1
             origin = int.from_bytes(d[i:i+numlen], 'little'); i += numlen
             expr, i = _read_expr(d, i, numlen)
             out.append((at, name, (size, origin, expr))); continue
         if op in (0xEB, 0xEC, 0xED, 0xF3):      # EXPR-family: 1 size byte + expr
+            _need(d, i, 1, name, at)
             size = d[i]; i += 1
             expr, i = _read_expr(d, i, numlen)
             out.append((at, name, (size, expr))); continue
@@ -111,18 +146,32 @@ def parse_records(d, start, numlen=4, lablen=0):
             # `jsr dec_rec_len` once "for Type" before walking the page list.
             # So the record occupies 1 + 4 + total bytes and the page list is
             # total-1 long.  See docs/CONTRACT_EXPRESSLOAD_RELOC.md §1.1-1.2.
+            _need(d, i, 4, name, at)
             total = int.from_bytes(d[i:i+4], 'little')
+            if total < 1:                       # no room for even the type byte
+                raise OMFParseError(
+                    f'SUPER record at offset {at} declares length {total}: '
+                    'the length counts the type byte, so it is never 0')
+            _need(d, i + 4, total, name, at)
             stype = d[i+4]
             page_list = d[i+5:i+4+total]
             i += 4 + total
+            try:
+                offsets = _decode_page_list(page_list)
+            except IndexError:                  # count header overruns the record
+                raise OMFParseError(
+                    f'truncated SUPER record at offset {at}: its page list '
+                    f'({len(page_list)} bytes) ends mid-count') from None
             # 'pagelist' is kept raw: _encode_page_list produces a canonical
             # encoding, so a caller that wants to re-emit the record
             # byte-exactly must use the bytes that were actually there.
-            out.append((at, name, {'type': stype,
-                                   'offsets': _decode_page_list(page_list),
+            out.append((at, name, {'type': stype, 'offsets': offsets,
                                    'pagelist': page_list})); continue
         if op in (0xE6, 0xE7, 0xEF, 0xF0, 0xF4):   # symbol records
-            ln = d[i]; lab = d[i+1:i+1+ln]; i += 1+ln
+            _need(d, i, 1, name, at)
+            ln = d[i]
+            _need(d, i + 1, ln + 4, name, at)          # label + LENGTH/type/priv
+            lab = d[i+1:i+1+ln]; i += 1+ln
             length = struct.unpack('<H', d[i:i+2])[0]  # LENGTH attribute (2)
             typ = d[i+2]; priv = d[i+3]; i += 4
             detail = {'label': lab.decode('mac_roman'), 'len': length,

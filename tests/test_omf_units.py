@@ -523,18 +523,61 @@ def test_parse_records_super_length_field_is_not_numlen_scaled():
         assert recs[1][1] == 'END' and end == len(d)
 
 
-def test_parse_records_truncated_records_do_not_raise():
-    # LCONST claiming 16 bytes with only 2 present: the short slice is kept
-    # and the cursor runs past the buffer (the caller sees end > len(d)).
+def test_parse_records_truncated_records_raise_omfparseerror():
+    """A record that declares more bytes than the buffer holds now RAISES.
+
+    Was pinned the other way: the short slice was returned and the cursor ran
+    PAST the end of the buffer (`end = 21` on a 7-byte string), which a caller
+    cannot distinguish from a clean parse — so anything continuing from `end`
+    walked off the file, silently.  A truncated record means the file is
+    corrupt or the walk is mis-framed; neither is something to return as if it
+    were data.  What is NOT an error is a stream that merely ends between
+    records (no END): every record in it was complete, so that still returns
+    normally — as does the empty stream."""
+    # LCONST claiming 16 bytes with only 2 present
     d = bytes([0xF2]) + struct.pack('<I', 16) + b'\x01\x02'
-    recs, end = omf.parse_records(d, 0)
-    assert recs == [(0, 'LCONST', b'\x01\x02')]
-    assert end == 21 > len(d)
+    try:
+        omf.parse_records(d, 0)
+    except omf.OMFParseError as exc:
+        assert 'LCONST' in str(exc) and '16' in str(exc), exc
+    else:
+        raise AssertionError('truncated LCONST did not raise')
+    # its length field can be truncated too
+    for short in (bytes([0xF2]) + b'\x10\x00', bytes([0xF2])):
+        try:
+            omf.parse_records(short, 0)
+        except omf.OMFParseError:
+            pass
+        else:
+            raise AssertionError('truncated LCONST count did not raise')
     # CONST claiming 5 bytes with 2 present
-    recs, end = omf.parse_records(b'\x05\x01\x02', 0)
-    assert recs == [(0, 'CONST', b'\x01\x02')]
-    assert end == 6
-    # a record stream that simply ends without an END record
+    try:
+        omf.parse_records(b'\x05\x01\x02', 0)
+    except omf.OMFParseError as exc:
+        assert 'CONST' in str(exc), exc
+    else:
+        raise AssertionError('truncated CONST did not raise')
+    # every fixed-width record class is bounds-checked, not just the counted
+    # ones: each of these is its opcode plus one byte of a longer body
+    for op in (0xE0, 0xE1, 0xE2, 0xE3, 0xE6, 0xE7, 0xEE, 0xEF,
+               0xF0, 0xF1, 0xF4, 0xF5, 0xF6, 0xF7):
+        try:
+            omf.parse_records(bytes([op, 0x01]), 0)
+        except omf.OMFParseError:
+            pass
+        else:
+            raise AssertionError(f'truncated {omf.REC[op]} did not raise')
+    # a SUPER whose page list ends mid-count (count header says one offset
+    # byte follows; none does) is truncated too, even though its declared
+    # length fits the buffer
+    d = bytes([0xF7]) + struct.pack('<I', 2) + bytes([0, 0x00])
+    try:
+        omf.parse_records(d, 0)
+    except omf.OMFParseError as exc:
+        assert 'page list' in str(exc), exc
+    else:
+        raise AssertionError('SUPER with a short page list did not raise')
+    # NOT truncated: a complete record whose stream simply ends without END
     recs, end = omf.parse_records(b'\x03\x01\x02\x03', 0)
     assert [r[1] for r in recs] == ['CONST']
     assert end == 4
