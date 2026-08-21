@@ -207,8 +207,15 @@ branch, on a site that must still be in the reloc list when control reaches it.
 
 ### 3.1 The six image mutations
 
-`merged_arr` (mutable, unlike Path A's `merged_body`) is written in six
-places, all inside the per-stype classification:
+`merged_arr` (mutable, unlike Path A's `merged_body`) is written in six places.
+**Five** of them are inside the per-stype classification — phase 7,
+`_classify_super_relocs`, where dropping a record and finalising the image are
+the same act.  The sixth is **not**: case A has no `stype` at all (that is what
+makes it case A, §3.2), and its mutation happens in phase 5,
+`_emit_case_a_records`, which runs *before* phase 7 and also reads the image
+back for its own intra-group `relOffset`.  The relative order of those two
+phases is therefore load-bearing.  (This section said "all inside the per-stype
+classification" when it was written; item 6 never was.)
 
 1. `stype == 1`, cross-group: bytes 0/1 ← `off_in_tgt`, byte 2 ← `tgt_segnum`
    (the loader will read that segnum back — §1.1).
@@ -600,22 +607,33 @@ that are link-time **constants**: a shift over only those is not
 placement-dependent and resolves now.  The `const_only` predicate is
 Do-Not-Touch (`docs/REFACTORING.md` §5, Tool019).
 
-There are four call sites in `gsasm/` and one in `work/`, carrying **three
+There are **three** call sites in `gsasm/` and one in `work/`, carrying **three
 distinct derivations** of `abs_syms` (the review's "three ways from two
-files"):
+files").  This section said "four in `gsasm/` and one in `work/`" and "all five
+sites" when it was written; that was already stale — the walk collapse
+(`93f8519`) deleted the fourth, the `stype == 27` symbol lookup that used to
+re-walk the deferred records to find the EXPR at `abs_off`.  Phase 3 indexes
+that once now, into `bank_sym_at`, off the RAW record; the equivalence
+argument is the comment at that index's construction:
 
 | site | `abs_syms` | what the caller expects |
 |---|---|---|
 | `linkiigs.link` (Pass 3, gated on `defer_shifts`) | every `GEQU` label across all placed segments, ∪ `opts['abs_extra']` upper-cased | Resolve const shifts now; defer genuine intra-segment `#^label` bank refs.  `abs_extra` additionally marks *inter-segment* targets as const so a cross-segment `LDX #(PICPROC>>8)` stores the **shifted** offset for its `cINTERSEG`, not the un-shifted low word a `SUPER` 27 would want. |
 | `expressload._build_single_output_seg` (body loop) | `{n for n, k in local_kinds.items() if k == 'equ'}` — the per-object resolved kind table | Path A's D3: resolve `#work_vars_size>>16` to `0`.  Derived at the **same per-object precedence** as the body's own symbol values, which is why it is computed inside the loop and not once. |
 | `expressload._build_multiseg_output` (body loop) | *(none — default `frozenset()`)* | Path B's D3: **always defer**.  The absolute-target high word is baked later by the `stype == 27` / `_group_of is None` branch.  Passing `abs_syms` here would move that resolution into `_omf._build_body` and leave mutation 4 writing a value that is already there — see D3's hazard note before you "fix" it. |
-| `expressload._build_multiseg_output` (`stype == 27` symbol lookup) | *(none)* | Not a body build at all: it re-walks the records **in the same deferred basis** as the body, purely to locate the EXPR at `abs_off` and read its symbol name.  It must stay identical to the body loop's basis or the offsets will not line up. |
 | `work/rezloadcheck.py` (`Launcher.Load` harness) | `abs_syms` computed locally from the GEQU set | Mirrors `linkiigs.link`'s plain-load-file semantics for a `LinkIIgs -x` golden. |
 
+> `_defer_shifts` emits exactly one output record per input record with the
+> same name and size (so identical body offsets) and rewrites an EXPR only by
+> stripping the trailing `lit, >>, end` triple, which holds no symbol operand
+> — so the FIRST `sym*` operand, all that lookup ever read, is the same in
+> both bases.  That is why one raw-record walk can serve a deferred-basis
+> consumer, and it is the property to re-check if `_defer_shifts` ever starts
+> rewriting operands rather than trimming them.
+
 **If you change `_defer_shifts`' signature or its `const_only` predicate, all
-five sites change meaning at once.**  The two Path B sites are the ones whose
-correctness is *not* legible from the function: they are correct only because
-of §3.1 mutation 4.
+four sites change meaning at once.**  Path B's is the one whose correctness is
+*not* legible from the function: it is correct only because of §3.1 mutation 4.
 
 ---
 
