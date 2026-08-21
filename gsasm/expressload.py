@@ -2049,6 +2049,39 @@ def _emit_case_b_records(
     return case_b_abs_offsets
 
 
+def _expr_record_at(
+        expr_at: dict[int, tuple[int, list, int]],
+        abs_off: int,
+        stype: int,
+) -> tuple[int, list, int]:
+    """Phase 3's ``expr_at`` entry for one of phase 7's scanned sites.
+
+    Phase 7 indexes ``expr_at[abs_off]`` for every ``stype`` 0 or 1 site
+    ``_scan_relocs`` reported.  That every key is present is an INVARIANT, not
+    a coincidence: both walk the same ``recs`` lists for the same segments with
+    the same ``seg_base + body_off`` arithmetic, and ``_scan_relocs`` only ever
+    reports offsets of ``LEXPR``/``BEXPR``/``EXPR`` records, which is exactly
+    the set phase 3 indexes.  It is unreachable in the corpus and, as written
+    today, unreachable at all.
+
+    But the two walks are two independent implementations of the same offset
+    arithmetic (the walk collapse in 93f8519 merged phase 3's THREE walks into
+    one; it did not merge them with ``_scan_relocs``, which the driver still
+    calls at its own position).  A new record type that advances ``body_off``
+    in one and not the other would desynchronise them, and the bare
+    ``expr_at[abs_off]`` reported that as a ``KeyError`` naming a hex number
+    and nothing else.  Name it instead."""
+    try:
+        return expr_at[abs_off]
+    except KeyError:
+        raise ValueError(
+            f'expressload(): no EXPR-family record indexed at joint offset '
+            f'{abs_off:#x}, which _scan_relocs reported as a SUPER type-'
+            f'{stype} site.  Phase 3\'s record walk and _scan_relocs\' have '
+            'disagreed about a record\'s body length — they must stay in the '
+            'same basis (docs/CONTRACT_EXPRESSLOAD_RELOC.md §3, §7)') from None
+
+
 def _classify_super_relocs(
         group_relocs_raw: dict[int, list[int]],
         group_base: int,
@@ -2117,7 +2150,7 @@ def _classify_super_relocs(
                 #     misclassifying it as same-group (measured against TS2
                 #     INIT's QDCALLTABLE2/ORIGBELLVECTOR refs —
                 #     docs/EXPRESSLOAD_TIER2_PLAN.md E2).
-                _esz, _eops, _eseg_i = expr_at[abs_off]
+                _esz, _eops, _eseg_i = _expr_record_at(expr_at, abs_off, 1)
                 joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
                 field_size = _esz
                 tgt_group = _group_of(joint_target)
@@ -2271,7 +2304,7 @@ def _classify_super_relocs(
                 # target, dynamic or not (TS2/TS3, docs/
                 # EXPRESSLOAD_TIER2_PLAN.md E2 — dyn_flags is all-False
                 # there, so the jt-routing sub-branch below is inert).
-                _esz, _eops, _eseg_i = expr_at[abs_off]
+                _esz, _eops, _eseg_i = _expr_record_at(expr_at, abs_off, 0)
                 joint_target = _omf._eval(_eops, grp_body_syms[_eseg_i]) & 0xFFFFFFFF
                 tgt_group = _group_of(joint_target)
                 if tgt_group is None:
