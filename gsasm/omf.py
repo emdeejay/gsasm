@@ -220,22 +220,35 @@ def iter_segments(data: bytes, *, records: bool = True):
 
 
 def _read_expr(d, i, numlen):
-    """Decode an OMF expression (sequence of operators terminated by 0x00)."""
+    """Decode an OMF expression (sequence of operators terminated by 0x00).
+
+    Raises OMFParseError if the buffer ends before the 0x00 terminator, or if
+    a push operand runs past it.  The returned op-list therefore ALWAYS ends
+    with the 'end' sentinel, which is what _eval and every other consumer
+    assume; an op-list without it is a truncated expression, not a shorter
+    one."""
     ops = []
+    at = i
     while i < len(d):
         o = d[i]; i += 1
         if o == 0x00:
-            ops.append('end'); break
+            ops.append('end'); return ops, i
         if o == 0x81:                            # push numlen literal
+            _need(d, i, numlen, 'expression literal', at)
             v = int.from_bytes(d[i:i+numlen], 'little'); i += numlen
             ops.append(('lit', v)); continue
         if o in (0x83, 0x84, 0x85, 0x86, 0x87):  # push label-ish (weak/value/len)
-            ln = d[i]; lab = d[i+1:i+1+ln]; i += 1+ln
+            _need(d, i, 1, 'expression label', at)
+            ln = d[i]
+            _need(d, i + 1, ln, 'expression label', at)
+            lab = d[i+1:i+1+ln]; i += 1+ln
             ops.append((f'sym{o:02X}', lab.decode('mac_roman'))); continue
         if o == 0x82:
             ops.append('loc'); continue
         ops.append(('op', o))
-    return ops, i
+    raise OMFParseError(
+        f'unterminated OMF expression at offset {at}: the buffer ends after '
+        f'{len(ops)} operator(s) with no 0x00 terminator')
 
 
 # ---------------------------------------------------------------------------

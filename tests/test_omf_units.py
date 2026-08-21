@@ -463,12 +463,34 @@ def test_read_expr_honours_numlen():
     assert omf._read_expr(d, 0, 2)[0] == [('lit', 0x1234), 'end']
 
 
-def test_read_expr_unterminated_stops_at_end_of_buffer():
-    """No 0x00 terminator: the op-list simply lacks its 'end' sentinel — the
-    parser must not loop or raise."""
-    ops, i = omf._read_expr(bytes([0x82]), 0, 4)
-    assert ops == ['loc'] and i == 1
-    assert omf._read_expr(b'', 0, 4) == ([], 0)
+def test_read_expr_unterminated_raises():
+    """No 0x00 terminator: OMFParseError.
+
+    Was pinned the other way ("the op-list simply lacks its 'end' sentinel").
+    Every consumer of an op-list — omf._eval, linkiigs._defer_shifts,
+    expressload._get_shift — treats 'end' as the stop marker, so a list
+    without it is an expression whose remaining operators were never read, not
+    a shorter expression.  Returning it made a truncated EXPR/GEQU record
+    evaluate to whatever the surviving prefix happened to mean; the terminator
+    is part of the record, so its absence is a parse failure.  An empty buffer
+    is the same defect with a zero-length prefix."""
+    for d in (bytes([0x82]), b'', bytes([0x81]) + struct.pack('<I', 5)):
+        try:
+            omf._read_expr(d, 0, 4)
+        except omf.OMFParseError as exc:
+            assert 'unterminated' in str(exc), exc
+        else:
+            raise AssertionError(f'unterminated expression {d!r} did not raise')
+    # a push operand that runs past the buffer is truncated, not unterminated
+    for d in (bytes([0x81, 0x01]), bytes([0x83, 0x04, 0x41])):
+        try:
+            omf._read_expr(d, 0, 4)
+        except omf.OMFParseError as exc:
+            assert 'expression' in str(exc), exc
+        else:
+            raise AssertionError(f'truncated push {d!r} did not raise')
+    # the terminator is what makes it well-formed: same bytes, plus 0x00
+    assert omf._read_expr(bytes([0x82, 0x00]), 0, 4) == (['loc', 'end'], 2)
 
 
 def test_parse_records_unknown_opcode_is_reported_then_parsing_stops():
