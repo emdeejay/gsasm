@@ -10,9 +10,8 @@ Everything here is CORPUS-FREE: the inputs are expression strings we write
 ourselves, so the file runs in CI with no ref/ tree present.
 
 Each test asserts what the evaluator ACTUALLY does today, including the places
-where that is surprising (MOD is floored while DIV truncates; MOD by zero
-raises ZeroDivisionError while DIV by zero yields 0; trailing tokens are
-silently ignored).  Those are marked "PINNED (surprising)" and are NOT
+where that is surprising (`**` is AND not exponentiation; `--` is XOR; shifts
+bind looser than addition).  Those are marked "PINNED (surprising)" and are NOT
 statements about what MPW ought to do — they are a tripwire so that any future
 change to them is a deliberate, visible act rather than a golden-byte mystery.
 
@@ -87,21 +86,17 @@ def test_mod_is_floored_not_truncated():
     assert ev('5//-3') == -1
 
 
-def test_mod_by_zero_raises_zerodivisionerror_not_unresolved():
-    # PINNED (surprising): DIV by zero is swallowed (above) but MOD by zero
-    # escapes as a raw ZeroDivisionError — try_eval does NOT catch it.
-    try:
-        ev('5 MOD 0')
-    except ZeroDivisionError:
-        pass
-    else:
-        raise AssertionError('5 MOD 0 did not raise ZeroDivisionError')
-    try:
-        expr.try_eval('5//0')
-    except ZeroDivisionError:
-        pass
-    else:
-        raise AssertionError('try_eval swallowed the ZeroDivisionError')
+def test_mod_by_zero_yields_zero_like_division_by_zero():
+    # DOCUMENTED (Asm Ref p.30): "Division by 0 yields 0 as the result", and
+    # Table 2-2 (p.29) / the index class `//` / MOD as "Modulus division" — so
+    # the documented rule covers this operator too.  This ASSERTION CHANGED in
+    # 0.6.0: it used to pin a raw ZeroDivisionError escaping through try_eval.
+    assert ev('5 MOD 0') == 0
+    assert ev('5//0') == 0
+    assert ev('-5 MOD 0') == 0
+    assert expr.try_eval('5//0') == 0
+    # ...and it agrees with the sibling operator, which already did this.
+    assert ev('5 MOD 0') == ev('5/0')
 
 
 # --------------------------------------------------------------------------

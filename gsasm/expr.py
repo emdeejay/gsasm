@@ -196,7 +196,16 @@ class _Parser:
                 q = abs(v) // abs(d) if d else 0
                 v = -q if (v < 0) != (d < 0) else q
             elif t == '//' or t == ('kw', 'MOD'):
-                self.next(); v = v % self.unary()
+                # MOD by zero yields 0, exactly as `/` does two branches up.
+                # DOCUMENTED: Asm Ref p.30 "Division by 0 yields 0 as the
+                # result", and the manual classes this operator as a division
+                # -- Table 2-2 (p.29) labels `//` / MOD "Modulus division", as
+                # does the index ("// (modulus division) 29, 148").  Before
+                # this, `5 MOD 0` escaped as a raw Python ZeroDivisionError
+                # that `try_eval` did not catch, so a malformed operand
+                # crashed the assembler instead of producing a diagnostic.
+                self.next(); d = self.unary()
+                v = v % d if d else 0
             else:
                 return v
 
