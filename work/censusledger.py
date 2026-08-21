@@ -207,7 +207,7 @@ def live_forks_for_disk(disk_label):
     """{path: {'data': size} | {'data': size, 'rsrc': size}}."""
     import diskcheck as dc
     if disk_label.startswith('Disk 7'):
-        ensure_a2til_on_path('census_migrate')
+        ensure_a2til_on_path('censusledger')
         from a2til.hfs import HfsVolume      # upstreamed (a2til #9 / PR #10)
         v = HfsVolume(os.path.join(dc.DISKS, disk_label), readonly=True)
         out = {}
