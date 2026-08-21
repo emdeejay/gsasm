@@ -76,6 +76,61 @@ def _parse_segs(data: bytes) -> list[dict]:
     ]
 
 
+def _resolve_gequs(sym: dict[str, int],
+                   gequ_pending: list[tuple[str, list]]) -> None:
+    """Resolve the deferred GEQU definitions in *sym*, to a FIXED POINT.
+
+    A GEQU's expression may name a segment placed later, a GLOBAL defined
+    later, or another GEQU declared later, so one forward walk cannot be
+    enough.  The old code ran exactly TWO passes, which is enough for a
+    one-deep forward reference and silently wrong for anything deeper: with
+    ``C = B+1``, ``B = A+1``, ``A = 5`` declared in that order, pass 2 computed
+    C from pass 1's placeholder B and produced C == 2 instead of 7.  A silent
+    miscompile, bounded only by the fact that the corpus happens never to nest
+    equates that way.
+
+    So: iterate until nothing moves, and prove convergence rather than assume
+    a depth.
+
+      * Pass 1 keeps the historical ``setdefault`` shape.  A GEQU therefore
+        never displaces a segment name or a GLOBAL of the same spelling on its
+        FIRST sighting -- the placement pass seeds the value it evaluates
+        against.  (Every later pass assigns unconditionally, which is what lets
+        a chain settle and what makes a colliding GEQU win in the end; both are
+        pinned in tests/test_makebin_units.py.)
+      * Sweeps 2..N re-evaluate every pending GEQU and stop as soon as a whole
+        sweep changes nothing.  That "changed nothing" test is the convergence
+        check: it is the property we actually want, not a proxy for it.
+      * The sweep count is bounded by ``len(gequ_pending) + 1``.  Each sweep
+        resolves at least one more link of the longest chain, so an acyclic set
+        of N definitions settles within N sweeps and the extra one confirms it.
+        Exceeding the bound means the definitions cannot converge -- a cycle
+        (``A = B+1``, ``B = A+1``) or two contradictory definitions of one name
+        -- and that RAISES.  An unresolvable equate must not be papered over
+        with whichever iterate the loop happened to stop on; that is precisely
+        the class of silent wrongness this function exists to end.
+    """
+    if not gequ_pending:
+        return
+    for label, ops in gequ_pending:            # pass 1: seed, never displace
+        sym.setdefault(label, _omf._eval(ops, sym))
+    for _ in range(len(gequ_pending) + 1):     # sweeps: iterate to a fixed point
+        changed = False
+        for label, ops in gequ_pending:
+            val = _omf._eval(ops, sym)
+            if sym.get(label) != val:
+                sym[label] = val
+                changed = True
+        if not changed:
+            return
+    names = ', '.join(label for label, _ in gequ_pending[:8])
+    raise ValueError(
+        f'makebin: {len(gequ_pending)} deferred GEQU definitions did not '
+        f'converge after {len(gequ_pending) + 1} passes -- the set contains a '
+        f'reference cycle or two contradictory definitions of one name '
+        f'({names}{", ..." if len(gequ_pending) > 8 else ""})')
+
+
 def _build_sym(segs: list[dict], org: int) -> dict[str, int]:
     """Assign sequential base addresses (starting at *org*) to each segment and
     collect GLOBAL/GEQU symbol definitions.
@@ -105,13 +160,7 @@ def _build_sym(segs: list[dict], org: int) -> dict[str, int]:
                 gequ_pending.append((d['label'].upper(), d['expr']))
         base += seg['length']
 
-    # Resolve deferred GEQUs (two passes to handle forward references).
-    for label, ops in gequ_pending:
-        val = _omf._eval(ops, sym)
-        sym.setdefault(label, val)
-    for label, ops in gequ_pending:
-        sym[label] = _omf._eval(ops, sym)
-
+    _resolve_gequs(sym, gequ_pending)
     return sym
 
 
@@ -184,11 +233,7 @@ def makebin_segments(obj_bytes: bytes,
                 sym[d['label'].upper()] = base + body_off
             elif rname == 'GEQU':
                 gequ_pending.append((d['label'].upper(), d['expr']))
-    # Resolve deferred GEQUs (two passes for forward references).
-    for label, ops in gequ_pending:
-        sym.setdefault(label, _omf._eval(ops, sym))
-    for label, ops in gequ_pending:
-        sym[label] = _omf._eval(ops, sym)
+    _resolve_gequs(sym, gequ_pending)
 
     out: dict[str, bytes] = {}
     for seg in segs:

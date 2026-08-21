@@ -256,29 +256,67 @@ def test_gequ_is_deferred_so_it_can_name_a_later_segment():
     assert makebin.makebin(one + two, 0x1000) == b'\x06\x10\xff'
 
 
-def test_two_passes_resolve_a_one_deep_forward_gequ_chain():
+def test_a_one_deep_forward_gequ_chain_resolves():
     seg = _segment('G', [gequ('A', e_sym('B'), e_lit(1), E_ADD),
                          gequ('B', e_lit(5)),
                          expr_rec(2, e_sym('A'))])
     assert makebin.makebin(seg, 0) == b'\x06\x00'        # A == B+1 == 6
 
 
-def test_a_three_deep_forward_gequ_chain_resolves_WRONG():
-    # PINNED (surprising): exactly two resolution passes run, so C = B+1 sees
-    # only the first-pass value of B.  With A=5, B=A+1, C=B+1 declared in
-    # reverse order the true values are 5/6/7 but makebin computes C == 2.
+def test_a_three_deep_forward_gequ_chain_resolves():
+    # FIXED: exactly two resolution passes used to run, so C = B+1 saw only
+    # the first-pass placeholder for B and came out 2.  Resolution now iterates
+    # to a fixed point, so A=5, B=A+1, C=B+1 declared in reverse order give the
+    # true 5/6/7.
     seg = _segment('G', [gequ('C', e_sym('B'), e_lit(1), E_ADD),
                          gequ('B', e_sym('A'), e_lit(1), E_ADD),
                          gequ('A', e_lit(5)),
                          expr_rec(2, e_sym('C')),
                          expr_rec(2, e_sym('B')),
                          expr_rec(2, e_sym('A'))])
-    assert makebin.makebin(seg, 0) == b'\x02\x00' + b'\x06\x00' + b'\x05\x00'
+    assert makebin.makebin(seg, 0) == b'\x07\x00' + b'\x06\x00' + b'\x05\x00'
 
 
-def test_gequ_overrides_a_colliding_global_on_the_second_pass():
-    # PINNED: pass 1 is setdefault (the GLOBAL wins), pass 2 is unconditional
-    # (the GEQU wins).  The value actually stored is the GEQU's.
+def test_a_deep_forward_gequ_chain_resolves_at_any_depth():
+    # The bound is len(pending)+1 sweeps, so the worst case (every link
+    # declared in reverse order) must still settle exactly, not "deep enough".
+    n = 12
+    recs = [gequ(f'S{i}', e_sym(f'S{i+1}'), e_lit(1), E_ADD)
+            for i in range(n)]
+    recs.append(gequ(f'S{n}', e_lit(0)))
+    recs.append(expr_rec(2, e_sym('S0')))
+    assert makebin.makebin(_segment('G', recs), 0) == bytes([n, 0])
+
+
+def test_a_gequ_reference_cycle_raises_instead_of_shipping_an_iterate():
+    # A = B+1, B = A+1 has no fixed point.  The old two-pass code answered
+    # with whatever the second pass happened to hold; a value nobody can
+    # justify is worse than a stop.
+    seg = _segment('G', [gequ('A', e_sym('B'), e_lit(1), E_ADD),
+                         gequ('B', e_sym('A'), e_lit(1), E_ADD),
+                         expr_rec(2, e_sym('A'))])
+    try:
+        makebin.makebin(seg, 0)
+    except ValueError as exc:
+        assert 'did not converge' in str(exc)
+        assert 'A' in str(exc) and 'B' in str(exc)
+    else:
+        raise AssertionError('a GEQU cycle must raise, not resolve')
+
+
+def test_makebin_segments_also_resolves_gequ_chains_to_a_fixed_point():
+    # The same fixed-point resolver serves both entry points.
+    obj = _segment('ALPHA', [gequ('C', e_sym('B'), e_lit(1), E_ADD),
+                             gequ('B', e_sym('A'), e_lit(1), E_ADD),
+                             gequ('A', e_lit(5)),
+                             expr_rec(2, e_sym('C'))], org=0x2000)
+    assert makebin.makebin_segments(obj)['ALPHA'] == b'\x07\x00'
+
+
+def test_gequ_overrides_a_colliding_global_after_the_seed_pass():
+    # PINNED: the seed pass is setdefault (the GLOBAL wins), every sweep after
+    # it assigns unconditionally (the GEQU wins).  The value stored is the
+    # GEQU's.  Unchanged by the fixed-point rewrite, deliberately.
     seg = _segment('G', [lconst(b'\x00\x00'), glob('DUP'),
                          gequ('DUP', e_lit(0x77)),
                          expr_rec(2, e_sym('DUP'))])
