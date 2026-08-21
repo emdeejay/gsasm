@@ -480,24 +480,47 @@ def test_parse_records_unknown_opcode_is_reported_then_parsing_stops():
     assert end == 1
 
 
-def test_parse_records_stops_at_super_without_decoding_it():
-    """SUPER (0xF7) is in REC but has no decode branch, so parse_records
-    names it and stops — anything after a SUPER record is invisible to this
-    parser.
+def test_parse_records_decodes_super_and_keeps_walking():
+    """SUPER (0xF7) decodes to {'type', 'offsets', 'pagelist'} and the walk
+    CONTINUES — the record after it is no longer invisible.
 
-    SUSPICIOUS (pinned, not changed): iter_segments(records=True) therefore
-    silently truncates the record list of any linked/ExpressLoad'd segment,
-    which is exactly the shape linkiigs/expressload emit.  Callers that need
-    SUPER use expressload.parse_super (see the next section) or hand-walk the
-    tail, which is why nothing has tripped over this.  Reported upward rather
-    than fixed: adding a decode branch would change parse_records' output for
-    every SUPER-bearing segment."""
-    d = bytes([0xF7]) + struct.pack('<I', 2) + bytes([26, 0x00]) \
+    Was pinned the other way ("names it and stops"): the missing decode branch
+    made every record after a SUPER invisible, which on shipping
+    ref/GSOS_6/tool_bin/Tool014#BA0000 left 1,719 bytes of the `main` segment
+    unparsed with no error reported.  Since R1 promoted iter_segments to the
+    one OMF segment-walker, that silent truncation was a loaded trap, so the
+    branch is now real.  Layout (Loader Relocation.a Do_SUPER, contract §1.1):
+    opcode + Length(4, a Long regardless of NUMLEN) + Type(1) + page list,
+    with Length COUNTING the type byte.
+
+    'offsets' is the decoded page list (the codec §1.2 pins separately);
+    'pagelist' is the raw bytes, because only they can reproduce a
+    non-canonical encoding byte-exactly."""
+    # page list b'\x00\x00' = "one offset byte follows for page 0" -> offset 0,
+    # so Length = 1 (type) + 2 (page list) = 3.
+    d = bytes([0xF7]) + struct.pack('<I', 3) + bytes([26, 0x00, 0x00]) \
         + bytes([0x03]) + b'\xAA\xBB\xCC' + bytes([0x00])
     recs, end = omf.parse_records(d, 0)
-    assert recs == [(0, 'SUPER', 'UNHANDLED')]
-    assert end == 1
-    assert 'CONST' not in [r[1] for r in recs]
+    assert recs == [(0, 'SUPER', {'type': 26, 'offsets': [0],
+                                  'pagelist': b'\x00\x00'}),
+                    (8, 'CONST', b'\xAA\xBB\xCC'),
+                    (12, 'END', None)]
+    assert end == len(d) == 13
+    # the record is opcode + Length(4) + Length bytes, i.e. 1 + 4 + 3 = 8
+    assert recs[1][0] == 1 + 4 + 3
+
+
+def test_parse_records_super_length_field_is_not_numlen_scaled():
+    """Do_SUPER reads `ldx #5` (Length(4) + Type(1)) whatever the segment's
+    NUMLEN is, so a NUMLEN=2 segment's SUPER still carries a 4-byte Length.
+    Pinned because LCONST/DS/ORG in the same walk DO scale with numlen."""
+    d = (bytes([0xF7]) + struct.pack('<I', 4) + bytes([0, 0x01, 0x10, 0x20])
+         + bytes([0x00]))
+    for numlen in (2, 4):
+        recs, end = omf.parse_records(d, 0, numlen)
+        assert recs[0][2] == {'type': 0, 'offsets': [0x10, 0x20],
+                              'pagelist': b'\x01\x10\x20'}
+        assert recs[1][1] == 'END' and end == len(d)
 
 
 def test_parse_records_truncated_records_do_not_raise():

@@ -104,6 +104,23 @@ def parse_records(d, start, numlen=4, lablen=0):
             size = d[i]; i += 1
             expr, i = _read_expr(d, i, numlen)
             out.append((at, name, (size, expr))); continue
+        if op == 0xF7:                          # SUPER: total(4) + type(1) + pages
+            # The length field is a 4-byte Long REGARDLESS of NUMLEN, and it
+            # counts the type byte: GS.OS Loader Relocation.a `Do_SUPER` reads
+            # `ldx #5 / jsr Common_Pass1_Check` (Length(4) + Type(1)) and then
+            # `jsr dec_rec_len` once "for Type" before walking the page list.
+            # So the record occupies 1 + 4 + total bytes and the page list is
+            # total-1 long.  See docs/CONTRACT_EXPRESSLOAD_RELOC.md §1.1-1.2.
+            total = int.from_bytes(d[i:i+4], 'little')
+            stype = d[i+4]
+            page_list = d[i+5:i+4+total]
+            i += 4 + total
+            # 'pagelist' is kept raw: _encode_page_list produces a canonical
+            # encoding, so a caller that wants to re-emit the record
+            # byte-exactly must use the bytes that were actually there.
+            out.append((at, name, {'type': stype,
+                                   'offsets': _decode_page_list(page_list),
+                                   'pagelist': page_list})); continue
         if op in (0xE6, 0xE7, 0xEF, 0xF0, 0xF4):   # symbol records
             ln = d[i]; lab = d[i+1:i+1+ln]; i += 1+ln
             length = struct.unpack('<H', d[i:i+2])[0]  # LENGTH attribute (2)
