@@ -76,6 +76,25 @@ def test_part_selector_with_no_expression_is_a_located_error():
 
 
 # --------------------------------------------------------------------------
+# defect 3: an operand that fits no addressing mode used to emit `00 00`
+# --------------------------------------------------------------------------
+
+def test_no_such_addressing_mode_is_a_located_error():
+    _assert_reports('\tstz\t$10,y\n', 'STZ has no y-indexed addressing mode')
+    _assert_reports('\tldx\t3,s\n', 'LDX has no stack-relative addressing mode')
+    _assert_reports('\tldy\t$10,y\n', 'LDY has no y-indexed addressing mode')
+
+
+def test_no_such_addressing_mode_no_longer_emits_two_zero_bytes():
+    """The old behavior put a BRK-shaped `00 00` in the instruction stream."""
+    a = _assemble('\tstz\t$10,y\n')
+    for _at, ln, barr in a.emitted:
+        if (ln.op or '').upper() == 'STZ':
+            assert bytes(barr) != b'\x00\x00', 'silent BRK placeholder is back'
+            break
+
+
+# --------------------------------------------------------------------------
 # the negative control: valid source produces NO encode errors
 # --------------------------------------------------------------------------
 

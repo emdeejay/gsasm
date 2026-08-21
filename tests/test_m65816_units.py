@@ -844,21 +844,27 @@ def test_unknown_mnemonic_returns_none_none():
     assert encode('LDAA', '$10', False, False, ev, 0) == (None, None)
 
 
-def test_operand_that_fits_no_available_mode_emits_two_zero_bytes():
-    """SUSPICIOUS (pinned, not fixed).
+def test_operand_that_fits_no_available_mode_is_an_encode_error():
+    """RESOLVED (was SUSPICIOUS): no silent `00 00` placeholder any more.
 
-    When `_pick_mode` exhausts every fallback, `encode` returns
+    When `_pick_mode` exhausts every fallback, `encode` used to return
     `bytes([0x00]) + b'\\x00'` — a two-byte BRK-shaped placeholder, with no
-    error and no fixup.  `stz $10,y` and `ldx 3,s` are not 65816
-    instructions; a real assembler rejects them.  Two silent zero bytes in
-    the instruction stream is the worst failure class an assembler has (cf.
-    test_branch_range.py), but changing it is a behavior change and belongs
-    in its own packet with a diagnostic channel, not here.
+    error and no fixup.  `stz $10,y`, `ldx 3,s` and `ldy $10,y` are not
+    65816 instructions; two silent zero bytes in the instruction stream is
+    the worst failure class an assembler has (cf. test_branch_range.py), so
+    they now raise EncodeError, which asm.py turns into a located
+    `a.errors` entry (see tests/test_encoder_diagnostics.py).
     """
-    assert enc_b('STZ', '$10,y') == '0000'
-    assert enc_b('LDX', '3,s') == '0000'
-    assert enc_b('LDY', '$10,y') == '0000'
-    assert instr_length('STZ', '$10,y', False, False, ev) == 2
+    assert raises(EncodeError, 'STZ', '$10,y') == (
+        "STZ has no y-indexed addressing mode (operand '$10,y')")
+    assert raises(EncodeError, 'LDX', '3,s') == (
+        "LDX has no stack-relative addressing mode (operand '3,s')")
+    assert raises(EncodeError, 'LDY', '$10,y') == (
+        "LDY has no y-indexed addressing mode (operand '$10,y')")
+    # the modes that DO exist are untouched
+    assert enc_b('STZ', '$10,x') == '7410'
+    assert enc_b('LDX', '$10,y') == 'b610'
+    assert enc_b('LDA', '3,s') == 'a303'
 
 
 def test_indirect_form_unsupported_by_the_mnemonic_raises_keyerror():

@@ -435,11 +435,24 @@ def encode(mnem, operand, longa, longi, evaluate, pc, reloc=None):
         # fall back to the widest available variant
         mode = _pick_mode(tab, 2, fam) or _pick_mode(tab, 1, fam)
     if mode is None:
-        return bytes([0x00]) + b'\x00' * 1, None
+        # No addressing mode of this index family exists for this mnemonic:
+        # `stz $10,y`, `ldx 3,s`, `ldy $10,y` are not 65816 instructions.
+        # This used to return `00 00` -- a two-byte BRK-shaped placeholder,
+        # with no error and no fixup.  Two silent zero bytes in the
+        # instruction stream is the worst failure class an assembler has
+        # (cf. tests/test_branch_range.py); report it instead.
+        raise EncodeError(
+            f'{m} has no {_FAM_NAME[fam]} addressing mode '
+            f'(operand {operand.strip()!r})')
     nb = {'dp': 1, 'dpx': 1, 'dpy': 1, 'sr': 1,
           'abs': 2, 'absx': 2, 'absy': 2,
           'abl': 3, 'ablx': 3}[mode]
     return _emit(tab[mode], base, nb, 'val', evaluate, pc)
+
+
+#: How to name an index family in a diagnostic.
+_FAM_NAME = {'': 'memory', 'x': 'x-indexed', 'y': 'y-indexed',
+             's': 'stack-relative'}
 
 
 def _pick_mode(tab, width, fam):
