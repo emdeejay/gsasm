@@ -115,6 +115,14 @@
     59049,
     0
   ],
+  "ledger_census_regenerable": [
+    1,
+    0
+  ],
+  "ledger_forks_reconciled": [
+    181,
+    0
+  ],
   "link_identical": [
     61,
     0

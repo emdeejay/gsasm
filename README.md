@@ -30,10 +30,10 @@ binaries:
   TextEdit …) with their linker-generated `~JumpTable` segments and full
   relocation dictionaries
 - **The complete System 6.0.1 seven-disk set** — every disk image
-  reconstructs physically byte-identical, all 819,264 bytes each: the 178
+  reconstructs physically byte-identical, all 819,264 bytes each: the 181
   forks with producing source (assembler or Rez) are rebuilt and overlaid
-  from source (Install 39, System Disk 40, SystemTools1 38, SystemTools2 52,
-  Fonts 1, synthLAB 2, Apple II Setup 6 — including the HFS Disk 7, written
+  from source (Install 39, System Disk 41, SystemTools1 38, SystemTools2 52,
+  Fonts 3, synthLAB 2, Apple II Setup 6 — including the HFS Disk 7, written
   through a2til's allocation-preserving overlay engine), and every
   no-source substitute is carried verbatim under a per-fork census with
   dated, structured search evidence.  The completion gate

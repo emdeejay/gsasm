@@ -38,16 +38,20 @@ on [Keep a Changelog](https://keepachangelog.com/); this project's version of
   `OverlayProof` per registered, baselined `diskN_physical_exact` metric.
   The derived set is identical to the literal it replaced.
 
-### Known divergence (found by the new reconciliation, deliberately NOT fixed here)
+### Corrected (found by the new reconciliation)
 
-- The **prose** fork counts in `README.md` and in the 0.5.0 entry below say
+- The **prose** fork counts in `README.md` and in the 0.5.0 entry below said
   **178** forks (System Disk 40, Fonts 1); the census, the builder registry
   and `manifest_builders_wired` all say **181** (System Disk 41, Fonts 3).
   The three forks are exactly the ones commit `6f00bf3` wired — Disk 2
   ControlPanel data, Disk 5 Read.Me data, Disk 5 Apple.Bowl rsrc — after
   those two prose passages were written. The machinery has been right since
-  2026-08-02; the sentences are stale. Correcting a released claim is the
-  author's call, so this packet reports it rather than editing it.
+  2026-08-02; the sentences were stale. Both passages are corrected above
+  and in `README.md`. The error understated the work — 0.5.0 built three
+  more forks than it claimed — and the v0.5.0 tag is left as published;
+  only the prose is fixed. This was an **eighth ledger the architecture
+  review did not count: the release prose**, and it is the one that had
+  actually diverged.
 
 ## [0.5.0] — 2026-08-01
 
@@ -62,10 +66,12 @@ zero unbuilt files by night.
   (819,264/819,264 each): Disks 1–6 via the generalized ProDOS overlay,
   Disk 7 (HFS-in-2IMG) via a2til's new allocation-preserving HFS overlay
   engine (a2til issue #9, developed in tandem and merged upstream).
-- **Every fork with producing source is wired and logical-exact** — 178
-  registry entries across the set (Install 39, System Disk 40, SystemTools1
-  38, SystemTools2 52, Fonts 1, synthLAB 2, Apple II Setup 6). Zero
+- **Every fork with producing source is wired and logical-exact** — 181
+  registry entries across the set (Install 39, System Disk 41, SystemTools1
+  38, SystemTools2 52, Fonts 3, synthLAB 2, Apple II Setup 6). Zero
   residuals: the census classifies no file as buildable-but-unbuilt.
+  *(Corrected in 0.5.5: this entry as published said 178 / System Disk 40 /
+  Fonts 1. The number was stale, not the work — 0.5.0 did ship all 181.)*
 - **`work/manifestcheck.py --tier-a` passes** on all six machine-checked
   conditions (inventory 7/7, substitutes confirmed AND structured with
   dated search evidence, builders wired/exact with typed proofs, physical
