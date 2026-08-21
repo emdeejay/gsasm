@@ -49,7 +49,7 @@ data forks read straight off the System 6.0.1 Disk 3/Disk 4 images.
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import ensure_repo_on_path, first_diff, work_abs
+from _common import ensure_repo_on_path, first_diff, gate_result, work_abs
 ensure_repo_on_path()
 
 import diskcheck as dc                        # sets up a2til on sys.path
@@ -195,7 +195,11 @@ def main():
                   f'(first diff @ {first_diff(build_app_data(name), golden(name))})')
     print(f'\nappdatacheck: {good}/{tot} data forks byte-exact '
           f'APP_DATA_BYTES_EXACT {good_bytes}/{good_bytes + bad_bytes}')
+    # Nothing accepted: all 5 forks are byte-exact.  The fork count catches the
+    # build-failure case, which adds no bad BYTES (see cdevcheck).
+    return gate_result(app_data_bytes_exact=bad_bytes,
+                       app_data_forks_not_exact=tot - good)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

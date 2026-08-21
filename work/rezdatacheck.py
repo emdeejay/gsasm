@@ -46,7 +46,7 @@ footing as rezforkcheck/cdevcheck/teachcheck.
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import ensure_repo_on_path
+from _common import ensure_repo_on_path, gate_result
 ensure_repo_on_path()
 
 import rezcheck as rc
@@ -153,7 +153,11 @@ def main():
             print(f'FAIL {name:14} built={b} gold={g} differs')
     print(f'\nrezdatacheck: {good}/{tot} resource forks byte-exact '
           f'REZ_DATA_BYTES_EXACT {good_bytes}/{good_bytes + bad_bytes}')
+    # Nothing accepted: all 14 forks are byte-exact.  The fork count catches the
+    # build-failure case, which adds no bad BYTES (see cdevcheck).
+    return gate_result(rez_data_bytes_exact=bad_bytes,
+                       rez_data_forks_not_exact=tot - good)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

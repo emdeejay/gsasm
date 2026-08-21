@@ -221,3 +221,58 @@ def first_diff(a: bytes, b: bytes) -> int | None:
 def mismatch_offsets(a: bytes, b: bytes) -> list[int]:
     """Return differing offsets over the common byte range."""
     return [i for i in range(min(len(a), len(b))) if a[i] != b[i]]
+
+
+def gate_result(**metrics: int | tuple[int, int]) -> int:
+    """Return the process exit status for a gate-invoked check script.
+
+    Call this as the LAST thing a check's ``__main__`` does, AFTER the headline
+    line work/gate.py scrapes has already been printed::
+
+        sys.exit(gate_result(fst_bytes=bad))               # nothing accepted
+        sys.exit(gate_result(obj_identical=(bad, 21)))     # 21 accepted
+
+    Each keyword names one metric -- use the name from gate.py's CHECKS table
+    when the check feeds one, so the two tables stay greppable together -- and
+    its value is that metric's current **bad** count in the check's own unit
+    (bytes, forks, modules: whatever this harness tallies), or a
+    ``(bad, accepted_bad)`` pair.
+
+    ``accepted_bad`` is the check's ACCEPTED STATE: the known-benign residual
+    this harness is expected to carry (e.g. objcheck's 21 cosmetically-different
+    but link-identical objects, docs/REFACTORING.md 0).  It is written at the
+    call site, beside the comment that explains the residual, deliberately: a
+    second ledger of accepted values would be one more copy of a fact that
+    already lives in two places.  In particular a check must NOT read
+    work/gate_baseline.json to discover it -- that file is gate.py's ledger of
+    what the checks reported, so consuming it here would invert the dependency
+    and make each check's self-assessment a mirror of the gate's memory instead
+    of an independent second signal.
+
+    A zero exit promises: every metric named here is AT its accepted state or
+    better (``bad <= accepted_bad``).  It does NOT promise ``bad == 0``, and it
+    promises nothing about metrics not named here.
+    A nonzero exit means: at least one named metric is WORSE than its accepted
+    state -- a real regression.  gate.py's run_check() escalates any nonzero
+    exit to a hard abort of the whole gate, so nonzero must mean exactly that,
+    never "this run had something interesting in it".
+
+    An IMPROVEMENT (``bad < accepted_bad``) is deliberately NOT a failure here:
+    gate.py is where an unexpected improvement gets reported and reviewed
+    (docs/REFACTORING.md 0, rule 1), and it cannot report what it never gets to
+    parse.  Likewise a SHRINKING corpus (fewer good, no new bad) is gate.py's
+    to catch: only it holds the previous good counts.
+
+    Nothing is printed on the success path -- these scripts' stdout is a scraped
+    contract (gate.py's CHECKS regexes) and must stay byte-identical.  A failure
+    writes one line per regressed metric to stderr, where gate.py's error tail
+    picks it up.
+    """
+    regressed = []
+    for name, value in metrics.items():
+        bad, accepted = value if isinstance(value, tuple) else (value, 0)
+        if bad > accepted:
+            regressed.append(f'{name}: bad={bad} exceeds accepted={accepted}')
+    for line in regressed:
+        print(f'gate_result: REGRESSION {line}', file=sys.stderr)
+    return 1 if regressed else 0

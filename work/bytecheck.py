@@ -5,7 +5,7 @@ against the listing's Object Code column, aligned by source text via difflib.
 Reports opcode mismatches (addressing-mode errors) and operand mismatches
 (value errors), ignoring relocatable operands (listing shows all-FF)."""
 import sys, os, glob, re, difflib, collections
-from _common import ensure_repo_on_path, romsrc_incs, romsrc_root
+from _common import ensure_repo_on_path, gate_result, romsrc_incs, romsrc_root
 ensure_repo_on_path()
 from gsasm import asm
 from gsasm import m65816
@@ -109,7 +109,11 @@ def main():
     for k, c in badops.most_common(12):
         ex, ro, mo = examples[k]
         print(f"  {c:4d}  {k:6s} listing-op={ro:02X} engine-op={mo:02X}  e.g. {ex[:46]}")
+    # 745 accepted operand deltas: known-benign relocation-base differences
+    # (the listing's operand is resolved against a different base than the
+    # engine's), docs/REFACTORING.md 0.  Opcodes accept nothing.
+    return gate_result(opcode_bytes=op_bad, operand_values=(opd_bad, 745))
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

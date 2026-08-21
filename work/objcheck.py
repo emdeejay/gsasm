@@ -4,7 +4,7 @@ Usage: python3 work/objcheck.py [module.asm]   (one module, shows record diff)
        python3 work/objcheck.py                  (whole corpus summary)
 """
 import sys, os, glob
-from _common import ensure_repo_on_path, romsrc_incs, romsrc_root
+from _common import ensure_repo_on_path, gate_result, romsrc_incs, romsrc_root
 ensure_repo_on_path()
 from gsasm import asm, omf
 
@@ -66,10 +66,14 @@ def summary():
         except Exception:
             pass
     print(f"OBJ byte-identical: {exact}/{total}")
+    # 21 accepted: those objects are NOT byte-identical but ARE link-identical
+    # (cosmetic OMF encoding choices the linker collapses -- linkcheck.py proves
+    # it, docs/REFACTORING.md 0).  A 22nd is a regression.
+    return gate_result(obj_identical=(total - exact, 21))
 
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         show(sys.argv[1])
     else:
-        summary()
+        sys.exit(summary())

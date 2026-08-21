@@ -78,6 +78,7 @@ from _common import (
     byte_match,
     ensure_repo_on_path,
     first_existing_path,
+    gate_result,
     gsos_incs,
     gsos_source_root,
     mismatch_offsets,
@@ -570,11 +571,13 @@ def main():
     print(f'{"Driver":<18} {"subdir":<38} {"match":>7}  {"bytes (gsasm/gold)":>20}  {"pkg"}')
     print('-' * 100)
     tot_m = tot_n = 0
+    n_unbuilt = 0          # drivers that produced no comparison at all (gate_result)
     for name in sorted(DRIVERMAP):
         n_name, subdir, res, err = check(name)
         pkg = _packaging(name)
         if res is None:
             print(f'{name:<18} {str(subdir):<38} {"--":>7}  {err}  {pkg}')
+            n_unbuilt += 1
             continue
         pct, m, n, lg, lo = res
         tot_m += m
@@ -587,7 +590,12 @@ def main():
     print('Packaging note: all drivers are ExpressLoad\'d (KIND 0x8001 leading segment).')
     print('Slinky ships as A2.RAMCard on SystemTools1 (now wired, byte-exact);'
           ' ETalk/ATBoot/ATRam/ATRom not on any 6.0.1 disk or skipped.')
+    # Nothing accepted: every mapped driver builds and every compared byte
+    # matches.  driver_unbuilt is the second signal -- a driver that fails to
+    # build (or loses its golden) contributes no MISMATCHED bytes, it just
+    # silently stops contributing matching ones.
+    return gate_result(driver_bytes=tot_n - tot_m, driver_unbuilt=n_unbuilt)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

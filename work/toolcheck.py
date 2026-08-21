@@ -62,6 +62,7 @@ from _common import (
     byte_match,
     ensure_repo_on_path,
     firmware_root,
+    gate_result,
     gsos_source_root,
     mismatch_offsets,
     toolbox_incs,
@@ -897,11 +898,14 @@ def main():
         return
     print(f"{'Tool':7} {'Manager':12} {'match':>7}  {'bytes (gsasm/gold)':>20}")
     tot_m = tot_n = 0
+    n_unbuilt = 0          # non-WIP tools that produced no comparison (gate_result)
     for t in sorted(TOOLMAP):
         _, sub, res, err = check(t)
         wip = '  [WIP, excluded from tally]' if t in WIP else ''
         if res is None:
             print(f"Tool{t}  {sub:12} {'--':>7}  {err}{wip}")
+            if t not in WIP:
+                n_unbuilt += 1
             continue
         pct, m, n, lg, lo = res
         if t not in WIP:
@@ -909,7 +913,13 @@ def main():
         print(f"Tool{t}  {sub:12} {pct:>6}%  {lg:>8}/{lo:<8}  ({m}/{n} bytes){wip}")
     if tot_n:
         print(f"\nCORPUS raw code-image match: {tot_m}/{tot_n} ({100*tot_m//tot_n}%)")
+    # Nothing accepted: all 18 tools build and every compared byte matches.
+    # tool_unbuilt is the second signal -- a tool that fails to build (or loses
+    # its golden) contributes no MISMATCHED bytes, it just silently stops
+    # contributing matching ones.  WIP tools are excluded, exactly as they are
+    # excluded from the tally above (WIP is empty today).
+    return gate_result(tool_bytes=tot_n - tot_m, tool_unbuilt=n_unbuilt)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

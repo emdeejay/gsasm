@@ -21,7 +21,7 @@ standalone runner + the gate's cdev_rsrc_bytes_exact metric source.
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import ensure_repo_on_path
+from _common import ensure_repo_on_path, gate_result
 ensure_repo_on_path()
 
 import rezcheck as rc
@@ -142,7 +142,12 @@ def main():
             print(f'FAIL {name:10} built={b} gold={g} differs')
     print(f'\ncdevcheck: {good}/{tot} CDEV resource forks byte-exact '
           f'CDEV_RSRC_BYTES_EXACT {good_bytes}/{good_bytes + bad_bytes}')
+    # Nothing accepted: all 19 forks are byte-exact.  The fork count is the
+    # load-bearing one -- a BUILD failure adds no bad BYTES (it only shrinks
+    # good_bytes), so bytes alone would stay silent.
+    return gate_result(cdev_rsrc_bytes_exact=bad_bytes,
+                       cdev_forks_not_exact=tot - good)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

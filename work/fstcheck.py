@@ -48,6 +48,7 @@ from _common import (
     byte_match,
     ensure_repo_on_path,
     first_existing_path,
+    gate_result,
     gsos_incs,
     gsos_source_root,
     mismatch_offsets,
@@ -272,11 +273,13 @@ def main():
     print(f'{"FST":<15} {"subdir":<25} {"match":>7}  {"bytes (gsasm/gold)":>20}  {"pkg"}')
     print('-' * 85)
     tot_m = tot_n = 0
+    n_unbuilt = 0            # FSTs that produced no comparison at all (gate_result)
     for name in sorted(FSTMAP):
         n_name, subdir, res, err = check(name)
         pkg = _packaging(name)
         if res is None:
             print(f'{name:<15} {str(subdir):<25} {"--":>7}  {err}  {pkg}')
+            n_unbuilt += 1
             continue
         pct, m, n, lg, lo = res
         tot_m += m
@@ -297,6 +300,8 @@ def main():
     except Exception as e:
         mine, g = None, None
         print(f'AppleShare.FST  build error: {type(e).__name__}: {e}')
+    if mine is None:
+        n_unbuilt += 1
     if mine is not None:
         m, n = byte_match(mine, g)
         pct = 100 * m // n if n else 0
@@ -310,7 +315,11 @@ def main():
         print(f'CORPUS raw code-image match: {tot_m}/{tot_n} ({100 * tot_m // tot_n}%)')
     print()
     print('Packaging note: all FSTs are ExpressLoad\'d (KIND 0x8001 leading segment).')
+    # Nothing accepted: every mapped FST builds and every compared byte matches.
+    # fst_unbuilt is the second signal -- an FST that fails to build contributes
+    # no MISMATCHED bytes, it just silently stops contributing matching ones.
+    return gate_result(fst_bytes=tot_n - tot_m, fst_unbuilt=n_unbuilt)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

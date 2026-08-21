@@ -12,7 +12,8 @@ bytes differ from the original (cosmetic OMF encoding choices the linker
 collapses).
 """
 import sys, os, glob, subprocess, struct, re
-from _common import ensure_repo_on_path, romsrc_incs, romsrc_root, work_rel
+from _common import (ensure_repo_on_path, gate_result, romsrc_incs,
+                     romsrc_root, work_rel)
 ensure_repo_on_path()
 from gsasm import asm, omf
 from gsasm import link as _gs_link
@@ -163,7 +164,12 @@ def main():
     print(f"\nprovably-correct WITHOUT byte-identical obj ({len(prov)}):")
     for p in prov[:30]:
         print("   " + p)
+    # Nothing accepted: every object in the corpus links identically today, so
+    # any LINK_DIFF / *_LINK_FAIL / ERR: bucket is a regression (a missing `iix`
+    # collapses the whole tally, which this catches too).
+    return gate_result(
+        link_identical=sum(cat.values()) - cat['LINK_IDENTICAL'])
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
