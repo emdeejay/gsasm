@@ -280,20 +280,47 @@ def _build_symtab(
 ) -> tuple[dict[str, int], list[dict[str, int]]]:
     """Pass-2: build the global symbol table.
 
-    Symbol resolution order — processed per object in link order so that
-    first-definition wins (matching MPW LinkIIgs behaviour; the 68K-family
-    MPW linker documents exactly this — "the first definition is used, and
-    all references are treated as references to the first definition", MPW
-    3.0 Reference Vol.1 p.291 — 68K-side evidence, IIgs linker itself
-    undocumented in held refs; grounding survey docs/reports/2026-08-02/):
+    THE OUTER KEY OF THIS TABLE IS PASS ORDER, NOT OBJECT ORDER.  Four passes
+    run in this fixed sequence, and each has its OWN precedence policy:
 
-    For each object in link order:
-      a. Segment names from that object's placement (pass 1 result)
-      b. Every internal label from the Asm's .symbols/.symseg
-         (base_of_segment + symbol_offset — the "full symbol table" fix)
-    After all objects:
-      c. GLOBAL / GEQU records from all OMF bodies (setdefault)
-      d. Caller-supplied extern overrides (override / last-wins)
+      a. Segment names from that object's placement (pass 1 result), per
+         object in link order.  setdefault — into the GLOBAL table only for a
+         SINGLE-object link or a case-collision repair (R4 below); always into
+         the per-object map.
+      b. Every internal label from the Asm's .symbols/.symseg, per object in
+         link order (base_of_segment + symbol_offset — the "full symbol table"
+         fix).  setdefault — into the GLOBAL table only for a single-object
+         link or a PUBLIC label (an EXPORT, or an ENTRY whose name no object
+         EXPORTs); into the per-object map except for a module-private plain
+         label (R5).
+      c. GLOBAL records from all OMF bodies, after all objects.  A priv=1
+         (ENTRY) record is skipped for the global table entirely; otherwise
+         setdefault for a SINGLE-object link and OVERRIDE (last-wins) for a
+         multi-object link, so the canonical library module — typically linked
+         last, e.g. wcm.asm's PUSHRECT — beats earlier duplicates.  The
+         per-object map takes a DIFFERENT split: setdefault when the owning
+         object is a pre-concatenated COMBO (asm is None, the TS2/TS3 -lseg
+         groups), OVERRIDE for a real object.
+      c'. GEQU records from all OMF bodies: setdefault, kind 'equ', GLOBAL
+         table only — a GEQU is never written to a per-object map.
+      d. Caller-supplied extern: OVERRIDE (last-wins), always last, GLOBAL
+         table only — an object that defines the name itself keeps its own
+         value in its per-object map, and pass 3 layers that back on top.
+
+    So first-definition-wins — "the first definition is used, and all
+    references are treated as references to the first definition", MPW 3.0
+    Reference Vol.1 p.291 (68K-family evidence; the IIgs linker itself is
+    undocumented in held refs — grounding survey docs/reports/2026-08-02/) —
+    holds only WITHIN a pass.  A later pass whose policy is OVERRIDE beats
+    every earlier pass regardless of link order: pass (c)'s multi-object arm
+    replaces a segment base published by pass (a), and pass (d) replaces
+    anything at all.
+
+    The composite truth table this builds — all six rules, their interactions,
+    the negative clauses, and the checklist a SEVENTH rule must answer — is
+    written down in docs/CONTRACT_SYMBOL_PRECEDENCE.md and pinned executably
+    by tests/test_linkiigs_symtab_units.py.  Read the contract before adding a
+    rule here.
 
     Interleaving (a) and (b) per object is critical: an interior label from
     object 0 (e.g. PUSHRECT inside PUSHYRAT) must shadow a proc-head segment
@@ -476,7 +503,11 @@ def _build_symtab(
                 else:
                     _kind_setdefault(obj_globals[obj_idx], lab, abs_val, _kind_b)
 
-    # (c) GLOBAL / GEQU records from all OMF bodies (setdefault — lower priority)
+    # (c) GLOBAL / GEQU records from all OMF bodies.  NOT a uniform setdefault:
+    # the GLOBAL arm below is setdefault for a single-object link and OVERRIDE
+    # for a multi-object one (and the per-object map splits combo-vs-real
+    # instead); only the GEQU arm is an unconditional setdefault.  See
+    # docs/CONTRACT_SYMBOL_PRECEDENCE.md Part I §1.
     #
     # Also updates per-object GLOBAL maps (obj_globals[obj_idx]) so that
     # segments within an object can prefer their own GLOBAL definitions over

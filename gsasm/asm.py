@@ -704,6 +704,12 @@ class Asm:
                 or key in self.symbols or key in self.seed)
 
     def resolve(self, name):
+        """The VALUE of the definition `name` binds to here — the innermost
+        winner of the shadowing ladder (@-scope, WITH fields, segment-local
+        label/equate/SET, exact-spelling EQU variant, file-wide symbols, seed,
+        extern).  One of the four restatements of that ladder; the shared
+        contract, including which rows the other three implement, is
+        docs/CONTRACT_SYMBOL_PRECEDENCE.md Part II §2."""
         u = self._symkey(name)        # @-label scope fallback handled in _symkey
         lb = self.link_bases          # link mode: add a segment's final base to
         seg = self._rseg              # relocatable label values (else None = no-op)
@@ -1567,9 +1573,25 @@ class Asm:
                 self.at_seg.setdefault(u, []).append(len(self.segs) - 1)
 
     def needs_reloc(self, expr):
-        """True if an operand reference needs an OMF relocation record: an import,
-        a label in a relocatable (non-ORG) segment, or an undefined symbol (an
-        implicit external — MPW lets you reference externals without IMPORT)."""
+        """True if an operand reference needs an OMF relocation record: an
+        import, an EQU that aliases a relocatable label, or a label in a
+        relocatable (non-ORG, non-temporg) segment.
+
+        This is the GATE: when it returns False the emitter bakes literal
+        bytes and never asks omf._expr_for what the record would have said.
+
+        It does NOT cover an undefined symbol (the implicit external — MPW
+        lets you reference externals without IMPORT): with no symtype and no
+        seed_type the identifier falls off the end of the loop and this
+        returns False.  That rule lives in omf._undef_external, which every
+        call site ORs in beside this one.  Two more branches that resolve()
+        and sym_kind() have are missing here as well (the current-segment
+        fallback when _rseg is None, and the exact-spelling case_symbols
+        variant); both are LIVE DISAGREEMENTS, pinned — not fixed — by
+        tests/test_symbol_precedence_agreement.py and written up as X1/X2 in
+        docs/CONTRACT_SYMBOL_PRECEDENCE.md Part II, which is the shared
+        contract for this function, resolve(), sym_kind() and
+        omf._expr_for()."""
         seg = self._rseg
         for ident in re.findall(r'[A-Za-z_~@?.][\w~@?.$]*', expr):
             u = self._symkey(ident)
@@ -1716,6 +1738,13 @@ class Asm:
         return (u, addend)
 
     def sym_kind(self, name):
+        """The KIND of the definition `name` binds to here: 'label' (a
+        relocatable address), 'equ' (an absolute value), 'import', or None.
+        Drives operand SIZING through is_reloc() — not the relocation
+        decision, which is needs_reloc()'s (an equ_alias is 'equ' yet must
+        relocate).  One of the four restatements of the shadowing ladder;
+        the shared contract is docs/CONTRACT_SYMBOL_PRECEDENCE.md Part II,
+        enforced by tests/test_symbol_precedence_agreement.py."""
         u = self._symkey(name)
         # a label local to the current emit segment shadows a same-named global
         # equate (e.g. dp equate vs in-segment code label of the same name).

@@ -762,7 +762,16 @@ def _expr_for(asm, text, segname, as_data=False, ref_off=None):
     `as_data` (DC address tables): a same-segment ENTRY referenced by a BACKWARD
     reference (defined before this point, ref_off given) is SEGNAME+offset; a
     FORWARD reference (entry defined later) is by name (the assembler hadn't seen
-    the definition yet). For code/branch refs, same-segment ENTRY is by name."""
+    the definition yet). For code/branch refs, same-segment ENTRY is by name.
+
+    This is the ENCODER, not the gate: asm.needs_reloc() (plus
+    _undef_external) decides whether a relocation happens at all, and this
+    function only says what the record contains — so never infer
+    relocatability from what this emits (an ORG'd segment's label encodes as
+    SEGNAME+offset here yet never relocates).  One of the four restatements of
+    the shadowing ladder; the shared contract is
+    docs/CONTRACT_SYMBOL_PRECEDENCE.md Part II, enforced by
+    tests/test_symbol_precedence_agreement.py."""
     text = text.strip()
     # < > ^ select low/high/bank: the linker computes (sym >> shift)
     shift = 0
