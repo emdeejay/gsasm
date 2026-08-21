@@ -77,13 +77,22 @@ def test_division_by_zero_yields_zero_and_does_not_raise():
 
 
 def test_mod_is_floored_not_truncated():
-    # PINNED (surprising): `//` / MOD delegates to Python's %, which floors,
-    # while `/` truncates.  C-style truncation would give -7 MOD 2 == -1.
+    # PINNED (EMPIRICAL GAP — deliberately NOT changed in 0.6.0): `//` / MOD
+    # delegates to Python's %, which floors, while `/` truncates.  C-style
+    # truncation would give -7 MOD 2 == -1 and 5//-3 == 2.
+    #
+    # `/`'s truncation IS documented (Asm Ref p.30); the sign of a modulus
+    # result is NOT documented anywhere in the manual, and all 22 MOD/`//`
+    # sites in the byte-exact corpus use non-negative operands, so the corpus
+    # cannot arbitrate either.  "Fixing" this would be an undocumented claim
+    # about Apple's assembler.  See gsasm/expr.py's EMPIRICAL GAP note.
     assert ev('7//2') == 1
     assert ev('-7//2') == 1
     assert ev('-5 MOD 3') == 1
     assert ev('5 MOD 3') == 2
     assert ev('5//-3') == -1
+    # the asymmetry, stated outright so a future reader sees it is known:
+    assert ev('-7//2') == 1 and ev('-7/2') == -3
 
 
 def test_mod_by_zero_yields_zero_like_division_by_zero():

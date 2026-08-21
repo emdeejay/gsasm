@@ -403,6 +403,7 @@ golden proof behind it. Refactors may MOVE them verbatim (R6/R7) but never
 | `asm.py MACHINE/LONGA/LONGI` handlers | fixture 049; Monitor.aii ordering |
 | `m65816.py` OPTABLE + `encode` + `_crossbank`/`_width` | the sizing rules; 100% opcode corpus |
 | `expr.py` division/`*`-PC/MSB semantics | MPW truncating division; `pea '“'` mac-roman |
+| `expr.py` MOD's **sign** (floored, unlike truncating `/`) | EMPIRICAL GAP, not a bug: `/`'s truncation is documented (Asm Ref p.30) but the manual never states modulus' sign, and all 22 corpus MOD/`//` sites use non-negative operands. Deliberately left asymmetric in 0.6.0 — do not "align" it without a captured .lst |
 | `omf.py _diff_reloc`/`_mul_reloc_expr`/`_grouped_linear_reloc` | fixtures 035/040/044/047 |
 | `expressload.py _scan_case_b` gating `(size,shift)∈{(2,0),(2,16)}` | dc.l false-positive guard |
 | `linkiigs.py _defer_shifts` `const_only` predicate | Tool019 1-byte bug fix |

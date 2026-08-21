@@ -191,7 +191,9 @@ class _Parser:
                 self.next(); v = v * self.unary()
             elif t == '/' or t == ('kw', 'DIV'):
                 # the MPW assembler truncates integer division toward zero
-                # (e.g. -32767/2 = -16383), unlike Python's floor //
+                # (e.g. -32767/2 = -16383), unlike Python's floor //.
+                # DOCUMENTED: Asm Ref p.30, "Division always yields an integer
+                # result; any fractional portion of the result is dropped."
                 self.next(); d = self.unary()
                 q = abs(v) // abs(d) if d else 0
                 v = -q if (v < 0) != (d < 0) else q
@@ -204,6 +206,26 @@ class _Parser:
                 # this, `5 MOD 0` escaped as a raw Python ZeroDivisionError
                 # that `try_eval` did not catch, so a malformed operand
                 # crashed the assembler instead of producing a diagnostic.
+                #
+                # EMPIRICAL GAP, DELIBERATELY NOT "FIXED": the SIGN of a MOD
+                # result stays Python's FLOORED `%`, so `-7 MOD 2` is 1 where
+                # C-style (truncated) remainder would give -1, and `5//-3` is
+                # -1 where C gives 2.  This is asymmetric with the truncating
+                # `/` above, and the asymmetry is left in place on purpose:
+                #   - `/`'s truncation is documented (Asm Ref p.30, quoted
+                #     above).  The manual says NOTHING about the sign of a
+                #     modulus result -- Table 2-2, the evaluation rules on
+                #     p.30, and Appendix D's Table D-6 all name the operator
+                #     and stop there.
+                #   - The corpus cannot arbitrate either: all 22 MOD/`//`
+                #     operator sites in the byte-exact tree (2026-08 sweep)
+                #     use non-negative operands, so both definitions agree on
+                #     every one of them.
+                # Making MOD truncate "for consistency" would encode an
+                # undocumented, untestable claim about Apple's assembler into
+                # a byte-exact reproduction.  A documented asymmetry beats a
+                # plausible guess; if a negative-operand MOD ever turns up in
+                # a captured .lst, that listing decides it.
                 self.next(); d = self.unary()
                 v = v % d if d else 0
             else:
