@@ -1,14 +1,77 @@
 #!/usr/bin/env python3
-"""census_migrate.py — migrates docs/disk_census_2026-07-30.json (FILE-granular,
-prose `forks` string) into docs/disk_census_2026-08-01.json (FORK-granular,
-structured `forks` dict), per docs/ADVERSARIAL_REVIEW_SOW_IMPLEMENTATION_2026-08-01.md
+"""censusledger.py — the fork-ownership LEDGER and the REGENERATOR that turns
+it into the live census, docs/disk_census.json (FORK-granular, structured
+`forks` dict), per docs/ADVERSARIAL_REVIEW_SOW_IMPLEMENTATION_2026-08-01.md
 finding #3 and docs/IMPLEMENTATION_PLAN.md §1's `ForkKey = (path, 'data'|'rsrc')`.
 
-    python3 work/census_migrate.py     # writes docs/disk_census_2026-08-01.json
+    python3 work/censusledger.py            # regenerate docs/disk_census.json
+    python3 work/censusledger.py --check    # is the committed census still
+                                            #   reproducible from the ledger?
+                                            #   (nonzero if someone hand-edited
+                                            #   the JSON) — also gated by
+                                            #   work/reconcilecheck.py
 
-WHY a script, not a hand edit: 355 files across 7 disks is too much to hand-
-migrate without drift, and re-running it is how a future census update stays
-honest (re-derive against LIVE disk state, never hand-patch counts).
+--- This file is a LEDGER, not a migration (2026-08-21) ---------------------
+
+It was originally written, and named, as a one-shot migration from the
+2026-07-30 file-granular census to a 2026-08-01 fork-granular one.  That was
+never what it became: its `OVERRIDES` dict was hand-edited six times in its
+first 36 hours, each edit tied to a newly-cracked file, while its docstring
+kept promising a one-shot conversion and its output was named after a date
+that stopped being meaningful inside a day (docs/ARCHITECTURE_REVIEW_2026-08-02.md
+finding 4, and that document's supervisor's-own-chapter).  Renamed from
+`work/census_migrate.py` and retargeted from `docs/disk_census_2026-08-01.json`
+to the undated `docs/disk_census.json` on 2026-08-21.  The dated review
+documents under docs/reports/** and docs/ARCHITECTURE_REVIEW_2026-08-02.md
+still cite the old name and the dated output: they are frozen records of what
+was said when, and are deliberately NOT rewritten.
+
+What the system actually is, in three parts:
+
+  INPUT (frozen).  docs/disk_census_2026-07-30.json — the file-granular base
+      census.  It is an INPUT to every regeneration, not merely history: its
+      per-file classification/proven_by/source_path/evidence/language/
+      confidence fields are copied through verbatim.  Deleting it breaks
+      regeneration.  Nothing here ever writes to it.
+  LEDGER (hand-maintained).  `OVERRIDES` below, plus the search-evidence
+      sidecar docs/substitute_search_evidence_2026-08-01.json.  This is the
+      accumulated, individually-justified per-fork judgment — the part that
+      grows every time a file is cracked or a proof is corrected.
+  OUTPUT (generated, never hand-edited).  docs/disk_census.json, the live
+      census that work/diskmanifest.py + work/manifestcheck.py read.
+
+--- The write API: how to record a new fact ---------------------------------
+
+The ONLY supported way to change the live census is to change this file (or
+the sidecar) and re-run the regenerator.  Concretely, to record that a fork
+was cracked, or that its proving harness was named wrong:
+
+  1. Add or amend an `_add(DISK, path, data=..., rsrc=...)` call in the
+     OVERRIDES section below, building each fork record with
+     `_entry(classification, proven_by, evidence, source_path=, accepted=)`.
+     - `classification` must be one of work/diskmanifest.py `_CENSUS_STATE`'s
+       keys (built / buildable-asm / buildable-rez / no-source-substitute /
+       pascal-c-nontarget / technical-exception).
+     - For `built`, `proven_by` must name a harness that work/gate.py's
+       CHECKS+FULL_CHECKS table registers AND whose metrics are all in
+       work/gate_baseline.json — otherwise diskmanifest.manifest_for() raises
+       a GENERATION ERROR rather than silently degrading the claim.
+     - `evidence` is prose, and it is the audit trail: say what was checked
+       (byte counts, harness target list, cmp of duplicate copies), not just
+       the conclusion.
+     - An override must cover EXACTLY the forks the live disk has; a stale
+       override that matches no census record is a hard error.  Both are
+       enforced in `split_forks()` / `regenerate()`.
+  2. Re-run `python3 work/censusledger.py`.
+  3. Re-run `python3 work/reconcilecheck.py` — a newly-`built` fork usually
+     also needs wiring into diskcheck's registry, and that check is what
+     refuses to let the two ledgers drift apart.
+
+Do NOT hand-edit docs/disk_census.json.  A hand edit survives exactly until
+the next regeneration and then vanishes without a trace — the failure mode
+the architecture review named.  `--check` (and the `ledger_census_regenerable`
+gate metric) exists to catch that on the day it happens instead of on release
+eve.
 
 --- What "fork-granular" means here -----------------------------------------
 
@@ -21,8 +84,8 @@ verbatim gold (adversarial-review finding #3 — the Disk 7 NetBoot targets are
 the clearest example: the DATA fork is disk7check-proven, the RESOURCE fork
 is Mac-Rez output nobody has built).
 
-v2 (2026-08-01) replaces the `forks` STRING with a `forks` DICT keyed by the
-forks the LIVE disk image actually has (`live_forks_for_disk()` below — the
+The generated census replaces the `forks` STRING with a `forks` DICT keyed by
+the forks the LIVE disk image actually has (`live_forks_for_disk()` below — the
 ProDOS extended-storage-type bit / the HFS catalog's own data+rsrc length
 fields, NOT the prose), each value a per-fork record:
 
@@ -30,74 +93,79 @@ fields, NOT the prose), each value a per-fork record:
      "proven_by": <harness name, if classification == "built">,
      "source_path": <optional>,
      "size": <live fork length in bytes, ground truth>,
-     "evidence": <fork-specific evidence, freshly written for this migration>}
+     "evidence": <fork-specific evidence, from the ledger below>}
 
 --- Losslessness -------------------------------------------------------------
 
-Every file record's ORIGINAL `forks` STRING is preserved verbatim in a new
-`forks_raw_v1` field (the exact prose the string-typed field held before this
-migration retyped it to a dict).  Every other v1 field (classification,
-proven_by, source_path, evidence, language, confidence) is copied UNCHANGED
-at the file level — v2 does not edit v1's file-level summary, it only ADDS
-the fork-granular `forks` dict alongside it.  docs/disk_census_2026-07-30.json
-itself is untouched (not deleted, not edited) — it remains the historical
-record; v2 is a strict superset migration.
+Every file record's ORIGINAL `forks` STRING is preserved verbatim in a
+`forks_raw_v1` field (the exact prose the string-typed field held in the base
+census before regeneration retyped it to a dict).  Every other base-census
+field (classification, proven_by, source_path, evidence, language, confidence)
+is copied UNCHANGED at the file level — regeneration does not edit the base
+census's file-level summary, it only ADDS the fork-granular `forks` dict
+alongside it.  docs/disk_census_2026-07-30.json itself is untouched (not
+deleted, not edited): it is the frozen INPUT, and the generated census is a
+strict superset of it.
 
---- Where this migration DISAGREES with the v1 per-file summary -------------
+--- Where the LEDGER DISAGREES with the base census's per-file summary ------
 
 `OVERRIDES` below hand-encodes every file where a per-fork split needed
-DELIBERATE judgment rather than a mechanical default — either because the v1
-`proven_by` harness demonstrably does not cover one of the two forks (verified
-by reading the harness's own target list / gate.py metric name, not guessed),
-or because the fork's true byte-length forced a choice the v1 file-level
+DELIBERATE judgment rather than a mechanical default — either because the base
+census's `proven_by` harness demonstrably does not cover one of the two forks
+(verified by reading the harness's own target list / gate.py metric name, not
+guessed), or because the fork's true byte-length forced a choice the file-level
 classification blurred (e.g. a CDEV's data fork is 0 bytes: cdevcheck proves
 its resource fork; the empty data fork has no proof and is not the same
 claim).  Every OVERRIDES entry's evidence field explains the reasoning and
 cites what was checked.  See docs/ADVERSARIAL_REVIEW... and the B_REPORT.md
-this script's invocation produced for the full audit trail.
+this ledger's first invocation produced for the full audit trail.  Entries
+added since carry their own dated evidence in place.
 
 The DEFAULT (non-overridden) path is deliberately conservative: for a
-2-fork file whose v1 classification/proven_by is the SAME claim for both
+2-fork file whose base classification/proven_by is the SAME claim for both
 forks (verified: no size-based asymmetry — see `default_split()`), both forks
-inherit the v1 classification/proven_by/evidence UNCHANGED.  For the
+inherit the base classification/proven_by/evidence UNCHANGED.  For the
 `built` + "one fork is 0 bytes" shape, the 0-byte fork demotes to
 `no-source-substitute` (nothing to build, no claim made) rather than
 inheriting `built` from the other fork.  Any OTHER 2-fork, both-nonzero,
-`built`/`pascal-c-nontarget` file with NO OVERRIDES entry makes this script
-raise `AssertionError` rather than guess — every such file in the v1 census
-as of 2026-08-01 has one.
+`built`/`pascal-c-nontarget` file with NO OVERRIDES entry makes regeneration
+raise `AssertionError` rather than guess — every such file in the base census
+has one.
 
 --- C1: TECHNICAL_EXCEPTION human-acceptance field (finding #4) -------------
 
 `_entry()` accepts an optional `accepted` dict (`{"by", "date", "rationale"}`)
 that, if given, is carried onto the fork record verbatim as `"accepted"`.
-Nothing in this script passes it today.  As of 2026-08-01 there are ZERO
+Nothing in the ledger passes it today.  As of 2026-08-01 there are ZERO
 TECHNICAL_EXCEPTION records left: the two Tool.Setup forks (Disks 1 + 2) —
 the exceptions this field was added for — were CRACKED to BUILT the same day
 (see the Tool.Setup OVERRIDES entry below), so
 `manifest_technical_exceptions_accepted` reports good=0 bad=0.  The field
-and the blocking semantics remain for any future exception; this script
-still never fabricates an acceptance.
+and the blocking semantics remain for any future exception; regeneration
+still never fabricates an acceptance — only a human adding `accepted=` to an
+OVERRIDES entry can set one.
 
 --- C2: structured substitute/exception search evidence (finding #5) -------
 
 docs/substitute_search_evidence_2026-08-01.json (see the sidecar's own
-extraction notes) holds, for 195 of the v1 census's SUBSTITUTE/
+extraction notes) holds, for 195 of the base census's SUBSTITUTE/
 TECHNICAL_EXCEPTION file records, the prose `evidence` string's content
 re-expressed as structured fields: `{searched_trees, search_date,
 search_patterns, decision}` (all nullable — the sidecar was built under a
 strict extract-never-invent rule, so a field with no anchor in the original
-prose stays `null` rather than being guessed).  This migration folds that
-sidecar in: after a file's forks are split (OVERRIDES or `default_split()`),
+prose stays `null` rather than being guessed).  It is the SECOND half of the
+hand-maintained ledger, and is dated because it is itself a frozen extraction
+artifact, not a growing table.  Regeneration folds it in: after a file's forks
+are split (OVERRIDES or `default_split()`),
 every resulting fork whose classification is SUBSTITUTE/TECHNICAL_EXCEPTION
 (`_CENSUS_STATE` in work/diskmanifest.py — no-source-substitute,
 pascal-c-nontarget, or technical-exception) AND whose (disk, path) has a
 sidecar record gets a `"search"` object (`{searched_trees, search_date,
 search_patterns, decision}`, copied verbatim including any nulls).  A fork
-with no matching sidecar record — e.g. one of the per-fork splits above whose
-evidence was newly WRITTEN during this migration (OVERRIDES), which the v1
-file-granular sidecar extraction could not have seen — gets no `"search"`
-key at all; it is not backfilled or guessed.  This is deliberately a MATCH,
+with no matching sidecar record gets no `"search"`
+key at all; it is not backfilled or guessed (a fork whose evidence was written
+directly in OVERRIDES is newer than the sidecar's file-granular extraction, so
+the sidecar could not have seen it).  This is deliberately a MATCH,
 not a guarantee: `search.decision` can still be null for a matched record
 (the sidecar's `search_date` is null for every one of its 195 records — no
 prose anchored a date), and `manifest_substitutes_structured` in
@@ -112,8 +180,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _common import ROOT, ensure_a2til_on_path, ensure_repo_on_path  # noqa: E402
 ensure_repo_on_path()
 
-OLD_CENSUS = os.path.join(ROOT, 'docs', 'disk_census_2026-07-30.json')
-NEW_CENSUS = os.path.join(ROOT, 'docs', 'disk_census_2026-08-01.json')
+# The frozen file-granular INPUT (dated because it IS a dated record, and
+# because nothing ever rewrites it) ...
+BASE_CENSUS = os.path.join(ROOT, 'docs', 'disk_census_2026-07-30.json')
+# ... and the live, UNDATED generated census every consumer reads.  It is
+# undated on purpose: the previous output was named after 2026-08-01 and was
+# stale within a day, which is how a generated file acquires the look of a
+# historical document.  The dated snapshots (docs/disk_census_2026-07-30.json,
+# docs/disk_census_2026-08-01.json) stay committed as the record of what was
+# claimed when — v0.5.0's release notes and the docs/reports/** reviews cite
+# the latter by name — but the file that MOVES is this one.
+LIVE_CENSUS = os.path.join(ROOT, 'docs', 'disk_census.json')
 SIDECAR_SEARCH_EVIDENCE = os.path.join(
     ROOT, 'docs', 'substitute_search_evidence_2026-08-01.json')
 
@@ -273,7 +350,7 @@ def default_split(f, live_sizes):
         raise AssertionError(
             f'default_split: {f["path"]!r} is a dual-nonzero-fork {cls!r} '
             'record with no OVERRIDES entry -- this shape needs a deliberate '
-            'per-fork classification (see census_migrate.py OVERRIDES), not a '
+            'per-fork classification (see censusledger.py OVERRIDES), not a '
             'guess. Add an OVERRIDES entry.')
     return {'data': _entry(cls, pb, ev, sp), 'rsrc': _entry(cls, pb, ev, sp)}
 
@@ -698,7 +775,9 @@ _add(D4, '/SystemTools2/System/Drivers/IWEM',
                  source_path='ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/IWEm/IWEm.Src'))
 
 
-def migrate_file(disk_label, f, live_sizes):
+def split_forks(disk_label, f, live_sizes):
+    """The ledger lookup for ONE base-census file record: an OVERRIDES entry
+    if this (disk, path) has one, else `default_split()`."""
     key = (disk_label, f['path'])
     if key in OVERRIDES:
         forkdict = OVERRIDES[key]
@@ -711,8 +790,11 @@ def migrate_file(disk_label, f, live_sizes):
     return default_split(f, live_sizes)
 
 
-def migrate():
-    with open(OLD_CENSUS) as fh:
+def regenerate():
+    """Build the live census IN MEMORY from the frozen base census + the
+    OVERRIDES ledger + the search-evidence sidecar + LIVE disk enumeration.
+    Writes nothing — see `write()` / `serialize()`."""
+    with open(BASE_CENSUS) as fh:
         old = json.load(fh)
     new = json.loads(json.dumps(old))   # deep copy; we mutate `files` in place
     used_overrides = set()
@@ -729,7 +811,7 @@ def migrate():
                     f'{disk_label}: census path {path!r} not found in LIVE '
                     f'disk enumeration -- census/disk drift.')
             raw_forks = f.get('forks')
-            forkdict = migrate_file(disk_label, f, live[path])
+            forkdict = split_forks(disk_label, f, live[path])
             if (disk_label, path) in OVERRIDES:
                 used_overrides.add((disk_label, path))
             for fork_name, sub in forkdict.items():
@@ -747,30 +829,78 @@ def migrate():
     if unused:
         raise AssertionError(f'OVERRIDES entries never matched a census '
                               f'record (stale): {sorted(unused)}')
-    new['_migrated_from'] = os.path.basename(OLD_CENSUS)
-    new['_migration_script'] = 'work/census_migrate.py'
-    new['_migration_note'] = (
-        'Fork-granular migration of the file-granular v1 census (B2, '
-        'docs/ADVERSARIAL_REVIEW_SOW_IMPLEMENTATION_2026-08-01.md finding #3). '
-        'Every file-level field is preserved verbatim from v1 (including the '
-        'original `forks` prose string, now under `forks_raw_v1`); the new '
-        '`forks` field is a {fork: {classification, proven_by?, source_path?, '
-        'size, evidence, search?, accepted?}} dict, one entry per fork the '
-        'LIVE disk actually has. `search` (finding #5, C2) is folded in from '
+    new['_base_census'] = os.path.basename(BASE_CENSUS)
+    new['_generator'] = 'work/censusledger.py'
+    new['_generation_note'] = (
+        'GENERATED — never hand-edit. Fork-granular census regenerated from '
+        'the frozen file-granular base census (B2, '
+        'docs/ADVERSARIAL_REVIEW_SOW_IMPLEMENTATION_2026-08-01.md finding #3) '
+        'plus the hand-maintained OVERRIDES ledger in work/censusledger.py. '
+        'Every file-level field is preserved verbatim from the base census '
+        '(including the original `forks` prose string, now under '
+        '`forks_raw_v1`); the `forks` field is a {fork: {classification, '
+        'proven_by?, source_path?, size, evidence, search?, accepted?}} dict, '
+        'one entry per fork the LIVE disk actually has. `search` (finding #5, '
+        'C2) is folded in from '
         'docs/substitute_search_evidence_2026-08-01.json for every SUBSTITUTE/'
         'TECHNICAL_EXCEPTION fork whose (disk, path) that sidecar covers; '
         '`accepted` (finding #4, C1) is a human-acceptance marker for a '
-        'TECHNICAL_EXCEPTION fork that this script never fabricates (zero '
+        'TECHNICAL_EXCEPTION fork that regeneration never fabricates (zero '
         'TECHNICAL_EXCEPTION records remain as of 2026-08-01 — Tool.Setup '
         'x2 cracked to built). '
-        'See work/census_migrate.py for the full migration rationale and '
-        'per-file OVERRIDES audit trail.')
-    with open(NEW_CENSUS, 'w') as fh:
-        json.dump(new, fh, indent=2, sort_keys=False)
-        fh.write('\n')
-    print(f'wrote {NEW_CENSUS}')
+        'To change anything here, edit work/censusledger.py OVERRIDES (see '
+        "that file's write-API section) and re-run it; a hand edit to this "
+        'JSON is reverted by the next regeneration and is caught meanwhile by '
+        '`python3 work/censusledger.py --check` / the '
+        '`ledger_census_regenerable` gate metric.')
     return new
 
 
+def serialize(census):
+    """The EXACT on-disk text for a regenerated census (the single definition
+    of the output encoding, so `write()` and `--check` can never disagree)."""
+    return json.dumps(census, indent=2, sort_keys=False) + '\n'
+
+
+def write(census=None):
+    census = census if census is not None else regenerate()
+    with open(LIVE_CENSUS, 'w') as fh:
+        fh.write(serialize(census))
+    print(f'wrote {LIVE_CENSUS}')
+    return census
+
+
+def check():
+    """Is the committed live census still exactly what the ledger produces?
+
+    This is the guard for the failure mode the 2026-08-02 architecture review
+    named: someone edits docs/disk_census.json directly, and the next
+    regeneration silently reverts them.  Returns (ok, detail)."""
+    if not os.path.exists(LIVE_CENSUS):
+        return False, f'{os.path.basename(LIVE_CENSUS)} does not exist'
+    with open(LIVE_CENSUS) as fh:
+        committed = fh.read()
+    fresh = serialize(regenerate())
+    if committed == fresh:
+        return True, 'byte-identical to a fresh regeneration'
+    # locate the first differing line, so the failure names the record
+    cl, fl = committed.splitlines(), fresh.splitlines()
+    for i, (a, b) in enumerate(zip(cl, fl), 1):
+        if a != b:
+            return False, (f'diverges at line {i}: committed {a.strip()!r} '
+                           f'vs regenerated {b.strip()!r}')
+    return False, (f'same prefix, different length '
+                   f'({len(cl)} committed vs {len(fl)} regenerated lines)')
+
+
 if __name__ == '__main__':
-    migrate()
+    if '--check' in sys.argv:
+        ok, detail = check()
+        print(f'{os.path.basename(LIVE_CENSUS)}: {detail}')
+        if not ok:
+            print('FAIL: the live census is NOT reproducible from the ledger. '
+                  'Someone hand-edited the JSON (or the ledger changed without '
+                  'a regeneration). Fix work/censusledger.py OVERRIDES and '
+                  're-run `python3 work/censusledger.py`.')
+        sys.exit(0 if ok else 1)
+    write()

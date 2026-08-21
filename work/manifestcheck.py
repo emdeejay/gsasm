@@ -87,16 +87,32 @@ DISKROOT = os.path.join(
     ROOT, 'ref', 'GSOS_6', 'System601_disks', 'System 6.0.1')
 
 # Disks with a working whole-disk overlay whose reconstructed image byte-matches
-# the golden (RECONSTRUCTED).  Membership here is BACKED by hard gate metrics in
-# the same --full pass: disk2/5/6_physical_exact scrape diskcheck's PHYSICAL
-# line, and diskcheck exits nonzero on any physical mismatch (which gate.py now
-# treats as fatal).  A disk must NOT be added here without also adding its
-# physical metric to work/gate.py FULL_CHECKS — otherwise physical_exact would
-# revert to an unbacked label count (adversarial-review finding #1).  Being
-# merely builder-complete (0 TODO) does NOT put a disk here — the overlay must
-# exist.
-OVERLAID_DISKS = {'Disk 2', 'Disk 5', 'Disk 6', 'Disk 1', 'Disk 7', 'Disk 3',
-                  'Disk 4'}
+# the golden (RECONSTRUCTED).  Membership is BACKED by hard gate metrics in the
+# same --full pass: diskN_physical_exact scrapes diskcheck's PHYSICAL line, and
+# diskcheck exits nonzero on any physical mismatch (which gate.py treats as
+# fatal).  Being merely builder-complete (0 TODO) does NOT put a disk here —
+# the overlay must exist (adversarial-review finding #1).
+#
+# 2026-08-21: this WAS a hand-set literal of seven labels, enforced only by a
+# comment reading "a disk must NOT be added here without also adding its
+# physical metric to work/gate.py FULL_CHECKS".  It is now DERIVED from
+# exactly that condition via diskmanifest.overlay_proofs() — the typed-proof
+# pattern the 2026-08-02 architecture review nominated (finding 4: "one file
+# away from the typed-proof pattern that would validate it").  A disk with no
+# registered, baselined physical metric can no longer be listed here at all,
+# so the rule is machinery instead of prose.  The derived set is identical to
+# the literal it replaced (all seven disks); work/reconcilecheck.py re-proves
+# every OverlayProof structurally on each gate run.
+_OVERLAY_PROOFS = dm.overlay_proofs()
+OVERLAID_DISKS = frozenset(_OVERLAY_PROOFS)
+if not OVERLAID_DISKS:
+    # No silent degrade (the B1 discipline): an empty set would quietly
+    # restate manifest_physical_exact as good=0 and read like a real result.
+    raise RuntimeError(
+        'GENERATION ERROR: no diskN_physical_exact metric is both registered '
+        'in work/gate.py and baselined in work/gate_baseline.json, so no disk '
+        'can be proven RECONSTRUCTED. Refusing to report a physical_exact '
+        'count derived from nothing.')
 
 
 def disk_path_for(label):

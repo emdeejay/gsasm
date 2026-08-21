@@ -252,6 +252,20 @@ FULL_CHECKS = [
         # any future exception.
         ('manifest_technical_exceptions_accepted',
          r'manifest_technical_exceptions_accepted good=(\d+) bad=(\d+)', 'okbad')]),
+    # The STANDING ledger reconciliation (docs/ARCHITECTURE_REVIEW_2026-08-02.md
+    # finding 4, "One fact, seven ledgers"): the census, diskcheck's builder
+    # registries, diskcheck's Disk-2 MANIFEST and the OverlayProofs behind
+    # manifestcheck.OVERLAID_DISKS must all agree about which forks are built
+    # and wired — checked in BOTH directions, every gate pass, instead of by a
+    # release-eve audit.  `ledger_census_regenerable` additionally proves the
+    # generated census still matches a fresh work/censusledger.py run, so a
+    # hand edit to docs/disk_census.json cannot sit undetected until the next
+    # regeneration silently reverts it.  See work/reconcilecheck.py.
+    ('reconcilecheck', ['reconcilecheck.py'], [
+        ('ledger_census_regenerable',
+         r'ledger_census_regenerable good=(\d+) bad=(\d+)', 'okbad'),
+        ('ledger_forks_reconciled',
+         r'ledger_forks_reconciled good=(\d+) bad=(\d+)', 'okbad')]),
 ]
 
 

@@ -5,6 +5,50 @@ on [Keep a Changelog](https://keepachangelog.com/); this project's version of
 "notable" is: which shipping Apple IIgs / GS/OS artifacts now rebuild
 **byte-exact** from source, plus toolchain/library changes.
 
+## [Unreleased]
+
+### Harness hygiene (0.6.0 slate item 3 — docs/ARCHITECTURE_REVIEW_2026-08-02.md)
+
+- **The census system is named what it is.** `work/census_migrate.py` →
+  `work/censusledger.py`: it was never a one-shot migration (its `OVERRIDES`
+  dict was hand-edited six times in its first 36 hours), it is a
+  hand-maintained fork-ownership **ledger** plus a **regenerator**. Its
+  docstring now documents the actual write API — how to add an `OVERRIDES`
+  entry, and that the only supported way to change the census is to change
+  the ledger and re-run. The generated census moved from the date-stamped
+  `docs/disk_census_2026-08-01.json` to the undated `docs/disk_census.json`;
+  the dated files stay committed (the 2026-07-30 one is also the
+  regenerator's frozen input, and the 2026-08-01 one is the record of what
+  v0.5.0 claimed). No fork's classification changed: the regenerated census
+  is byte-identical to the committed one apart from three renamed top-level
+  provenance keys.
+- **Registry↔census reconciliation is now a standing gate**, not a
+  release-eve audit (`work/reconcilecheck.py`, gate metrics
+  `ledger_census_regenerable` + `ledger_forks_reconciled`). It runs both
+  directions — a builder wired for a fork the census does not call `built`,
+  and a census-`built` fork with no builder on a RECONSTRUCTED disk — plus
+  diskcheck's Disk-2 `MANIFEST` against the census, and re-proves the
+  census is still exactly what the ledger regenerates (so a hand edit to
+  `docs/disk_census.json` cannot sit undetected until the next
+  regeneration silently reverts it). 181/181 fork claims reconcile today.
+- **`manifestcheck.OVERLAID_DISKS` converged on the typed-proof pattern.**
+  It was a hand-set literal of seven disk labels enforced only by a comment
+  ("do not add a disk here without also adding its physical metric to
+  gate.py"); it is now derived from `diskmanifest.overlay_proofs()` — one
+  `OverlayProof` per registered, baselined `diskN_physical_exact` metric.
+  The derived set is identical to the literal it replaced.
+
+### Known divergence (found by the new reconciliation, deliberately NOT fixed here)
+
+- The **prose** fork counts in `README.md` and in the 0.5.0 entry below say
+  **178** forks (System Disk 40, Fonts 1); the census, the builder registry
+  and `manifest_builders_wired` all say **181** (System Disk 41, Fonts 3).
+  The three forks are exactly the ones commit `6f00bf3` wired — Disk 2
+  ControlPanel data, Disk 5 Read.Me data, Disk 5 Apple.Bowl rsrc — after
+  those two prose passages were written. The machinery has been right since
+  2026-08-02; the sentences are stale. Correcting a released claim is the
+  author's call, so this packet reports it rather than editing it.
+
 ## [0.5.0] — 2026-08-01
 
 **Tier A: the complete System 6.0.1 seven-disk set reconstructs byte-exact.**
