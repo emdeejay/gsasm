@@ -402,19 +402,40 @@ Path A's merged body is final the moment it is built.  Path B's is a
 `bytearray` under active revision by the classifier.  This is not a stylistic
 difference: it is why D1's suppression rule is safe on A and lethal on B.
 
-### D8 — `opts['super_classes']` reaches only Path A **[UNFORCED]**
+### D8 — `opts['super_classes']` is a Path A option, and Path B now **rejects** it
 
 `SUPER_CLASSES_APR93` records a *toolchain-version* property: the 30-Apr-93
 LinkIIGS that built the archived `MountImageGS` folds only the `(2,0)` class
 into `SUPER` records and leaves the size-4 and `(2,16)` relocs as standalone
 `cRELOC`s.  `_build_single_output_seg` threads `super_classes` into both of its
 scanners; `_build_multiseg_output` calls `_scan_relocs(group_placed)` and
-`_scan_standalone_relocs(group_placed)` with the default full set and never
-reads the opt.  No multi-segment target in the corpus was produced by that
-encoder, so nothing forces or falsifies this.  A caller passing
-`{'multiseg': True, 'super_classes': SUPER_CLASSES_APR93}` today gets its
-`super_classes` **silently ignored**.  (`super_classes` is also absent from
-`expressload()`'s docstring opts table.)
+`_scan_standalone_relocs(group_placed)` with the default full set.  No
+multi-segment target in the corpus was produced by that encoder, so nothing
+forces or falsifies an Apr-93 *encoding* on this path.
+
+Until 0.6.0 a caller passing `{'multiseg': True, 'super_classes':
+SUPER_CLASSES_APR93}` got its `super_classes` **silently ignored**.  It is now
+a `ValueError`, and the reason it is a rejection rather than a thread-through
+is the §3.1 mutation table:
+
+> Narrowing the class set moves a `(size, shift)` class **out of
+> `_scan_relocs` and into `_scan_standalone_relocs`** — i.e. out of phase 7
+> and into phase 5.  On Path A that is a pure *encoding* change (D4's two
+> paths through an immutable image).  On Path B it is a **targeting** change,
+> because phase 7's `stype == 27` / `_group_of is None` arm is the only place
+> the deferred `#^Const` `>>16` is ever resolved (mutation 4; this path calls
+> `_defer_shifts` with no `abs_syms`, D3) while phase 5's absolute arm just
+> `continue`s with **no image write**.  Dropping `(2,16)` from the set would
+> therefore leave every absolute-equate bank-word site holding the unshifted
+> low word — TS2 `0x88a`'s exact regression shape, reached by another route.
+> Mutations 1/3/5 stand in the same relation to `(3,0)`/`(4,0)`/`(2,0)`.
+
+So honouring it is an unforced redesign of phase 5's targeting with no golden
+artifact to gate it, which by §5 rule 2 is a type-(b) change and must be
+driven by a discovery, not by an opt name.  A caller that genuinely needs
+Apr-93 SUPER coverage on a multi-segment file is holding that discovery and
+must gate it against gold.  `super_classes` is also now documented in
+`expressload()`'s opts table, marked single-segment-only.
 
 ### D9 — ALIGN gap filling now reaches both paths
 

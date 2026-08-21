@@ -21,7 +21,7 @@ sys.path.insert(0, REPO)
 
 from gsasm import asm, omf                          # noqa: E402
 from gsasm.expressload import (                     # noqa: E402
-    expressload, SUPER_CLASSES_APR93)
+    expressload, SUPER_CLASSES_APR93, _ALL_SUPER_CLASSES)
 
 # One PROC with a bank-byte ref, a low-word ref, and a size-4 pointer.
 SOURCE = (
@@ -77,6 +77,54 @@ def test_default_supers_every_class():
     kinds = _record_kinds(_build(None))
     assert ('F5', 4, 0) not in kinds, kinds
     assert ('F5', 2, 0xF0) not in kinds, kinds
+
+
+def test_multiseg_rejects_a_restricted_class_set():
+    """Contract D8: the multi-segment path REFUSES `super_classes`.
+
+    It cannot honour it: narrowing the set moves a `(size, shift)` class out
+    of phase 7 (`_classify_super_relocs`) and into phase 5
+    (`_emit_case_a_records`), and only phase 7's `stype == 27` /
+    `_group_of is None` arm bakes the deferred `#^Const` high word (§3.1
+    mutation 4).  Silently ignoring the caller's request — the pre-0.6.0
+    behaviour — is the one option that is definitely wrong.
+    """
+    objs = _multiseg_objects()
+    try:
+        expressload(objs, opts={'multiseg': True,
+                                'super_classes': SUPER_CLASSES_APR93})
+    except ValueError as exc:
+        assert 'super_classes' in str(exc), exc
+        assert 'multi-segment' in str(exc), exc
+    else:
+        raise AssertionError(
+            "multiseg build accepted opts['super_classes'] — it is either "
+            'silently ignored again (contract D8) or newly honoured, and a '
+            'newly honoured one needs a golden artifact behind it')
+
+    # The full set is a no-op, not an error: it is what the path already does.
+    assert expressload(objs, opts={'multiseg': True,
+                                   'super_classes': _ALL_SUPER_CLASSES}) == \
+        expressload(objs, opts={'multiseg': True})
+
+
+def _multiseg_objects():
+    """Two separately-assembled objects — the shape `multiseg` needs."""
+    srcs = (
+        ('m1.aii', 'One\tPROC\tEXPORT\n\trts\n\tENDP\n\tEND\n'),
+        ('m2.aii', 'Two\tPROC\n\tlda\t#^One\n\tjsl\tOne\n\trts\n'
+                   '\tENDP\n\tEND\n'),
+    )
+    out = []
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, src in srcs:
+            p = os.path.join(tmp, name)
+            with open(p, 'w') as fh:
+                fh.write(src)
+            a = asm.assemble(p, [tmp])
+            assert not a.errors, (name, a.errors[:2])
+            out.append((omf.emit(a), a))
+    return out
 
 
 _TESTS = [(n, f) for n, f in sorted(globals().items())

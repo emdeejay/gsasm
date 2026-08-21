@@ -2509,6 +2509,39 @@ def _build_multiseg_output(
     This is Path B of ``docs/CONTRACT_EXPRESSLOAD_RELOC.md``; the function is
     a driver over the eleven phases above, and the section comment there is
     the routing rule for where a new reloc discovery belongs."""
+    # Contract D8: ``super_classes`` is a PATH A option and this path REJECTS
+    # a restricted set rather than ignoring it.  It is not an oversight that
+    # phases 5/7 scan with the default full class set — it is load-bearing.
+    # Narrowing the set moves a (size, shift) class OUT of `_scan_relocs` and
+    # INTO `_scan_standalone_relocs`, i.e. out of phase 7 and into phase 5,
+    # and on this path those two phases do not classify the same way:
+    #
+    #   * phase 7's `stype == 27` / `group_of(...) is None` arm is the ONLY
+    #     place the deferred `#^Const` >>16 shift is ever resolved (§3.1
+    #     mutation 4; this path calls `_defer_shifts` with no `abs_syms`, D3).
+    #     Phase 5's absolute arm just `continue`s with no image write, so
+    #     dropping (2, 16) from the set would leave every absolute-equate
+    #     bank-word site holding the UNSHIFTED low word — TS2 0x88a's exact
+    #     regression shape, arrived at by a different route.
+    #   * likewise mutations 1/3/5 (the cross-group offset and segnum patches)
+    #     live only in phase 7's arms for (3,0)/(4,0)/(2,0)/(2,16).
+    #
+    # So honouring the opt here is not a one-line thread-through: it is an
+    # unforced redesign of phase 5's targeting, with no golden artifact to
+    # gate it (no multi-segment corpus target was built by the 30-Apr-93
+    # encoder).  Refuse loudly instead; a caller that wants Apr-93 SUPER
+    # coverage on a multi-segment file is holding a genuine new discovery and
+    # must gate it against gold, not inherit a silent half-implementation.
+    _sc_opt = opts.get('super_classes')
+    if _sc_opt is not None and frozenset(_sc_opt) != _ALL_SUPER_CLASSES:
+        raise ValueError(
+            "expressload(): opts['super_classes'] is not supported on the "
+            "multi-segment path — the classes it would demote to standalone "
+            f"records ({sorted(_ALL_SUPER_CLASSES - frozenset(_sc_opt))}) are "
+            'exactly the ones whose per-stype branch also finalises the code '
+            'image (docs/CONTRACT_EXPRESSLOAD_RELOC.md §3.1 mutations 1-5, '
+            'D8).  Drop the option or build this target single-segment.')
+
     seg_images_opt: dict | None = opts.get('seg_images')
     reloc_dicts_opt: dict | None = opts.get('reloc_dicts')
 
@@ -2641,6 +2674,16 @@ def expressload(
             Pre-seeded externals passed to the internal linker.
         ``kind``
             KIND override for single-segment output.
+        ``super_classes``
+            SINGLE-SEGMENT ONLY.  The ``(size, shift)`` classes the emitting
+            toolchain's encoder folds into SUPER records; everything else
+            with a symbol reference goes standalone.  Defaults to every class
+            in ``_SUPER_TYPE`` (the System Disk toolchain);
+            ``SUPER_CLASSES_APR93`` reproduces the 30-Apr-93 LinkIIGS that
+            built MountImageGS.  Passing a restricted set together with
+            ``multiseg`` raises ``ValueError`` — see
+            ``docs/CONTRACT_EXPRESSLOAD_RELOC.md`` D8 for why the
+            multi-segment path cannot honour it.
         ``segname``
             SEGNAME override (bytes) for single-segment output (default
             ``b'main'``).  The name is byte-load-bearing: it rides into both
