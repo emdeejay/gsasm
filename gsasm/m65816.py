@@ -444,15 +444,70 @@ def encode(mnem, operand, longa, longi, evaluate, pc, reloc=None):
         raise EncodeError(
             f'{m} has no {_FAM_NAME[fam]} addressing mode '
             f'(operand {operand.strip()!r})')
-    nb = {'dp': 1, 'dpx': 1, 'dpy': 1, 'sr': 1,
-          'abs': 2, 'absx': 2, 'absy': 2,
-          'abl': 3, 'ablx': 3}[mode]
+    nb = _MODE_BYTES[mode]
+    # The mode that survived selection can be NARROWER than `_width` asked
+    # for, and `_emit` then masks the surplus high bytes away.  There are two
+    # such narrowings and they are NOT the same thing:
+    #
+    # 1. long -> 16-bit (w == 3, nb == 2).  DISCOVERED AsmIIgs BEHAVIOR; do
+    #    not "fix" it (docs/REFACTORING.md §0 rule 3).  The dropped byte is
+    #    the BANK, which the Data Bank Register supplies at run time -- this
+    #    is how IIgs firmware reaches bank $E1.  The oracle's own listing
+    #    proves both halves:
+    #        work/romsrc/GS_ROM/Serial/Serial.aii.lst:336
+    #            00E1 1DD8      QBASE  equ $E11DD8
+    #        work/romsrc/GS_ROM/Serial/Serial.aii.lst:2624
+    #            F06FF 06FF B9 1DD8      LDA QBase,y
+    #    -- opcode $B9 is LDA abs,y and the $E1 is gone -- and that same
+    #    listing ends "Assembly complete - no errors found."  23 sites in
+    #    serialdrvr.aii; 414 across the whole gate corpus, every one of them
+    #    this shape.  Reporting it would break Serial and be wrong anyway.
+    #
+    # 2. anything -> a ONE-byte operand (nb == 1 while the operand needs
+    #    more).  `stx $1234,y` -> `96 34` (STX has only dp,y) and
+    #    `lda $1234,s` -> `a3 34` address something else entirely, and
+    #    nothing supplies the missing half in the disciplined way DBR does:
+    #    `_width` has ALREADY ruled a value >= $100 out of direct page, and a
+    #    stack-relative offset is 8-bit by construction.  Zero occurrences in
+    #    those 414, so this is the silent-truncation gap with no witness --
+    #    report it.
+    if nb == 1 and w > 1 and _width_is_definite(base, evaluate, forced, reloc):
+        raise EncodeError(
+            f'operand {operand.strip()!r} needs {w} bytes but {m} '
+            f'{_FAM_NAME[fam]} has only a {nb}-byte form '
+            f'({_MODE_NAME[mode]})')
     return _emit(tab[mode], base, nb, 'val', evaluate, pc)
 
+
+#: Operand byte count per addressing-mode key.
+_MODE_BYTES = {'dp': 1, 'dpx': 1, 'dpy': 1, 'sr': 1,
+               'abs': 2, 'absx': 2, 'absy': 2,
+               'abl': 3, 'ablx': 3}
 
 #: How to name an index family in a diagnostic.
 _FAM_NAME = {'': 'memory', 'x': 'x-indexed', 'y': 'y-indexed',
              's': 'stack-relative'}
+
+#: How to name an addressing mode in a diagnostic.
+_MODE_NAME = {'dp': 'dp', 'dpx': 'dp,x', 'dpy': 'dp,y', 'sr': 'sr,s',
+              'abs': 'abs', 'absx': 'abs,x', 'absy': 'abs,y',
+              'abl': 'long', 'ablx': 'long,x'}
+
+
+def _width_is_definite(expr, evaluate, forced, reloc):
+    """True when the operand's required width is KNOWN at encode time.
+
+    A size-forcing prefix states the width outright.  Otherwise only a
+    resolved, non-relocatable value does: `_width` defaults an unresolved
+    forward reference to 2 and treats a relocatable reference as absolute
+    because its address is link-assigned, and neither answer is evidence
+    about the operand's real size during an early pass.
+    """
+    if forced is not None:
+        return True
+    if reloc is not None and reloc(expr):
+        return False
+    return evaluate(expr) is not None
 
 
 def _pick_mode(tab, width, fam):

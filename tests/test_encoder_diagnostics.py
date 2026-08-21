@@ -95,6 +95,45 @@ def test_no_such_addressing_mode_no_longer_emits_two_zero_bytes():
 
 
 # --------------------------------------------------------------------------
+# defect 4: narrowing into a one-byte operand used to truncate silently
+# --------------------------------------------------------------------------
+
+def test_narrowed_to_dp_is_a_located_error():
+    _assert_reports('\tstx\t$1234,y\n',
+                    'needs 2 bytes but STX y-indexed has only a 1-byte form')
+
+
+def test_the_bank_drop_that_asmiigs_itself_does_is_NOT_an_error():
+    """The corpus's own shape must keep assembling, silently and exactly.
+
+    `LDA QBase,y` with QBASE = $E11DD8 is `B9 1DD8` in MPW AsmIIgs's own
+    listing (work/romsrc/GS_ROM/Serial/Serial.aii.lst:336 and :2624), and
+    that listing ends "Assembly complete - no errors found."  414 sites
+    across the gate corpus depend on this.
+    """
+    a = _assemble('\tlda\t$E11DD8,y\n')
+    assert _encode_errors(a) == [], a.errors
+    for _at, ln, barr in a.emitted:
+        if (ln.op or '').upper() == 'LDA':
+            assert bytes(barr) == b'\xb9\xd8\x1d', bytes(barr).hex()
+            break
+    else:
+        raise AssertionError('no LDA emitted')
+
+
+def test_a_forward_reference_is_not_accused_during_pass_one():
+    """The multi-pass false-positive guard, end to end.
+
+    `stx Later,y` names a direct-page equate defined further down the file.
+    Pass 1 cannot resolve it, `_width` defaults to 2, and the dp,y form is
+    narrower than that -- but the operand is only 1 byte wide in truth, so
+    reporting there would be wrong.  No error must survive to `a.errors`.
+    """
+    a = _assemble('\tstx\tLater,y\n\trts\nLater\tequ\t$12\n')
+    assert _encode_errors(a) == [], a.errors
+
+
+# --------------------------------------------------------------------------
 # the negative control: valid source produces NO encode errors
 # --------------------------------------------------------------------------
 

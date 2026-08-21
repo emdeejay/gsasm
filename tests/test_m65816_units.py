@@ -538,30 +538,84 @@ def test_y_indexed_selection_promotes_dp_to_abs_when_no_dpy_form_exists():
 
 
 def test_y_indexed_long_operand_folds_back_to_absolute_y():
-    """SUSPICIOUS (pinned, not fixed).
+    """DOCUMENTED (was SUSPICIOUS — the suspicion was WRONG).
 
     The 65816 has no `abs long,y`, so `_pick_mode` maps ('y', 3) to 'absy'
-    and `_emit` then truncates the 24-bit value to 16 bits — the bank byte
-    is dropped SILENTLY, with no diagnostic.
+    and `_emit` masks the 24-bit value to 16 bits.  That looks like a silent
+    truncation and is not: the dropped byte is the BANK, supplied at run
+    time by the Data Bank Register, which is how IIgs firmware reaches bank
+    $E1.  Real MPW AsmIIgs does exactly this — from its own captured
+    listing, work/romsrc/GS_ROM/Serial/Serial.aii.lst:
+
+        line  336:            00E1 1DD8      QBASE  equ $E11DD8
+        line 2624:  F06FF 06FF B9 1DD8      LDA QBase,y
+
+    ($B9 is LDA abs,y; the $E1 is gone) and the listing ends "Assembly
+    complete - no errors found."  23 sites in serialdrvr.aii alone, 414
+    across the whole gate corpus.  DO NOT make this an error.
     """
     assert enc_b('LDA', '$030000,y') == 'b90000'
     assert enc_b('LDA', '$031234,y') == 'b93412'
     assert _pick_mode(OPTABLE['LDA'], 3, 'y') == 'absy'
+    # the Serial.aii case itself, byte for byte
+    assert enc_b('LDA', '$E11DD8,y') == 'b9d81d'
+    assert enc_b('STA', '$E11DE0,y') == '99e01d'
 
 
-def test_stx_absolute_y_falls_back_to_dp_y_and_truncates():
-    """SUSPICIOUS (pinned, not fixed).
+def test_stx_absolute_y_is_an_encode_error_not_a_stored_low_byte():
+    """RESOLVED (was SUSPICIOUS): `stx $1234,y` no longer stores `96 34`.
 
-    `stx $1234,y` is not a real 65816 instruction (STX has only dp,y).  The
-    fallback ladder picks 'dpy' and stores the low byte, silently.
+    STX has only dp,y, so the widest-available fallback ladder stepped DOWN
+    to 'dpy' and `_emit` masked $1234 to its low byte — a store to a
+    completely different address.  Unlike the long->16-bit fold-back above
+    there is no run-time register that supplies the missing half in a
+    disciplined way: `_width` has ALREADY ruled a value >= $100 out of
+    direct page.  Zero occurrences in the 414 corpus narrowings, so this is
+    the truncation with no witness.
     """
-    assert enc_b('STX', '$1234,y') == '9634'
+    assert raises(EncodeError, 'STX', '$1234,y') == (
+        "operand '$1234,y' needs 2 bytes but STX y-indexed has only a "
+        "1-byte form (dp,y)")
+    assert enc_b('STX', '$34,y') == '9634'         # a real dp,y store is fine
+
+
+def test_narrowing_to_a_16_bit_form_is_never_refused():
+    """The corpus's own shape (see the DOCUMENTED note above), non-indexed.
+
+    A mnemonic with no long form emits the abs form and lets DBR supply the
+    bank, exactly as the y-indexed case does.  All 414 corpus narrowings are
+    this class, so it must stay silent.
+    """
+    assert enc_b('TRB', '$030000') == '1c0000'
+    assert enc_b('CPX', '$030000') == 'ec0000'
+    assert enc_b('STY', '$030000') == '8c0000'
+    assert enc_b('LDA', '$030000,y') == 'b90000'
+
+
+def test_narrowing_is_only_refused_when_the_width_is_definite():
+    """A forward reference must not be accused during an early pass.
+
+    `_width` answers 2 for an unresolved expression and for a relocatable
+    reference, neither of which is evidence about the operand's real size.
+    Only a resolved literal or an explicit size-forcing prefix can trip the
+    check — otherwise multi-pass assembly would report a false error on
+    every forward-referenced operand in pass 1.
+    """
+    # unresolved -> sized 2, no accusation, dp,y placeholder + fixup
+    h, f = enc('STX', 'Forward,y')
+    assert h == '9600' and (f.expr, f.nbytes) == ('Forward', 1)
+    # relocatable -> _width's answer is a POLICY ("never direct page"), not a
+    # measurement, so it does not accuse either.  KNOWN LIMITATION, kept
+    # deliberately conservative: `stx Label,y` still truncates quietly.
+    assert enc_b('STX', 'ABSVAL,y', reloc=reloc_for('ABSVAL')) == '9634'
+    # resolved literal -> accused
+    assert raises(EncodeError, 'STX', 'ABSVAL,y')
 
 
 def test_dp_only_and_abs_only_mnemonics_use_the_widest_available_form():
     assert enc_b('TRB', '$10') == '1410'
     assert enc_b('TRB', '$1234') == '1c3412'
-    assert enc_b('TRB', '$030000') == '1c0000'     # no long form -> abs, truncated
+    assert enc_b('TRB', '$030000') == '1c0000'     # no long form -> abs (DBR)
     assert enc_b('CPX', '$030000') == 'ec0000'
     assert enc_b('STY', '$030000') == '8c0000'
 
@@ -583,8 +637,13 @@ def test_stack_relative_and_stack_relative_indirect_indexed():
     assert enc_b('STA', '3,s') == '8303'
     assert enc_b('LDA', '(3,s),y') == 'b303'
     assert enc_b('ADC', '$FF,s') == '63ff'
-    # ,s is always one byte, whatever the value's magnitude suggests
-    assert enc_b('LDA', '$1234,s') == 'a334'
+    # ,s is always one byte, so an offset that does not FIT in one is an
+    # error rather than a masked-to-$34 access (RESOLVED: used to be 'a334').
+    # A stack-relative displacement is 8-bit by construction — no run-time
+    # register can supply the missing half, unlike the DBR/bank case.
+    assert raises(EncodeError, 'LDA', '$1234,s') == (
+        "operand '$1234,s' needs 2 bytes but LDA stack-relative has only a "
+        "1-byte form (sr,s)")
 
 
 def test_pick_mode_stack_family_is_all_or_nothing():
