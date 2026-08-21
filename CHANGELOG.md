@@ -57,25 +57,40 @@ Implements slate items 1–6 of `docs/ARCHITECTURE_REVIEW_2026-08-02.md`.
   library paths — and `BankRel_Segment` ($0100) is modelled *only* there,
   nowhere in `gsasm/`.
 
-### Two live disagreements found between the four shadowing restatements
+### Both live disagreements between the shadowing restatements are closed
 
-`tests/test_symbol_precedence_agreement.py` sweeps `asm.resolve`,
-`needs_reloc`, `sym_kind` and `omf._expr_for` against each other. They do not
-agree. Both gaps are in `needs_reloc`, which is missing two branches its
-siblings have; both are **pinned as current behaviour, not fixed**, because
-closing either is a behaviour change that needs its own gated commit:
+0.5.5 found them; this closes them, on two separately gated commits, with **no
+output byte changed** — all 52 gate metrics stayed exactly at baseline through
+both, the ROM still builds byte-identical, and `work/gate_baseline.json` was
+never touched.
 
-- **X1** — it never consults `case_symbols`, so an exact-spelling EQU variant
-  is invisible to it. Since it is the gate the emitter asks first, that shape
-  emits an `EXPR` record whose contents are a constant: right bytes, wrong
-  record stream.
-- **X2** — it has no current-segment fallback, which `resolve` and `sym_kind`
-  both have. Neither fires in the corpus today, and only because of which
-  phase each function is called from: the two halves of one decision already
-  run in different scopes.
+- **X2 (ladder row 0)** — `needs_reloc` had no current-segment fallback.
+- **X1 (ladder row 9)** — `needs_reloc` never consulted `case_symbols`, so an
+  exact-spelling EQU variant was invisible to the gate the emitter asks first.
 
-The sweep also registers each *legitimate* divergence and asserts it still
-diverges, so a silently-closed gap fails as loudly as a newly-opened one.
+Neither was closed by adding the missing branch to `needs_reloc`: that would
+have made a *fifth* restatement of a ladder that already had four. Instead each
+row now exists **once** — `asm._cur_seg()` for row 0, `asm._case_exact_equ()`
+for row 9 — with `resolve`, `sym_kind` and `needs_reloc` as its three callers,
+the shape `asm._with_active_field()` already gave row 5. The pinning tests
+assert the *sharing*, not just the current agreement: each overrides the one
+helper and requires all three answers to follow, so a future private copy fails
+even while the answers still look right.
+
+Measured before gating, by instrumenting `needs_reloc` in-process: row 0 was
+structurally unreachable (`_rseg` set on all 58,838 calls in `objcheck` and all
+38,022 in `finderdatacheck`), but **row 0's twin was not** — `finderdatacheck`,
+the only build that opts into `case_equ_variants`, put 391 row-9 identifiers
+through `needs_reloc`. Zero of them flipped, because no variant's folded
+spelling is a relocatable label there. That defect was one source line from
+being live, not impossible.
+
+What is **not** closed, and `docs/CONTRACT_SYMBOL_PRECEDENCE.md` §II.5 now says
+so under its own heading: `needs_reloc` still runs only from `omf.py`'s emit
+paths while `asm.is_reloc()` — the same relocatability question in the sizing
+vocabulary — runs in the main assembly pass. The two halves of one decision now
+agree in *both* scopes instead of neither, which is why the corpus never
+noticed either defect; they are still two functions reached from two phases.
 
 ### Structure (slate items 5 and 6)
 

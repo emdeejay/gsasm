@@ -818,8 +818,7 @@ class Asm:
             sd = self.seg_seed.get(seg)
             if sd and u in sd:
                 return based(sd[u], seg)
-        if (not self.case_sensitive and name in self.case_symbols
-                and self.case_symtype.get(name) == 'equ'):
+        if self._case_exact_equ(name):           # ladder row 9, shared
             return self.case_symbols[name]
         if u in self.symbols:
             v = self.symbols[u]
@@ -1609,13 +1608,12 @@ class Asm:
         lets you reference externals without IMPORT): with no symtype and no
         seed_type the identifier falls off the end of the loop and this
         returns False.  That rule lives in omf._undef_external, which every
-        call site ORs in beside this one.  One more branch that resolve() and
-        sym_kind() have is still missing here (the exact-spelling case_symbols
-        variant); it is a LIVE DISAGREEMENT, pinned — not fixed — by
-        tests/test_symbol_precedence_agreement.py and written up as X1 in
-        docs/CONTRACT_SYMBOL_PRECEDENCE.md Part II, which is the shared
-        contract for this function, resolve(), sym_kind() and
-        omf._expr_for()."""
+        call site ORs in beside this one (D1).  Every OTHER row of the ladder
+        this function restates is now either implemented here or shared:
+        row 0 is _cur_seg(), row 5 is _with_active_field(), row 9 is
+        _case_exact_equ().  The shared contract for this function, resolve(),
+        sym_kind() and omf._expr_for() is
+        docs/CONTRACT_SYMBOL_PRECEDENCE.md Part II."""
         seg = self._cur_seg()          # ladder row 0, shared (was X2)
         for ident in re.findall(r'[A-Za-z_~@?.][\w~@?.$]*', expr):
             u = self._symkey(ident)
@@ -1643,6 +1641,13 @@ class Asm:
             # label-masked out of symbols)
             if (seg is not None and self.setvar_seg.get(u) == seg
                     and u in self.setvar_val):
+                continue
+            # ladder row 9: an exact-spelling file-scope EQU variant is an
+            # absolute value, so it never relocates.  Ordered BEFORE the WITH
+            # lookup to match sym_kind(), which is where _expr_for takes its
+            # row-5/row-9 answer from — invariant B ties this function to
+            # _expr_for, so following sym_kind keeps that corner consistent.
+            if self._case_exact_equ(ident):
                 continue
             # an ident that binds to a WITH-ACTIVE record field takes resolve()'s
             # WITH precedence over any same-named global: a TEMPLATE field is an
@@ -1698,6 +1703,22 @@ class Asm:
         if seg is None and self.emit_enabled and self.segs:
             seg = len(self.segs) - 1
         return seg
+
+    def _case_exact_equ(self, name):
+        """Ladder ROW 9: True when the EXACT spelling `name` is a file-scope
+        EQU variant this build opted into (`case_equ_variants`) — the Finder's
+        DP `Handle equ $10` colliding with a `HANDLE` label, where the FOLDED
+        name is a different symbol.  Takes the raw spelling; never a _symkey.
+
+        `case_symbols` and `case_symtype` are written together, and only for
+        kind 'equ' (define_label), so this one predicate gates reading either.
+        One lookup, three callers — resolve(), sym_kind(), needs_reloc() —
+        like _cur_seg (row 0) and _with_active_field (row 5).  X1 was the
+        drift: needs_reloc had no row-9 branch at all, because it folds every
+        identifier through _symkey and so saw only the relocatable label.  See
+        docs/CONTRACT_SYMBOL_PRECEDENCE.md Part II §2, row 9."""
+        return (not self.case_sensitive and name in self.case_symtype
+                and self.case_symtype[name] == 'equ')
 
     def _with_active_field(self, u):
         """The qualified `REC.u` key when a WITH-active record binds the bare
@@ -1810,8 +1831,7 @@ class Asm:
         if (seg is not None and self.setvar_seg.get(u) == seg
                 and u in self.setvar_val):
             return 'equ'
-        if (not self.case_sensitive and name in self.case_symtype
-                and self.case_symtype.get(name) == 'equ'):
+        if self._case_exact_equ(name):           # ladder row 9, shared
             return 'equ'
         # a WITH-ACTIVE record field takes resolve()'s precedence over a
         # same-named GLOBAL: a TEMPLATE field is an equate-like OFFSET (sizes

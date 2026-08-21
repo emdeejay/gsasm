@@ -30,19 +30,20 @@ gap.  Those cells are not skipped: ``_DIVERGENCES`` lists every one of them
 with its reason, the sweep asserts that each listed cell *still* diverges (so
 the register cannot rot), and a named test below pins each one's exact shape.
 
-ONE CELL IS STILL A LIVE DISAGREEMENT, NOT DESIGN — see the remaining
-``test_disagreement_*`` test.  Its root cause is that ``needs_reloc`` restates
-the precedence ladder without a branch ``resolve`` and ``sym_kind`` both have
-(the exact-spelling EQU variant, ladder row 9).  It is unobservable in the
-corpus today only because of which phase each function is called from.  It is
-PINNED here, deliberately not fixed here: this is a byte-exact system and a
-fix is a behaviour change that must be gate-measured on its own commit.
+THE TWO CELLS THAT WERE LIVE DISAGREEMENTS, NOT DESIGN, ARE NOW CLOSED — see
+the two ``test_agreement_row*`` tests.  Both had the same root cause:
+``needs_reloc`` restated the precedence ladder WITHOUT two branches that
+``resolve`` and ``sym_kind`` both have (row 0, the "no current segment -> use
+the last one" fallback; and row 9, the exact-spelling EQU variant).  Neither
+was observable in the corpus, only because of which phase each function is
+called from.
 
-Its twin (row 0, the "no current segment -> use the last one" fallback) is
-CLOSED — see ``test_agreement_row0_current_segment_fallback_is_shared_not_
-restated``.  It was closed by making row 0 exist ONCE, in ``asm._cur_seg()``,
-with resolve/sym_kind/needs_reloc as its three callers, rather than by adding
-a fourth copy of it to needs_reloc.
+Both were closed the same way, and NOT by adding the missing branches to
+``needs_reloc``: each row now exists ONCE — ``asm._cur_seg()`` for row 0,
+``asm._case_exact_equ()`` for row 9 — with resolve/sym_kind/needs_reloc as its
+three callers, the shape ``asm._with_active_field()`` already gave row 5.  A
+fifth restatement of the ladder is not progress.  Each closing commit was
+gate-measured on its own: both were byte-identical on all 52 metrics.
 
 These tests are CORPUS-FREE (synthetic sources in a tempdir): they run in CI
 with no ``ref/`` tree.
@@ -317,16 +318,13 @@ _DIVERGENCES = {
              'must relocate; needs_reloc and _expr_for both consult '
              'asm.equ_alias directly, and asm.is_reloc() re-checks it so '
              'SIZING agrees too.'),
-    # NOTE the asymmetry: from STORE, which defines the folded label locally,
-    # the segment-local branch fires FIRST in resolve() and sym_kind() and all
-    # four agree on the label.  The disagreement needs a segment with no local
-    # shadow, where the exact-spelling EQU is the winning definition.
-    ('case', 'Code', 'Handle'): (
-        'B', 'X1 (LIVE DISAGREEMENT): needs_reloc has no exact-spelling-EQU '
-             'branch — see test_disagreement_case_exact_equ_...'),
-    ('case', None, 'Handle'): (
-        'B', 'X1 again, with no emit cursor: row 0 now agrees (it is shared), '
-             'row 9 still does not.'),
+    # NOTE what is NOT here any more: ('case', 'Code'/None, 'Handle'), which
+    # registered X1 until 0.6.0 closed ladder row 9.  Those cells are now swept
+    # as ORDINARY agreement — from CODE, and with no cursor at all, the
+    # exact-spelling EQU is the winning definition in all four.  From STORE,
+    # which defines the folded label locally, the segment-local branch fires
+    # first and all four agree on the label instead; that asymmetry is what
+    # test_agreement_row9_* pins.
 }
 
 
@@ -594,48 +592,77 @@ def test_difference_d4_equ_alias_is_kind_equ_but_relocates():
 
 
 # ---------------------------------------------------------------------------
-# ROW 0 and ROW 9: the two cells where needs_reloc restated the precedence
-# ladder without a branch resolve() and sym_kind() both carry.
+# ROW 0 and ROW 9 — the two cells where needs_reloc restated the precedence
+# ladder without a branch resolve() and sym_kind() both carry.  BOTH CLOSED
+# (0.6.0), each on its own gate-measured commit, each by making the row exist
+# ONCE rather than by giving needs_reloc a private copy of it.
 #
-# Row 0 is CLOSED (the fallback now lives once, in asm._cur_seg()); row 9 is
-# still a LIVE DISAGREEMENT, pinned and deliberately NOT fixed here.  Neither
-# moved a golden byte, because of which phase each function is called from —
-# which is exactly the review's point about agreement being untested.  When a
-# later packet closes row 9 it is a BEHAVIOUR change: gate it on its own
-# commit with predicted movement, and update
-# docs/CONTRACT_SYMBOL_PRECEDENCE.md part II.
+# Neither moved a golden byte, because of which phase each function is called
+# from — which is exactly the review's point about agreement being untested.
+# The tests below therefore assert two things, not one: that the four AGREE,
+# and that they agree because they SHARE the row (each overrides the one
+# helper and checks all three answers follow).  A future private restatement
+# would pass the first assertion and fail the second.
+#
+# What is still NOT closed: needs_reloc is reached only from omf.py's emit
+# paths while asm.is_reloc() — the other half of the same decision — runs in
+# the main assembly pass.  The two halves now agree in both scopes instead of
+# neither; they are still two functions reached from two phases.
 # ---------------------------------------------------------------------------
 
-def test_disagreement_case_exact_equ_is_invisible_to_needs_reloc():
-    """X1.  An exact-spelling file-scope EQU variant (the opt-in
-    ``case_equ_variants`` mechanism, Finder's DP handle/Ptr collision) whose
-    FOLDED name is also a relocatable label:
+def test_agreement_row9_case_exact_equ_is_shared_not_restated():
+    """X1, CLOSED (ladder row 9).  An exact-spelling file-scope EQU variant
+    (the opt-in ``case_equ_variants`` mechanism, Finder's DP handle/Ptr
+    collision) whose FOLDED name is also a relocatable label used to split the
+    four:
 
         resolve('Handle')      -> $10      the case-exact EQU
         sym_kind('Handle')     -> 'equ'    the case-exact EQU
         _expr_for('Handle')    -> LIT $10  the case-exact EQU
-        needs_reloc('Handle')  -> True     the FOLDED LABEL   <-- dissents
+        needs_reloc('Handle')  -> True     the FOLDED LABEL   <-- dissented
 
-    ``needs_reloc`` folds every identifier through ``_symkey`` and has no
-    ``case_symbols`` branch, so it sees only the label.  The emitter asks
-    needs_reloc first, so this shape emits an EXPR record whose contents are
-    a constant — the resolved BYTES are right, the object record stream is
-    not.  Unobservable in the corpus because the one build that opts into
-    case_equ_variants has no relocatable label colliding with the variant.
+    ``needs_reloc`` folds every identifier through ``_symkey`` and had no
+    ``case_symbols`` branch, so it saw only the label.  The emitter asks
+    needs_reloc FIRST, so this shape emitted an EXPR record whose contents
+    were a constant — the resolved BYTES were right, the object record stream
+    was not.
+
+    As with row 0, the fix is not a fourth restatement: the predicate lives
+    once, in ``asm._case_exact_equ()``, and resolve/sym_kind/needs_reloc are
+    its three callers.  It takes the RAW spelling — folding it would defeat
+    the entire mechanism.
     """
     a = assemble(SRC_CASE, **CASE_KW)
     assert a.case_symbols == {'Handle': 0x10}, a.case_symbols
     assert a.symtype['HANDLE'] == 'label', a.symtype
-    ans = cell(a, 'Code', 'Handle')
-    assert ans['value'] == 0x10 and ans['kind'] == 'equ', ans
-    assert ans['emits'] == ('literal', 0x10), ans
-    assert ans['reloc'] is True, \
-        'X1 FIXED? needs_reloc now honours the exact-spelling EQU — that is a ' \
-        'behaviour change; re-gate it and update the contract'
-    # the folded spelling is unambiguous and all four agree on it
+    assert a._case_exact_equ('Handle') and not a._case_exact_equ('HANDLE')
+    assert cell(a, 'Code', 'Handle') == {
+        'value': 0x10, 'kind': 'equ', 'reloc': False,
+        'emits': ('literal', 0x10)}
+    # ...the same with NO emit cursor (row 0 x row 9 together)
+    assert cell(a, None, 'Handle') == {
+        'value': 0x10, 'kind': 'equ', 'reloc': False,
+        'emits': ('literal', 0x10)}
+    # the folded spelling is a DIFFERENT symbol, and all four agree on it
     assert cell(a, 'Code', 'HANDLE') == {
         'value': 0, 'kind': 'label', 'reloc': True,
         'emits': ('symbolic', 'HANDLE', 0)}
+    # ...and from STORE, which defines the folded label locally, the
+    # segment-local rows (6-8) outrank row 9 in all four — the ordering the
+    # ladder states, not an accident of which branch happens to be first.
+    assert cell(a, 'Store', 'HANDLE') == {
+        'value': 0, 'kind': 'label', 'reloc': True,
+        'emits': ('symbolic', 'STORE', 0)}
+    # The row is SHARED, not restated: overriding the ONE predicate moves all
+    # three answers together.
+    in_seg(a, 'Code')
+    a._case_exact_equ = lambda _n: False
+    try:
+        assert (a.resolve('Handle'), a.sym_kind('Handle'),
+                a.needs_reloc('Handle')) == (0, 'label', True), \
+            'all three must read row 9 from asm._case_exact_equ()'
+    finally:
+        del a._case_exact_equ
 
 
 def test_agreement_row0_current_segment_fallback_is_shared_not_restated():
