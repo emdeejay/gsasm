@@ -33,9 +33,10 @@ sys.path.insert(0, REPO)
 
 from gsasm import m65816                            # noqa: E402
 from gsasm.m65816 import (ALIAS, BLOCKMOVE, BRANCH8, BRANCH16, IMM_1, IMM_A,
-                          IMM_X, MNEMONICS, OPTABLE, Fixup, encode,
-                          instr_length, _emit, _ends_depth0, _immwidth,
-                          _pick_mode, _strip_index, _unpfx, _width)  # noqa: E402
+                          IMM_X, MNEMONICS, OPTABLE, EncodeError, Fixup,
+                          encode, instr_length, _emit, _ends_depth0,
+                          _immwidth, _pick_mode, _strip_index, _unpfx,
+                          _width)  # noqa: E402
 
 # --------------------------------------------------------------------------
 # helpers
@@ -84,6 +85,18 @@ def enc_b(mnem, operand='', longa=False, longi=False, pc=0, reloc=None):
     h, f = enc(mnem, operand, longa, longi, pc, reloc)
     assert f is None, f'unexpected fixup for {mnem} {operand!r}: {f.expr}'
     return h
+
+
+def raises(exc, mnem, operand='', longa=False, longi=False, pc=0, reloc=None):
+    """Assert encode(...) raises `exc`; return the message for comparison."""
+    try:
+        encode(mnem, operand, longa, longi, ev, pc, reloc)
+    except exc as e:
+        return str(e)
+    except Exception as e:                       # noqa: BLE001
+        raise AssertionError(
+            f'{mnem} {operand!r}: expected {exc.__name__}, got {e!r}')
+    raise AssertionError(f'{mnem} {operand!r}: expected {exc.__name__}')
 
 
 # --------------------------------------------------------------------------
@@ -397,19 +410,43 @@ def test_double_immediate_marker_only_strips_the_outer_hash():
     assert (f.expr, f.kind, f.shift) == ('#0', 'byte', 16)
 
 
-def test_bare_hash_with_no_expression_raises():
-    """SUSPICIOUS (pinned, not fixed).
+def test_bare_hash_with_no_expression_is_an_encode_error():
+    """RESOLVED (was SUSPICIOUS): a bare '#' reports, it does not IndexError.
 
-    `lda #` gives expr == '', and `'' in '<>^'` is True in Python, so the
-    part-selector branch is taken and `expr[0]` raises IndexError instead of
-    reporting a syntax error.  A bare '#' does not occur in the corpus.
+    `lda #` gives expr == '', and `'' in '<>^'` is True in Python (substring
+    semantics), so the part-selector branch used to be taken and `expr[0]`
+    raised a bare IndexError.  The empty case is now rejected up front with
+    an EncodeError naming the problem.  A bare '#' does not occur in the
+    corpus, so this cannot move a golden byte.
     """
-    try:
-        encode('LDA', '#', True, False, ev, 0)
-    except IndexError:
-        pass
-    else:
-        raise AssertionError('expected IndexError for a bare "#" operand')
+    assert raises(EncodeError, 'LDA', '#', longa=True) == 'LDA: immediate operand is empty'
+    assert raises(EncodeError, 'LDA', '#') == 'LDA: immediate operand is empty'
+    # a part selector with nothing after it is the same class of typo
+    for marker in '<>^':
+        assert raises(EncodeError, 'LDA', f'#{marker}') == (
+            f"LDA: part selector '{marker}' has no expression")
+    assert raises(EncodeError, 'PEA', '#^') == (
+        "PEA: part selector '^' has no expression")
+    assert raises(EncodeError, 'PEA', '') == 'PEA requires an operand'
+
+
+def test_a_mnemonic_that_needs_an_operand_says_so_when_it_has_none():
+    """RESOLVED (was an IndexError of the same family as the bare '#').
+
+    An empty operand fell through to the size-prefix test, where
+    `'' in '<>|!'` is True and `core[0]` raised IndexError.  Mnemonics whose
+    signature byte legitimately defaults to zero (BRK/COP/REP/SEP/WDM) are
+    unaffected, and so are the accumulator/implied forms.
+    """
+    assert raises(EncodeError, 'LDA', '') == 'LDA requires an operand'
+    assert raises(EncodeError, 'JMP', '   ') == 'JMP requires an operand'
+    assert raises(EncodeError, 'STA', '') == 'STA requires an operand'
+    # unchanged: implied, accumulator, and the signature-byte immediates
+    assert enc_b('NOP', '') == 'ea'
+    assert enc_b('INC', '') == '1a'
+    assert enc_b('ASL', '') == '0a'
+    assert enc_b('BRK', '') == '0000'
+    assert enc_b('COP', '') == '0200'
 
 
 # --------------------------------------------------------------------------

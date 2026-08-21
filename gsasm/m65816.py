@@ -124,6 +124,25 @@ OPTABLE = {
 MNEMONICS = set(OPTABLE) | set(ALIAS)
 
 
+class EncodeError(ValueError):
+    """A source construct this instruction cannot encode.
+
+    THE DIAGNOSTIC CHANNEL.  `m65816` has no error list of its own and does
+    not get one: `Asm._emit_instr` (gsasm/asm.py) already wraps every
+    `m65816.encode` call in `try/except Exception` and funnels the message
+    into `Asm.errors` via `_err`, which prefixes the source file:line --
+
+        except Exception as e:
+            self._err(f"encode error {op} {ln.operand!r}: {e}")
+
+    -- and `gsasm/__main__.py` prints `a.errors` to stderr and exits 1.  So
+    raising from `encode()` is how an unencodable shape becomes a visible,
+    located assembly error, using the one mechanism that already existed
+    (the same one that already surfaced the KeyError from an unsupported
+    indirect spelling).  Do NOT add a second channel.
+    """
+
+
 class Fixup:
     """An operand value that must be resolved from the final symbol table."""
     __slots__ = ('expr', 'nbytes', 'kind', 'pc', 'shift')
@@ -139,7 +158,9 @@ class Fixup:
 def _unpfx(e):
     """Strip a leading size/dp prefix (< > | !) from an inner expression."""
     e = e.strip()
-    return e[1:].lstrip() if e[:1] in '<>|!' else e
+    # NB `e[:1] in '<>|!'` would be True for the empty string (`'' in s` is a
+    # substring test in Python); compare the character explicitly.
+    return e[1:].lstrip() if e[:1] and e[0] in '<>|!' else e
 
 
 def _strip_index(core):
@@ -227,6 +248,15 @@ def encode(mnem, operand, longa, longi, evaluate, pc, reloc=None):
         if 'imp' in tab:
             return bytes([tab['imp']]), None
 
+    # A mnemonic that reached here needs an operand.  Without this guard an
+    # empty one walked into the size-prefix test below, where `'' in '<>|!'`
+    # is True (substring semantics) and `core[0]` then raised a bare
+    # IndexError.  BRK/COP/REP/SEP/WDM are excluded: their signature byte
+    # legitimately defaults to 0 (see the IMM_1 block).  MVN/MVP are excluded
+    # here because the block-move block below reports their own arity.
+    if op == '' and m not in IMM_1 and m not in BLOCKMOVE:
+        raise EncodeError(f'{m} requires an operand')
+
     # block move: MVN src,dst -> opcode, dstbank, srcbank. Operands are 24-bit
     # addresses; the block-move bank byte is ALWAYS the operand's bank (bits
     # 16-23), i.e. `value >> 16` — matching MPW AsmIIGS.  A small literal such
@@ -255,10 +285,15 @@ def encode(mnem, operand, longa, longi, evaluate, pc, reloc=None):
         # bitwise op (-> $ffff) instead of X>>16. Same double-'#' quirk as the
         # generic immediate case below applies here too (`pea #^#N` bakes
         # $FFFF; see that block's comment — unverified against the corpus).
-        if inner[:1] in '<>^':
+        if inner[:1] and inner[0] in '<>^':
             shift = {'<': 0, '>': 8, '^': 16}[inner[0]]
-            return _emit(tab['abs'], _unpfx(inner[1:].strip()), 2, 'byte',
-                         evaluate, pc, shift)
+            rest = _unpfx(inner[1:].strip())
+            if not rest:
+                raise EncodeError(
+                    f"PEA: part selector '{inner[0]}' has no expression")
+            return _emit(tab['abs'], rest, 2, 'byte', evaluate, pc, shift)
+        if not _unpfx(inner):
+            raise EncodeError('PEA requires an operand')
         return _emit(tab['abs'], _unpfx(inner), 2, 'val', evaluate, pc)
 
     # single-byte-immediate mnemonics (BRK/COP/REP/SEP/WDM) take a 1-byte
@@ -298,9 +333,20 @@ def encode(mnem, operand, longa, longi, evaluate, pc, reloc=None):
         # i.e. real MPW macro authors engineered around ever emitting a literal
         # double marker, rather than relying on the assembler to tolerate one.
         # Do not change this fallback behavior without golden .lst evidence.
-        if expr[:1] in '<>^':
+        #
+        # `expr[:1] in '<>^'` was True for the EMPTY string -- `'' in s` is a
+        # substring test in Python -- so a bare `lda #` entered this branch
+        # and `expr[0]` raised IndexError.  Compare the character explicitly
+        # and report the real problem: there is no expression to encode.
+        if not expr:
+            raise EncodeError(f'{m}: immediate operand is empty')
+        if expr[0] in '<>^':
             shift = {'<': 0, '>': 8, '^': 16}[expr[0]]
-            return _emit(tab['imm'], expr[1:].strip(), w, 'byte', evaluate, pc, shift)
+            rest = expr[1:].strip()
+            if not rest:
+                raise EncodeError(
+                    f"{m}: part selector '{expr[0]}' has no expression")
+            return _emit(tab['imm'], rest, w, 'byte', evaluate, pc, shift)
         return _emit(tab['imm'], expr, w, 'val', evaluate, pc)
 
     # branch
@@ -343,8 +389,9 @@ def encode(mnem, operand, longa, longi, evaluate, pc, reloc=None):
             return _emit(tab['aind'], base, 2, 'val', evaluate, pc)
         return _emit(tab['ind'], base, 1, 'val', evaluate, pc)
 
-    # size-forcing prefix
-    if core[:1] in '<>|!':
+    # size-forcing prefix (again: `core[:1] in '<>|!'` is True for '', so
+    # compare the character -- the empty case is rejected above)
+    if core[:1] and core[0] in '<>|!':
         forced = core[0]
         core = core[1:].lstrip()
     base, idx = _strip_index(core)
