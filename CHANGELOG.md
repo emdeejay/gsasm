@@ -7,7 +7,93 @@ on [Keep a Changelog](https://keepachangelog.com/); this project's version of
 
 ## [Unreleased]
 
-### Harness hygiene (0.6.0 slate item 3 — docs/ARCHITECTURE_REVIEW_2026-08-02.md)
+## [0.5.5] — 2026-08-21
+
+**The pay-down release.** No new reproduction claims and not one output byte
+changed: all seven disks still reconstruct at 819,264/819,264, the ROM still
+builds byte-identical, and every one of the 29 pre-existing gate metrics is
+exactly where 0.5.0 left it. What changed is what the 2026-08-02 architecture
+review asked for — the bytes were certain while the *model* was folklore. This
+release writes the model down, tests it, and fixes what the tests found.
+
+Implements slate items 1–6 of `docs/ARCHITECTURE_REVIEW_2026-08-02.md`.
+
+### The pure core is under test (slate item 1)
+
+- **306 new unit tests** across the five modules the review named as having
+  zero direct coverage — `expr` (49), `makebin` (35), `m65816` (82), `omf`
+  (74), `linkiigs`' symbol machinery (34) — plus the contract suites below.
+  All corpus-free, all inside `gate.py`'s hard unit-test gate, so a broken
+  MPW division rule or a moved `_build_symtab` pass now fails with a *name*
+  instead of "byte 0xe5d differs" in a 59 KB kernel image.
+- The m65816 suite writes out a canonical 16×16 opcode matrix independently
+  and cross-checks `OPTABLE` against it, making the "100% opcode corpus"
+  claim machine-checkable: all 256 byte values covered exactly once, with
+  `$5C`/`$DC` the only duplicates and only as the deliberate JMP/JML aliases.
+
+### Two contracts, written and enforced (slate item 2)
+
+- **`docs/CONTRACT_SYMBOL_PRECEDENCE.md`** — the composite truth table the
+  review found "exists nowhere but in the corpus itself": the four passes,
+  their individual precedence policies, thirteen definition shapes × three
+  tables, the rule interactions, five *negative* clauses, and a seven-question
+  routing checklist for whoever adds rule #7.
+- **`_build_symtab`'s docstring was wrong and is fixed.** It claimed
+  "processed per object in link order so that first-definition wins", citing
+  the MPW manual — while its own multi-object arm is `_kind_override` under a
+  comment reading "last-wins for public EXPORT GLOBALs". The outer key of the
+  table is **pass order, not object order**; first-wins holds only *within* a
+  pass. That one sentence would have misled the next person to touch the
+  linker.
+- **`docs/CONTRACT_EXPRESSLOAD_RELOC.md`** — the semantic model of the two
+  ExpressLoad output paths, eleven documented divergences with the golden
+  artifact that forced each, and the **routing rule** that did not previously
+  exist: classify a discovery by the question it answers, not the file you
+  found it in. Grounded in the GS/OS System Loader source, which contradicted
+  nothing.
+- **A third reloc producer, which the review undercounted.**
+  `work/finderdatacheck.py` and `work/installerdatacheck.py` each carry a
+  complete classifier and inject it via `opts['reloc_dicts']`, bypassing both
+  library paths — and `BankRel_Segment` ($0100) is modelled *only* there,
+  nowhere in `gsasm/`.
+
+### Two live disagreements found between the four shadowing restatements
+
+`tests/test_symbol_precedence_agreement.py` sweeps `asm.resolve`,
+`needs_reloc`, `sym_kind` and `omf._expr_for` against each other. They do not
+agree. Both gaps are in `needs_reloc`, which is missing two branches its
+siblings have; both are **pinned as current behaviour, not fixed**, because
+closing either is a behaviour change that needs its own gated commit:
+
+- **X1** — it never consults `case_symbols`, so an exact-spelling EQU variant
+  is invisible to it. Since it is the gate the emitter asks first, that shape
+  emits an `EXPR` record whose contents are a constant: right bytes, wrong
+  record stream.
+- **X2** — it has no current-segment fallback, which `resolve` and `sym_kind`
+  both have. Neither fires in the corpus today, and only because of which
+  phase each function is called from: the two halves of one decision already
+  run in different scopes.
+
+The sweep also registers each *legitimate* divergence and asserts it still
+diverges, so a silently-closed gap fails as loudly as a newly-opened one.
+
+### Structure (slate items 5 and 6)
+
+- **`_build_multiseg_output`'s triple record-stream walk collapsed**, removing
+  an O(relocs × records) re-scan and its repeated `_defer_shifts` calls, then
+  **split into eleven named phases** against the reloc contract. Proven by
+  hashing every actual multiseg emission across a full gate — 14 distinct
+  artifacts, element-wise identical before and after.
+- **`SymTab` kinds are native.** A KIND is a property of a binding, so it now
+  lives on the value: `Sym` is an `int` subclass carrying `.kind`, and
+  `.kinds` is a read-only view *derived* from the values, structurally
+  incapable of disagreeing with them. This removes the sidecar that
+  `{**a, **b}` silently dropped — including the latent gap at the old
+  `linkiigs.py:624`, where a future kinds consumer would have read an empty
+  table and re-classified every symbol as not-an-EQU. Value binding is
+  untouched: 32 of the 34 pinning tests pass unchanged.
+
+### Harness hygiene (slate item 3)
 
 - **The census system is named what it is.** `work/census_migrate.py` →
   `work/censusledger.py`: it was never a one-shot migration (its `OVERRIDES`
@@ -37,6 +123,73 @@ on [Keep a Changelog](https://keepachangelog.com/); this project's version of
   gate.py"); it is now derived from `diskmanifest.overlay_proofs()` — one
   `OverlayProof` per registered, baselined `diskN_physical_exact` metric.
   The derived set is identical to the literal it replaced.
+
+- **Every gate-invoked check now exits nonzero when it regresses.** Ten of
+  the 34 never called `sys.exit` at all, so the stdout scrape was their only
+  signal. They now report through a shared `_common.gate_result()`, whose
+  contract is deliberately "worse than its ACCEPTED STATE", not "bad > 0" —
+  objcheck legitimately carries 21 link-identical objects and bytecheck 745
+  known-benign operand deltas, and a naive sweep would have taken the whole
+  gate red. Seven byte-tallying checks also gained an `*_unbuilt` counter,
+  because a build that *raises* is caught and skipped: it contributes no
+  mismatched bytes, so a bytes-only exit code would have been a fake.
+- **One a2til discovery mechanism.** `$A2TIL_PATH` (already the de-facto
+  override at 8 of 10 sites) is now the single path, replacing ten
+  copy-pasted hardcodes across ten files — including `drivercheck.py`'s
+  `~/src/a2til` with no override at all, and a copy of the discovery loop in
+  `basiccheck.py` that silently continued when a2til was absent. A set-but-
+  wrong override is now a hard error rather than a silent fall-back to
+  another developer's layout.
+
+### Opt-in assembly cache (slate item 4, R10)
+
+- `GSASM_CACHE=1` enables a persistent memo of `omf.emit(asm.assemble(...))`
+  under `work/.cache/`. Off by default and inert when off. Warm `objcheck`
+  31.3 s → 0.4 s; full gate 3m42s → 2m31s.
+- The key is **not** the `docs/REFACTORING.md` sketch, which was unsound:
+  mtimes make `touch` a miss and `git checkout` of an older revision a *hit*,
+  and a version string is constant during a refactor while the code changes
+  every few minutes — so a version-keyed cache serves the previous edit's
+  output, which is precisely how a cache makes the gate lie. It keys on a
+  content digest of the whole imported `gsasm` package, plus every
+  `assemble()` argument, and replays a recorded oracle of every include probe
+  **including the misses** — because resolution stops at the first hit, so a
+  file added *ahead* of the winner changes the result while every previously
+  read file stays byte-identical.
+- `gate.py --update` and `run_fixtures.py --bless` refuse to run with the
+  cache on. The interlock raises `AssertionError` directly rather than using
+  `assert`, because `python3 -O` strips `assert` and a blessed fixture minted
+  from cached bytes is a permanent false claim about what gsasm emits.
+- The documented gate runtime ("~2 minutes") was stale and is corrected to the
+  measured 3m42s.
+
+### Recorded, deliberately not fixed
+
+Found by the new tests and contracts; each is pinned as current behaviour so
+that changing it is a deliberate, gated act:
+
+- `BLE`/`BGT` are listed in `BRANCH8` but wired through neither `OPTABLE` nor
+  `ALIAS`, so `encode('BLE', …)` returns `(None, None)` — while
+  `test_branch_range.py`'s docstring names them as handled aliases.
+- `lda #` raises `IndexError` (`'' in '<>^'` is `True` in Python, so the empty
+  operand enters the part-selector branch).
+- Several operand shapes emit two zero bytes or silently truncate rather than
+  reporting an error (`stz $10,y`, `lda $030000,y`).
+- `MOD` by zero raises a raw `ZeroDivisionError` while `/` by zero is
+  deliberately swallowed to 0 two lines above; `MOD` is floored where `/`
+  truncates.
+- `expr.parse()` never checks it consumed its token stream, so `'2 3'`
+  evaluates to 2 and a missing `)` is tolerated.
+- `omf.parse_records` cannot decode SUPER (0xF7): the walk *stops* there, so
+  `iter_segments(records=True)` silently truncates any linked or
+  ExpressLoad'd segment (1,720 unparsed bytes on shipping Tool014). No live
+  caller is exposed today — every one takes `raw`/the header or body records
+  that precede the reloc tail — but R1 promoted `iter_segments` to the one
+  segment-walker, and the next person to walk a linked file for its relocs is
+  who this fires at.
+- `opts['super_classes']` is silently ignored on the multiseg path, and
+  `_merge_bodies`' ALIGN gap-fill has no multiseg equivalent though `_place`
+  still ALIGN-rounds each base. Both unforced by any golden artifact.
 
 ### Corrected (found by the new reconciliation)
 
