@@ -36,7 +36,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
 from gsasm import asm, omf                                    # noqa: E402
-from gsasm.expressload import (                               # noqa: E402
+from gsasm.omf import (                                       # noqa: E402
     emit_super, parse_super, _decode_page_list, _encode_page_list)
 
 
@@ -686,6 +686,20 @@ def _wrap_super(*super_recs):
     """A minimal OMF segment carrying only the given SUPER records."""
     return omf._make_segment(b'S', b's', 0, 0, 1, b'\x00' * 4,
                              b''.join(super_recs))
+
+
+def test_super_codec_is_still_reachable_through_expressload():
+    """The codec now lives in omf.py (SUPER is an OMF record and
+    ``parse_records`` decodes it); ``expressload`` re-exports the same four
+    objects so its historical importers — work/finderdatacheck.py,
+    work/installerdatacheck.py, work/rezloadcheck.py, linkiigs' lazy
+    ``_exl.emit_super`` — keep working.  Identity, not equality: a re-export
+    must not become a second copy of a codec."""
+    from gsasm import expressload as _exl
+    assert _exl.parse_super is parse_super
+    assert _exl.emit_super is emit_super
+    assert _exl._decode_page_list is _decode_page_list
+    assert _exl._encode_page_list is _encode_page_list
 
 
 def test_page_list_codec_count_headers():

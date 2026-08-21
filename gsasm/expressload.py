@@ -11,7 +11,7 @@ where ``objects`` matches the linkiigs.link() signature.
 The inverse — extracting the flat code image back out — is de_express(),
 moved here from work/toolcheck.py (toolcheck still imports it from here).
 
-Page-list codec helpers:
+Page-list codec helpers (now defined in gsasm/omf.py, re-exported here):
   parse_super(seg_bytes) -> {type: [offsets]}   decode SUPER records in a seg
   emit_super(super_type, offsets) -> bytes       encode as one SUPER record
 
@@ -36,112 +36,14 @@ from . import linkiigs as _linkiigs
 
 
 # ---------------------------------------------------------------------------
-# SUPER page-list codec
+# SUPER page-list codec — MOVED to gsasm/omf.py (SUPER is an OMF record, and
+# omf.parse_records has to decode it; omf cannot import expressload back).
+# Re-exported here so the historical call sites keep working, exactly as
+# link.py re-exports the record-evaluation helpers R8 moved into omf.py.
 # ---------------------------------------------------------------------------
 
-def parse_super(seg_bytes: bytes) -> dict[int, list[int]]:
-    """Decode all SUPER records in *seg_bytes* (a single OMF segment).
-
-    Returns ``{super_type: sorted_list_of_byte_offsets}``.
-    Ignores all non-SUPER records (LCONST, END, …).
-    """
-    result: dict[int, list[int]] = {}
-    dd = _omf.parse_header(seg_bytes)['DISPDATA']
-    off = dd
-    while off < len(seg_bytes):
-        op = seg_bytes[off]
-        if op == 0x00:          # END
-            break
-        if op == 0xF2:          # LCONST
-            sz = struct.unpack_from('<I', seg_bytes, off + 1)[0]
-            off += 5 + sz
-        elif op == 0xF7:        # SUPER
-            total_size = struct.unpack_from('<I', seg_bytes, off + 1)[0]
-            super_type  = seg_bytes[off + 5]
-            page_list   = seg_bytes[off + 6 : off + 5 + total_size]
-            offsets = _decode_page_list(page_list)
-            result.setdefault(super_type, []).extend(offsets)
-            off += 5 + total_size
-        else:
-            # Unknown/unsupported record: bail
-            break
-    return result
-
-
-def _decode_page_list(page_list: bytes | bytearray) -> list[int]:
-    """Decode a SUPER page-list, returning a sorted list of patch byte offsets.
-
-    Format (matching the GS/OS Loader implementation):
-      - A byte with bit7=1 is a skip header: advance cur_page by (b & 0x7f) pages.
-      - A byte with bit7=0 is a count header: (b & 0x7f)+1 offset bytes follow for
-        cur_page, then cur_page advances by 1.
-    """
-    offsets: list[int] = []
-    cur_page = 0
-    i = 0
-    while i < len(page_list):
-        b = page_list[i]; i += 1
-        if b & 0x80:
-            # Skip (b & 0x7f) pages — note: no +1; matches loader behaviour exactly.
-            cur_page += b & 0x7f
-        else:
-            # (b & 0x7f) + 1 offset bytes follow for patches in cur_page
-            cnt = (b & 0x7f) + 1
-            for _ in range(cnt):
-                offsets.append(cur_page * 256 + page_list[i])
-                i += 1
-            cur_page += 1
-    return offsets
-
-
-def emit_super(super_type: int, offsets: list[int]) -> bytes:
-    """Encode *offsets* (must be sorted) as a single SUPER record.
-
-    Returns the complete SUPER record bytes (opcode 0xF7 included).
-    """
-    if not offsets:
-        return b''
-
-    page_list = _encode_page_list(sorted(offsets))
-    # total_size = 1 (type byte) + len(page_list)
-    total_size = 1 + len(page_list)
-    return (bytes([0xF7])
-            + struct.pack('<I', total_size)
-            + bytes([super_type])
-            + page_list)
-
-
-def _encode_page_list(sorted_offsets: list[int]) -> bytes:
-    """Encode a sorted list of byte offsets as a SUPER page-list."""
-    if not sorted_offsets:
-        return b''
-
-    # Group offsets by page (256-byte page)
-    pages: dict[int, list[int]] = {}
-    for offset in sorted_offsets:
-        page, byte_in_page = divmod(offset, 256)
-        pages.setdefault(page, []).append(byte_in_page)
-
-    out = bytearray()
-    cur_page = 0
-    for page in sorted(pages):
-        # Emit skip bytes if needed: each skip byte can advance at most 127 pages
-        # (7-bit field); no +1 adjustment — matches the GS/OS Loader decoder exactly.
-        skip = page - cur_page
-        while skip > 0:
-            chunk = min(skip, 127)   # 7-bit field: max value 127
-            out.append(0x80 | chunk)
-            skip -= chunk
-            cur_page += chunk
-
-        # Emit patch-count byte + offset bytes for this page
-        patch_bytes = pages[page]
-        assert len(patch_bytes) <= 128
-        out.append(len(patch_bytes) - 1)  # bit7=0; count = value+1
-        out.extend(patch_bytes)
-        cur_page += 1  # advance past this page
-
-    return bytes(out)
+from .omf import (                                       # noqa: E402,F401
+    parse_super, emit_super, _decode_page_list, _encode_page_list)
 
 
 def emit_creloc(size: int, shift: int, offset: int, rel_offset: int) -> bytes:
