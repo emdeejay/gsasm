@@ -40,7 +40,8 @@ without modification so the ROM-validated path is unchanged.
 """
 
 from __future__ import annotations
-from typing import Any
+from types import MappingProxyType
+from typing import Any, Mapping
 from . import omf as _omf
 
 # ---------------------------------------------------------------------------
@@ -231,44 +232,199 @@ def _merge_bodies(placed, bodies) -> bytes:
     return bytes(out)
 
 
-class SymTab(dict):
-    """A symbol table that also carries each name's KIND.
+KINDS = ('label', 'equ')
+"""The two symbol KINDs.
 
-    Transparent ``dict[str, int]`` for every existing consumer; kind-aware
-    consumers (gsasm/expressload's reloc classification) read ``.kinds`` —
-    ``{name: 'label' | 'equ'}``, populated by ``_build_symtab`` at the SAME
-    insertion points and SAME precedence as the value itself, so whichever
-    definition won the VALUE resolution is also the one the kind lookup
-    reports.  That precedence-parity is the load-bearing property: a flat
-    "known EQU names" set unioned across a multi-object link mis-classifies
-    a private label in one file that happens to share a folded name with an
-    EXPORT-EQU constant in another (TS2's 37 such collisions —
-    docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md §5).
+``'equ'`` = a link-time CONSTANT (an EXPORTed assembler ``symtype == 'equ'``
+definition, an OMF GEQU record) whose reference needs NO relocation record;
+``'label'`` = a relocatable address (interior labels, segment names, OMF
+GLOBAL records, caller externs — externs are 'label' so the value-range
+fallback in expressload._scan_relocs still covers absolute externs with no
+GEQU behind them).  Both spellings are shared with the assembly side's
+``asm.sym_kind`` (docs/CONTRACT_SYMBOL_PRECEDENCE.md Part II §6).
+"""
 
-    Kinds: ``'equ'`` = a link-time CONSTANT (assembler ``symtype == 'equ'``
-    interior definitions, OMF GEQU records) whose reference needs NO
-    relocation record; ``'label'`` = a relocatable address (interior labels,
-    segment names, OMF GLOBAL records, caller externs — externs default to
-    'label' so the value-range fallback in expressload._scan_relocs still
-    covers absolute externs with no GEQU behind them).
+
+class Sym(int):
+    """A symbol's VALUE with its KIND welded on — an ``int``, plus ``.kind``.
+
+    The binding tables ARE ``{name: value}`` mappings (contract Part I §1):
+    every pass writes a value under a name, and ``omf._eval`` reads it back
+    as an integer.  The KIND is a property OF THAT BINDING, not of the name,
+    so it lives ON the value.  A ``Sym`` is an ``int`` subclass, so every
+    existing consumer — ``_eval``, ``_build_body``, comparisons, ``hex()``,
+    arithmetic — is unaffected, while the kind travels with the value
+    through EVERY copy and merge idiom Python has: ``{**a, **b}``,
+    ``dict(t)``, ``a | b``, a comprehension, a ``.get()`` handed to another
+    table.  That is what makes precedence parity STRUCTURAL rather than a
+    convention: whichever definition won the value IS the kind, because it
+    is the same object.  (Before 0.5.5 the kind lived in a parallel
+    ``.kinds`` sidecar dict that every one of those idioms dropped —
+    architecture review 2026-08-02, slate item 6.)
+
+    Arithmetic on a ``Sym`` deliberately yields a plain ``int``: a computed
+    address is a new value whose kind has to be decided by whoever writes
+    it, not inherited by accident.
     """
 
-    def __init__(self, *a, **kw):
-        super().__init__(*a, **kw)
-        self.kinds: dict[str, str] = {}
+    kind: str
+
+    def __new__(cls, value: int, kind: str) -> 'Sym':
+        if kind not in KINDS:
+            raise ValueError(
+                f"symbol KIND must be one of {KINDS}, not {kind!r} "
+                "(docs/CONTRACT_SYMBOL_PRECEDENCE.md Part I §6)")
+        s = super().__new__(cls, value)
+        s.kind = kind
+        return s
+
+    def __getnewargs__(self):
+        return (int(self), self.kind)
+
+    def __repr__(self):
+        return f"Sym({int(self)}, {self.kind!r})"
+
+
+class SymTab(dict):
+    """A symbol table whose VALUES carry their own KIND (see ``Sym``).
+
+    ``dict[str, Sym]``; a ``Sym`` IS an ``int``, so this stays a transparent
+    ``dict[str, int]`` for every value consumer.  Kind-aware consumers
+    (gsasm/expressload's reloc classification) read the kind off the value —
+    ``t['NAME'].kind`` — or take the whole derived view, ``t.kinds``, which
+    is computed from the values on demand and is therefore incapable of
+    disagreeing with them.
+
+    Precedence parity is the load-bearing property: whichever definition won
+    the VALUE resolution is the one the kind lookup reports.  A flat "known
+    EQU names" set unioned across a multi-object link does NOT have it and
+    mis-classifies a private label in one file that happens to share a
+    folded name with an EXPORT-EQU constant in another (TS2's 37 such
+    collisions — docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md §5).
+
+    The table is LOUD about kind-blankness, which is the defect this shape
+    exists to remove: a value that is not a ``Sym`` is only accepted when it
+    re-binds a name the table ALREADY holds, in which case it inherits that
+    binding's kind (the ``__LOC__`` location counter, which ``omf._build_body``
+    and ``expressload._scan_relocs`` write straight into the table as they
+    walk a body).  Anything else — most of all ``SymTab(plain_dict)``, which
+    used to yield a kind-blank table in silence — raises.  Pass ``kind=`` to
+    state the kind for a whole plain mapping.
+    """
+
+    def __init__(self, mapping=None, /, *, kind: str | None = None):
+        """``SymTab()``, ``SymTab(other_symtab)``, ``SymTab(plain, kind=k)``.
+
+        A plain mapping with no ``kind=`` raises: kinds cannot be invented,
+        and a table that quietly had none is exactly the bug (contract §I.6).
+        """
+        super().__init__()
+        if mapping is not None:
+            self.update(mapping, kind=kind)
+
+    # -- the loud edge -------------------------------------------------
+    def _kinded(self, name, value, kind: str | None = None) -> Sym:
+        if isinstance(value, Sym):
+            return value
+        if kind is not None:
+            return Sym(value, kind)
+        prior = dict.get(self, name)
+        if isinstance(prior, Sym):
+            # Re-binding an existing name with a bare int: the VALUE moves,
+            # the KIND is the one this table already established for that
+            # name.  This is the location-counter update (`sym['__LOC__'] =
+            # seg_base + pos`), not a new binding.
+            return Sym(value, prior.kind)
+        raise TypeError(
+            f"SymTab['{name}'] = {value!r}: a NEW binding must carry its "
+            "KIND — use Sym(value, 'label'|'equ'), _kind_setdefault/"
+            "_kind_override, or SymTab(mapping, kind=...).  A kind-blank "
+            "entry silently re-classifies the symbol as not-an-EQU "
+            "(docs/CONTRACT_SYMBOL_PRECEDENCE.md Part I §6).")
+
+    def __setitem__(self, name, value):
+        dict.__setitem__(self, name, self._kinded(name, value))
+
+    def update(self, other=(), /, *, kind: str | None = None):
+        items = other.items() if hasattr(other, 'items') else other
+        for k, v in items:
+            dict.__setitem__(self, k, self._kinded(k, v, kind))
+
+    def setdefault(self, name, default=None):
+        if name not in self:
+            self[name] = default            # validated by __setitem__
+        return dict.__getitem__(self, name)
+
+    # -- merging: the idiom that used to drop the sidecar ---------------
+    def layered(self, over) -> 'SymTab':
+        """``{**self, **over}`` — but a ``SymTab``, kinds and all.
+
+        The L1 layering operation of contract Part I §2: the program-wide
+        table with one object's own bindings on top.  Values are ``Sym``s
+        either way, so kinds survive a bare ``{**a, **b}`` too; this returns
+        the richer type so the result still has ``.kinds`` and still refuses
+        a kind-blank insertion afterwards.
+        """
+        out = SymTab()
+        # Both sides of a SymTab-to-SymTab layer are Sym by the class
+        # invariant, so the copy needs no re-validation (pass 3 does this
+        # once per placed segment); a foreign mapping goes the loud route.
+        dict.update(out, self)
+        if type(over) is SymTab:
+            dict.update(out, over)
+        else:
+            out.update(over)
+        return out
+
+    def copy(self) -> 'SymTab':
+        out = SymTab()
+        dict.update(out, self)
+        return out
+
+    def __or__(self, other) -> 'SymTab':
+        return self.layered(other)
+
+    def __ror__(self, other) -> 'SymTab':
+        return SymTab(other).layered(self)
+
+    # -- the derived kind view ------------------------------------------
+    @property
+    def kinds(self) -> Mapping[str, str]:
+        """``{name: 'label' | 'equ'}``, DERIVED from the values on demand.
+
+        Read-only: there is nothing to keep in step, and a write here would
+        be a kind with no binding behind it.  Kept as an attribute because
+        it is the shape kind consumers already read.
+        """
+        out: dict[str, str] = {}
+        for n, v in self.items():
+            k = getattr(v, 'kind', None)
+            if k is None:
+                raise TypeError(
+                    f"SymTab entry {n!r} = {v!r} has no KIND; it was "
+                    "inserted past SymTab.__setitem__ (dict.update / "
+                    "dict.__setitem__ on the class). Bind it with "
+                    "Sym(value, kind).")
+            out[n] = k
+        return MappingProxyType(out)
 
 
 def _kind_setdefault(t: 'SymTab', name, val, kind):
-    """``t.setdefault(name, val)`` that keeps ``t.kinds`` in lock-step."""
+    """R1 first-wins insertion: bind ``name`` only if it is unbound.
+
+    Names one of the two PASS POLICIES the contract's Part I §1 table is
+    written in — ``setdefault`` — rather than syncing a sidecar (there is
+    none any more; ``Sym`` carries the kind).  Kept, with ``_kind_override``,
+    because §I.1/§I.2 name these policies and every pass is read against
+    them.
+    """
     if name not in t:
-        t[name] = val
-        t.kinds[name] = kind
+        t[name] = Sym(val, kind)
 
 
 def _kind_override(t: 'SymTab', name, val, kind):
-    """``t[name] = val`` that keeps ``t.kinds`` in lock-step."""
-    t[name] = val
-    t.kinds[name] = kind
+    """The other pass policy: OVERRIDE (last-wins).  See ``_kind_setdefault``."""
+    t[name] = Sym(val, kind)
 
 
 def _build_symtab(
@@ -277,7 +433,7 @@ def _build_symtab(
         obj_seg_bases: list[list[int]],
         placed_obj_idx: list[int],
         extern: dict | None = None,
-) -> tuple[dict[str, int], list[dict[str, int]]]:
+) -> tuple[SymTab, list[SymTab]]:
     """Pass-2: build the global symbol table.
 
     THE OUTER KEY OF THIS TABLE IS PASS ORDER, NOT OBJECT ORDER.  Four passes
@@ -352,12 +508,11 @@ def _build_symtab(
     if extern is None:
         extern = {}
 
-    sym = SymTab({'__LOC__': 0})
-    sym.kinds['__LOC__'] = 'label'
+    sym = SymTab({'__LOC__': 0}, kind='label')
     # Per-object label/GLOBAL maps: indexed by obj_idx.  Accumulated through
     # both pass (b) and pass (c) so that all symbols from an object override
     # the global sym when building that object's segment bodies in Pass 3.
-    obj_globals: list[dict[str, int]] = [SymTab() for _ in objects]
+    obj_globals: list[SymTab] = [SymTab() for _ in objects]
 
     # We process segment-name/interior-label pairs per object.  The placed list
     # is ordered globally (an explicit `order` interleaves objects); group its
@@ -671,7 +826,7 @@ def link(objects: list[tuple[bytes, Any | None]],
         if not og:
             local_sym = sym
         else:
-            local_sym = {**sym, **og}
+            local_sym = sym.layered(og)
             # A name this object IMPORTs, that ANOTHER object EXPORTs (present in
             # the global `sym` with a value differing from this object's own
             # same-named entry in obj_globals), must bind that external EXPORT —

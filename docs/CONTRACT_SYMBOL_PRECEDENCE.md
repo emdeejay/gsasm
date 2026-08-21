@@ -82,14 +82,14 @@ Consequences, stated as clauses because each one has bitten:
 | **R3** | combo `setdefault`: a pre-concatenated object has no per-file scoping left, so a constituent's GLOBAL must not clobber another constituent's binding in the per-object map | pass (c), `objects[oi][1] is None` | `[EMPIRICAL]` — TS2 `TLBootInit` |
 | **R4** | case-collision repair: when a folded interior label has clobbered a PUBLIC segment's own `asm.symbols` entry, pass (a) publishes the segment's authoritative placement base instead | pass (a), the `clobbered` predicate | `[EMPIRICAL]` — notesynth `UpDate` |
 | **R5** | module privacy: a plain interior label is module-LOCAL; a by-name reference from a sibling module binds the program-wide EXPORT | pass (b), the `not (is_single_obj or … or lab not in _all_exports)` gate | `[DOCUMENTED]` — MPW Asm Ref p.63, verbatim |
-| **R6** | symbol KINDs: `'equ'` = link-time constant (an EXPORTed EQU / a GEQU record), `'label'` = relocatable address; carried in `SymTab.kinds` at the *same* insertion points and the *same* precedence as the value | `_kind_setdefault` / `_kind_override` | `[EMPIRICAL]` — `docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md` |
+| **R6** | symbol KINDs: `'equ'` = link-time constant (an EXPORTed EQU / a GEQU record), `'label'` = relocatable address; carried **on the value itself** (`linkiigs.Sym`, an `int` subclass with `.kind`), so kind and value are the same object and cannot be written at different insertion points or with different precedence | `_kind_setdefault` / `_kind_override`, which name the two pass policies | `[EMPIRICAL]` — `docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md` |
 
 There is also a **rule already living outside the table** — see §I.5 before
 you decide your change is #7:
 
 | # | rule | implemented in |
 |---|---|---|
-| **L1** | per-object layering + import satisfaction: pass 3 resolves each segment against `{**sym, **obj_globals[oi]}`, then puts the *global* value back for a name this object IMPORTs, unless the object satisfies the import with a segment head / EXPORT / ENTRY (a plain interior label does not satisfy it) | `linkiigs.link()` pass 3 |
+| **L1** | per-object layering + import satisfaction: pass 3 resolves each segment against `sym.layered(obj_globals[oi])` (the kind-preserving `{**sym, **og}`, §I.6), then puts the *global* value back for a name this object IMPORTs, unless the object satisfies the import with a segment head / EXPORT / ENTRY (a plain interior label does not satisfy it) | `linkiigs.link()` pass 3 |
 
 ## I.3 The composite table (multi-object link, real objects)
 
@@ -127,7 +127,7 @@ and R5 never engages (there is no sibling object whose EXPORT could win).
 | **I4** | exported relocatable LABEL vs exported EQU, same name | the LABEL, in **either** link order | pass (b) publishes every exported label before pass (c′) looks at a single GEQU, and (c′) is a `setdefault`; surviving kind is `'label'` | `test_interaction_exported_label_beats_exported_equ_in_either_order` |
 | **I5** | R5 vs R6 (the KIND, not the value) | R5 re-KINDs the reference | with D's own plain label withheld, D's own reloc classification reads the KIND attached to the *other* object's EXPORT — an EXPORT-EQU makes D's reference `'equ'` | `test_interaction_rule5_module_privacy_beats_rule6_equ_lookup_source` |
 | **I6** | `extern` vs everything in `sym` | `extern`, and all kinds flatten to `'label'` | pass (d) is last and overrides; there is no GEQU behind an extern, so reloc suppression falls back to `_scan_relocs`'s value range | `test_interaction_extern_overrides_every_earlier_rule`, `test_rule6_caller_extern_is_always_kind_label` |
-| **I7** | `extern` vs the defining object's own map (pass 3) | the object's own definition | P4 — `{**sym, **og}` puts `og` on top | (clause P4; `link()` pass 3) |
+| **I7** | `extern` vs the defining object's own map (pass 3) | the object's own definition | P4 — `sym.layered(og)` puts `og` on top | (clause P4; `link()` pass 3) |
 
 ## I.5 Negative clauses — what does NOT happen
 
@@ -149,21 +149,53 @@ and R5 never engages (there is no sibling object whose EXPORT could win).
 * **N4. `_all_exports` is a union over the whole link**, not a per-object set.
   R2 and R5 both key off it, so a name becomes "exported" the moment *any*
   object exports it — including objects that no reference will ever reach.
-* **N5. A `SymTab` merged with `{**a, **b}` is a bare `dict` and has no
-  `.kinds`.** Kinds must be merged by hand at every merge point (see §I.6).
+* **N5. `{**a, **b}` yields a bare `dict`, so the merged table has no
+  `.kinds` *attribute* — but it does still have the kinds**, because they
+  ride on the values (`Sym`), not in a parallel table. Read them as
+  `t[name].kind`, or merge with `SymTab.layered`, which returns a real
+  `SymTab` (and so keeps `.kinds` and keeps refusing a kind-blank
+  insertion). What is *gone* is the pre-0.5.5 failure mode this clause used
+  to warn about: a merged table whose kinds were silently EMPTY.
 
-## I.6 `SymTab` and its sidecar
+## I.6 `SymTab`: kinds live ON the values
 
-`SymTab` is a `dict` subclass with a `.kinds` attribute, chosen to avoid
-touching six call sites; the review's supervisor chapter owns that decision.
+The binding tables ARE `{name: value}` mappings — every pass in §I.1 writes a
+value under a name, and `omf._eval` reads it back as an integer. A symbol's
+KIND is a property **of that binding**, so it lives on the value:
+`linkiigs.Sym` is an `int` subclass carrying `.kind`, and `SymTab` is
+`dict[str, Sym]`. Value consumers are unaffected (a `Sym` *is* an `int`);
+kind consumers read `t[name].kind`, or `t.kinds` — a read-only
+`{name: kind}` view **derived from the values on demand**, so it cannot
+disagree with them.
+
 The load-bearing property is **precedence parity**: whichever definition won
-the value also wrote the kind, because both go through `_kind_setdefault` /
-`_kind_override`. A flat "known EQU names" set unioned across a multi-object
+the value is the one the kind lookup reports. That is now structural rather
+than a convention — the kind is the same object as the value, so it survives
+`{**a, **b}`, `dict(t)`, `a | b`, a comprehension, and a `.get()` handed to
+another table. A flat "known EQU names" set unioned across a multi-object
 link does not have this property and mis-classifies collisions (TS2's 37 —
-`docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md` §5). The tax is N5: `link()` pass 3
-builds `local_sym = {**sym, **og}`, which drops `.kinds` entirely, and
-`gsasm/expressload.py` re-merges the two kind dicts by hand at every merge
-point. Pinned by `test_symtab_dict_splat_merge_silently_drops_the_kinds_sidecar`.
+`docs/SCSI_RELOC_DIAGNOSIS_2026-08-01.md` §5).
+
+`SymTab` is **loud about kind-blankness**, which is the defect this shape
+exists to remove (before 0.5.5 the kind lived in a parallel `.kinds` sidecar
+dict that every merge idiom above dropped, and `SymTab(existing_dict)` never
+populated it at all — architecture review 2026-08-02, slate item 6):
+
+* a value that is not a `Sym` is accepted **only** when it re-binds a name the
+  table already holds, in which case it inherits that binding's kind. That is
+  the location counter — `omf._build_body` and `expressload._scan_relocs` write
+  `sym['__LOC__'] = seg_base + pos` straight into the table as they walk a body;
+* everything else raises, including `SymTab(plain_mapping)`. Pass
+  `kind=` to state the kind for a whole plain mapping;
+* `.kinds` is read-only: a kind with no binding behind it is precisely the
+  parity violation.
+
+`link()` pass 3 builds its per-object layer with `sym.layered(og)` (L1),
+which returns a `SymTab`. `gsasm/expressload.py` still hand-merges the two
+`.kinds` views beside its `{**sym, **og}`; that is now redundant — both
+routes read the same kinds off the same values — and it is correct either
+way. Pinned by `test_symtab_dict_splat_merge_carries_the_kinds_on_the_values`
+and `test_symtab_construction_from_a_plain_dict_demands_kinds`.
 
 ## I.7 The routing checklist for rule #7
 
@@ -184,9 +216,12 @@ Before adding a rule to `_build_symtab`, answer these in the commit message:
 5. **What happens in a later pass?** If a later OVERRIDE pass can reach the
    same name, your rule decides nothing in `sym` (I2). Check pass (c)-multi
    and pass (d).
-6. **Which KIND does it write?** Kind and value must be written together
-   (R6/§I.6). A rule that writes a value without a kind leaves the previous
-   kind attached to a new value — precedence parity is the invariant.
+6. **Which KIND does it write?** Kind and value ARE one object now
+   (R6/§I.6), so the question is unavoidable: `Sym(val, kind)`, or
+   `_kind_setdefault`/`_kind_override`, which take it as an argument. A bare
+   `t[name] = val` re-binds an existing name and keeps ITS kind (the
+   `__LOC__` counter); on a new name it raises. Precedence parity is the
+   invariant.
 7. **What is the negative clause?** State the shape your rule must *not*
    touch, and add it to §I.5 with a test.
 
@@ -324,7 +359,7 @@ the two pinning tests (each carries an assertion message telling you so).
    changes instruction lengths, which moves every later address. Size the blast
    radius before the gate does it for you.
 6. **Does the link-time table need the same rule?** Kinds cross the boundary:
-   `sym_kind`'s `'equ'` and `SymTab.kinds`' `'equ'` are the same word and feed
+   `sym_kind`'s `'equ'` and `linkiigs.Sym.kind`'s `'equ'` are the same word and feed
    the same reloc suppression. A change on one side without the other is how
    the TS2 0x88a regression shape happens.
 
@@ -335,7 +370,7 @@ the two pinning tests (each carries an assertion message telling you so).
 | clause group | pinned by |
 |---|---|
 | Part I §1–§4 (passes, rules, interactions) | `tests/test_linkiigs_symtab_units.py` (34 tests: `test_ruleN_*`, `test_interaction_*`, `test_symtab_*`) |
-| Part I §6 (`SymTab` sidecar gap) | `test_symtab_dict_splat_merge_silently_drops_the_kinds_sidecar` |
+| Part I §6 (`SymTab`, kinds on the values) | `test_symtab_dict_splat_merge_carries_the_kinds_on_the_values`, `test_symtab_construction_from_a_plain_dict_demands_kinds` |
 | Part II §3 (both invariants, generated matrix) | `tests/test_symbol_precedence_agreement.py::test_matrix_invariant_{a,b}_*` |
 | Part II §4 (D1–D5) | `test_difference_d1_*` … `test_difference_d4_*`, `test_cell_import_*` |
 | Part II §5 (X1, X2) | `test_disagreement_*` |

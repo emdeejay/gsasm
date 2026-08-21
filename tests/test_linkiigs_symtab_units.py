@@ -519,15 +519,51 @@ def test_interaction_rule5_module_privacy_beats_rule6_equ_lookup_source():
 
 
 # ---------------------------------------------------------------------------
-# SymTab itself — the dict-with-attribute, and its known latent gap
+# SymTab itself — kinds ON the values, and the paths that used to lose them
 # ---------------------------------------------------------------------------
 
-def test_symtab_is_a_plain_dict_with_an_empty_kinds_sidecar():
-    t = linkiigs.SymTab({'A': 1})
+def test_symtab_construction_from_a_plain_dict_demands_kinds():
+    """UPDATED 0.5.5 (was ``test_symtab_is_a_plain_dict_with_an_empty_kinds
+    _sidecar``).  ``SymTab({'A': 1})`` used to succeed and hand back a table
+    whose ``.kinds`` was EMPTY — every symbol in it silently re-classified
+    as not-an-EQU.  Kind-blankness is the defect the redesign removes, so a
+    construction that cannot carry kinds now RAISES; a caller that knows the
+    kind states it (``kind=``), and a caller copying a real table gets the
+    kinds for free because they ride on the values.
+    """
+    try:
+        linkiigs.SymTab({'A': 1})
+    except TypeError as e:
+        assert 'KIND' in str(e), str(e)
+    else:
+        raise AssertionError("SymTab(plain dict) must not build a kind-blank table")
+
+    t = linkiigs.SymTab({'A': 1}, kind='equ')
     assert isinstance(t, dict) and t['A'] == 1
-    # The sidecar is NOT populated by construction — only by the
-    # _kind_setdefault/_kind_override helpers.
-    assert t.kinds == {}, t.kinds
+    assert t.kinds == {'A': 'equ'}, t.kinds
+    # A copy of a kinded table needs no kind= : the values carry it.
+    assert linkiigs.SymTab(t).kinds == {'A': 'equ'}
+    # ... and the kind view is DERIVED, so it cannot be written behind the
+    # values' back.
+    try:
+        t.kinds['A'] = 'label'
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("SymTab.kinds must be read-only")
+
+    # The one bare-int write that is legitimate: ``omf._build_body`` sets
+    # ``sym['__LOC__'] = seg_base + pos`` as it walks a body.  That RE-binds
+    # a name the table already holds, so it keeps that binding's kind; a NEW
+    # name with a bare int has no kind to inherit and raises.
+    t['A'] = 2
+    assert t['A'] == 2 and t.kinds['A'] == 'equ', t.kinds
+    try:
+        t['NEW'] = 7
+    except TypeError as e:
+        assert 'KIND' in str(e), str(e)
+    else:
+        raise AssertionError("a kind-blank NEW binding must raise")
 
 
 def test_symtab_kind_setdefault_is_first_wins_in_lockstep():
@@ -544,32 +580,45 @@ def test_symtab_kind_override_is_last_wins_in_lockstep():
     assert t['N'] == 20 and t.kinds['N'] == 'label', (dict(t), t.kinds)
 
 
-def test_symtab_dict_splat_merge_silently_drops_the_kinds_sidecar():
-    """PINNED, NOT FIXED — architecture review 2026-08-02, supervisor's
-    chapter: ``SymTab`` was made a dict-with-attribute to avoid touching six
-    call sites, and the tax is that ``{**a, **b}`` yields a bare ``dict``
-    with no ``.kinds`` at all.  ``linkiigs.py``'s pass 3 builds its
-    ``local_sym`` exactly that way, which is the latent gap the review names:
-    a future kinds consumer reading ``local_sym.kinds`` gets an
-    AttributeError, and one calling ``getattr(..., 'kinds', {})`` gets an
-    EMPTY table (every symbol silently re-classified as not-an-equ).
+def test_symtab_dict_splat_merge_carries_the_kinds_on_the_values():
+    """UPDATED 0.5.5 (was ``test_symtab_dict_splat_merge_silently_drops_the
+    _kinds_sidecar``, PINNED-not-fixed).  The sidecar is gone: a kind now
+    rides ON the value (``linkiigs.Sym``), so it survives ``{**a, **b}`` —
+    the very idiom that used to drop it — as well as ``dict(t)``, ``|``, and
+    a comprehension.  ``{**a, **b}`` is still a bare ``dict`` (Python cannot
+    make it anything else), so the ``.kinds`` ATTRIBUTE is still absent
+    there; what changed is that the kinds themselves are not lost with it,
+    and that pass 3 no longer uses that idiom at all — it calls
+    ``SymTab.layered``, which returns a real ``SymTab``.
 
-    ``gsasm/expressload.py`` works around this by merging the two ``.kinds``
-    dicts by hand at every merge point.  A later packet redesigns SymTab;
-    if this assertion starts failing, the semantics changed — check every
-    hand-rolled kinds merge before blessing it.
+    If this assertion starts failing, the kind representation changed again;
+    check every kinds consumer (``gsasm/expressload.py`` still hand-merges
+    the two ``.kinds`` views, which is now redundant but agrees).
     """
     a = linkiigs.SymTab()
     linkiigs._kind_setdefault(a, 'A', 1, 'equ')
     b = linkiigs.SymTab()
     linkiigs._kind_setdefault(b, 'B', 2, 'label')
+
     merged = {**a, **b}
     assert merged == {'A': 1, 'B': 2}
     assert type(merged) is dict, type(merged)
-    assert not hasattr(merged, 'kinds')
-    assert getattr(merged, 'kinds', {}) == {}
-    # The hand-rolled merge every kinds consumer must perform instead:
+    # The kinds came through the splat, on the values.
+    assert merged['A'].kind == 'equ' and merged['B'].kind == 'label'
+    # The hand-rolled sidecar merge still agrees with them — it just is not
+    # load-bearing any more.
     assert {**a.kinds, **b.kinds} == {'A': 'equ', 'B': 'label'}
+    assert {n: v.kind for n, v in merged.items()} == {'A': 'equ', 'B': 'label'}
+
+    # The kind-preserving merge, which is what pass 3 uses: a real SymTab.
+    lay = a.layered(b)
+    assert type(lay) is linkiigs.SymTab and lay == {'A': 1, 'B': 2}
+    assert lay.kinds == {'A': 'equ', 'B': 'label'}, lay.kinds
+    # Last-wins on the VALUE takes the kind with it — precedence parity is
+    # structural now, not a convention two dicts have to observe.
+    c = linkiigs.SymTab()
+    linkiigs._kind_setdefault(c, 'A', 9, 'label')
+    assert a.layered(c)['A'] == 9 and a.layered(c).kinds['A'] == 'label'
 
 
 def test_symtab_kinds_survive_a_real_link_but_not_a_dict_copy():
