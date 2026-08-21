@@ -727,9 +727,7 @@ class Asm:
         docs/CONTRACT_SYMBOL_PRECEDENCE.md Part II §2."""
         u = self._symkey(name)        # @-label scope fallback handled in _symkey
         lb = self.link_bases          # link mode: add a segment's final base to
-        seg = self._rseg              # relocatable label values (else None = no-op)
-        if seg is None and self.emit_enabled and self.segs:
-            seg = len(self.segs) - 1
+        seg = self._cur_seg()         # relocatable label values (else None = no-op)
 
         def based(v, sgi):            # add the final base of segment sgi (link mode)
             return v + (lb.get(sgi, 0) if lb is not None else 0)
@@ -1611,15 +1609,14 @@ class Asm:
         lets you reference externals without IMPORT): with no symtype and no
         seed_type the identifier falls off the end of the loop and this
         returns False.  That rule lives in omf._undef_external, which every
-        call site ORs in beside this one.  Two more branches that resolve()
-        and sym_kind() have are missing here as well (the current-segment
-        fallback when _rseg is None, and the exact-spelling case_symbols
-        variant); both are LIVE DISAGREEMENTS, pinned — not fixed — by
-        tests/test_symbol_precedence_agreement.py and written up as X1/X2 in
+        call site ORs in beside this one.  One more branch that resolve() and
+        sym_kind() have is still missing here (the exact-spelling case_symbols
+        variant); it is a LIVE DISAGREEMENT, pinned — not fixed — by
+        tests/test_symbol_precedence_agreement.py and written up as X1 in
         docs/CONTRACT_SYMBOL_PRECEDENCE.md Part II, which is the shared
         contract for this function, resolve(), sym_kind() and
         omf._expr_for()."""
-        seg = self._rseg
+        seg = self._cur_seg()          # ladder row 0, shared (was X2)
         for ident in re.findall(r'[A-Za-z_~@?.][\w~@?.$]*', expr):
             u = self._symkey(ident)
             # an EQU that aliases a relocatable label is itself relocatable (it is a
@@ -1683,6 +1680,24 @@ class Asm:
                         and self.segs[si].temporg is None:
                     return True
         return False
+
+    def _cur_seg(self):
+        """Ladder ROW 0: the segment index the segment-local rows (4, 6-8) are
+        scoped to — the emit cursor `_rseg`, falling back to the segment being
+        assembled when there is no cursor.  During the main assembly pass
+        `_rseg` is None (it is set only during fixup / OMF emit), so without
+        the fallback a per-segment seg_local/seg_equ/SET binding is invisible
+        and the file-wide binding wins in its place.
+
+        One lookup, three callers — resolve(), sym_kind(), needs_reloc() —
+        factored the way _with_active_field factors row 5, so the three cannot
+        drift on it.  X2 was exactly that drift: needs_reloc restated row 0 as
+        a bare `seg = self._rseg` and lost the fallback.  See
+        docs/CONTRACT_SYMBOL_PRECEDENCE.md Part II §2, row 0."""
+        seg = self._rseg
+        if seg is None and self.emit_enabled and self.segs:
+            seg = len(self.segs) - 1
+        return seg
 
     def _with_active_field(self, u):
         """The qualified `REC.u` key when a WITH-active record binds the bare
@@ -1778,9 +1793,7 @@ class Asm:
         # During the main assembly pass _rseg is None (only set during fixup); fall
         # back to the active segment so a per-segment seg_equ (a DefineStack offset
         # shadowing a code label of the same name) sizes direct-page correctly.
-        seg = self._rseg
-        if seg is None and self.emit_enabled and self.segs:
-            seg = len(self.segs) - 1
+        seg = self._cur_seg()
         if seg is not None and (u in self.seg_local.get(seg, {})
                                 or u in self.seg_seed.get(seg, {})):
             # seg_seed = the prior pass's seg_local: a FORWARD local (defined

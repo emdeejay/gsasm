@@ -30,14 +30,19 @@ gap.  Those cells are not skipped: ``_DIVERGENCES`` lists every one of them
 with its reason, the sweep asserts that each listed cell *still* diverges (so
 the register cannot rot), and a named test below pins each one's exact shape.
 
-TWO OF THOSE CELLS ARE LIVE DISAGREEMENTS, NOT DESIGN — see the two
-``test_disagreement_*`` tests.  Both have the same root cause: ``needs_reloc``
-restates the precedence ladder WITHOUT two branches that ``resolve`` and
-``sym_kind`` both have (the exact-spelling EQU variant, and the "no current
-segment -> use the last one" fallback).  They are unobservable in the corpus
-today only because of which phase each function is called from.  They are
-PINNED here, deliberately not fixed: this is a byte-exact system and a fix is
-a behaviour change that must be gate-measured on its own commit.
+ONE CELL IS STILL A LIVE DISAGREEMENT, NOT DESIGN — see the remaining
+``test_disagreement_*`` test.  Its root cause is that ``needs_reloc`` restates
+the precedence ladder without a branch ``resolve`` and ``sym_kind`` both have
+(the exact-spelling EQU variant, ladder row 9).  It is unobservable in the
+corpus today only because of which phase each function is called from.  It is
+PINNED here, deliberately not fixed here: this is a byte-exact system and a
+fix is a behaviour change that must be gate-measured on its own commit.
+
+Its twin (row 0, the "no current segment -> use the last one" fallback) is
+CLOSED — see ``test_agreement_row0_current_segment_fallback_is_shared_not_
+restated``.  It was closed by making row 0 exist ONCE, in ``asm._cur_seg()``,
+with resolve/sym_kind/needs_reloc as its three callers, rather than by adding
+a fourth copy of it to needs_reloc.
 
 These tests are CORPUS-FREE (synthetic sources in a tempdir): they run in CI
 with no ``ref/`` tree.
@@ -82,12 +87,22 @@ def assemble(source: str, **kw):
 def in_seg(a, name):
     """Point the assembler's emit-time cursor at segment *name* (what
     ``emit_segment`` does before calling any of the four) and return the
-    folded SEGNAME ``_expr_for`` expects as its ``segname`` argument."""
+    folded SEGNAME ``_expr_for`` expects as its ``segname`` argument.
+
+    ``name=None`` is the NO-CURSOR state — ``_rseg`` unset, which sym_kind's
+    own comment calls the normal state of the main assembly pass.  That is
+    LADDER ROW 0: the three restatements that share ``asm._cur_seg()``
+    fall back to the segment being assembled (the last one), so the segname
+    handed to ``_expr_for`` is that segment's.
+    """
+    a.loc = 0
+    a._rlg = a._rlg2 = a._rwith = None
+    if name is None:
+        a._rseg = None
+        return a._fold(a.segs[-1].name or '')
     folded = a._fold(name)
     a._rseg = next(i for i, s in enumerate(a.segs)
                    if a._fold(s.name or '') == folded)
-    a.loc = 0
-    a._rlg = a._rlg2 = a._rwith = None
     return folded
 
 
@@ -253,15 +268,20 @@ SRC_WITH = (
 # fails this file just as loudly as a silently-opened one.
 # ---------------------------------------------------------------------------
 
+#
+# ``None`` in a segment list is the NO-CURSOR state (ladder row 0): the four
+# are asked with ``_rseg`` unset, as they are throughout the main assembly
+# pass.  It is a real dimension of the matrix, not a corner — ``asm.is_reloc``
+# runs the whole pass in it.
 _MATRIX = [
     # (fixture key, source, kwargs, [segments], [names])
-    ('main', SRC_MAIN, {}, ['Alpha', 'Beta', 'Gamma'],
+    ('main', SRC_MAIN, {}, ['Alpha', 'Beta', 'Gamma', None],
      ['ALab', 'AEntry', 'Shared', 'BLab', 'FileEqu', 'ExtSym', 'NeverSeen']),
-    ('org', SRC_ORG, {}, ['Abs1', 'Rel'], ['O1', 'O1b', 'T1', 'R1']),
-    ('alias', SRC_ALIAS, {}, ['Data', 'Code'], ['ParBlock', 'devName']),
-    ('set', SRC_SET, {}, ['Store', 'Code'], ['v', 'h']),
-    ('case', SRC_CASE, CASE_KW, ['Store', 'Code'], ['Handle', 'HANDLE']),
-    ('with', SRC_WITH, {}, ['Data', 'Code'], ['fptr', 'fcount']),
+    ('org', SRC_ORG, {}, ['Abs1', 'Rel', None], ['O1', 'O1b', 'T1', 'R1']),
+    ('alias', SRC_ALIAS, {}, ['Data', 'Code', None], ['ParBlock', 'devName']),
+    ('set', SRC_SET, {}, ['Store', 'Code', None], ['v', 'h']),
+    ('case', SRC_CASE, CASE_KW, ['Store', 'Code', None], ['Handle', 'HANDLE']),
+    ('with', SRC_WITH, {}, ['Data', 'Code', None], ['fptr', 'fcount']),
 ]
 
 # (fixture, segment, name) -> (broken invariant, reason).  '*' matches any
@@ -282,6 +302,11 @@ _DIVERGENCES = {
     ('org', 'Abs1', 'R1'): ('B', 'D2, ORG flows forward: REL is absolute too.'),
     ('org', 'Rel', 'R1'): ('B', 'D2, same-segment form.'),
     ('org', 'Rel', 'O1b'): ('B', 'D2, cross-segment form.'),
+    # ...and the same three with NO emit cursor: row 0 falls back to the last
+    # segment (REL), which ORG flows forward into, so D2 holds there too.
+    ('org', None, 'O1'): ('B', 'D2, no-cursor form (row 0 -> REL, ORG\'d).'),
+    ('org', None, 'O1b'): ('B', 'D2, no-cursor form, one offset along.'),
+    ('org', None, 'R1'): ('B', 'D2, no-cursor same-segment form.'),
     ('org', '*', 'T1'): (
         'A', 'D3: a TEMPORG segment\'s labels are absolute literals — kind '
              '\'label\' (so they still SIZE absolute) but emitted as a baked '
@@ -299,6 +324,9 @@ _DIVERGENCES = {
     ('case', 'Code', 'Handle'): (
         'B', 'X1 (LIVE DISAGREEMENT): needs_reloc has no exact-spelling-EQU '
              'branch — see test_disagreement_case_exact_equ_...'),
+    ('case', None, 'Handle'): (
+        'B', 'X1 again, with no emit cursor: row 0 now agrees (it is shared), '
+             'row 9 still does not.'),
 }
 
 
@@ -566,13 +594,14 @@ def test_difference_d4_equ_alias_is_kind_equ_but_relocates():
 
 
 # ---------------------------------------------------------------------------
-# LIVE DISAGREEMENTS — pinned, deliberately NOT fixed.
+# ROW 0 and ROW 9: the two cells where needs_reloc restated the precedence
+# ladder without a branch resolve() and sym_kind() both carry.
 #
-# Both are the same structural fault: needs_reloc restates the precedence
-# ladder without two branches resolve() and sym_kind() both carry.  Neither
-# moves a golden byte TODAY, because of which phase each function is called
-# from — which is exactly the review's point about agreement being untested.
-# If a later packet fixes one, it is a BEHAVIOUR change: gate it on its own
+# Row 0 is CLOSED (the fallback now lives once, in asm._cur_seg()); row 9 is
+# still a LIVE DISAGREEMENT, pinned and deliberately NOT fixed here.  Neither
+# moved a golden byte, because of which phase each function is called from —
+# which is exactly the review's point about agreement being untested.  When a
+# later packet closes row 9 it is a BEHAVIOUR change: gate it on its own
 # commit with predicted movement, and update
 # docs/CONTRACT_SYMBOL_PRECEDENCE.md part II.
 # ---------------------------------------------------------------------------
@@ -609,40 +638,47 @@ def test_disagreement_case_exact_equ_is_invisible_to_needs_reloc():
         'emits': ('symbolic', 'HANDLE', 0)}
 
 
-def test_disagreement_needs_reloc_has_no_current_segment_fallback():
-    """X2.  ``resolve`` and ``sym_kind`` both do:
+def test_agreement_row0_current_segment_fallback_is_shared_not_restated():
+    """X2, CLOSED (ladder row 0).  ``resolve`` and ``sym_kind`` each used to
+    spell the fallback inline:
 
         seg = self._rseg
         if seg is None and self.emit_enabled and self.segs:
             seg = len(self.segs) - 1
 
-    ``needs_reloc`` does only ``seg = self._rseg``.  So with no emit cursor —
-    which sym_kind's own comment calls the normal state of the main assembly
-    pass ("During the main assembly pass _rseg is None") — resolve and
-    sym_kind consult the LAST segment's local tables and needs_reloc consults
-    none:
+    and ``needs_reloc`` restated it as a bare ``seg = self._rseg``, losing it.
+    With no emit cursor — which sym_kind's own comment calls the normal state
+    of the main assembly pass ("During the main assembly pass _rseg is None")
+    — resolve and sym_kind consulted the LAST segment's local tables while
+    needs_reloc consulted none, so on a label-masked SET (CloseView's
+    ``v set h+2``) the three answered 4 / 'equ' / True.
 
-        resolve('v')      -> 4       the segment-local SET
-        sym_kind('v')     -> 'equ'   the segment-local SET
-        needs_reloc('v')  -> True    the masking storage label  <-- dissents
-
-    Today nothing calls needs_reloc with ``_rseg`` unset (it is reached only
-    from omf.py's emit paths), while ``asm.is_reloc`` — which DOES run in the
-    main pass — reads sym_kind.  So the two halves of one decision already
-    use different scopes; only call-site phase keeps them from meeting.
+    The fix is NOT a fourth copy of those three lines: row 0 now lives once,
+    in ``asm._cur_seg()``, and all three call it — the shape
+    ``_with_active_field`` already uses for row 5 (contract II.6 point 4).
     """
     a = assemble(SRC_SET)
     a._rseg = None
     assert a.emit_enabled and len(a.segs) == 2, (a.emit_enabled, len(a.segs))
-    assert a.resolve('v') == 4, a.resolve('v')
-    assert a.sym_kind('v') == 'equ', a.sym_kind('v')
-    assert a.needs_reloc('v') is True, \
-        'X2 FIXED? needs_reloc grew the current-segment fallback — that is a ' \
-        'behaviour change; re-gate it and update the contract'
-    # ...and with the cursor set, the same three agree again.
+    assert a._cur_seg() == 1, 'row 0 falls back to the segment being assembled'
+    assert (a.resolve('v'), a.sym_kind('v'), a.needs_reloc('v')) == \
+        (4, 'equ', False), 'the three must agree with NO emit cursor'
+    # ...and with the cursor set, the same three still agree.
     in_seg(a, 'Code')
+    assert a._cur_seg() == 1
     assert (a.resolve('v'), a.sym_kind('v'), a.needs_reloc('v')) == \
         (4, 'equ', False)
+    # The row is SHARED, not restated: overriding the ONE helper moves all
+    # three answers together.  A fourth inline copy of the three lines would
+    # leave everything above green while re-opening the drift, so assert the
+    # sharing itself and not merely its current effect.
+    a._cur_seg = lambda: 0                   # STORE, which has no `v` SET
+    try:
+        assert (a.resolve('v'), a.sym_kind('v'), a.needs_reloc('v')) == \
+            (0, 'label', True), \
+            'all three must read row 0 from asm._cur_seg(), not restate it'
+    finally:
+        del a._cur_seg
 
 
 _TESTS = [(n, f) for n, f in sorted(globals().items())

@@ -244,9 +244,22 @@ change anything here:
 * `omf._undef_external(asm, name)` — the implicit-external rule, which
   `needs_reloc` does **not** implement (D1). Every `needs_reloc` call site in
   `omf.py` spells `or _undef_external(...)` beside it.
-* `asm._with_active_field(u)` — the shared WITH lookup, deliberately factored
-  so `resolve`, `needs_reloc` and `sym_kind` cannot drift on that one branch.
-  It is the model for how the rest of this ladder *should* be shared.
+* `asm._with_active_field(u)` — the shared WITH lookup (row 5), deliberately
+  factored so `resolve`, `needs_reloc` and `sym_kind` cannot drift on that one
+  branch. It is the model for how the rest of this ladder *should* be shared.
+* `asm._cur_seg()` — the shared **row 0** lookup, factored the same way for
+  the same three callers (0.6.0; it closed X2, see §II.5).
+
+Two lookups outside the ladder that look like row 0 but are **not** callers of
+`_cur_seg()`, deliberately:
+
+* `asm._equ_alias_of(operand)` asks its own version without `_rseg` — it runs
+  at EQU *definition* time, where "current segment" can only mean the segment
+  being assembled, and an emit cursor left over from a fixup would be the
+  wrong scope.
+* `omf._expr_for` reads `asm._rseg` raw (row 0 is `—` for it above): with no
+  cursor there is no segment to encode `SEGNAME`+offset *against*, so the
+  fallback would name a segment the record does not belong to.
 
 ## II.2 The precedence ladder
 
@@ -255,7 +268,7 @@ Highest first. The ✓/— columns say which restatement implements the branch.
 
 | # | branch | `resolve` | `sym_kind` | `needs_reloc` | `_expr_for` |
 |---|---|---|---|---|---|
-| 0 | current segment = `_rseg`, **falling back to the last segment when `_rseg is None` and emit is enabled** | ✓ | ✓ | **—** (X2) | — (uses `_rseg` raw) |
+| 0 | current segment = `_rseg`, **falling back to the last segment when `_rseg is None` and emit is enabled** — `asm._cur_seg()`, one lookup, three callers | ✓ | ✓ | ✓ | — (uses `_rseg` raw) |
 | 1 | `@`-label scope + nearest definition, segment-local | ✓ | via `_symkey` | via `_symkey` | via `_symkey` |
 | 2 | `equ_alias` (an EQU that is a second name for a relocatable label) | — (returns the value) | — (kind stays `'equ'`) | ✓ **first branch of all** | ✓ (rewrites to the target, unless the current segment defines the bare name) |
 | 3 | the enclosing `RECORD` template's own fields (`cur_record`) | ✓ | — | — | — |
@@ -282,7 +295,10 @@ here as a known unpinned corner.
 ## II.3 The two agreement invariants
 
 These are what `tests/test_symbol_precedence_agreement.py` sweeps over a
-generated matrix of (fixture × current segment × name) cells:
+generated matrix of (fixture × current segment × name) cells — where "current
+segment" includes **no cursor at all** (`None` in `_MATRIX`), the state the
+whole main assembly pass runs in and the only state in which row 0 is
+observable:
 
 > **INVARIANT A (kind ↔ emission).** `sym_kind(n) == 'equ'` ⟺ `_expr_for`
 > emits a pure literal push, and that literal carries exactly `resolve(n)`.
@@ -306,12 +322,14 @@ carry a constant inside a relocation record.
 | **D4** | `devName equ ParBlock+2` (`equ_alias`) | `sym_kind` `'equ'` but `needs_reloc` True and `_expr_for` emits the target label | an alias is a second NAME for a relocatable address. `needs_reloc` and `_expr_for` special-case `equ_alias` first; `asm.is_reloc()` re-checks it so sizing agrees. **This is the cell that proves kind alone is not a relocation decision** |
 | **D5** | a declared `IMPORT` | `sym_kind` says `'import'`, not `'label'` | vocabulary only: `is_reloc`, `needs_reloc` and `_expr_for` all treat it as relocatable |
 
-## II.5 Live disagreements — pinned, deliberately NOT fixed
+## II.5 Rows 0 and 9 — where `needs_reloc` restated the ladder short
 
-Both have the same root cause: **`needs_reloc` restates the ladder without two
-branches that `resolve` and `sym_kind` both have.** Neither moves a golden
-byte today, and only because of which phase each function is called from —
-which is precisely the review's complaint that agreement was untested.
+Both had the same root cause: **`needs_reloc` restated the ladder without two
+branches that `resolve` and `sym_kind` both have.** Neither moved a golden
+byte, and only because of which phase each function is called from — which is
+precisely the review's complaint that agreement was untested.
+
+**X2 (row 0) is CLOSED as of 0.6.0; X1 (row 9) is still live and pinned.**
 
 * **X1 — the exact-spelling EQU is invisible to `needs_reloc`** (ladder row 9).
   With `case_equ_variants={'HANDLE'}`, a file-scope `Handle equ $10` and a
@@ -324,22 +342,30 @@ which is precisely the review's complaint that agreement was untested.
   in the corpus because the one build that opts into `case_equ_variants` has
   no relocatable label colliding with the variant.
   Pinned: `test_disagreement_case_exact_equ_is_invisible_to_needs_reloc`.
-* **X2 — `needs_reloc` has no current-segment fallback** (ladder row 0).
-  `resolve` and `sym_kind` both do `if seg is None and self.emit_enabled and
-  self.segs: seg = len(self.segs) - 1`; `needs_reloc` does not. With no emit
-  cursor — which `sym_kind`'s own comment calls the normal state of the main
-  assembly pass — `resolve`/`sym_kind` consult the last segment's local tables
-  and `needs_reloc` consults none. On a `SET` that is masked by a same-named
+* **X2 — `needs_reloc` had no current-segment fallback** (ladder row 0).
+  **CLOSED, 0.6.0.** `resolve` and `sym_kind` each spelled `if seg is None and
+  self.emit_enabled and self.segs: seg = len(self.segs) - 1` inline;
+  `needs_reloc` restated the row as a bare `seg = self._rseg` and lost it. With
+  no emit cursor — which `sym_kind`'s own comment calls the normal state of the
+  main assembly pass — `resolve`/`sym_kind` consulted the last segment's local
+  tables and `needs_reloc` consulted none. On a `SET` masked by a same-named
   storage label (CloseView `v set h+2`): `resolve` → `4`, `sym_kind` → `'equ'`,
-  `needs_reloc` → **True** (the masking label). Today nothing calls
-  `needs_reloc` with `_rseg` unset, while `asm.is_reloc()` — which *does* run
-  in the main pass — reads `sym_kind`; so the two halves of one decision
-  already use different scopes and only call-site phase keeps them apart.
-  Pinned: `test_disagreement_needs_reloc_has_no_current_segment_fallback`.
+  `needs_reloc` → **True** (the masking label).
 
-Fixing either is a **behaviour change**, not a refactor: give it its own
-commit, predict the metric movement, run the gate, and update §II.4/§II.5 and
-the two pinning tests (each carries an assertion message telling you so).
+  The fix was **not** a fourth copy of those three lines. Row 0 now exists
+  once, as `asm._cur_seg()`, and `resolve` / `sym_kind` / `needs_reloc` are its
+  three callers — the `_with_active_field` shape (§II.6 point 4). Golden gate:
+  **byte-identical, all 52 metrics, zero improvements.** The reason it moved
+  nothing is call-site phase, not luck of shape: `needs_reloc` is reached only
+  from `omf.py`'s emit paths, and every one of them runs under `_build_body`,
+  which sets `asm._rseg` first — so the fallback never fires in a corpus build.
+  Pinned: `test_agreement_row0_current_segment_fallback_is_shared_not_restated`,
+  which overrides `_cur_seg` to prove all three read it rather than restate it,
+  plus a whole no-cursor column across the swept matrix (`None` in `_MATRIX`).
+
+Closing either is a **behaviour change**, not a refactor: give it its own
+commit, predict the metric movement, run the gate, and update §II.2/§II.5 and
+the pinning test (which carries an assertion message telling you so).
 
 ## II.6 The checklist for changing a restatement
 
@@ -348,13 +374,20 @@ the two pinning tests (each carries an assertion message telling you so).
    applied to the wrong one produces right bytes for the wrong reason and
    breaks the invariants for every other cell.
 2. **Which ladder row?** Add it to §II.2 with its ✓/— column — the empty cells
-   in that table *are* the drift surface (row 0 and row 9 are X2 and X1).
+   in that table *are* the drift surface (row 9 is X1; row 0 was X2, closed).
 3. **Do both invariants still hold?** Run
    `tests/test_symbol_precedence_agreement.py`. If your change makes a
    registered divergence disappear, the sweep fails loudly ("STALE REGISTER")
    — that is the register refusing to rot, not a broken test.
 4. **Does the branch belong in a shared helper?** `_with_active_field` is the
-   precedent: one lookup, three callers, no drift possible.
+   precedent: one lookup, three callers, no drift possible. **Default to yes.**
+   The 0.6.0 X2 fix is the worked example: the obvious repair was to paste the
+   three fallback lines into `needs_reloc`, which would have made a fourth
+   restatement of row 0 and left the next author free to drift it again;
+   `_cur_seg()` makes the row exist once instead. Share the LOOKUP, not the
+   ANSWER — each caller still translates it into its own vocabulary (value /
+   kind / record-or-not), which is why this is not the same thing as unifying
+   the four functions.
 5. **Does it change a KIND?** Then it changes SIZING through `is_reloc`, which
    changes instruction lengths, which moves every later address. Size the blast
    radius before the gate does it for you.
@@ -373,5 +406,6 @@ the two pinning tests (each carries an assertion message telling you so).
 | Part I §6 (`SymTab`, kinds on the values) | `test_symtab_dict_splat_merge_carries_the_kinds_on_the_values`, `test_symtab_construction_from_a_plain_dict_demands_kinds` |
 | Part II §3 (both invariants, generated matrix) | `tests/test_symbol_precedence_agreement.py::test_matrix_invariant_{a,b}_*` |
 | Part II §4 (D1–D5) | `test_difference_d1_*` … `test_difference_d4_*`, `test_cell_import_*` |
-| Part II §5 (X1, X2) | `test_disagreement_*` |
+| Part II §5 (X1, still live) | `test_disagreement_case_exact_equ_is_invisible_to_needs_reloc` |
+| Part II §5 (X2, closed) | `test_agreement_row0_current_segment_fallback_is_shared_not_restated`, plus the `None` (no-cursor) column of `_MATRIX` |
 | the reloc-record walk that consumes all of this | `tests/test_omf_units.py`, `tests/test_expressload_*.py`, `tests/test_linkiigs_super_type26.py` |
