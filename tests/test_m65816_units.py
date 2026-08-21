@@ -226,19 +226,21 @@ def test_branch_and_blockmove_classes_agree_with_the_table():
         assert set(OPTABLE[mnem]) == {'bmv'}, mnem
 
 
-def test_branch8_contains_two_names_the_table_cannot_encode():
-    """SUSPICIOUS (pinned, not fixed).
+def test_every_branch8_name_is_encodable():
+    """RESOLVED (was SUSPICIOUS): BRANCH8 no longer lists BLE/BGT.
 
-    BRANCH8 lists BLT/BGE/BLE/BGT as short-branch spellings.  BLT and BGE
-    are wired through ALIAS to BCC/BCS, but BLE and BGT are in NEITHER
-    OPTABLE nor ALIAS, so they are unknown mnemonics: `encode('BLE', ...)`
-    returns (None, None) and `MNEMONICS` does not contain them.  Either
-    they are dead entries in BRANCH8 or two aliases were never wired; the
-    corpus evidently never needed them.  Today's behavior is asserted here
-    so a future wiring change is visible rather than silent.
+    BRANCH8's only non-OPTABLE members are BLT and BGE, and both are wired
+    through ALIAS to BCC/BCS — so every name in the set encodes.  The old
+    two strays, BLE and BGT, were dead entries: the 65816 has no such
+    opcodes, and every corpus source that wants them defines them as a
+    TWO-INSTRUCTION MACRO (`ble` -> `blt`+`beq`; `bgt` -> `beq @skip`+`bge`;
+    see `work/romsrc/GS_ROM/QD/rects.asm:53-66` and six sibling copies).
+    They are therefore ordinary user macro names, not mnemonics, and
+    `encode` correctly reports them as unknown.
     """
-    assert sorted(BRANCH8 - set(OPTABLE)) == ['BGE', 'BGT', 'BLE', 'BLT']
-    assert sorted(BRANCH8 - MNEMONICS) == ['BGT', 'BLE']
+    assert sorted(BRANCH8 - set(OPTABLE)) == ['BGE', 'BLT']
+    assert BRANCH8 - MNEMONICS == set()
+    assert {'BLE', 'BGT'} & MNEMONICS == set()
     assert encode('BLE', 'Target', False, False, ev, 0) == (None, None)
     assert encode('BGT', 'Target', False, False, ev, 0) == (None, None)
 

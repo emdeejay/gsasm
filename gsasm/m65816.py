@@ -20,8 +20,23 @@ IMM_A = {'ADC', 'AND', 'BIT', 'CMP', 'EOR', 'LDA', 'ORA', 'SBC'}
 IMM_X = {'CPX', 'CPY', 'LDX', 'LDY'}
 IMM_1 = {'REP', 'SEP', 'BRK', 'COP', 'WDM'}
 
+# The nine short-branch opcodes, plus the two alternate spellings AsmIIgs
+# accepts for the unsigned-comparison branches (BLT = BCC, BGE = BCS; wired
+# through ALIAS below and proven by the captured listings -- e.g.
+# `work/romsrc/GS_ROM/.../scheduler.asm.lst` shows `blt @loop` assembling to
+# `90` and `bge @TheError` to `B0`).
+#
+# BLE and BGT are deliberately NOT here.  The 65816 has no such opcodes and
+# AsmIIgs has no such aliases: every corpus source that wants them DEFINES
+# them, as a two-instruction MACRO, under a comment that says so --
+# `work/romsrc/GS_ROM/QD/rects.asm:47` "macros for branching on conditions
+# that take more than one instruction", `ble &A` -> `blt &A` + `beq &A`,
+# `bgt &A` -> `beq @dontTake` + `bge &A`.  Six more independent definitions
+# exist (WindMgr, ControlMgr, TextEdit, StdFile, MIDISynth, Apple.Bowl).
+# Listing them here as encodable would be wrong twice over: there is no
+# opcode to give them, and they are user macro names.
 BRANCH8 = {'BCC', 'BCS', 'BEQ', 'BMI', 'BNE', 'BPL', 'BRA', 'BVC', 'BVS',
-           'BLT', 'BGE', 'BLE', 'BGT'}
+           'BLT', 'BGE'}
 BRANCH16 = {'BRL', 'PER'}
 BLOCKMOVE = {'MVN', 'MVP'}
 

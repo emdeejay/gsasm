@@ -3,11 +3,17 @@ a hard assembly ERROR, not a silently wrapped wrong target.
 
 BUG (found while assembling the system-settings-gs app, see that repo's
 docs/HARNESS.md "A23 harness notes"): a short branch (BCC/BCS/BEQ/BNE/BMI/
-BPL/BVC/BVS/BRA, plus the aliases BLT/BGE/BLE/BGT) whose true displacement
+BPL/BVC/BVS/BRA, plus the two aliases BLT/BGE) whose true displacement
 falls outside -128..127 got its offset silently WRAPPED modulo 256 into a
 WRONG target -- no error, no warning. Real AsmIIgs errors on this; silent
 wrong code is the worst failure class an assembler has. BRL/PER (16-bit
 relative) have the same class of bug for -32768..32767.
+
+(This docstring used to claim BLE/BGT as handled aliases too. It was wrong:
+the 65816 has no BLE/BGT opcode and AsmIIgs has no such alias -- corpus
+sources define them as two-instruction MACROS (`ble` -> `blt`+`beq`), so
+their range checking is the range checking of the branches they expand to.
+BRANCH8 was corrected to match in the same packet; see the note there.)
 
 ROOT CAUSE: gsasm/m65816.py's `encode()` always defers a rel8/rel16 operand
 to a `Fixup` -- `_emit()` only calls `evaluate()` for kind in ('val', 'byte'),
