@@ -291,6 +291,16 @@ TOOLMAP = {
 # non-exact tool must not enter the gate denominator (E3 house rule: mapping
 # is gate-visible only once byte-exact).  Empty since Tool034 closed
 # (2026-07-19: 35651/35651).
+#
+# WIP is an ACCEPTED STATE, not a hiding place.  Parking a tool here takes it
+# out of the byte tally AND out of `n_unbuilt`, so before 0.6.0 a parked tool
+# left no number anywhere: the only trace was a row in the table nobody parses.
+# main() now counts WIP separately, prints what it holds, and reports
+# `tool_wip` to gate_result with an accepted value of ZERO — so adding a tool
+# here is a deliberate edit at BOTH ends (this set, and the accepted count at
+# the gate_result call, next to the comment saying why), exactly as
+# work/_common.py's gate_result contract intends.  Absent by accident is the
+# thing being prevented; parked on purpose stays possible.
 WIP = set()
 
 
@@ -899,26 +909,45 @@ def main():
     print(f"{'Tool':7} {'Manager':12} {'match':>7}  {'bytes (gsasm/gold)':>20}")
     tot_m = tot_n = 0
     n_unbuilt = 0          # non-WIP tools that produced no comparison (gate_result)
+    wip_m = wip_n = 0      # the same tallies for the parked tools, kept visible
+    wip_unbuilt = 0
     for t in sorted(TOOLMAP):
         _, sub, res, err = check(t)
         wip = '  [WIP, excluded from tally]' if t in WIP else ''
         if res is None:
             print(f"Tool{t}  {sub:12} {'--':>7}  {err}{wip}")
-            if t not in WIP:
+            if t in WIP:
+                wip_unbuilt += 1
+            else:
                 n_unbuilt += 1
             continue
         pct, m, n, lg, lo = res
-        if t not in WIP:
+        if t in WIP:
+            wip_m += m; wip_n += n
+        else:
             tot_m += m; tot_n += n
         print(f"Tool{t}  {sub:12} {pct:>6}%  {lg:>8}/{lo:<8}  ({m}/{n} bytes){wip}")
     if tot_n:
         print(f"\nCORPUS raw code-image match: {tot_m}/{tot_n} ({100*tot_m//tot_n}%)")
+    # A parked tool leaves the tally above AND `n_unbuilt`, so without these
+    # lines it would have no number anywhere -- absent rather than WIP.  Print
+    # the set even when it is empty: "the exclusion path ran and excluded
+    # nothing" is the assertion worth making every run.
+    print(f"WIP mappings held out of the tally above: {len(WIP)}"
+          + (f"  ({', '.join('Tool' + t for t in sorted(WIP))})" if WIP else ""))
+    if WIP:
+        print(f"  WIP byte agreement (NOT gated): {wip_m}/{wip_n}; "
+              f"WIP tools that did not build: {wip_unbuilt}")
     # Nothing accepted: all 18 tools build and every compared byte matches.
     # tool_unbuilt is the second signal -- a tool that fails to build (or loses
     # its golden) contributes no MISMATCHED bytes, it just silently stops
-    # contributing matching ones.  WIP tools are excluded, exactly as they are
-    # excluded from the tally above (WIP is empty today).
-    return gate_result(tool_bytes=tot_n - tot_m, tool_unbuilt=n_unbuilt)
+    # contributing matching ones.
+    # tool_wip is the third: WIP is empty today and its accepted value says so.
+    # Parking a tool is still allowed -- it just costs one more deliberate edit
+    # here, with the reason written beside the number, instead of a tool
+    # quietly vanishing from both counters above.
+    return gate_result(tool_bytes=tot_n - tot_m, tool_unbuilt=n_unbuilt,
+                       tool_wip=len(WIP))
 
 
 if __name__ == '__main__':
