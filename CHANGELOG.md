@@ -178,33 +178,142 @@ noticed either defect; they are still two functions reached from two phases.
 - The documented gate runtime ("~2 minutes") was stale and is corrected to the
   measured 3m42s.
 
-### Defects found by the new tests and contracts
+### Defects fixed (found by the new tests and contracts)
 
-The tests below were written to pin current behaviour; what they pinned, in
-several cases, was a defect.  Each fix is its own gated commit:
+The tests were written to pin current behaviour; what several of them pinned
+was a defect.  Each fix below is its own gated commit, and no golden byte moved
+for any of them.
 
-- `BLE`/`BGT` are listed in `BRANCH8` but wired through neither `OPTABLE` nor
-  `ALIAS`, so `encode('BLE', …)` returns `(None, None)` — while
-  `test_branch_range.py`'s docstring names them as handled aliases.
-- `lda #` raises `IndexError` (`'' in '<>^'` is `True` in Python, so the empty
-  operand enters the part-selector branch).
-- Several operand shapes emit two zero bytes or silently truncate rather than
-  reporting an error (`stz $10,y`, `lda $030000,y`).
-- `MOD` by zero raises a raw `ZeroDivisionError` while `/` by zero is
-  deliberately swallowed to 0 two lines above; `MOD` is floored where `/`
-  truncates.
-- `expr.parse()` never checks it consumed its token stream, so `'2 3'`
-  evaluates to 2 and a missing `)` is tolerated.
-- `omf.parse_records` cannot decode SUPER (0xF7): the walk *stops* there, so
-  `iter_segments(records=True)` silently truncates any linked or
-  ExpressLoad'd segment (1,720 unparsed bytes on shipping Tool014). No live
-  caller is exposed today — every one takes `raw`/the header or body records
-  that precede the reloc tail — but R1 promoted `iter_segments` to the one
-  segment-walker, and the next person to walk a linked file for its relocs is
-  who this fires at.
-- `opts['super_classes']` is silently ignored on the multiseg path, and
-  `_merge_bodies`' ALIGN gap-fill has no multiseg equivalent though `_place`
-  still ALIGN-rounds each base. Both unforced by any golden artifact.
+**Assembler / encoder**
+
+- **`BLE`/`BGT` removed as dead `BRANCH8` entries.** They were wired through
+  neither `OPTABLE` nor `ALIAS`, so `encode('BLE', …)` returned `(None, None)`
+  while `test_branch_range.py`'s docstring claimed them as handled aliases.
+  They are not aliases: the 65816 has nine short-branch opcodes and none spare,
+  and the corpus defines `ble`/`bgt` as two-instruction **macros**
+  (`QD/rects.asm`: "macros for branching on conditions that take more than one
+  instruction").  The MPW Assembler Reference does list BGE/BGT/BLE/BLT — as
+  *68000* instructions.  `BLT`/`BGE` are genuine and unaffected.
+- **`lda #` reports an encode error** instead of raising `IndexError`
+  (`'' in '<>^'` is `True` in Python, so an empty operand entered the
+  part-selector branch).
+- **An operand that fits no addressing mode is an error**, not two silent zero
+  bytes (`stz $10,y`, `ldx 3,s`), and neither is a silent narrowing into a
+  **one-byte** operand (`stx $1234,y`, `lda $1234,s`) where nothing can supply
+  the missing half.  New `m65816.EncodeError`, surfaced through the existing
+  `Asm.errors` channel.
+- **Block moves report a bank they cannot account for** rather than baking
+  zero.
+- `instr_length()` takes `pc`/`reloc` instead of hard-coding them to `0`/`None`
+  and disagreeing with `encode()` on cross-bank sizing.
+
+**Expression evaluator**
+
+- **`5 MOD 0` yields 0**, like `/` by 0.  This is documented, not a consistency
+  guess: the Assembler Reference names `MOD` and `//` as *modulus division*
+  (Table 2-2, p.29) and states *"Division by 0 yields 0 as the result"* (p.30).
+- **`parse()` must consume its whole token stream.**  `'2 3'` no longer
+  evaluates to 2, `'1)'` no longer to 1, a missing `)` is no longer tolerated.
+  New `BadExpression`, a subclass of `Unresolved` so every existing
+  `except Unresolved` site is unaffected, filed into `Asm.errors`.
+
+**OMF**
+
+- **`parse_records` decodes SUPER (0xF7)** instead of breaking the walk.  It
+  previously fell through to `UNHANDLED` and stopped, so
+  `iter_segments(records=True)` silently truncated any linked or ExpressLoad'd
+  segment — 1,719 unparsed bytes on shipping Tool014, which now walks to `END`.
+  The page-list codec moved from `expressload` into `omf` (re-exported by
+  identity, the shape R8 used for `link.py`), so there is one copy, not two.
+- **A truncated record raises `OMFParseError`** (a `ValueError` subclass)
+  instead of running the cursor past the buffer, and an unterminated
+  expression raises instead of returning an op-list with no `'end'` sentinel.
+
+**Linker / symbols**
+
+- Both `needs_reloc` disagreements closed — see above.
+
+**makebin**
+
+- `overlay`: the docstring was wrong about growth (the real OverlayIIgs extends
+  its destination, as `p8_driver` already encoded in the one place it is
+  byte-proved), and the **code** was wrong about gaps — `bytearray` slice
+  assignment clamps, so a patch wholly past the end silently landed at the
+  wrong address.  `p8_driver._overlay` now delegates, so the model has one home.
+- Deferred GEQUs resolve to a **fixed point** with a cycle guard, not to a
+  hard-coded two passes (a three-deep forward chain resolved wrong).
+- A segment declaring a longer `LENGTH` than its body is zero-padded, so the
+  flat image and its own symbol table describe one layout; an over-long body
+  now raises.
+
+**ExpressLoad**
+
+- **`opts['super_classes']` is rejected on the multiseg path** rather than
+  silently ignored.  Honouring it would move a `(size, shift)` class from the
+  targeting phase into the case-A encoder, leaving absolute-equate bank-word
+  sites holding the unshifted low word — an unforced redesign with no golden
+  artifact to gate it.
+- **The multiseg group image fills its ALIGN gaps.**  This was filed as latent,
+  and was not: `AppleDisk5.25` declares `align 256` on four segments and is the
+  only artifact in the gate whose merge fills anything (173, 12, 22, 9 bytes).
+  It reaches `_merge_bodies` only via the single path, which is why the
+  multiseg gap went unseen — the pinning test fails against the previous tree
+  with a SUPER record naming an offset outside its own image.
+- A `stype == 1` branch whose arms had become character-identical is collapsed
+  (both comments kept), a dead `tgt_segnum` store removed, and the unguarded
+  `expr_at` lookup now names the offset and the invariant instead of raising a
+  bare `KeyError`.
+
+**Harness**
+
+- `bytecheck` names the modules its "0 opcode errors" count leaves out, and
+  gained zero-accepting counters for modules whose assembly raised and for
+  one-sided row yields.  The three excluded modules are `sys.equs.asm`,
+  `QD/CallTable.asm` and `QD/font.asm` — 466 `EQU` lines and two pure data
+  tables, zero 65816 mnemonics between them.  A category, not a residual, so no
+  metric grew.
+- `objcheck` distinguishes an assembler crash from a byte mismatch (it
+  previously swallowed every exception with `except Exception: pass`, so a
+  crash landed in the accepted 21).
+- A tool parked in `toolcheck`'s WIP set is now reported as WIP rather than
+  silently absent from both signals.
+
+### Discovered, not fixed — three "defects" that were MPW behaviour
+
+Filing these as defects is what made them findable; the gate is what stopped
+them being "fixed" into regressions.
+
+- **`lda $bbxxxx,y` dropping its bank is real AsmIIgs behaviour.**  The naive
+  fix took `linkcheck` to 60/61 with 23 encode errors in `Serial.aii`.  The
+  oracle settles it: `Serial.aii.lst:336` has `QBASE equ $E11DD8`, line 2624
+  emits `LDA QBase,y` → `B9 1DD8` — bank dropped — and the listing ends
+  "Assembly complete - no errors found."  The bank comes from the Data Bank
+  Register at run time.  A probe over all 28 checks found 414 narrowings in the
+  corpus, **every one** of class `w=3 → nb=2 absy` on ADC/CMP/LDA/SBC/STA.
+  Now documented with the citation instead of labelled suspicious.
+- **`NOT` does not continue an expression.**  `_EXPR_TAIL_OP` treated it as a
+  continuation operator, folding prose comments into data operands;
+  `NewCalls.asm.lst:2973` shows MPW emitting `00000032` for
+  `p_wdefProc equ p_wInfoH+2` and reading the trailing `NOT USED.` as a
+  comment.  `NOT` is unary (Asm Ref Table 2-2).
+- **`eval_cond` stripped `THEN`/`DO` with a literal-space test** while the
+  corpus overwhelmingly writes a tab.  Together these two produced correct
+  bytes only because `expr` silently swallowed what they leaked — two bugs
+  cancelling, invisible until the parser got strict.  Tightening `parse()`
+  surfaced 6,702 evaluations across 47 operand texts; with both callers fixed,
+  it rejects **zero**.
+
+### Declined, with reasons
+
+- **`MOD`'s sign.**  `/` truncates (documented, and `-7/2 == -3` not `-4`);
+  `MOD` floors.  The manual is silent on modulus sign, and the corpus cannot
+  arbitrate: all 22 genuine MOD sites across 3,521 files use **non-negative
+  operands**, where floored and truncated agree.  Changing it would encode an
+  undocumented, untestable claim about Apple's assembler into a byte-exact
+  reproduction.  Recorded in the §5 Do-Not-Touch registry instead.
+- **A relocatable operand narrowing to dp,y** still truncates quietly:
+  `_width`'s "never direct page" answer for a relocatable is a policy, not a
+  measurement, so reporting there risked pass-1 false positives.
 
 ### Corrected (found by the new reconciliation)
 
