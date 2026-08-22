@@ -2951,7 +2951,7 @@
           "path": "/SystemTools1/System/Desk.Accs/FindFile",
           "forks": {
             "data": {
-              "classification": "no-source-substitute",
+              "classification": "pascal-c-nontarget",
               "evidence": "DATA/code fork core is FindFileDA.p (Pascal) -- outside the asm/rez target; carried verbatim (pascal-c-nontarget wall).",
               "size": 11678,
               "search": {
@@ -4686,7 +4686,7 @@
           "path": "/SystemTools1/Adv.Disk.Util",
           "forks": {
             "data": {
-              "classification": "no-source-substitute",
+              "classification": "pascal-c-nontarget",
               "evidence": "Application code fork is Pascal (A.U.G/ADU has 11 .pii + 2 .aii + 1 adu.rii); outside the asm/rez target (pascal-c-nontarget wall).",
               "size": 52803,
               "search": {
@@ -5141,7 +5141,7 @@
           "path": "/SystemTools2/System/Desk.Accs/MediaControl",
           "forks": {
             "data": {
-              "classification": "no-source-substitute",
+              "classification": "pascal-c-nontarget",
               "evidence": "DATA/code fork built from Pascal (MediaCtlNDA.pii + MediaCtlUNIT.pii); non-target (pascal-c-nontarget wall).",
               "size": 35208,
               "search": {
@@ -5197,7 +5197,7 @@
           "path": "/SystemTools2/System/Desk.Accs/VideoMix",
           "forks": {
             "data": {
-              "classification": "no-source-substitute",
+              "classification": "pascal-c-nontarget",
               "evidence": "DATA/code fork is Pascal (PokeyNDA.Pii + PokeyUnit.Pii); non-target (pascal-c-nontarget wall).",
               "size": 25536,
               "search": {
@@ -6355,7 +6355,7 @@
           "path": "/SystemTools2/Teach",
           "forks": {
             "data": {
-              "classification": "no-source-substitute",
+              "classification": "pascal-c-nontarget",
               "evidence": "DATA/code fork built from Pascal (uMenu.p, uWindow.p, uUtils.p, uGlobals.p, ...); non-target (pascal-c-nontarget wall).",
               "size": 41628,
               "search": {
@@ -7281,7 +7281,7 @@
           "path": "/Fonts/Goodies/Apple.Bowl",
           "forks": {
             "data": {
-              "classification": "no-source-substitute",
+              "classification": "pascal-c-nontarget",
               "evidence": "DATA fork (application) built by IntBasicIIGS, a custom BASIC->OMF compiler written in Pascal (Compiler/Basic.p etc); non-target (pascal-c-nontarget wall).",
               "size": 19329,
               "search": {
@@ -9900,15 +9900,14 @@
   },
   "needs_investigation_resolved": "2026-07-30: both -> buildable-asm",
   "_totals": {
-    "built": 135,
-    "technical-exception": 2,
-    "no-source-substitute": 183,
-    "buildable-asm": 22,
-    "buildable-rez": 5,
+    "built": 181,
+    "no-source-substitute": 235,
     "pascal-c-nontarget": 8
   },
   "_total_files": 355,
   "_disks": 7,
+  "_totals_granularity": "fork",
+  "_total_forks": 424,
   "_base_census": "disk_census_2026-07-30.json",
   "_generator": "work/censusledger.py",
   "_generation_note": "GENERATED \u2014 never hand-edit. Fork-granular census regenerated from the frozen file-granular base census (B2, docs/ADVERSARIAL_REVIEW_SOW_IMPLEMENTATION_2026-08-01.md finding #3) plus the hand-maintained OVERRIDES ledger in work/censusledger.py. Every file-level field is preserved verbatim from the base census (including the original `forks` prose string, now under `forks_raw_v1`); the `forks` field is a {fork: {classification, proven_by?, source_path?, size, evidence, search?, accepted?}} dict, one entry per fork the LIVE disk actually has. `search` (finding #5, C2) is folded in from docs/substitute_search_evidence_2026-08-01.json for every SUBSTITUTE/TECHNICAL_EXCEPTION fork whose (disk, path) that sidecar covers; `accepted` (finding #4, C1) is a human-acceptance marker for a TECHNICAL_EXCEPTION fork that regeneration never fabricates (zero TECHNICAL_EXCEPTION records remain as of 2026-08-01 \u2014 Tool.Setup x2 cracked to built). To change anything here, edit work/censusledger.py OVERRIDES (see that file's write-API section) and re-run it; a hand edit to this JSON is reverted by the next regeneration and is caught meanwhile by `python3 work/censusledger.py --check` / the `ledger_census_regenerable` gate metric."

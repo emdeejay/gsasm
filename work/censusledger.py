@@ -445,7 +445,7 @@ _add(D3, '/SystemTools1/System/Finder',
 # their resource fork genuinely IS built+gated, only the Pascal data/code
 # fork is the (correctly classified) non-target wall.
 _add(D3, '/SystemTools1/System/Desk.Accs/FindFile',
-     data=_entry('no-source-substitute', None,
+     data=_entry('pascal-c-nontarget', None,
                  'DATA/code fork core is FindFileDA.p (Pascal) -- outside '
                  'the asm/rez target; carried verbatim (pascal-c-nontarget '
                  'wall).'),
@@ -457,7 +457,7 @@ _add(D3, '/SystemTools1/System/Desk.Accs/FindFile',
                  'rsrc; the FILE-level classification (pascal-c-nontarget) '
                  'undercounted this genuinely-built fork.'))
 _add(D3, '/SystemTools1/Adv.Disk.Util',
-     data=_entry('no-source-substitute', None,
+     data=_entry('pascal-c-nontarget', None,
                  'Application code fork is Pascal (A.U.G/ADU has 11 .pii + 2 '
                  '.aii + 1 adu.rii); outside the asm/rez target '
                  '(pascal-c-nontarget wall).'),
@@ -473,7 +473,7 @@ _add(D3, '/SystemTools1/Adv.Disk.Util',
                  'buildable-rez/TODO_BUILDABLE ("not yet wired into any '
                  'gate harness"); now wired and gated.'))
 _add(D4, '/SystemTools2/System/Desk.Accs/MediaControl',
-     data=_entry('no-source-substitute', None,
+     data=_entry('pascal-c-nontarget', None,
                  'DATA/code fork built from Pascal (MediaCtlNDA.pii + '
                  'MediaCtlUNIT.pii); non-target (pascal-c-nontarget wall).'),
      rsrc=_entry('built', 'rezforkcheck',
@@ -482,7 +482,7 @@ _add(D4, '/SystemTools2/System/Desk.Accs/MediaControl',
                  'REZFORK_BYTES_EXACT). v1 left proven_by null despite '
                  'naming rezforkcheck in the prose evidence.'))
 _add(D4, '/SystemTools2/System/Desk.Accs/VideoMix',
-     data=_entry('no-source-substitute', None,
+     data=_entry('pascal-c-nontarget', None,
                  'DATA/code fork is Pascal (PokeyNDA.Pii + PokeyUnit.Pii); '
                  'non-target (pascal-c-nontarget wall).'),
      rsrc=_entry('built', 'rezforkcheck',
@@ -491,7 +491,7 @@ _add(D4, '/SystemTools2/System/Desk.Accs/VideoMix',
                  'REZFORK_BYTES_EXACT). v1 left proven_by null despite '
                  'naming rezforkcheck in the prose evidence.'))
 _add(D4, '/SystemTools2/Teach',
-     data=_entry('no-source-substitute', None,
+     data=_entry('pascal-c-nontarget', None,
                  'DATA/code fork built from Pascal (uMenu.p, uWindow.p, '
                  'uUtils.p, uGlobals.p, ...); non-target (pascal-c-nontarget '
                  'wall).'),
@@ -501,7 +501,7 @@ _add(D4, '/SystemTools2/Teach',
                  'proven_by null despite naming teachcheck in the prose '
                  'evidence.'))
 _add(D5, '/Fonts/Goodies/Apple.Bowl',
-     data=_entry('no-source-substitute', None,
+     data=_entry('pascal-c-nontarget', None,
                  'DATA fork (application) built by IntBasicIIGS, a custom '
                  'BASIC->OMF compiler written in Pascal (Compiler/Basic.p '
                  'etc); non-target (pascal-c-nontarget wall).'),
@@ -829,6 +829,24 @@ def regenerate():
     if unused:
         raise AssertionError(f'OVERRIDES entries never matched a census '
                               f'record (stale): {sorted(unused)}')
+    # _totals / _total_files rode along in the deep copy of the v1 base census
+    # and were never recomputed, so a FORK-granular document carried a
+    # FILE-granular summary describing the census it superseded -- it still
+    # advertised 22 buildable-asm / 5 buildable-rez / 2 technical-exception
+    # after every one of those was closed.  Nothing consumed it, which is
+    # exactly why it drifted for three weeks.  Derive it instead.
+    fork_totals: dict[str, int] = {}
+    n_files = 0
+    for disk in new['disks'].values():
+        for f in disk['files']:
+            n_files += 1
+            for sub in f['forks'].values():
+                cls = sub['classification']
+                fork_totals[cls] = fork_totals.get(cls, 0) + 1
+    new['_totals'] = dict(sorted(fork_totals.items()))
+    new['_totals_granularity'] = 'fork'
+    new['_total_files'] = n_files
+    new['_total_forks'] = sum(fork_totals.values())
     new['_base_census'] = os.path.basename(BASE_CENSUS)
     new['_generator'] = 'work/censusledger.py'
     new['_generation_note'] = (
