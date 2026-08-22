@@ -12,12 +12,19 @@ mis-shaped two investigations; trust toolsets.py and the makefile, not this.
 
 Reproduces the System.Setup/Tool.Setup ExpressLoad build (multi-object,
 segment-name-filtered, 2 -lseg groups `main`+`patches`) from clean-room source
-and diffs it against the shipping binary.  RESULT (see docs/design/FINAL_RUN.md):
-both segments' CODE lengths match exactly (1078 + 16402); the only residual is
-relocation-record ENCODING — gsasm SUPER-izes all relocs, golden keeps 31
+and diffs it against the shipping binary.
+
+WHAT IT CLAIMED, 2026-07 (superseded — read the OBSOLETE note above first):
+"both segments' CODE lengths match exactly (1078 + 16402); the only residual
+is relocation-record ENCODING — gsasm SUPER-izes all relocs, golden keeps 31
 standalone cINTERSEG (main) + 11 standalone cRELOC (patches).  That is the
-case-B ExpressLoad converter wall (docs/design/expressload.md), so Tool.Setup
-is code-exact but NOT byte-exact and is deliberately left unwired.
+case-B ExpressLoad converter wall, so Tool.Setup is code-exact but NOT
+byte-exact and is deliberately left unwired."
+
+Every clause of that is now false.  Tool.Setup is byte-exact at 19232/19232
+and wired; the "converter wall" was recipe drift in this probe.  Running this
+file still prints roughly 8107/19232 (~42%) because it still carries the drifted
+recipe — that number measures THIS SCRIPT, not gsasm.
 
 Needs a2til (set A2TIL_PATH or place as a sibling of gsasm).  Run from repo root.
 """
@@ -25,7 +32,11 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__))))
-from _common import ensure_a2til_on_path        # noqa: E402
+from _common import ensure_a2til_on_path, ensure_repo_on_path   # noqa: E402
+# Those two inserts are work/ and work/archive/ -- NOT the repo root, so
+# `from gsasm import ...` below died with ModuleNotFoundError no matter where
+# it was run from, docstring's "Run from repo root" notwithstanding.
+ensure_repo_on_path()
 ensure_a2til_on_path('toolsetup_probe')
 from gsasm import asm, omf
 from gsasm.expressload import expressload
@@ -80,6 +91,15 @@ patches_combo = loc+sst+ldg+tl_+com+msc+cda+nda
 
 mine = expressload([(main_combo,None),(patches_combo,None)],
   opts={'multiseg':True,'segnames':[b'main',b'patches'],'segkinds':[0x3000,0x0000]})
+
+print('=' * 72)
+print('OBSOLETE PROBE — the percentage below measures THIS SCRIPT, not gsasm.')
+print('Tool.Setup is byte-exact at 19232/19232 and wired; see')
+print('work/diskbuilders/toolsets.py::_build_toolsetup and work/toolcheck.py.')
+print('This file still carries the drifted 2026-07 recipe that produced the')
+print('"converter wall" conclusion, and is kept only as the historical record')
+print('of an investigation it mis-shaped.  Do not quote this number.')
+print('=' * 72)
 
 from a2til.prodos import Volume
 buf=bytearray(open("ref/GSOS_6/System601_disks/System 6.0.1/Disk 2 of 7 System Disk.2mg",'rb').read())

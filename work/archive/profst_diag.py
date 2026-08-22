@@ -15,8 +15,12 @@ kernelcheck + drivercheck + toolcheck + diskcheck.
 import os, re, struct, sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_REPO = os.path.dirname(_HERE)
-for _p in (_REPO, _HERE):
+# One dirname reached the repo root when this probe lived in work/; R3 moved it
+# into work/archive/ and _REPO silently became work/ -- so `from gsasm import`
+# died, and _SRC below pointed at a work/ref/ that does not exist.
+_REPO = os.path.dirname(os.path.dirname(_HERE))
+_WORK = os.path.dirname(_HERE)
+for _p in (_REPO, _WORK, _HERE):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 

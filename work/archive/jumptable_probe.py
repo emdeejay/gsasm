@@ -45,6 +45,12 @@ import struct
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# ...and the repo root.  Two dirnames reached it when these probes lived in
+# work/; R3 moved them into work/archive/ and that insert silently became
+# work/, so every `from gsasm import ...` below died with
+# ModuleNotFoundError.  Nothing runs them, so nothing noticed.
+sys.path.insert(0, os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__)))))
 from gsasm import omf
 
 SEG_JMP_START = 8      # Loader.Equates seg_jmp_start
