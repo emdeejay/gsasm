@@ -315,6 +315,27 @@ them being "fixed" into regressions.
   `_width`'s "never direct page" answer for a relocatable is a policy, not a
   measurement, so reporting there risked pass-1 false positives.
 
+### The ninth ledger
+
+- **Six forks said "no source" about source that is in the archive.**
+  Adv.Disk.Util, Teach, MediaControl, VideoMix, Apple.Bowl and FindFile (data
+  forks, 186,202 B) were classified `no-source-substitute` while their own
+  evidence text named the Pascal sources and called it "the
+  pascal-c-nontarget wall". Two files in the same category were already
+  labelled correctly, so the census had two labels for one situation. The
+  wall is the toolchain, not absent source, and the census now says so:
+  `no-source-substitute` 241 → 235, `pascal-c-nontarget` 2 → 8. Metric-neutral
+  by construction — `diskmanifest` maps both labels to SUBSTITUTE, so
+  substitutes stay 243/243 and builders 181/181.
+- **The census's own `_totals` block contradicted its body.** It rode along in
+  the deep copy of the v1 base census and was never recomputed, so a
+  fork-granular document carried a file-granular summary of the census it
+  superseded — still advertising 22 `buildable-asm`, 5 `buildable-rez` and 2
+  `technical-exception` weeks after every one of those was closed. Nothing
+  consumed it, which is precisely why it drifted. Now derived, with its
+  granularity stated: 181 built, 235 no-source-substitute, 8
+  pascal-c-nontarget; 355 files, 424 forks.
+
 ### Corrected (found by the new reconciliation)
 
 - The **prose** fork counts in `README.md` and in the 0.5.0 entry below said

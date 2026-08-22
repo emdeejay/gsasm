@@ -34,11 +34,12 @@ binaries:
   forks with producing source (assembler or Rez) are rebuilt and overlaid
   from source (Install 39, System Disk 41, SystemTools1 38, SystemTools2 52,
   Fonts 3, synthLAB 2, Apple II Setup 6 — including the HFS Disk 7, written
-  through a2til's allocation-preserving overlay engine), and every
-  no-source substitute is carried verbatim under a per-fork census with
-  dated, structured search evidence.  The completion gate
-  (`work/manifestcheck.py --tier-a`) passes on all six machine-checked
-  conditions
+  through a2til's allocation-preserving overlay engine), and every one of the
+  243 substitutes is carried verbatim under a per-fork census with dated,
+  structured search evidence — 235 because no source exists in any archive,
+  8 because the source is Pascal or BASIC and this is an assembler.  The
+  completion gate (`work/manifestcheck.py --tier-a`) passes on all six
+  machine-checked conditions
 - **Resource forks** (`gsrez`): `Sys.Resources`, `EasyMount`, all **19
   Control-Panel CDEVs**, the **Finder** (both forks — the 146 KB application
   itself rebuilds from source), the **Installer**, and **Teach** — the Rez
