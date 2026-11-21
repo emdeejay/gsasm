@@ -129,6 +129,42 @@ def test_dynamic_group_rejects_obj_inputs():
             raise AssertionError('expected LinkCliError')
 
 
+_TWO_PROCS = """\
+KeepMe\tPROC
+\tEXPORT\tKeepMe
+\tlda\t#$0001
+\trtl
+\tENDP
+DropMe\tPROC
+\tEXPORT\tDropMe
+\tlda\t#$0002
+\trtl
+\tENDP
+\tEND
+"""
+
+
+def test_segment_selector():
+    with tempfile.TemporaryDirectory() as d:
+        src = _write(d, 'two.asm', _TWO_PROCS)
+        out = os.path.join(d, 'out')
+        # Select only KeepMe; DropMe's bytes must not appear.
+        spec = linkcli.parse([f'{src}(KeepMe)', '-o', out])
+        load = linkcli.build(spec)
+        segs = list(omf.iter_segments(load, records=False))
+        assert len(segs) == 1
+        assert b'\xa9\x01\x00' in segs[0]['raw']        # lda #$0001
+        assert b'\xa9\x02\x00' not in segs[0]['raw']    # DropMe excluded
+        # Selector naming a missing segment errors clearly.
+        spec = linkcli.parse([f'{src}(NoSuch)', '-o', out])
+        try:
+            linkcli.build(spec)
+        except SystemExit as e:
+            assert 'NoSuch' in str(e)
+        else:
+            raise AssertionError('expected error for unknown segment')
+
+
 def test_strict_jt_entries_still_raises():
     """The jt_lookup refactor must keep strict mode: a caller-supplied
     jt_entries list with a missing key raises exactly as before."""

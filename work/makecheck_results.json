@@ -1,0 +1,1453 @@
+{
+ "classification": {
+  "A.U.G/ADU/makefile": {
+   "detail": "tmlpas,tmlpascal",
+   "n_rules": 23,
+   "status": "foreign-tool"
+  },
+  "A.U.G/Apple.Bowl/Compiler/Makefile": {
+   "detail": "pascal",
+   "n_rules": 10,
+   "status": "foreign-tool"
+  },
+  "A.U.G/Apple.Bowl/Makefile": {
+   "detail": "intbasiciigs",
+   "n_rules": 10,
+   "status": "foreign-tool"
+  },
+  "A.U.G/CDRemote/cdremote.make": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "A.U.G/CloseView/CloseView.make": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/AppleShareCDEV/MakeFile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/CtlPanelNDA/makefile": {
+   "detail": "",
+   "n_rules": 5,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/DirectConnectCDEV/MakeFile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/FolderPrivCDEV/makefile": {
+   "detail": "ciigs",
+   "n_rules": 3,
+   "status": "foreign-tool"
+  },
+  "A.U.G/CtlPanel/GeneralCDEV/makefile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/KeyboardCDEV/makefile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/LogonCDEV/MakeFile": {
+   "detail": "ciigs",
+   "n_rules": 14,
+   "status": "foreign-tool"
+  },
+  "A.U.G/CtlPanel/MIDICDEV/MakeFile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/ModemCDEV/makefile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/MonitorCDEV/makefile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/NamerCDEV/MakeFile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/NetPrinterCDEV/MakeFile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/NetworkCDEV/makefile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/PrinterCDEV/makefile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/RamDiskCDEV/makefile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/SetStartCDEV/makefile": {
+   "detail": "pascaliigs",
+   "n_rules": 8,
+   "status": "foreign-tool"
+  },
+  "A.U.G/CtlPanel/SlotsCDEV/makefile": {
+   "detail": "tmlpascal",
+   "n_rules": 5,
+   "status": "foreign-tool"
+  },
+  "A.U.G/CtlPanel/SoundCDEV/Sounds/Makefile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/SoundCDEV/makefile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "A.U.G/CtlPanel/TimeCDEV/makefile": {
+   "detail": "",
+   "n_rules": 5,
+   "status": "executable"
+  },
+  "A.U.G/EasyAccess/EasyAccess.make": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "A.U.G/Finder/EasyMount/EasyMount.make": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "A.U.G/Finder/Finder.make": {
+   "detail": "",
+   "n_rules": 9,
+   "status": "executable"
+  },
+  "A.U.G/Finder/KeyboardNav/makefile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "A.U.G/GSCalcNDA/makefile": {
+   "detail": "pascaliigs",
+   "n_rules": 3,
+   "status": "foreign-tool"
+  },
+  "A.U.G/Installer/MakeFile": {
+   "detail": "",
+   "n_rules": 13,
+   "status": "executable"
+  },
+  "A.U.G/MediaCtl/AppleCDSC/AppleCDSC.make": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "A.U.G/MediaCtl/MediaCtlCDev/MediaCtrl.make": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "A.U.G/MediaCtl/MediaCtlNDA/MediaCtlNDA.make": {
+   "detail": "tmlpascal",
+   "n_rules": 4,
+   "status": "foreign-tool"
+  },
+  "A.U.G/MediaCtl/P4200/P4200.make": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "A.U.G/MediaCtl/Pioneer2000/P2000.make": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "A.U.G/VideoKeyboard/MakeFile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "A.U.G/VideoMix/VideoMix.INIT/makefile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "A.U.G/VideoMix/VideoMix.NDA/makefile": {
+   "detail": "tmlpascal",
+   "n_rules": 4,
+   "status": "foreign-tool"
+  },
+  "BASIC.SYSTEM/Makefile": {
+   "detail": "",
+   "n_rules": 7,
+   "status": "executable"
+  },
+  "Debugger/debug.make": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "Debugger/debug.rom.make": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "Debugger/makefile": {
+   "detail": "",
+   "n_rules": 7,
+   "status": "executable"
+  },
+  "GS.OS/DeskAccessories/Makefile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/Drivers/ATBoot/MakeFile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/Drivers/ATRam/ATStart/MakeFile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GS.OS/Drivers/ATRam/MakeFile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GS.OS/Drivers/ATRom/MakeFile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GS.OS/Drivers/ATalk/MakeFile": {
+   "detail": "",
+   "n_rules": 5,
+   "status": "executable"
+  },
+  "GS.OS/Drivers/SCSI.Drivers/SCSICD.Driver.make": {
+   "detail": "",
+   "n_rules": 14,
+   "status": "executable"
+  },
+  "GS.OS/Drivers/SCSI.Drivers/SCSIHD.Driver.make": {
+   "detail": "",
+   "n_rules": 14,
+   "status": "executable"
+  },
+  "GS.OS/Drivers/SCSI.Drivers/SCSIScanner.Driver.make": {
+   "detail": "",
+   "n_rules": 14,
+   "status": "executable"
+  },
+  "GS.OS/Drivers/SCSI.Drivers/SCSITape.Driver.make": {
+   "detail": "",
+   "n_rules": 14,
+   "status": "executable"
+  },
+  "GS.OS/FSTs/AppleShare/MakeFile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/Make.DOS3.3.FST": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/Make.Scanner.Driver": {
+   "detail": "",
+   "n_rules": 14,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/Make.Slinky": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/Make.Tape.Driver": {
+   "detail": "",
+   "n_rules": 14,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.ETalk": {
+   "detail": "",
+   "n_rules": 5,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.ExpressLoad": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.MSDos": {
+   "detail": "",
+   "n_rules": 8,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.QuickConsole": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.RAM5": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.SCCmanager": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.SCSImanager": {
+   "detail": "",
+   "n_rules": 12,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.ad3.5": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.ad5.25": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.aristotle": {
+   "detail": "c",
+   "n_rules": 5,
+   "status": "foreign-tool"
+  },
+  "GS.OS/MakeFiles/make.as.fst": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.atalk": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.atboot": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.atinit": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.atram": {
+   "detail": "",
+   "n_rules": 21,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.atresponder": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.atrom": {
+   "detail": "",
+   "n_rules": 5,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.cd.driver": {
+   "detail": "",
+   "n_rules": 14,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.char.fst": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.console": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.error.msg": {
+   "detail": "",
+   "n_rules": 1,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.hd.driver": {
+   "detail": "",
+   "n_rules": 14,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.hfs.fst": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.hs.fst": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.net.start": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.os": {
+   "detail": "",
+   "n_rules": 27,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.p8": {
+   "detail": "",
+   "n_rules": 9,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.pascal.fst": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.pro.fst": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.proboot": {
+   "detail": "",
+   "n_rules": 1,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.quicklogoff": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/MakeFiles/make.ud3.5": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/NetBoot/ATInit/MakeFile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "GS.OS/NetBoot/AristotlePatch/MakeFile": {
+   "detail": "c",
+   "n_rules": 5,
+   "status": "foreign-tool"
+  },
+  "GS.OS/NetBoot/Boot/Makefile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/NetBoot/Fizzy/Makefile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/NetBoot/Logon/Makefile": {
+   "detail": "",
+   "n_rules": 11,
+   "status": "executable"
+  },
+  "GS.OS/NetBoot/MakeImage/Makefile": {
+   "detail": "c",
+   "n_rules": 2,
+   "status": "foreign-tool"
+  },
+  "GS.OS/NetBoot/Makefile": {
+   "detail": "c",
+   "n_rules": 28,
+   "status": "foreign-tool"
+  },
+  "GS.OS/NetBoot/NetPrefs/makefile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/NetBoot/QuickLogoff/Makefile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/NetBoot/Selector/Makefile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GS.OS/NetBoot/SpoolerIWEM/Makefile": {
+   "detail": "buildspooleriwem",
+   "n_rules": 1,
+   "status": "unknown-cmd"
+  },
+  "GS.OS/NetBoot/Start/Makefile": {
+   "detail": "",
+   "n_rules": 5,
+   "status": "executable"
+  },
+  "GS.OS/NetBoot/Stub/Makefile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/SetupFiles/ATInit/MakeFile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "GS.OS/SetupFiles/ATResponder/MakeFile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GS.OS/SetupFiles/ConsPatch6.0/Makefile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/SupervisoryDrivers/SCCManager/MakeFile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GS.OS/SupervisoryDrivers/SCSI.Manager(1meg)/SCSI.Manager.Make": {
+   "detail": "",
+   "n_rules": 12,
+   "status": "executable"
+  },
+  "GSFirmware/AD3.5Driver/AD35Driver.make": {
+   "detail": "linkiigs020",
+   "n_rules": 1,
+   "status": "unknown-cmd"
+  },
+  "GSFirmware/ATALK/ATALK.make": {
+   "detail": "",
+   "n_rules": 1,
+   "status": "executable"
+  },
+  "GSFirmware/Applesoft/Applesoft.make": {
+   "detail": "",
+   "n_rules": 1,
+   "status": "executable"
+  },
+  "GSFirmware/Diagnostics/Diagnostics.make": {
+   "detail": "",
+   "n_rules": 1,
+   "status": "executable"
+  },
+  "GSFirmware/Monitor/Monitor.make": {
+   "detail": "",
+   "n_rules": 1,
+   "status": "executable"
+  },
+  "GSFirmware/Serial/Serial.make": {
+   "detail": "",
+   "n_rules": 1,
+   "status": "executable"
+  },
+  "GSFirmware/SmartPort/SmartPort.make": {
+   "detail": "",
+   "n_rules": 1,
+   "status": "executable"
+  },
+  "GSToolbox/ACE/makefile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GSToolbox/Animation/Makefile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GSToolbox/ControlMgr/makefile": {
+   "detail": "",
+   "n_rules": 11,
+   "status": "executable"
+  },
+  "GSToolbox/DialogMgr/MakeFile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GSToolbox/EVENTS/makefile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GSToolbox/FontMgr/makefile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GSToolbox/LineEdit/makefile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GSToolbox/ListMgr/makefile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "GSToolbox/MIDISynth/makefile": {
+   "detail": "",
+   "n_rules": 16,
+   "status": "executable"
+  },
+  "GSToolbox/MISC.TOOLS/makefile": {
+   "detail": "",
+   "n_rules": 8,
+   "status": "executable"
+  },
+  "GSToolbox/MM/makefile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GSToolbox/MediaCtlTool/makefile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GSToolbox/MenuMgr/Makefile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GSToolbox/Midi/Drivers/Apple.Midi/makefile": {
+   "detail": "",
+   "n_rules": 7,
+   "status": "executable"
+  },
+  "GSToolbox/Midi/Drivers/Card6850.Midi/makefile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GSToolbox/Midi/MidiTools/makefile": {
+   "detail": "",
+   "n_rules": 20,
+   "status": "executable"
+  },
+  "GSToolbox/NoteSeq/makefile": {
+   "detail": "",
+   "n_rules": 8,
+   "status": "executable"
+  },
+  "GSToolbox/NoteSynth/makefile": {
+   "detail": "",
+   "n_rules": 17,
+   "status": "executable"
+  },
+  "GSToolbox/Patch/Patch2/makefile": {
+   "detail": "",
+   "n_rules": 61,
+   "status": "executable"
+  },
+  "GSToolbox/Patch/Patch3/QuickerGraph.make": {
+   "detail": "",
+   "n_rules": 7,
+   "status": "executable"
+  },
+  "GSToolbox/Patch/Patch3/makefile": {
+   "detail": "",
+   "n_rules": 43,
+   "status": "executable"
+  },
+  "GSToolbox/Patch/Setup/makefile": {
+   "detail": "",
+   "n_rules": 10,
+   "status": "executable"
+  },
+  "GSToolbox/PrintMgr/makefile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GSToolbox/PrinterDrivers/AppleTalk/makefile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GSToolbox/PrinterDrivers/Epson/makefile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GSToolbox/PrinterDrivers/GraphiCard/makefile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GSToolbox/PrinterDrivers/HP.DESKJET/makefile": {
+   "detail": "",
+   "n_rules": 10,
+   "status": "executable"
+  },
+  "GSToolbox/PrinterDrivers/IW/makefile": {
+   "detail": "",
+   "n_rules": 5,
+   "status": "executable"
+  },
+  "GSToolbox/PrinterDrivers/IWEm/makefile": {
+   "detail": "buildiwem",
+   "n_rules": 1,
+   "status": "unknown-cmd"
+  },
+  "GSToolbox/PrinterDrivers/LQ/makefile": {
+   "detail": "",
+   "n_rules": 12,
+   "status": "executable"
+  },
+  "GSToolbox/PrinterDrivers/LW/makefile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "GSToolbox/PrinterDrivers/Modem/makefile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GSToolbox/PrinterDrivers/NEW.IW/makefile": {
+   "detail": "",
+   "n_rules": 12,
+   "status": "executable"
+  },
+  "GSToolbox/PrinterDrivers/Printer/makefile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GSToolbox/PrinterDrivers/TABASCO/makefile": {
+   "detail": "",
+   "n_rules": 13,
+   "status": "executable"
+  },
+  "GSToolbox/QD/QDAlone/makefile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GSToolbox/QD/makefile": {
+   "detail": "",
+   "n_rules": 20,
+   "status": "executable"
+  },
+  "GSToolbox/QDAux/MakeFile": {
+   "detail": "",
+   "n_rules": 13,
+   "status": "executable"
+  },
+  "GSToolbox/ROM/MakeFile": {
+   "detail": "filliigs",
+   "n_rules": 82,
+   "status": "unknown-cmd"
+  },
+  "GSToolbox/ResourceMgr/makefile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GSToolbox/Scrap/makefile": {
+   "detail": "",
+   "n_rules": 3,
+   "status": "executable"
+  },
+  "GSToolbox/StdFile/makefile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GSToolbox/Sys.Resources/makefile": {
+   "detail": "",
+   "n_rules": 8,
+   "status": "executable"
+  },
+  "GSToolbox/TextEdit/MakeFile": {
+   "detail": "",
+   "n_rules": 6,
+   "status": "executable"
+  },
+  "GSToolbox/VideoMix/makefile": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "GSToolbox/WindMgr/makefile": {
+   "detail": "",
+   "n_rules": 10,
+   "status": "executable"
+  },
+  "GSToolbox/desk/makefile": {
+   "detail": "",
+   "n_rules": 7,
+   "status": "executable"
+  },
+  "GSToolbox/tl/makefile": {
+   "detail": "",
+   "n_rules": 10,
+   "status": "executable"
+  },
+  "MountImageGS/MountImageGS.make": {
+   "detail": "",
+   "n_rules": 5,
+   "status": "executable"
+  },
+  "NuMustang/NuMustang.make": {
+   "detail": "c",
+   "n_rules": 2,
+   "status": "foreign-tool"
+  },
+  "NuMustang/checksum.make": {
+   "detail": "c",
+   "n_rules": 2,
+   "status": "foreign-tool"
+  },
+  "SD.ODDS.N.Ends/All.Macros.Make": {
+   "detail": "",
+   "n_rules": 2,
+   "status": "executable"
+  },
+  "SD.ODDS.N.Ends/SetLoadName.make": {
+   "detail": "c",
+   "n_rules": 2,
+   "status": "foreign-tool"
+  },
+  "ToolBoxMisc/FindFileGS/MakeFile": {
+   "detail": "pascaliigs",
+   "n_rules": 6,
+   "status": "foreign-tool"
+  },
+  "ToolBoxMisc/ReadMeFiles/makefile": {
+   "detail": "",
+   "n_rules": 4,
+   "status": "executable"
+  },
+  "ToolBoxMisc/Teach/MakeFile": {
+   "detail": "pascaliigs",
+   "n_rules": 11,
+   "status": "foreign-tool"
+  }
+ },
+ "run": {
+  "A.U.G/CDRemote/cdremote.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CloseView/CloseView.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CtlPanel/AppleShareCDEV/MakeFile": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CtlPanel/CtlPanelNDA/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CtlPanel/DirectConnectCDEV/MakeFile": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CtlPanel/GeneralCDEV/makefile": {
+   "error": "gsmake: error: asmiigs GENERALData.aii: ValueError: invalid literal for int() with base 10: '-ab2'",
+   "status": "fail"
+  },
+  "A.U.G/CtlPanel/KeyboardCDEV/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CtlPanel/MIDICDEV/MakeFile": {
+   "error": "gsmake: error: asmiigs midi.aii: ValueError: invalid literal for int() with base 10: '-aafa'",
+   "status": "fail"
+  },
+  "A.U.G/CtlPanel/ModemCDEV/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CtlPanel/MonitorCDEV/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CtlPanel/NamerCDEV/MakeFile": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CtlPanel/NetPrinterCDEV/MakeFile": {
+   "error": "gsmake: error: asmiigs NetPrinter.aii: ValueError: invalid literal for int() with base 10: '-aafa'",
+   "status": "fail"
+  },
+  "A.U.G/CtlPanel/NetworkCDEV/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CtlPanel/PrinterCDEV/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CtlPanel/RamDiskCDEV/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CtlPanel/SoundCDEV/Sounds/Makefile": {
+   "error": "gsmake: error: no rule to make 'Ahh' and no such file",
+   "status": "fail"
+  },
+  "A.U.G/CtlPanel/SoundCDEV/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/CtlPanel/TimeCDEV/makefile": {
+   "error": "",
+   "status": "timeout"
+  },
+  "A.U.G/EasyAccess/EasyAccess.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/Finder/EasyMount/EasyMount.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/Finder/Finder.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/Finder/KeyboardNav/makefile": {
+   "error": "gsmake: error: Duplicate: source not found: ':KeyboardNav'",
+   "status": "fail"
+  },
+  "A.U.G/Installer/MakeFile": {
+   "error": "/var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/A.U.G/Installer/Main.asm:1783: error: branch out of range: inControl is -140 bytes from *, must be -128..127",
+   "status": "fail"
+  },
+  "A.U.G/MediaCtl/AppleCDSC/AppleCDSC.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/MediaCtl/MediaCtlCDev/MediaCtrl.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/MediaCtl/P4200/P4200.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/MediaCtl/Pioneer2000/P2000.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/VideoKeyboard/MakeFile": {
+   "error": "",
+   "status": "ok"
+  },
+  "A.U.G/VideoMix/VideoMix.INIT/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "BASIC.SYSTEM/Makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "Debugger/debug.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "Debugger/debug.rom.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "Debugger/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/DeskAccessories/Makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/Drivers/ATBoot/MakeFile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/Drivers/ATRam/ATStart/MakeFile": {
+   "error": "gsmake: error: linkiigs: input not found: 'atstart.oii'",
+   "status": "fail"
+  },
+  "GS.OS/Drivers/ATRam/MakeFile": {
+   "error": "/var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/Drivers/ATRam/atpatch/pap/pap.aii:813: error: branch out of range: closereq is -530 bytes from *, must be -128..127",
+   "status": "fail"
+  },
+  "GS.OS/Drivers/ATRom/MakeFile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/Drivers/ATalk/MakeFile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/Drivers/SCSI.Drivers/SCSICD.Driver.make": {
+   "error": "gsmake: error: no rule to make ':CD.Obj:SCSICD' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/Drivers/SCSI.Drivers/SCSIHD.Driver.make": {
+   "error": "gsmake: error: no rule to make ':HD.Obj:SCSIHD' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/Drivers/SCSI.Drivers/SCSIScanner.Driver.make": {
+   "error": "gsmake: error: no rule to make ':Scanner.Obj:SCSIScanner' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/Drivers/SCSI.Drivers/SCSITape.Driver.make": {
+   "error": "gsmake: error: no rule to make ':Tape.Obj:SCSITape' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/FSTs/AppleShare/MakeFile": {
+   "error": "gsmake: error: no rule to make ':obj:header.o' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/Make.DOS3.3.FST": {
+   "error": "gsmake: error: circular dependency on 'DOS3.3.FST'",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/Make.Scanner.Driver": {
+   "error": "gsmake: error: no rule to make 'SCSIScanner' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/Make.Slinky": {
+   "error": "gsmake: error: MPW volume 'Slinky' (path 'Slinky:Slinky.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check the tree layout ",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/Make.Tape.Driver": {
+   "error": "gsmake: error: no rule to make 'SCSITape' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.ETalk": {
+   "error": "gsmake: error: MPW volume 'ETalk' (path 'ETalk:ETalk.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check the tree layout or ",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.ExpressLoad": {
+   "error": "gsmake: error: no rule to make 'ExpressLoad.src' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.MSDos": {
+   "error": "gsmake: error: no rule to make 'Common.equ.src' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.QuickConsole": {
+   "error": "gsmake: error: MPW volume 'QuickConsole' (path 'QuickConsole:QuickConsole.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 chec",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.RAM5": {
+   "error": "gsmake: error: MPW volume 'RAM5' (path 'RAM5:RAM5.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check the tree layout or use",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.SCCmanager": {
+   "error": "gsmake: error: MPW volume 'SCCManager' (path 'SCCManager:driver.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check the tree",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.SCSImanager": {
+   "error": "gsmake: error: no rule to make 'common.equ.src' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.ad3.5": {
+   "error": "gsmake: error: no rule to make 'common.equ.src' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.ad5.25": {
+   "error": "gsmake: error: no rule to make 'common.equ.src' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.as.fst": {
+   "error": "gsmake: error: Duplicate: source not found: 'AppleShare.FST'",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.atalk": {
+   "error": "gsmake: error: MPW volume 'ATALK' (path 'ATALK:main.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check the tree layout or u",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.atboot": {
+   "error": "gsmake: error: MPW volume 'ATBOOT' (path 'ATBOOT:atboot.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check the tree layout ",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.atinit": {
+   "error": "gsmake: error: MPW volume 'ATINIT' (path 'ATINIT:atinit.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check the tree layout ",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.atram": {
+   "error": "gsmake: error: MPW volume 'ATRAM' (path 'ATRAM:header.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check the tree layout or",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.atresponder": {
+   "error": "gsmake: error: MPW volume 'ATResponder' (path 'ATResponder:atresponder.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check t",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.atrom": {
+   "error": "gsmake: error: MPW volume 'ATROM' (path 'ATROM:atp_includes.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check the tree lay",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.cd.driver": {
+   "error": "gsmake: error: no rule to make 'SCSICD' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.char.fst": {
+   "error": "gsmake: error: no rule to make 'Character.FST' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.console": {
+   "error": "gsmake: error: MPW volume 'Console.driver' (path 'Console.driver:console.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.error.msg": {
+   "error": "gsmake: error: no rule to make 'english.src' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.hd.driver": {
+   "error": "gsmake: error: no rule to make 'SCSIHD' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.hfs.fst": {
+   "error": "gsmake: error: no rule to make 'hfs.fst.main' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.hs.fst": {
+   "error": "gsmake: error: no rule to make 'hs.fst.src' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.net.start": {
+   "error": "gsmake: error: MPW volume 'Start' (path 'Start:Start.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check the tree layout or ",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.os": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/MakeFiles/make.p8": {
+   "error": "gsmake: error: MPW volume 'P8.Drivers' (path 'P8.Drivers:cclock.n') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check the tree l",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.pascal.fst": {
+   "error": "gsmake: error: no rule to make 'pascal.fst.aii' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.pro.fst": {
+   "error": "gsmake: error: no rule to make 'ProDOS.FST' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.proboot": {
+   "error": "gsmake: error: no rule to make 'proboot.src' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.quicklogoff": {
+   "error": "gsmake: error: MPW volume 'QuickLogoff' (path 'QuickLogoff:quick.aii') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/MakeFiles \u2014 check the tre",
+   "status": "fail"
+  },
+  "GS.OS/MakeFiles/make.ud3.5": {
+   "error": "gsmake: error: no rule to make 'common.equ.src' and no such file",
+   "status": "fail"
+  },
+  "GS.OS/NetBoot/ATInit/MakeFile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/NetBoot/Boot/Makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/NetBoot/Fizzy/Makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/NetBoot/Logon/Makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/NetBoot/NetPrefs/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/NetBoot/QuickLogoff/Makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/NetBoot/Selector/Makefile": {
+   "error": "gsmake: error: MPW volume 'Mark' (path 'Mark:GSProjects:GS.OS:NetBoot:Console:') not found beside or above /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/NetBoot/Selecto",
+   "status": "fail"
+  },
+  "GS.OS/NetBoot/Start/Makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/NetBoot/Stub/Makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/SetupFiles/ATInit/MakeFile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/SetupFiles/ATResponder/MakeFile": {
+   "error": "gsmake: error: linkiigs: input not found: 'atresponder.oii'",
+   "status": "fail"
+  },
+  "GS.OS/SetupFiles/ConsPatch6.0/Makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/SupervisoryDrivers/SCCManager/MakeFile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GS.OS/SupervisoryDrivers/SCSI.Manager(1meg)/SCSI.Manager.Make": {
+   "error": "gsmake: error: asmiigs SCSIM.Header: IncludeNotFoundError: /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GS.OS/SupervisoryDrivers/SCSI.Manager(1meg)/SCSIM.Header:50: include ",
+   "status": "fail"
+  },
+  "GSFirmware/ATALK/ATALK.make": {
+   "error": "gsmake: error: asmiigs Port7.aii: IncludeNotFoundError: /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GSFirmware/ATALK/Port7.aii:14: include not found: '::Monitor:Monitor.mac",
+   "status": "fail"
+  },
+  "GSFirmware/Applesoft/Applesoft.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSFirmware/Diagnostics/Diagnostics.make": {
+   "error": "gsmake: error: no rule to make 'ROM.SEQ.DEBUG.aii' and no such file",
+   "status": "fail"
+  },
+  "GSFirmware/Monitor/Monitor.make": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSFirmware/Serial/Serial.make": {
+   "error": "gsmake: error: Duplicate: source not found: 'Serial.2'",
+   "status": "fail"
+  },
+  "GSFirmware/SmartPort/SmartPort.make": {
+   "error": "gsmake: error: Duplicate: source not found: 'SmartPort.2'",
+   "status": "fail"
+  },
+  "GSToolbox/ACE/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/Animation/Makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/ControlMgr/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/DialogMgr/MakeFile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/EVENTS/makefile": {
+   "error": "gslink: error: /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GSToolbox/EVENTS/../misc.tools/../events/../qd/../qd/objs/init.asm.obj: no segment or SEG section named 'TOGLUEEN",
+   "status": "fail"
+  },
+  "GSToolbox/FontMgr/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/LineEdit/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/ListMgr/makefile": {
+   "error": "/var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GSToolbox/ListMgr/ListMgr.asm:4601: error: branch out of range: endDraw is -138 bytes from *, must be -128..127",
+   "status": "fail"
+  },
+  "GSToolbox/MIDISynth/makefile": {
+   "error": "gslink: error: /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GSToolbox/MIDISynth/obj/em.obj: no segment or SEG section named 'GOSECOMMON' (segments: button, createmousemessag",
+   "status": "fail"
+  },
+  "GSToolbox/MISC.TOOLS/makefile": {
+   "error": "gsmake: error: linkiigs: input not found: '::intmath:im.asm.obj'",
+   "status": "fail"
+  },
+  "GSToolbox/MM/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/MediaCtlTool/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/MenuMgr/Makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/Midi/Drivers/Apple.Midi/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/Midi/Drivers/Card6850.Midi/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/Midi/MidiTools/makefile": {
+   "error": "gslink: error: /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GSToolbox/Midi/MidiTools/obj/em.asm.obj: no segment or SEG section named 'GOSECOMMON' (segments: button, createmo",
+   "status": "fail"
+  },
+  "GSToolbox/NoteSeq/makefile": {
+   "error": "gsmake: error: linkiigs: input not found: ':obj:tool.aii.obj'",
+   "status": "fail"
+  },
+  "GSToolbox/NoteSynth/makefile": {
+   "error": "gsmake: error: linkiigs: input not found: ':obj:note.exec.aii.obj'",
+   "status": "fail"
+  },
+  "GSToolbox/Patch/Patch2/makefile": {
+   "error": "gsmake: error: no rule to make ':::desk:desk.asm' and no such file",
+   "status": "fail"
+  },
+  "GSToolbox/Patch/Patch3/QuickerGraph.make": {
+   "error": "gslink: error: /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GSToolbox/QD/objs/Shifts.Asm.Obj: no segment or SEG section named 'XSHIFTSTAY' (segments: shiftout, shiftstay; se",
+   "status": "fail"
+  },
+  "GSToolbox/Patch/Patch3/makefile": {
+   "error": "gslink: error: /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GSToolbox/Patch/Patch3/../../qd/../patch/patch3/../../mm/../patch/patch3/../../events/../WindMgr/NewCalls.asm.obj",
+   "status": "fail"
+  },
+  "GSToolbox/Patch/Setup/makefile": {
+   "error": "gslink: error: /var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/GSToolbox/Patch/Setup/../../tl/../patch/Setup/../../tl/../patch/Setup/../../tl/../tl/loading.asm.obj: no segment ",
+   "status": "fail"
+  },
+  "GSToolbox/PrintMgr/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/PrinterDrivers/AppleTalk/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/PrinterDrivers/Epson/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/PrinterDrivers/GraphiCard/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/PrinterDrivers/HP.DESKJET/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/PrinterDrivers/IW/makefile": {
+   "error": "",
+   "status": "timeout"
+  },
+  "GSToolbox/PrinterDrivers/LQ/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/PrinterDrivers/LW/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/PrinterDrivers/Modem/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/PrinterDrivers/NEW.IW/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/PrinterDrivers/Printer/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/PrinterDrivers/TABASCO/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/QD/QDAlone/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/QD/makefile": {
+   "error": "gslink: error: per-segment -org is not supported yet (only a global -org before any -lseg, for ungrouped links)",
+   "status": "fail"
+  },
+  "GSToolbox/QDAux/MakeFile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/ResourceMgr/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/Scrap/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/StdFile/makefile": {
+   "error": "gsmake: error: no rule to make ':obj:SFMain.asm.obj' and no such file",
+   "status": "fail"
+  },
+  "GSToolbox/Sys.Resources/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/TextEdit/MakeFile": {
+   "error": "gsmake: error: no rule to make ':obj:highlevel.aii.obj' and no such file",
+   "status": "fail"
+  },
+  "GSToolbox/VideoMix/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/WindMgr/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/desk/makefile": {
+   "error": "",
+   "status": "ok"
+  },
+  "GSToolbox/tl/makefile": {
+   "error": "gsmake: error: linkiigs: input not found: '::common:common.asm.obj'",
+   "status": "fail"
+  },
+  "MountImageGS/MountImageGS.make": {
+   "error": "shutil.SameFileError: '/var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/MountImageGS/MountImageGS' and '/var/folders/d_/cz0tntcs1yxg5kn2zl40pnh80000gn/T/makecheck-my8hzrmg/SRC/M",
+   "status": "fail"
+  },
+  "SD.ODDS.N.Ends/All.Macros.Make": {
+   "error": "",
+   "status": "ok"
+  },
+  "ToolBoxMisc/ReadMeFiles/makefile": {
+   "error": "",
+   "status": "ok"
+  }
+ }
+}

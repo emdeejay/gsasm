@@ -119,6 +119,13 @@ def link_main():
     print(f"→ {outfile}  ({len(load_bytes)} bytes)")
 
 
+def make_main():
+    """gsmake — run an original MPW IIgs makefile with the gsasm toolchain
+    (see gsasm/mpwmake.py)."""
+    from gsasm import mpwmake
+    sys.exit(mpwmake.main(sys.argv[1:]))
+
+
 def _resolve_read_file(name, search_dirs):
     """Case-insensitive filename search across `search_dirs`, in order
     (mirrors gsasm.rez.lexer's `#include` search-path convention: the
@@ -235,6 +242,11 @@ def rez_main():
         help="override a gsasm.rez.emit fork-metadata field (may be "
              "repeated), e.g. --meta creation_mac_ts=2819554517",
     )
+    p.add_argument(
+        "-d", dest="defines", metavar="NAME[=VAL]", action="append",
+        default=[],
+        help="predefine a preprocessor macro (RezIIgs -d; may be repeated)",
+    )
     args = p.parse_args()
 
     from gsasm.rez import lexer, parser as rez_parser, gen, emit, convert
@@ -246,9 +258,19 @@ def rez_main():
                                "rez", "include")
     incdirs = list(args.incdirs) + [bundled_inc]
 
+    predefined = {"RezIIGS": 1}
+    for kv in args.defines:
+        name, _, val = kv.partition("=")
+        try:
+            predefined[name] = int(val, 0) if val else 1
+        except ValueError:
+            print(f"gsrez: error: -d {kv!r}: value must be an integer",
+                  file=sys.stderr)
+            sys.exit(1)
+
     try:
         stmts = rez_parser.parse(args.source, include_dirs=incdirs,
-                                  predefined={"RezIIGS": 1})
+                                  predefined=predefined)
     except (lexer.LexError, rez_parser.ParseError) as exc:
         print(f"gsrez: error: {exc}", file=sys.stderr)
         sys.exit(1)

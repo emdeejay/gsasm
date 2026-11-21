@@ -149,6 +149,42 @@ Not yet covered: `-lib` (use `gsasm/linkiigs.py:link_lib`), per-segment
 `-org`, and `obj(SEGMENT)` selectors; for ROM bank layout see
 `work/linkrom.py`.
 
+### gsmake — MPW makefile runner
+
+```
+gsmake [-C dir] [-f makefile] [-I incdir]... [-D NAME=VAL]... [--always] [target...]
+```
+
+Runs an **original MPW IIgs makefile** (MacRoman, CR line endings, `ƒ`/`ƒƒ`
+dependency rules, `∂` continuations — surviving trailing comments, as the
+tree writes them — `{var}` expansion, `If`/`Else`/`End` conditionals,
+suffix rules with `{Default}`/`{Targ}`/`{Deps}`, `:`-separated Mac paths
+with MPW volume names mapped to directories found beside the build dir,
+case-insensitive filenames) with the gsasm toolchain executing the recipes
+in-process: `asmiigs` → assemble + emit the `.obj`, `linkiigs` → the
+gslink multi-object mode (including `-lib`, object-segment selectors
+`obj(NAME)`/`obj(@SECTION)`, `-lseg:$KIND`), `reziigs` → gsrez,
+`MakeBinIIgs`/`OverlayIIGS`/`Catenate`/`MakeLibIIGS` → gsasm.makebin and
+friends; `Echo`/`Directory`/`Duplicate`/`Delete`/`Set`/nested `MAKE` are
+interpreted, listing/print commands are reported and skipped.  Unset
+makefile variables expand empty like the MPW shell's (reported at the
+end; `--strict-vars` to error), rebuilds are mtime-based, and assembled
+objects are cached with their symbol tables so a `-lseg:Dynamic` link
+works even though the makefile names objects, not sources.  A `-t`/`-at`
+writes gsasm's `<out>.filetype` sidecar for the disk-image packager.
+
+```sh
+# The LaserWriter driver, from Apple's own unmodified makefile — output
+# byte-identical to the file shipping on the System Disk:
+gsmake -C ref/GSOS_6/IIGS.601.SRC/GSToolbox/PrinterDrivers/LW -I work/includes
+```
+
+`work/makecheck.py` sweeps gsmake across every makefile in the 6.0.1
+tree (parse, classify, `--run` executes each in a throwaway tree copy);
+the makefiles it cannot run need the Pascal/C compilers (the documented
+toolchain wall), source volumes absent from the archive, or a handful of
+custom era tools (`BuildIWEm`, `FillIIgs`, `LinkIIgs020`).
+
 ### gsrez — resource compiler
 
 ```

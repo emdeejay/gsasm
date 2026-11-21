@@ -23,7 +23,9 @@ source tree — see GitHub issue #2):
                        disk-image tool to apply, not written anywhere
     -l -s -c -a -w* -sym -mf
                        listing/map/warning flags: accepted and ignored
-    -lib FILE          NOT yet wired to linkiigs.link_lib — hard error
+    -lib FILE          library object: ungrouped roots link against it with
+                       MPW's on-demand member extraction
+                       (linkiigs.link_lib); repeatable
 
 gsasm extensions (the original linkiigs linked .obj files only; this CLI
 also assembles sources in-process, which preserves the full symbol table
@@ -31,6 +33,11 @@ and is required for -lseg:Dynamic):
 
     -I DIR             include directory for assembled sources (repeatable)
     -d NAME=VAL        assembler command-line equate (repeatable)
+
+An input may carry an MPW object-segment selector — ``file.obj(NAME,...)``
+or ``file.obj(@SEGNAME)`` — linking only those segments of that object, in
+selector order (matched against the object's OMF segment names,
+case-insensitively, leading ``@`` ignored).
 
 Inputs ending in .obj/.o/.root are read as OMF object bytes (linked with
 ``asm=None`` — GLOBAL/GEQU records only, the pre-concatenated-combo path);
@@ -120,6 +127,7 @@ def parse(argv: list[str]) -> dict:
         'includes': [], 'defines': {},
         'loose': [],            # inputs before any -lseg
         'groups': [],           # [{'name', 'dynamic', 'inputs'}]
+        'libs': [],             # -lib files
         'notes': [],
     }
     cur = None                  # current -lseg group, or None
@@ -135,9 +143,18 @@ def parse(argv: list[str]) -> dict:
         if tok.startswith('-lseg'):
             quals = [q.lower() for q in tok.split(':')[1:]]
             name = _arg('-lseg')
+            kind = None
+            extra = []
+            for q in quals:
+                if q == 'dynamic':
+                    continue
+                if q.startswith('$') or q.startswith('0x'):
+                    # -lseg:$1000 — an explicit segment KIND.
+                    kind = _num(q, '-lseg kind')
+                else:
+                    extra.append(q)
             cur = {'name': name, 'dynamic': 'dynamic' in quals,
-                   'inputs': []}
-            extra = [q for q in quals if q != 'dynamic']
+                   'kind': kind, 'inputs': []}
             if extra:
                 spec['notes'].append(
                     f"-lseg qualifiers {extra} ignored (segment {name!r})")
@@ -163,23 +180,29 @@ def parse(argv: list[str]) -> dict:
             name, _, val = kv.partition('=')
             spec['defines'][name] = _num(val, '-d') if val else 1
         elif tok == '-lib':
-            raise LinkCliError(
-                "-lib is not wired up yet (gsasm.linkiigs.link_lib exists; "
-                "see GitHub issue #2)")
-        elif tok in _IGNORED_FLAGS or tok.startswith('-w'):
+            spec['libs'].append(_arg('-lib'))
+        elif tok in _IGNORED_FLAGS or tok == '-apw' or tok.startswith('-w'):
             spec['notes'].append(f"flag {tok} ignored (listing/map/warning)")
         elif tok.startswith('-'):
             raise LinkCliError(f"unknown flag {tok}")
         else:
+            sels = None
             if '(' in tok and tok.endswith(')'):
-                raise LinkCliError(
-                    f"object-segment selector {tok!r} is not supported yet")
-            (cur['inputs'] if cur is not None else spec['loose']).append(tok)
+                # MPW object-segment selector: path.obj(NAME,@SEG,...) —
+                # link only those segments of that object, in that order.
+                tok, _, sel = tok[:-1].partition('(')
+                sels = [s.strip() for s in sel.split(',') if s.strip()]
+            entry = (tok, sels)
+            (cur['inputs'] if cur is not None else spec['loose']).append(entry)
 
     if spec['groups'] and spec['loose']:
-        raise LinkCliError(
-            "mixing ungrouped inputs with -lseg groups is not supported — "
-            "put every input in a -lseg group")
+        # MPW: objects BEFORE the first -lseg form the leading load segment,
+        # named 'main' (ControlMgr's makefile links exactly this shape).
+        spec['groups'].insert(0, {'name': 'main', 'dynamic': False,
+                                  'kind': None, 'inputs': spec['loose']})
+        spec['loose'] = []
+        spec['notes'].append(
+            "inputs before the first -lseg form the leading 'main' segment")
     if not spec['groups'] and not spec['loose']:
         raise LinkCliError("no input files")
     for g in spec['groups']:
@@ -190,8 +213,63 @@ def parse(argv: list[str]) -> dict:
     return spec
 
 
+def _seg_indices(obj_bytes: bytes, sels, path: str) -> list[int]:
+    """Indices of the segments *sels* names within one object's bytes, in
+    selector order (None = every segment).  A name matches a SEGNAME (one
+    PROC/module) or, failing that, a LOADNAME — the ``SEG 'Section'``
+    directive's load-segment tag, which selects EVERY segment of that
+    section in object order (``copybits.asm.obj(@MAINPart)``).  Matching is
+    case-insensitive with any leading ``@`` ignored on either side."""
+    from gsasm import omf
+    segs = list(omf.iter_segments(obj_bytes, records=False))
+    if sels is None:
+        return list(range(len(segs)))
+
+    def _norm(x) -> str:
+        if isinstance(x, bytes):
+            x = x.decode('mac_roman', 'replace')
+        return x.strip().strip('\x00').lower().lstrip('@')
+
+    segnames = [_norm(s['name']) for s in segs]
+    loadnames = [_norm(s['hdr'].get('LOADNAME', b'')) for s in segs]
+    idxs: list[int] = []
+    for want in sels:
+        w = _norm(want)
+        if w in segnames:
+            idxs.append(segnames.index(w))
+            continue
+        section = [i for i, ln in enumerate(loadnames) if ln == w]
+        if section:
+            idxs.extend(section)
+            continue
+        raise LinkCliError(
+            f"{path}: no segment or SEG section named {want!r} (segments: "
+            f"{', '.join(sorted(set(segnames)))or 'none'}; sections: "
+            f"{', '.join(sorted(set(loadnames))) or 'none'})")
+    return idxs
+
+
 def _load_input(path: str, spec: dict, *, need_asm: bool):
-    """(obj_bytes, asm_or_None) for one input file."""
+    """(obj_bytes, asm_or_None) for one input file.
+
+    ``spec['objcache']`` (optional, {casefolded-abspath: (obj_bytes, asm)})
+    lets a driving tool — gsmake, which just assembled the .obj itself —
+    supply the object WITH its Asm, so even a ``-lseg:Dynamic`` group can
+    be given .obj paths, exactly as the original makefiles write them.
+    Keys are ``os.path.abspath(p).lower()``: the makefiles spell one file
+    several ways (``Lw.asm.obj`` / ``lw.asm.obj``) and ProDOS/HFS treat
+    them as the same file (darwin's ``normcase`` is the identity, so it
+    cannot do this job)."""
+    cache = spec.get('objcache')
+    if cache:
+        hit = cache.get(os.path.abspath(path).lower())
+        if hit is not None:
+            ob, a = hit
+            if need_asm and a is None:
+                raise LinkCliError(
+                    f"{path}: cached object has no assembler metadata; a "
+                    "-lseg:Dynamic link needs sources assembled in-process")
+            return ob, a
     from gsasm import asm as _asm, omf as _omf
     if not os.path.exists(path):
         raise LinkCliError(f"input file not found: {path}")
@@ -215,17 +293,41 @@ def _load_input(path: str, spec: dict, *, need_asm: bool):
 def build(spec: dict) -> bytes:
     """Run the link described by *spec*; returns the output file bytes."""
     groups = spec['groups']
+    if spec['libs'] and groups:
+        raise LinkCliError(
+            "-lib together with -lseg groups is not supported yet")
+
+    def _load_entries(entries, *, need_asm):
+        """-> (objects, order, any_sel): order is the full (obj_idx,
+        seg_idx) placement list honoring selectors."""
+        objects, order, any_sel = [], [], False
+        for path, sels in entries:
+            ob, a = _load_input(path, spec, need_asm=need_asm)
+            oi = len(objects)
+            objects.append((ob, a))
+            for si in _seg_indices(ob, sels, path):
+                order.append((oi, si))
+            any_sel = any_sel or sels is not None
+        return objects, order, any_sel
+
     if not groups:
         # Ungrouped: merge everything into one load segment.
-        objects = [_load_input(p, spec, need_asm=False)
-                   for p in spec['loose']]
-        if spec['express']:
-            from gsasm.expressload import expressload
-            return expressload(objects, opts=None)
+        objects, order, any_sel = _load_entries(spec['loose'],
+                                                need_asm=False)
         from gsasm import linkiigs
         opts = {'merge': True, 'super': True}
+        if any_sel:
+            opts['seg_order'] = order
         if spec['org']:
             opts['org'] = spec['org']
+        if spec['libs']:
+            libs = [_load_input(p, spec, need_asm=False)
+                    for p in spec['libs']]
+            return linkiigs.link_lib(objects, libs, opts)
+        if spec['express']:
+            from gsasm.expressload import expressload
+            return expressload(objects,
+                               opts={'order': order} if any_sel else None)
         return linkiigs.link(objects, opts)
 
     # Grouped: multi-segment ExpressLoad (the golden layout requires every
@@ -243,19 +345,27 @@ def build(spec: dict) -> bytes:
             "multi-segment output is ExpressLoad format (as if -x); "
             "GS/OS loads it either way")
 
-    objects, obj_group = [], []
+    objects, obj_group, order, any_sel = [], [], [], False
     for gi, g in enumerate(ordered):
-        for p in g['inputs']:
-            objects.append(_load_input(p, spec, need_asm=any_dyn))
+        for path, sels in g['inputs']:
+            ob, a = _load_input(path, spec, need_asm=any_dyn)
+            oi = len(objects)
+            objects.append((ob, a))
             obj_group.append(gi)
+            for si in _seg_indices(ob, sels, path):
+                order.append((oi, si))
+            any_sel = any_sel or sels is not None
 
     from gsasm.expressload import expressload
     opts = {
         'multiseg': True,
         'obj_group': obj_group,
         'segnames': [g['name'].encode('mac_roman') for g in ordered],
-        'segkinds': [0x8000 if g['dynamic'] else 0x0000 for g in ordered],
+        'segkinds': [(g.get('kind') or 0)
+                     | (0x8000 if g['dynamic'] else 0) for g in ordered],
     }
+    if any_sel:
+        opts['order'] = order
     if any_dyn:
         opts['jt_entries'] = 'auto'
     return expressload(objects, opts)
