@@ -69,7 +69,15 @@ def asm_main():
 
 
 def link_main():
-    """gslink — link an OMF object file to a load file."""
+    """gslink — link OMF object file(s) to a load file.
+
+    Two modes: the original single-object form (``gslink file.obj [-o out]``,
+    unchanged), and an MPW LinkIIgs-style multi-object form (``-lseg`` groups,
+    ``-x``, ``-org``, ``-t``/``-at`` …) handled by ``gsasm.linkcli``."""
+    from gsasm import linkcli
+    if linkcli.wants_mpw_mode(sys.argv[1:]):
+        sys.exit(linkcli.main(sys.argv[1:]))
+
     p = argparse.ArgumentParser(
         prog="gslink",
         description="OMF v2 linker: evaluates relocation records and produces a load file.",

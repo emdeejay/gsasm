@@ -1479,7 +1479,16 @@ def _plan_multiseg_layout(
     # KIND has the 0x8000 DYNAMIC bit set), then the dynamic block (in order).
     # This requires the caller to already present objects in that order (the
     # diskbuilder callers do); a dynamic group before a non-dynamic one raises.
-    jt_entries_opt: list[tuple[int, int]] | None = opts.get('jt_entries')
+    jt_entries_opt = opts.get('jt_entries')
+    # 'auto' (forward-toolchain mode, e.g. the gslink CLI): no caller-derived
+    # list — allocate a ~JumpTable entry at the FIRST reference to each dynamic
+    # routine, in this module's own resolution order.  Functionally correct
+    # (the emitted table and every caller share one jt_index), but NOT the MPW
+    # reference-scan order, so the gold-gated corpus builders never use it
+    # (they pass the gate-proven list).
+    jt_auto = isinstance(jt_entries_opt, str) and jt_entries_opt == 'auto'
+    if jt_auto:
+        jt_entries_opt = []
     jt_enabled = jt_entries_opt is not None
     n_groups = len(group_obj_indices)
     n_nondyn = n_groups
@@ -1518,6 +1527,23 @@ def _plan_multiseg_layout(
             jt_segnum = 2 + n_nondyn
             jt_index = {key: i for i, key in enumerate(jt_entries_opt)}
 
+    def _jt_lookup(key: tuple[int, int]) -> int:
+        """~JumpTable index for *key* = (final target segnum, routine offset).
+        Strict mode (caller-supplied ``jt_entries`` list): a missing key
+        raises — the list is gate-proven complete.  Auto mode
+        (``jt_entries='auto'``): the first reference allocates the entry, and
+        discovery order IS the table order."""
+        idx = jt_index.get(key)
+        if idx is None:
+            if not jt_auto:
+                raise ValueError(
+                    "expressload(): opts['jt_entries'] has no entry for "
+                    f"dynamic target segnum={key[0]} offset={key[1]:#x}")
+            idx = len(jt_entries_opt)
+            jt_entries_opt.append(key)
+            jt_index[key] = idx
+        return idx
+
     def _final_segnum(g: int) -> int:
         """Output segment number of group *g*, accounting for the ~JumpTable
         slot inserted right after the non-dynamic block (no-op when there is
@@ -1539,6 +1565,7 @@ def _plan_multiseg_layout(
         'jt_entries':      jt_entries_opt,
         'jt_segnum':       jt_segnum,
         'jt_index':        jt_index,
+        'jt_lookup':       _jt_lookup,
         'dyn_flags':       dyn_flags,
         'n_nondyn':        n_nondyn,
         'has_dyn':         has_dyn,
@@ -1830,6 +1857,7 @@ def _emit_case_a_records(
     _final_segnum = layout['final_segnum']
     dyn_flags     = layout['dyn_flags']
     jt_index      = layout['jt_index']
+    jt_lookup     = layout['jt_lookup']
     jt_segnum     = layout['jt_segnum']
 
     # Case-A standalone relocs (size,shift) with NO SUPER encoding at all —
@@ -1879,12 +1907,7 @@ def _emit_case_a_records(
             merged_arr[rel_off:rel_off + size] = b'\x00' * size
             if dyn_flags[tgt_group]:
                 key = (_final_segnum(tgt_group), off_in_tgt)
-                idx = jt_index.get(key)
-                if idx is None:
-                    raise ValueError(
-                        "expressload(): opts['jt_entries'] has no entry "
-                        f"for dynamic target segnum={key[0]} "
-                        f"offset={key[1]:#x}")
+                idx = jt_lookup(key)
                 tgt_segnum = jt_segnum
                 tgt_segoff = jt_jsl_offset(idx)
             else:
@@ -2019,6 +2042,7 @@ def _classify_super_relocs(
     dyn_flags     = layout['dyn_flags']
     jt_enabled    = layout['jt_enabled']
     jt_index      = layout['jt_index']
+    jt_lookup     = layout['jt_lookup']
     jt_segnum     = layout['jt_segnum']
 
     final_relocs: dict[int, list[int]] = {}
@@ -2103,12 +2127,7 @@ def _classify_super_relocs(
                             # target's own final segnum/offset is the jt_entries
                             # lookup key, matching _link_jt_tool's derivation).
                             key = (_final_segnum(tgt_group), off_in_tgt)
-                            idx = jt_index.get(key)
-                            if idx is None:
-                                raise ValueError(
-                                    "expressload(): opts['jt_entries'] has no "
-                                    f"entry for dynamic target segnum={key[0]} "
-                                    f"offset={key[1]:#x}")
+                            idx = jt_lookup(key)
                             off_in_tgt = jt_jsl_offset(idx)
                             tgt_segnum = jt_segnum
                         else:
@@ -2219,12 +2238,7 @@ def _classify_super_relocs(
                     off_in_tgt = joint_target - tgt_group_base
                     if dyn_flags[tgt_group]:
                         key = (_final_segnum(tgt_group), off_in_tgt)
-                        idx = jt_index.get(key)
-                        if idx is None:
-                            raise ValueError(
-                                "expressload(): opts['jt_entries'] has no "
-                                f"entry for dynamic target segnum={key[0]} "
-                                f"offset={key[1]:#x}")
+                        idx = jt_lookup(key)
                         off_in_tgt = jt_jsl_offset(idx)
                         tgt_segnum = jt_segnum
                     else:
@@ -2634,6 +2648,11 @@ def expressload(
             byte-exact against gold (this module does not re-derive the
             reference-scan order, only consumes it as a lookup keyed by
             (final target segnum, target's own base-0 routine offset)).
+            The string ``'auto'`` instead allocates each entry at its first
+            reference, in this module's own resolution order — functionally
+            correct (table and callers share one index) but NOT the MPW
+            reference-scan order, so it is for forward (non-corpus) builds
+            such as the gslink CLI, never for gold-gated reproduction.
             Requires ``multiseg`` and a complete ``segkinds`` (one entry per
             output group) with all non-dynamic groups listed before all
             dynamic ones (the golden layout). ``None`` (the default) leaves

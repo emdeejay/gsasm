@@ -113,21 +113,41 @@ directives. The source file's own directory is not searched implicitly — add
 
 ```
 gslink <file.obj> [-o <out.load>]
+gslink [-x] [-org $ADDR] [-t TYPE] [-at AUX] [-I dir]... [-d NAME=VAL]...
+       [-lseg[:Dynamic] NAME input...]... input... -o <out>
 ```
 
-Links a single multi-segment OMF object file. All `LEXPR`/`BEXPR`/`EXPR`
-relocation records and `RELEXPR` (relative branch) records are fully evaluated
-against the collected `GLOBAL` symbol table. The output is a single-segment OMF
-load file with a flat body.
+The single-object form links one multi-segment OMF object file: all
+`LEXPR`/`BEXPR`/`EXPR` relocation records and `RELEXPR` (relative branch)
+records are fully evaluated against the collected `GLOBAL` symbol table, and
+the output is a single-segment OMF load file with a flat body.
 
 ```sh
 gslink MyTool.obj              # writes MyTool.out
 gslink MyTool.obj -o MyTool.load
 ```
 
-For multi-object linking — libraries, segment naming/placement, the
-`LinkIIgs -apw` recipe used by the GS/OS build scripts — use
-`gsasm/linkiigs.py`; for ROM bank layout see `work/linkrom.py`.
+The multi-object form speaks the MPW `linkiigs` vocabulary the System 6.0.1
+makefiles use, so a makefile link rule can be copied nearly verbatim.  The
+LaserWriter printer driver (`GSToolbox/PrinterDrivers/LW/makefile`) builds —
+byte-identical to the file shipping on the System Disk — as:
+
+```sh
+gslink -lseg MAIN lw.asm dialogdata.asm \
+       -lseg:Dynamic PREPFILE prepfile.asm \
+       -o LaserWriter -t '$BB' -at '$0001' -I ./Includes
+```
+
+Inputs ending in `.obj` are linked as object bytes; anything else is
+assembled in-process first (`-I`/`-d` feed the assembler), which preserves
+the full symbol table — required for `-lseg:Dynamic` groups, whose
+cross-segment references route through an auto-generated `~JumpTable`.
+Ungrouped inputs merge into one load segment; `-lseg` groups produce a
+multi-segment ExpressLoad file.  `-t`/`-at` are reported for your
+disk-image tool to apply (gsasm writes bytes, not filesystem metadata).
+Not yet covered: `-lib` (use `gsasm/linkiigs.py:link_lib`), per-segment
+`-org`, and `obj(SEGMENT)` selectors; for ROM bank layout see
+`work/linkrom.py`.
 
 ### gsrez — resource compiler
 
